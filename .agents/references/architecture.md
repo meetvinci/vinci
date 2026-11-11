@@ -259,6 +259,8 @@ packages/
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
 ├── deploy/docker/Dockerfile            hub, web and daemon image targets built from one repo checkout
 ├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's orbs CLI wrapper
+├── deploy/cloudflare/cloudflared.compose.yaml  the tunnel connector service the Compose stack includes; tunnel, Access and DNS come from scripts/deploy.ts cloudflare
+├── deploy/.env.example                 the server's /opt/orbs/.env keys, one block per deploy area
 ├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace
 ├── .agents/docs/<name>.md              library notes: Pi Durable examples
 ├── .agents/orchestrators/              worktree configs for Paseo, Orca, Conductor and T3 Code, and workspace.sh

@@ -1,0 +1,30 @@
+# The tunnel connector of a team installation; deploy/compose includes this service.
+# `bun scripts/deploy.ts cloudflare apply` creates the tunnel and its routes in Cloudflare (a remotely managed tunnel),
+# so this container needs only TUNNEL_TOKEN from /opt/orbs/.env and no config file. The routes send the team
+# hostname to http://hub:47192 and, if SSH is set up, the SSH hostname to the host's sshd.
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    command: [tunnel, --no-autoupdate, --metrics, 127.0.0.1:20241, run]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in /opt/orbs/.env with bun scripts/deploy.ts cloudflare apply --env-out}
+    user: '65532:65532'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, cloudflared, tunnel, --metrics, 127.0.0.1:20241, ready]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+    # Only used for SSH through the tunnel: the SSH route points at host.docker.internal:22.
+    extra_hosts: ['host.docker.internal:host-gateway']
+    networks: [tunnel]
+
+networks:
+  # cloudflared and the hub only; the hub joins it as `hub`. Not internal: cloudflared dials out to Cloudflare from here.
+  tunnel: {}

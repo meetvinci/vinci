@@ -50,8 +50,9 @@ The hub runs as the same user as the daemons (uid 1000), because it talks to the
 | `data/credentials.key` | `/data/` in each person's volume | Encryption key for secrets the person's bots saved. |
 | `data/ipc/rpc.sock` | `/data/` in each person's volume | The owner socket. The hub reaches it through a mount of only the `data/ipc` folder, to pair a person's browser. Mount it at exactly the `socketPath` in `users.json`, with no symlinks on the way: the hub refuses symlinks. |
 | `.agents/skills/`, `.agents/AGENTS.md`, `.agents/mcp.json` | `/data/home/` in each person's volume | Skills, instructions and MCP servers for all of the person's bots. |
-| tunnel credentials | on the server, root only | `TODO(wave 2)`: final path. Lets cloudflared connect the tunnel. Secret. |
-| tunnel config | `TODO(wave 2)` | Sends `<team>.<domain>` to the hub. |
+| `/opt/orbs/.env` | on the server, mode 600, root only | `ORBS_PUBLIC_HOST`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` and the secret `TUNNEL_TOKEN`, written by `bun scripts/deploy.ts cloudflare apply --env-out` (see [Cloudflare](#cloudflare)), plus the Compose settings. |
+| tunnel routes | in Cloudflare, not on the server | Send `<team>.<domain>` to the hub, `http://hub:47192`. Set by `bun scripts/deploy.ts cloudflare apply`; don't edit them in the dashboard, the next run puts them back. |
+| `deploy/cloudflare/cloudflared.compose.yaml` | in the repository | The cloudflared container, included by the Compose file. |
 | Compose file | `TODO(wave 2)` | All containers, volumes and networks. |
 
 ## Container limits
@@ -67,11 +68,33 @@ On a Mac test, a daemon used about 120 MB idle and about 190 MB after opening an
 
 ## Cloudflare
 
-| Object | Setting |
-| --- | --- |
-| Tunnel | one per server |
-| DNS | `<team>.<domain>`, proxied, to the tunnel |
-| Access app | `<team>.<domain>`: allow the team's emails; session 24 hours by default, longer is fine for a home-screen app; cookie HttpOnly on, SameSite Lax, binding cookie off |
-| Access apps | `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico`: Bypass, Everyone |
-| Access app (optional) | `<team>-ssh.<domain>`: admin email only |
+`bun scripts/deploy.ts cloudflare apply` creates these, all named after `--name` (here `orbs-<team>`). It changes and deletes only objects with these exact names.
+
+| Object | Name | Setting |
+| --- | --- | --- |
+| Tunnel | `orbs-<team>` | one per server, routes kept in Cloudflare. The team name goes to `http://hub:47192`. Only `/img/favicon/<file>` and `/favicon.ico` skip cloudflared's own check of the Access login. |
+| Access policy | `orbs-<team>-allow` | allow the emails in the hub's `users.json` |
+| Access policy | `orbs-<team>-bypass` | bypass, everyone |
+| Access app | `orbs-<team>` | `<team>.<domain>` with the allow policy; session `--session`, 24 hours by default; cookie HttpOnly on, SameSite Lax, binding cookie off |
+| Access app | `orbs-<team>-favicon` | `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico` with the bypass policy |
+| DNS | comment `orbs deploy orbs-<team>` | `<team>.<domain>`, proxied CNAME to the tunnel; created last |
+| Access policy, app and DNS (optional) | `orbs-<team>-ssh-allow`, `orbs-<team>-ssh` | `<team>-ssh.<domain>` to the server's sshd, `--ssh-email` addresses only |
+
+The values the server needs:
+
+| Setting | Example | What it does |
+| --- | --- | --- |
+| `ORBS_PUBLIC_HOST` | `acme.example.com` | The team address, without `https://`. |
+| `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | The hub's `ACCESS_TEAM_DOMAIN`. |
+| `ACCESS_AUD` | 64 hex characters | The hub's `ACCESS_AUD`: the AUD tag of the `orbs-<team>` application. |
+| `TUNNEL_TOKEN` | secret | Lets cloudflared connect the tunnel. Only in `/opt/orbs/.env`. |
+
+The API token needs Account: Cloudflare Tunnel: Edit, Account: Access: Apps and Policies: Edit, and Zone: DNS: Edit for the domain.
+
+Remove everything (only objects with these exact names, after listing them; stop cloudflared first):
+
+```sh
+bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name orbs-<team> [--ssh-hostname <team>-ssh.<domain>]
+# lists what it would delete; add --yes to delete exactly those
+```
 | Login method | one-time PIN by email, or your identity provider |

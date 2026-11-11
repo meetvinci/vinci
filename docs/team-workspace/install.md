@@ -18,6 +18,9 @@ You need:
   - Account: Cloudflare Tunnel: Edit
   - Account: Access: Apps and Policies: Edit
   - Zone: DNS: Edit, for your domain
+
+  Nothing else is needed. The setup uses no Access service tokens.
+- **Bun and a checkout of this repository** on the computer you set up from. The Cloudflare step runs there, not on the server.
 - **The team's email addresses.** Only these people can log in.
 - **A model API key** per person (Anthropic, OpenAI or another provider), unless people will add their own.
 
@@ -58,37 +61,74 @@ Docker starts on boot after this.
 
 ## 4. Create the Cloudflare objects
 
-One team needs these in Cloudflare:
-
-1. **A tunnel** for this server. Its credentials file goes on the server, readable only by root.
-2. **DNS:** `<team>.<domain>` pointing at the tunnel (a proxied CNAME to `<tunnel-id>.cfargotunnel.com`). Optionally `<team>-ssh.<domain>` for SSH through the tunnel.
-3. **An Access application** for `<team>.<domain>`, with a policy that allows the team's emails. Login method: one-time PIN by email, or your company's identity provider. Note the application's **AUD** tag: the hub needs it.
-4. **Bypass rules** for the app icon files: an Access application for `<team>.<domain>/img/favicon/*` and one for `<team>.<domain>/favicon.ico`, each with a **Bypass, Everyone** policy. Without them, adding Orbs to a phone's home screen fails. These files are public and hold nothing secret.
-5. **Optional:** an Access application for `<team>-ssh.<domain>` that allows only the admin's email.
-
-Session length: Access logs people out after 24 hours by default. Consider a week for a home-screen app.
-
-`TODO(wave 2)`: the exact commands or script that create these with the API token.
-
-**Give this to your agent:**
-
-> Using the Cloudflare API token in `<where you keep it>`, create for team `<team>` on domain `<domain>`: a tunnel, a proxied DNS name `<team>.<domain>` to it, an Access application on that name allowing `<emails>` with email one-time PIN login, and Bypass-Everyone Access applications on `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico`. Put the tunnel credentials on the server as a root-only file. Tell me the Access team domain and the AUD tag. Do not print the token or the credentials. `TODO(wave 2)`: use the deploy skill.
-
-## 5. Install cloudflared
-
-These commands install Cloudflare's tunnel program from Cloudflare's package repository:
+One command creates everything the team needs in Cloudflare. Run it on your computer, in the repository:
 
 ```sh
-curl -fsSL https://pkg.cloudflare.com/cloudflare-public-v2.gpg -o /usr/share/keyrings/cloudflare-public-v2.gpg
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-public-v2.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
-apt-get update && apt-get install -y cloudflared
+CLOUDFLARE_API_TOKEN="$(op read 'op://<vault>/<item>/credential')" \
+  bun scripts/deploy.ts cloudflare apply \
+  --zone example.com --hostname acme.example.com --name orbs-acme \
+  --users users.json --env-out cloudflare.env
 ```
 
-`TODO(wave 2)`: the tunnel config file and how it runs (a system service or a container).
+- `--name` must start with `orbs-`. Every object gets this exact name, or this name and a suffix. The script only ever changes or deletes objects with these names.
+- `--users` is the hub's `users.json` (see [admin tasks](admin.md#the-user-list)). Its emails are the people allowed to log in. Use `--users -` to read it from the server: `ssh root@<server> cat <users.json> | bun scripts/deploy.ts cloudflare apply … --users -`.
+- `--env-out` writes the values the server needs, including the secret tunnel token, to a file only you can read.
+- `--session 24h` is the default login length. Longer sessions (for example `168h`, a week) mean fewer email codes on phones, but a lost or shared device stays logged in for that long. Removing someone from `users.json` still locks them out within a second.
+- Optional SSH through the tunnel: add `--ssh-hostname acme-ssh.example.com --ssh-email <admin email>` (repeat `--ssh-email` for a second admin).
+
+What it creates, in this order:
+
+1. **A tunnel** `orbs-acme`. Its routes live in Cloudflare: the team name goes to the hub, `http://hub:47192`.
+2. **Access policies:** `orbs-acme-allow` (the team's emails) and `orbs-acme-bypass` (everyone).
+3. **Access applications:** `orbs-acme` on `acme.example.com` with the allow policy, and `orbs-acme-favicon` on `/img/favicon/*` and `/favicon.ico` with the bypass policy, so adding Orbs to a home screen works. These files hold nothing secret.
+4. **DNS:** `acme.example.com`, proxied, to the tunnel. It comes last, so the name is never reachable without the login.
+
+It prints the values for the server:
+
+```text
+ORBS_PUBLIC_HOST=acme.example.com
+ACCESS_TEAM_DOMAIN=https://<your-team>.cloudflareaccess.com
+ACCESS_AUD=<64 hex characters>
+Wrote these values and TUNNEL_TOKEN to cloudflare.env (mode 600).
+```
+
+Running it again is safe: it prints `unchanged` for what is already right and fixes what is not. It refuses to touch an Access application or DNS record on these names that it did not create.
 
 **Give this to your agent:**
 
-> SSH to `root@<server>`, install cloudflared from Cloudflare's apt repository, and stop there. `TODO(wave 2)`: configure and start the tunnel.
+> In the Orbs repository, run `bun scripts/deploy.ts cloudflare apply --zone <domain> --hostname <team>.<domain> --name orbs-<team> --users <users.json> --env-out cloudflare.env` with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Don't print the token and don't save it anywhere. Show me the output, except the token.
+
+## 5. Put the tunnel token on the server
+
+The tunnel connector, cloudflared, runs as a container next to the hub; the Compose file starts it. It needs only the values from `cloudflare.env`, in `/opt/orbs/.env`. This command merges them into that file, keeps its other lines, keeps it readable by root only, and then deletes the local copy:
+
+```sh
+ssh root@<server> 'umask 077 && cd /opt/orbs && { grep -v -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|TUNNEL_TOKEN)=" .env 2>/dev/null || true; cat; } > .env.new && mv .env.new .env' < cloudflare.env && rm cloudflare.env
+```
+
+The token lets anyone run a connector for this tunnel. Treat it like a password.
+
+After Orbs starts (next step), `docker logs` of the cloudflared container shows four `Registered tunnel connection` lines.
+
+**Give this to your agent:**
+
+> Merge `cloudflare.env` into `/opt/orbs/.env` on `root@<server>` with the command in step 5 of the install guide, then delete `cloudflare.env`. Confirm `/opt/orbs/.env` is mode 600 and owned by root. Don't print the file.
+
+### Optional: SSH through the tunnel
+
+If you used `--ssh-hostname`, you can close port 22 in the server's firewall and still reach the server. On your computer:
+
+```sh
+brew install cloudflared
+printf 'Host acme-ssh.example.com\n  User root\n  ProxyCommand %s access ssh --hostname %%h\n' "$(command -v cloudflared)" >> ~/.ssh/config
+ssh acme-ssh.example.com
+```
+
+The first time, a browser opens for the Cloudflare login. Keep another way in before closing port 22, such as your provider's web console.
+
+**Give this to your agent:**
+
+> Add an SSH config entry on this computer for `<team>-ssh.<domain>` that uses `cloudflared access ssh` as its ProxyCommand, and tell me to run `ssh <team>-ssh.<domain>` so I can log in in the browser. Don't change the server's firewall.
 
 ## 6. Start Orbs
 
@@ -106,6 +146,13 @@ The images are built by `bun run build:images` from the repository (`deploy/dock
 > `TODO(wave 2)`
 
 ## 7. Check it works
+
+From any computer, without logging in:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/rpc          # 302: the Cloudflare login
+curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/favicon.ico  # 200: no login needed
+```
 
 1. Open `https://<team>.<domain>` in a private browser window. You should see the Cloudflare login.
 2. Log in with a team email and the code you get by email.

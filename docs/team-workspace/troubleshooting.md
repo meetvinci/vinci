@@ -44,17 +44,18 @@ If it happens often, someone may be removing the device in **Settings → Device
 
 The Cloudflare login expired (24 hours by default). Orbs reloads the page, at most once a minute, so Cloudflare can ask the person to log in again. Unsent messages are kept.
 
-- To make it rarer, raise the session length on the Access application.
+- To make it rarer, run the Cloudflare setup again with a longer session, for example `--session 168h` (a week). A lost or shared device then stays logged in that long; removing the person from `users.json` still locks them out at once.
 
-> In Cloudflare Access, raise the session duration of the `<team>.<domain>` application to `<7 days>`.
+> In the Orbs repository, run `bun scripts/deploy.ts cloudflare apply` again with the same arguments as at install and `--session 168h`, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Confirm it prints `updated` only for the Access app.
 
 ## Adding to the home screen fails, or the icon is blank
 
 The app's manifest and icons are behind the Cloudflare login.
 
-- Fix: add Access applications for `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico`, each with a Bypass, Everyone policy.
+- Check: `curl -s -o /dev/null -w '%{http_code}\n' https://<team>.<domain>/favicon.ico` must print 200 without a login.
+- Fix: run `bun scripts/deploy.ts cloudflare apply` again. It restores the `orbs-<team>-favicon` Access application and the tunnel route for the icons.
 
-> In Cloudflare Access, add self-hosted applications for `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico`, each with a single Bypass policy for Everyone.
+> In the Orbs repository, run `bun scripts/deploy.ts cloudflare apply` again with the same arguments as at install, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Then check that `https://<team>.<domain>/favicon.ico` answers 200 without a login.
 
 ## One person cannot pair a new browser for a while
 

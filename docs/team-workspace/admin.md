@@ -39,8 +39,14 @@ The hub reads `users.json` in its data folder (`HUB_DATA_DIR`). Each email maps 
 
 ## Add a person
 
-1. Add their email to the Access policy in Cloudflare, so they can log in.
-2. Give them a container and volume, then add them to `users.json`.
+1. Give them a container and volume, then add them to `users.json`.
+2. Let their email through the Cloudflare login. `users.json` is the one list of who may log in; this copies its emails into the Access policy:
+
+   ```sh
+   ssh root@<server> cat <users.json> | CLOUDFLARE_API_TOKEN=… bun scripts/deploy.ts cloudflare emails --zone <domain> --hostname <team>.<domain> --name orbs-<team> --users -
+   ```
+
+   It prints `updated` and the allowed emails. Run it on your computer, in the repository.
 3. Give them a model key (next section), or tell them to add their own.
 4. Send them the address, `https://<team>.<domain>`. On their first visit they type their email and enter the code from their inbox. Their browser pairs itself and shows their bots.
 
@@ -48,12 +54,12 @@ The hub reads `users.json` in its data folder (`HUB_DATA_DIR`). Each email maps 
 
 **Give this to your agent:**
 
-> On `root@<server>`, add `<email>` as Orbs user `<name>`: allow the email in the Cloudflare Access policy for `<team>.<domain>`, create their container and volume and start it, then add them to the hub's `users.json` with a unique id, address and socket path. Confirm their container is healthy and the hub's log shows no error after the edit. `TODO(wave 2)`: use the deploy skill.
+> On `root@<server>`, add `<email>` as Orbs user `<name>`: create their container and volume and start it, then add them to the hub's `users.json` with a unique id, address and socket path. Confirm their container is healthy and the hub's log shows no error after the edit. Then, in the Orbs repository on this computer, pipe that `users.json` over ssh into `bun scripts/deploy.ts cloudflare emails --zone <domain> --hostname <team>.<domain> --name orbs-<team> --users -`, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, and show me the allowed emails. `TODO(wave 2)`: use the deploy skill.
 
 ## Remove a person
 
 1. Remove their entry from `users.json`. Within about a second the hub refuses them, and within about 5 more seconds it closes the connections they still have open. Check the hub's log: a mistake in the file locks everyone out until it is fixed.
-2. Remove their email from the Access policy, so they cannot log in again.
+2. Run the same `cloudflare emails` command as when adding a person. The email leaves the Access policy, so they cannot log in again.
 3. Stop their container.
 4. Keep their volume until you have a backup or are sure it is not needed. Deleting the volume deletes all their bots and chats for good.
 
@@ -61,7 +67,7 @@ The hub reads `users.json` in its data folder (`HUB_DATA_DIR`). Each email maps 
 
 **Give this to your agent:**
 
-> On `root@<server>`, remove Orbs user `<name>` (`<email>`): delete their entry from the hub's `users.json` and confirm in the hub's log that the new list loaded, take the email out of the Cloudflare Access policy, and stop their container. Keep their volume. `TODO(wave 2)`: use the deploy skill.
+> On `root@<server>`, remove Orbs user `<name>` (`<email>`): delete their entry from the hub's `users.json` and confirm in the hub's log that the new list loaded, sync the Access policy from that `users.json` with `bun scripts/deploy.ts cloudflare emails … --users -` as when adding a person, and stop their container. Keep their volume. `TODO(wave 2)`: use the deploy skill.
 
 ## Set model API keys
 
