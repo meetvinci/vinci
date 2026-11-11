@@ -168,6 +168,7 @@
   },
   "devDependencies": {
     "@repo/contracts": "workspace:*",
+    "@repo/ui": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
     "oxlint": "catalog:",
     "oxlint-plugin-arch": "catalog:",
@@ -200,6 +201,7 @@
     "release": "bun --env-file=.env scripts/release.ts",
     "screenshots:web": "bun scripts/web.ts screenshots",
     "build:web": "turbo run build --filter=@repo/web",
+    "build:images": "bun scripts/deploy.ts images",
     "start:web": "turbo run start --filter=@repo/web --log-prefix=none --env-mode=loose",
     "start:daemon": "turbo run start --filter=@repo/daemon --log-prefix=none --env-mode=loose",
     "check": "turbo run check",

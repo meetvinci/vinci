@@ -9,6 +9,7 @@
       },
       "devDependencies": {
         "@repo/contracts": "workspace:*",
+        "@repo/ui": "workspace:*",
         "@shadcn/lint": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "eslint-plugin-react": "catalog:",
@@ -453,6 +454,8 @@
         "@repo/i18n": "workspace:*",
         "@repo/logger": "workspace:*",
         "@streamdown/code": "catalog:",
+        "@svgr/core": "catalog:",
+        "@svgr/plugin-jsx": "catalog:",
         "@tailwindcss/node": "catalog:",
         "@tailwindcss/oxide": "catalog:",
         "@tanstack/react-virtual": "catalog:",

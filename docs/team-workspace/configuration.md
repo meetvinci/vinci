@@ -31,9 +31,9 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | Where the hub fetches Cloudflare's keys to check logins. Required: the hub won't start without it. |
 | `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required. |
-| `HUB_HOST` | `0.0.0.0` | Listen on the container's network. The default, `127.0.0.1`, is unreachable from outside the container. |
-| `HUB_PORT` | `47192` (default) | The port cloudflared connects to. Internal only. |
-| `HUB_DATA_DIR` | a folder on the hub's own volume, for example `/data` | Holds `users.json` and `pins.json`. The default is in the home folder, which is read-only in the container. |
+| `HUB_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. Outside the image the default is `127.0.0.1`. |
+| `HUB_PORT` | `47192` (set by the image) | The port cloudflared connects to. Internal only. |
+| `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json` and `pins.json`. Mount the hub's own volume there. |
 | `HUB_WEB_URL` | the web app's internal address, for example `http://web:47190` | Where the hub sends everything that is not for a daemon. Not the same as the web app's `WEB_HUB_URL`. |
 | `HUB_PUBLIC_URL` | `https://<team>.<domain>` | The team address, so the web app knows it is served over HTTPS at that name. Required. |
 

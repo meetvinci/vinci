@@ -1,3 +1,4 @@
+import { embedWrite } from '@repo/ui/native';
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -73,14 +74,15 @@ async function bundle() {
   const failed = builds.find((result) => !result.success);
 
   if (failed) {
-    fail(failed.logs.join('\n'));
+    fail(failed.logs.map((entry) => entry.message).join('\n'));
   }
 
   cpSync(path.join(root, 'apps/web/dist/client'), path.join(target, 'web/dist/client'), { recursive: true });
   cpSync(path.join(root, 'packages/server/src/services/database/migrations'), path.join(target, 'daemon/migrations'), { recursive: true });
+  await embedWrite(path.join(target, 'daemon/embed'));
 
   // Bun cannot bundle Takumi's native binding; without a local copy it auto-installs the latest one, which breaks the bundled JS.
-  const binding = `@takumi-rs/core-${process.platform}-${process.arch}`;
+  const binding = `@takumi-rs/core-${process.platform}-${process.arch}${process.platform === 'linux' ? '-gnu' : ''}`;
   const resolve = (pkg: string, from: string) => path.dirname(Bun.resolveSync(`${pkg}/package.json`, from));
   const core = resolve('@takumi-rs/core', resolve('takumi-js', path.join(root, 'packages/server')));
 

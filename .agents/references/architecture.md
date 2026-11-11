@@ -255,6 +255,10 @@ packages/
 ├── README.md                           what Orbs is, setup, scripts
 ├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
+├── scripts/deploy.ts                   container images and deployment, a subcommand per step
+├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
+├── deploy/docker/Dockerfile            hub, web and daemon image targets built from one repo checkout
+├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's orbs CLI wrapper
 ├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace
 ├── .agents/docs/<name>.md              library notes: Pi Durable examples
 ├── .agents/orchestrators/              worktree configs for Paseo, Orca, Conductor and T3 Code, and workspace.sh

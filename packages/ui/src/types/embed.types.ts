@@ -15,3 +15,13 @@ export interface EmbedBuild {
   script: string
   styles: string
 }
+
+export interface EmbedCompiled extends Omit<EmbedBuild, 'server'> {
+  server: Blob
+}
+
+export interface EmbedManifest {
+  script: string
+  styles: string
+  files: string[]
+}

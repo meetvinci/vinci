@@ -113,6 +113,15 @@ The iOS app ships through EAS and TestFlight, not GitHub: `bun run release:ios` 
 
 Signing reads `DESKTOP_SIGNING_KEYCHAIN` (a dedicated keychain holding the Developer ID certificate) and `DESKTOP_SIGNING_IDENTITY` (its SHA-1) from `.env`. The keychain password and notary key come from `.env` or from a `credentials.json` next to the keychain; see `.env.example`.
 
+### Container images
+
+```bash
+bun run build:images                                 # orbs-daemon, orbs-web and orbs-hub for linux/amd64
+bun run build:images daemon --platform linux/arm64   # one image, for a local run on Apple Silicon
+```
+
+The images build from `deploy/docker/Dockerfile` and hold the same Bun bundles as the desktop app, without `node_modules`. They run as uid 1000 under `tini` and work with a read-only root, a `/tmp` tmpfs, `cap_drop: ALL` and `no-new-privileges`. The daemon keeps all state, `HOME` and the Pi agent directory on a volume at `/data`; pair it with `docker exec <container> orbs pair`.
+
 ## 🧪 Development
 
 ```bash

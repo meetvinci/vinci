@@ -207,6 +207,8 @@
     "@repo/i18n": "workspace:*",
     "@repo/logger": "workspace:*",
     "@streamdown/code": "catalog:",
+    "@svgr/core": "catalog:",
+    "@svgr/plugin-jsx": "catalog:",
     "@tailwindcss/node": "catalog:",
     "@tailwindcss/oxide": "catalog:",
     "@tanstack/react-virtual": "catalog:",

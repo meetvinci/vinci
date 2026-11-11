@@ -1,0 +1,15 @@
+# Dependencies, build output, secrets and local data never enter the image build context.
+**/node_modules
+**/dist
+**/.turbo
+**/.output
+**/.tanstack
+**/.cache
+**/.expo
+.git
+.env*
+!.env.example
+data
+apps/mobile/ios
+apps/mobile/android
+packages/i18n/src/paraglide
