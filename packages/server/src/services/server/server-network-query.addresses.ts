@@ -8,7 +8,11 @@ import { SERVER } from './server.constants';
 import type { ServerNetworkDeps } from '../../types/server.types';
 import type { ServerAddress } from '@repo/contracts/universal';
 
-export async function serverNetworkQueryAddresses({ host, port }: ServerNetworkDeps): Promise<ServerAddress[]> {
+export async function serverNetworkQueryAddresses({ host, port, publicUrls }: ServerNetworkDeps): Promise<ServerAddress[]> {
+  if (publicUrls.length > 0) {
+    return publicUrls.map((url) => ({ url, kind: 'public' }));
+  }
+
   const serverNetworkUrl = (address: string) => `http://${address.includes(':') ? `[${address}]` : address}:${port}`;
 
   const serverNetworkIsTailscale = (ip: string) => {

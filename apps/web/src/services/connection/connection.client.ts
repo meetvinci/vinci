@@ -1,6 +1,8 @@
 import { connectionAddressesMerge, makeHttpClient } from '@repo/client/client';
 import { serverHealth } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
+import { m } from '@repo/i18n/client';
+import { toasty } from '@repo/ui/sonner';
 import { createIsomorphicFn } from '@tanstack/react-start';
 import { match } from 'ts-pattern';
 import { CONNECTION } from './connection.constants';
@@ -76,7 +78,20 @@ export const connectionLost = createIsomorphicFn()
   });
 
 export async function connectionVerify({ serverId }: ConnectionTypes.ConnectionVerifyParams): Promise<void> {
-  const response = await fetch(CONNECTION.healthPath, { cache: 'no-store' }).catch(() => null);
+  const response = await fetch(CONNECTION.healthPath, { cache: 'no-store', redirect: 'manual' }).catch(() => null);
+
+  const now = Date.now();
+  const isLoginRedirect = response?.type === 'opaqueredirect';
+  const isReloadedRecently = now - Number(sessionStorage.getItem(CONNECTION.reauthKey) ?? 0) < CONNECTION.reauthWindowMs;
+
+  match({ isLoginRedirect, isReloadedRecently })
+    .with({ isLoginRedirect: true, isReloadedRecently: false }, () => {
+      sessionStorage.setItem(CONNECTION.reauthKey, String(now));
+      toasty(m.connect_session_expired(), null, { id: 'connect' });
+      location.reload();
+    })
+    .otherwise(() => undefined);
+
   const id = response?.ok ? serverHealth.safeParse(await response.json().catch(() => null)).data?.id : undefined;
   const isReplaced = response?.status === 409 || (id !== undefined && serverId !== undefined && id !== serverId);
 

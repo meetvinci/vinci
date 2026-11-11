@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { authPairCode } from './auth.types';
 import { serverAddress } from './server.types';
 
 export const connectionSaved = z.object({
@@ -33,7 +34,10 @@ export const connectionPairForm = z.object({
 
 export const connectionLostReason = z.enum(['revoked', 'replaced']);
 
-export const connectionSearch = z.object({ reason: connectionLostReason.optional().catch(undefined) });
+export const connectionSearch = z.object({
+  reason: connectionLostReason.optional().catch(undefined),
+  code: z.string().refine((code) => authPairCode.safeParse(code).success).optional().catch(undefined),
+});
 
 export type ConnectionSaved = z.infer<typeof connectionSaved>;
 export type ConnectionLostReason = z.infer<typeof connectionLostReason>;

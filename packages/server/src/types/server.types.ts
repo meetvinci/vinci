@@ -28,6 +28,7 @@ export interface ServerConnectionParams {
 export interface ServerNetworkDeps {
   host: string;
   port: number;
+  publicUrls: string[];
 }
 
 export const serverTailscaleStatus = z.object({

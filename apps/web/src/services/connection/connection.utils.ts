@@ -43,6 +43,12 @@ export function connectionPairingCookie(target: ConnectionTarget | null, secure:
   });
 }
 
+export function connectionAccessHeaders(headers: Headers): Record<string, string> {
+  const token = headers.get(CONNECTION.accessHeader) ?? parse(headers.get('cookie') ?? '')[CONNECTION.accessCookie];
+
+  return token ? { [CONNECTION.accessHeader]: token } : {};
+}
+
 export function connectionHasAddresses(cookies: string): boolean {
   const parsed = parse(cookies);
 
@@ -70,7 +76,7 @@ export async function connectionTarget(cookies: string): Promise<ConnectionTarge
     }
   });
 
-  const { address, isMismatch } = await connectionAddressPick(target);
+  const { address, isMismatch } = await connectionAddressPick(target, 'error');
 
   if (address) {
     connectionTargets.set(key, { url: address.url, pickedAt: now });

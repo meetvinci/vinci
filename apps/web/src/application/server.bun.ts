@@ -1,6 +1,7 @@
 import { env } from '@repo/env/server';
 import { initNativeLogger, log } from '@repo/logger/server';
 import { join, posix, sep } from 'node:path';
+import { CONNECTION } from '@/services/connection/connection.constants';
 import { connectionFileHeaders, connectionHasAddresses, connectionTarget } from '@/services/connection/connection.utils';
 import type { RpcProxySocket } from '@/types/rpc.types';
 import type { ServerWebSocket, WebSocketOptions } from 'bun';
@@ -79,6 +80,10 @@ try {
       const { pathname, search } = new URL(request.url);
 
       if (pathname === '/rpc' || pathname === '/health' || pathname === '/mcp/callback' || pathname.startsWith('/rpc/') || pathname.startsWith('/files/') || pathname.startsWith('/avatars/')) {
+        if (env.WEB_HUB_URL || request.headers.has(CONNECTION.accessHeader)) {
+          return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+        }
+
         const cookies = request.headers.get('cookie') ?? '';
         const picked = connectionHasAddresses(cookies) ? await connectionTarget(cookies) : { url: LOCAL_DAEMON, isMismatch: false };
         const daemon = picked.url;

@@ -22,6 +22,7 @@ export function SettingsServer() {
     .with('loopback', () => m.settings_server_kind_loopback())
     .with('lan', () => m.settings_server_kind_lan())
     .with('tailscale', () => m.settings_server_kind_tailscale())
+    .with('public', () => m.settings_server_kind_public())
     .with('custom', () => m.settings_server_kind_custom())
     .exhaustive();
 

@@ -10,10 +10,15 @@ export const envServerSchema = {
   DAEMON_ALLOWED_ORIGINS: z.string().trim().default('')
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean)
       .map((origin) => URL.parse(origin)?.origin ?? origin)),
+  DAEMON_PUBLIC_URLS: z.string().trim().default('')
+    .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
+    .pipe(z.array(z.url({ protocol: /^https?$/ }).refine((url) => new URL(url).pathname === '/', 'Use a bare origin without a path')))
+    .transform((origins) => origins.map((origin) => new URL(origin).origin)),
 
   WEB_HOST: z.string().trim().min(1).default('127.0.0.1'),
   WEB_PORT: z.coerce.number().int().min(1).max(65535).default(47190),
   WEB_PUBLIC_URL: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:47190'),
+  WEB_HUB_URL: z.url({ protocol: /^https?$/ }).transform((url) => new URL(url).origin).optional(),
 
   MOBILE_SCHEME: z.string().trim().min(1).default('orbs'),
 

@@ -21,10 +21,14 @@ DATA_DIR/                     default ~/.config/orbs/
 
 ## Connection
 
-- Clients probe every address from `server.info()` and use the first, in list order, whose `/health` reports the paired server ID (`server/src/services/server/`).
+- Clients probe every address from `server.info()` and use the first, in list order, whose `/health` reports the paired server ID (`server/src/services/server/`). The web server's probes of cookie addresses never follow redirects; native clients' probes do.
+- `DAEMON_PUBLIC_URLS` replaces the detected loopback, LAN and Tailscale addresses with those origins (kind `public`); owner-added custom addresses still follow. Public origins are allowed browser Origins and CORS origins.
 - Every call sends `x-bots-protocol`; `serverId` pins a client to one daemon. Mismatches return `PROTOCOL_MISMATCH` or `SERVER_MISMATCH` and are never retried.
 - Pairing uses a six-digit PIN that lives five minutes; the QR code and link are Base64 of `{ serverId, addresses, pin }` (`authPairEntry` in `contracts/src/types/auth.types.ts`). Redeem returns the server ID and addresses, so a bare PIN works against a known address. Every wrong PIN counts against all live grants, which die after five misses. Public transport can never bootstrap; only the owner socket can.
 - The web proxy only forwards to an address that reports the paired server ID, so a forged cookie cannot redirect it.
+- Hub mode (`WEB_HUB_URL`): the hub routes daemon paths by the Access identity, so the web server answers 404 for `/rpc`, `/health`, `/files`, `/avatars` and `/mcp/callback` and never reads cookie addresses. It also answers 404 to those paths for any request carrying `Cf-Access-Jwt-Assertion`, so a hub in front of a web server without `WEB_HUB_URL` fails closed. SSR sends RPC to the hub with the request's `Cf-Access-Jwt-Assertion` header, or its `CF_Authorization` cookie. The browser keeps same-origin `/rpc`.
+- A hub hands a code it issued to `/connect?code=<pairing payload>` (`connectionSearch`); the page drops it from the URL. A link code (`?code=` or `#code=`) is redeemed at once with the default device name only when every address in it is the page's own origin, or in the desktop shell; any other code is only prefilled for the user to confirm, so a crafted link cannot pair a browser to a foreign server.
+- A redirect answering the web client's `/health` check means a login gate's session expired: the page reloads at most once a minute so the gate can sign the user in; unsent drafts live in `localStorage`. The PWA manifest and its icons stay under `/img/favicon/` (plus `/favicon.ico`) so a gate can exempt them.
 - Web sends every chat route to `/onboarding/$step` until `onboarding.complete()` stores `onboarding.completedAt` in settings. It is stored per daemon, so devices paired later skip it.
 
 ## Retries and dedupe

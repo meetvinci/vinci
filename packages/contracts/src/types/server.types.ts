@@ -11,7 +11,7 @@ export const serverOrigin = z.url({ protocol: /^https?$/ }).max(512).transform((
     && !['0.0.0.0', '[::]'].includes(url.hostname);
 }, 'Use a reachable HTTP or HTTPS server origin').transform((url) => url.origin);
 
-export const serverAddressKind = z.enum(['loopback', 'lan', 'tailscale', 'custom']);
+export const serverAddressKind = z.enum(['loopback', 'lan', 'tailscale', 'public', 'custom']);
 
 export const serverAddress = z.object({
   url: serverOrigin,

@@ -3,15 +3,20 @@ import { connectionRpcUrl, connectionSocketUrl, makeClient, makeHttpClient } fro
 import { Errors } from '@repo/errors/universal';
 import { createIsomorphicFn } from '@tanstack/react-start';
 import { getRequest, getRequestHeader } from '@tanstack/react-start/server';
+import { match, P } from 'ts-pattern';
 import { connectionRead, connectionVerify } from '@/services/connection/connection.client';
 import { CONNECTION } from '@/services/connection/connection.constants';
-import { connectionParse, connectionTarget } from '@/services/connection/connection.utils';
+import { connectionAccessHeaders, connectionParse, connectionTarget } from '@/services/connection/connection.utils';
 
 export const rpcClient = createIsomorphicFn()
   .server(() => makeHttpClient(async () => {
+    const { env } = await import('@repo/env/server');
     const connection = await connectionRead();
     const request = getRequest();
-    const target = await connectionTarget(getRequestHeader('cookie') ?? '');
+
+    const { target, access } = await match(env.WEB_HUB_URL)
+      .with(P.string, (hub) => ({ target: { url: hub, isMismatch: false }, access: connectionAccessHeaders(request.headers) }))
+      .otherwise(async () => ({ target: await connectionTarget(getRequestHeader('cookie') ?? ''), access: {} }));
 
     if (target.isMismatch) {
       throw new Errors.SERVER_MISMATCH();
@@ -25,10 +30,16 @@ export const rpcClient = createIsomorphicFn()
       url: connectionRpcUrl({ url: target.url }),
       serverId: connection?.serverId,
       token: () => connection?.token,
-      fetch: (url, init) => fetch(url, {
-        ...init,
-        signal: init.signal ? AbortSignal.any([request.signal, init.signal]) : request.signal,
-      }),
+      fetch: (url, init) => {
+        const headers = new Headers(init.headers);
+        Object.entries(access).forEach(([name, value]) => headers.set(name, value));
+
+        return fetch(url, {
+          ...init,
+          headers,
+          signal: init.signal ? AbortSignal.any([request.signal, init.signal]) : request.signal,
+        });
+      },
     };
   }))
   .client(() => {

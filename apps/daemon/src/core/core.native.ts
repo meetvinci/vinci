@@ -76,6 +76,7 @@ const STOP_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
 const OWNER_ONLY = 0o700;
 const AVATAR_BOT = /^(?<id>[\da-f-]{36})\.png$/u;
 const AVATAR_IMAGE = /^(?<id>[\da-f-]{36})\.webp$/u;
+const ALLOWED_ORIGINS = [...env.DAEMON_ALLOWED_ORIGINS, ...env.DAEMON_PUBLIC_URLS];
 
 export async function coreNativeCommand(): Promise<void> {
   const { positionals, values } = parseArgs({
@@ -197,7 +198,11 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
       secrets,
     }),
     mcpAuth,
-    network: makeServerNetworkService({ host: env.DAEMON_HOST, port: env.DAEMON_PORT }),
+    network: makeServerNetworkService({
+      host: env.DAEMON_HOST,
+      port: env.DAEMON_PORT,
+      publicUrls: env.DAEMON_PUBLIC_URLS,
+    }),
     linkResolver: makeLinkResolverService(),
     appScheme: env.MOBILE_SCHEME,
     providers,
@@ -225,7 +230,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
 
 function coreNativeRpc(services: CoreTypes.CoreServices, isLocal: boolean) {
   const plugins = [new RequestHeadersPlugin(), new ResponseHeadersPlugin()];
-  const cors = new CORSPlugin({ origin: env.DAEMON_ALLOWED_ORIGINS });
+  const cors = new CORSPlugin({ origin: ALLOWED_ORIGINS });
 
   const interceptors: RPCHandlerOptions<object>['interceptors'] = [onError((error, { path }) => {
     const fields = { tag: 'rpc', message: 'Request failed', path: path.join('.') };
@@ -408,7 +413,7 @@ function coreNativeOrigin<T extends Request>(services: CoreTypes.CoreServices, h
     const hostname = parsed?.hostname.replace(/^\[|\]$/gu, '') ?? '';
 
     const isAllowed = origin === null
-      || env.DAEMON_ALLOWED_ORIGINS.includes(parsed?.origin ?? origin)
+      || ALLOWED_ORIGINS.includes(parsed?.origin ?? origin)
       || isIP(hostname) !== 0
       || hostname === 'localhost'
       || hostname.endsWith('.localhost');

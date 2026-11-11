@@ -6,8 +6,11 @@ import { CONNECTION } from './connection.constants';
 import type { ConnectionPick, ConnectionTarget } from '../../types/connection.types';
 import type { ConnectionLostReason, ServerAddress } from '@repo/contracts/universal';
 
-export async function connectionAddressPick({ serverId, addresses }: ConnectionTarget): Promise<ConnectionPick> {
-  const probes = addresses.map((address) => fetch(new URL(CONNECTION.healthPath, address.url), { signal: AbortSignal.timeout(CONNECTION.probeTimeoutMs) })
+export async function connectionAddressPick({ serverId, addresses }: ConnectionTarget, redirect: RequestRedirect = 'follow'): Promise<ConnectionPick> {
+  const probes = addresses.map((address) => fetch(new URL(CONNECTION.healthPath, address.url), {
+    redirect,
+    signal: AbortSignal.timeout(CONNECTION.probeTimeoutMs),
+  })
     .then(async (response) => serverHealth.safeParse(await response.json()).data?.id ?? null)
     .catch(() => null));
 

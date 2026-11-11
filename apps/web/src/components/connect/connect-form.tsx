@@ -6,7 +6,7 @@ import { Form } from '@repo/ui/forms/form';
 import { FormInput } from '@repo/ui/forms/form-input';
 import { FormOTP } from '@repo/ui/forms/form-otp';
 import { toasty } from '@repo/ui/sonner';
-import { useRouter } from '@tanstack/react-router';
+import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { useForm } from 'react-hook-form';
@@ -17,6 +17,8 @@ import type { AuthPairEntry, ConnectionPairForm } from '@repo/contracts/universa
 
 export function ConnectForm() {
   const router = useRouter();
+  const search = useSearch({ from: '/connect' });
+  const navigate = useNavigate({ from: '/connect' });
 
   const form = useForm({
     resolver: standardSchemaResolver(connectionPairForm),
@@ -27,10 +29,16 @@ export function ConnectForm() {
   });
 
   const linkedTarget = useRef<AuthPairEntry['target']>(null);
+  const isConfirmPending = useRef(false);
 
   const readCode = useEffectEvent(() => {
-    const code = new URLSearchParams(location.hash.slice(1)).get('code');
+    const code = search.code ?? new URLSearchParams(location.hash.slice(1)).get('code');
     const entry = authPairEntry.safeParse(code ?? '');
+
+    const isAutoSubmit = document.documentElement.dataset.shell === 'desktop'
+      || (entry.success && entry.data.target?.addresses.every((address) => address.url === location.origin) === true);
+
+    isConfirmPending.current = entry.success && !isAutoSubmit;
 
     match({ code, entry })
       .with({ entry: { success: true } }, ({ entry: { data } }) => {
@@ -40,7 +48,11 @@ export function ConnectForm() {
       .with({ code: P.string }, () => form.setError('code', { message: m.connect_code_invalid() }))
       .otherwise(() => undefined);
 
-    if (code && document.documentElement.dataset.shell === 'desktop') {
+    if (search.code) {
+      void navigate({ search: { reason: search.reason }, replace: true });
+    }
+
+    if (code && isAutoSubmit) {
       void form.handleSubmit(handleSubmit)();
     }
   });
@@ -105,7 +117,14 @@ export function ConnectForm() {
             pasteTransformer={pastePin}
             pattern={REGEXP_ONLY_DIGITS}
             splitEvery={3}
-            onComplete={() => queueMicrotask(() => void form.handleSubmit(handleSubmit)())}
+            onComplete={() => {
+              if (isConfirmPending.current) {
+                isConfirmPending.current = false;
+                return;
+              }
+
+              queueMicrotask(() => void form.handleSubmit(handleSubmit)());
+            }}
           />
           <FormInput
             required
