@@ -1,0 +1,30 @@
+{
+  "name": "@repo/hub",
+  "version": "0.1.6",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun --env-file=../../.env src/entry.native.ts",
+    "check": "tsrs --noEmit",
+    "lint": "oxlint src/ tests/ -c ../../oxlint.config.ts --tsconfig tsconfig.json --disable-nested-config",
+    "lint:fix": "oxlint src/ tests/ -c ../../oxlint.config.ts --tsconfig tsconfig.json --disable-nested-config --fix",
+    "test": "vitest run --testTimeout=120000"
+  },
+  "dependencies": {
+    "@repo/client": "workspace:*",
+    "@repo/contracts": "workspace:*",
+    "@repo/env": "workspace:*",
+    "@repo/errors": "workspace:*",
+    "@repo/logger": "workspace:*",
+    "cookie-es": "catalog:",
+    "ts-pattern": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

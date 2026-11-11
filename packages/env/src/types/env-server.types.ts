@@ -16,4 +16,12 @@ export const envServerSchema = {
   WEB_PUBLIC_URL: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:47190'),
 
   MOBILE_SCHEME: z.string().trim().min(1).default('orbs'),
+
+  HUB_HOST: z.string().trim().min(1).default('127.0.0.1'),
+  HUB_PORT: z.coerce.number().int().min(1).max(65535).default(47192),
+  HUB_DATA_DIR: z.string().trim().min(1).default('~/.config/orbs-hub/'),
+  HUB_WEB_URL: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:47190'),
+  HUB_PUBLIC_URL: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value)).optional(),
+  ACCESS_TEAM_DOMAIN: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value).origin).optional(),
+  ACCESS_AUD: z.string().trim().min(1).optional(),
 };

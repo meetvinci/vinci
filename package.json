@@ -8,6 +8,7 @@
   "workspaces": [
     "apps/daemon",
     "apps/desktop",
+    "apps/hub",
     "apps/mobile",
     "apps/web",
     "packages/*"

@@ -69,6 +69,27 @@
         "electrobun": "2.0.2",
       },
     },
+    "apps/hub": {
+      "name": "@repo/hub",
+      "version": "0.1.6",
+      "dependencies": {
+        "@repo/client": "workspace:*",
+        "@repo/contracts": "workspace:*",
+        "@repo/env": "workspace:*",
+        "@repo/errors": "workspace:*",
+        "@repo/logger": "workspace:*",
+        "cookie-es": "catalog:",
+        "ts-pattern": "catalog:",
+        "zod": "catalog:",
+      },
+      "devDependencies": {
+        "@repo/typescript-config": "workspace:*",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:",
+      },
+    },
     "apps/mobile": {
       "name": "@repo/mobile",
       "version": "0.1.6",
@@ -1508,6 +1529,8 @@
     "@repo/env": ["@repo/env@workspace:packages/env"],
 
     "@repo/errors": ["@repo/errors@workspace:packages/errors"],
+
+    "@repo/hub": ["@repo/hub@workspace:apps/hub"],
 
     "@repo/i18n": ["@repo/i18n@workspace:packages/i18n"],
 

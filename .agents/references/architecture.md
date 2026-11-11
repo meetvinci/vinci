@@ -69,6 +69,7 @@ flowchart TB
 | --- | --- | --- |
 | daemon `src/entry.native.ts` | Bun | the `orbs` CLI: start, pair, service; opens stores and starts the listener |
 | daemon `src/entry-backup.native.ts` | Bun | offline backup create and restore |
+| hub `src/entry.native.ts` | Bun | the team hub: verifies the Access identity and routes it to that user's daemon |
 | server `src/entry.server.ts` | any host | `makeServices`, `coreHandler` and portable product services |
 | server `src/entry.native.ts` | Bun | database, backup, workspace, MCP discovery and credential-key factories |
 | runtime `src/entry.server.ts` | any host | `makeRuntimeService` and the runtime port types |
@@ -89,7 +90,7 @@ flowchart TB
 
 ## 2. Project structure
 
-### Service pattern (packages/server, packages/runtime, packages/secret-proxy)
+### Service pattern (packages/server, packages/runtime, packages/secret-proxy, apps/hub)
 
 ```
 packages/<package>/src/
@@ -150,6 +151,19 @@ apps/daemon/src/
 ├── core/core.native.ts                 startup composition and shutdown order
 ├── core/core-<part>.native.ts          one transport concern: server, rpc, local socket, pairing, command
 └── types/core.types.ts                 daemon composition types
+```
+
+### apps/hub
+
+```
+apps/hub/
+├── src/entry.native.ts                 the hub entry
+├── src/core/core.native.ts             startup composition, signals and shutdown
+├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off
+├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing
+├── src/types/<domain>.types.ts         hub schemas, deps and service types
+├── tests/<app>.test.ts                 Vitest end-to-end tests against real throwaway processes
+└── tests/support/<app>.fixture.ts      the processes, servers and helpers those tests start
 ```
 
 ### apps/web
@@ -241,6 +255,7 @@ packages/
 | Location | Owns |
 | --- | --- |
 | `apps/daemon` | Entry, startup composition, listener and transport, signals, shutdown. |
+| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning and the first-visit pairing hand-off. No product logic. |
 | `apps/web`, `apps/desktop`, `apps/mobile` | UI, server connections, device credential storage. Web uses TanStack Start SSR and query hydration; SSR calls the daemon through the shared client, the browser through the `/rpc` proxy with WebSockets for live updates. Web credentials live in a cookie and reach the daemon as Bearer headers. |
 | `packages/server` | Product services: bots, pairing, settings, credentials, permissions, skill, instruction, plugin and MCP selection and discovery; RPC handlers. |
 | `packages/runtime` | Pi integration: Harness, conversations, tools, hooks, approvals, tasks, watches, recovery, skill, instruction and plugin loading, MCP clients. |

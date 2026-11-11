@@ -73,3 +73,21 @@ Assistant text that is only `NO_REPLY` or `<|eos|>` (`replySilent` in `contracts
 ## History clear
 
 `conversation.clear` saves routines, todos and the latest artifact versions to `data/bots/<botId>/carry.json`, replaces the store and recreates them with the same IDs; a crash mid-way finishes on the next start.
+
+## Hub (team installs)
+
+`apps/hub` is the only public origin, behind Cloudflare Access. Every request needs a valid Access JWT (`Cf-Access-Jwt-Assertion`, else the `CF_Authorization` cookie): RS256 against `ACCESS_TEAM_DOMAIN/cdn-cgi/access/certs`, issuer, `ACCESS_AUD`, expiry with 60 s leeway, and an `email` claim. Failures are empty 401s; a valid identity without a user is an empty 403. Only `/hub/health`, `/img/favicon/*` and `/favicon.ico` skip it, and those reach the web app without cookies or token. A path with an empty or dot segment (`//rpc`, `/a//b`) is a 400 before routing.
+
+```text
+HUB_DATA_DIR/
+  users.json   {"users": {"<email>": {"id", "daemonUrl", "socketPath"}}}; email, id, daemonUrl and socketPath each unique; reread within a second of a change
+  pins.json    user id -> daemon server ID, written on first contact; a server ID belongs to one user only
+```
+
+- A missing, unreadable or invalid users.json means zero users: every identity gets 403 and the hub logs an error until the file is fixed. Fail closed, never the last good file.
+- `/rpc*`, `/health`, `/files/*`, `/avatars/*`, `/embed/*` and `/mcp/callback` (HTTP and WebSocket) go to the user's `daemonUrl`; everything else goes to `HUB_WEB_URL` with the verified token in `Cf-Access-Jwt-Assertion`. Client identity and forwarding headers are stripped; `X-Forwarded-Proto` and `X-Forwarded-Host` come from `HUB_PUBLIC_URL`; `Origin` passes through. `/files/*` without `Authorization` gets the device token from the `bots.connection` cookie.
+- An open WebSocket is rechecked every 5 s and closed (1008) once its Access token has expired or its user is gone from users.json.
+- Before forwarding, the daemon's `/health` must report the pinned server ID (checked at most every 5 s and on every address change), and a new pin may not equal another user's. A mismatch is a 502 and an admin-facing log line; nobody changes `pins.json` until the admin has confirmed which daemon belongs to whom.
+- `socketPath` must be the real path: the hub refuses a socket that is a symlink or sits below a symlinked folder, before connecting.
+- `GET /connect` without `code` mints a grant whenever the request has no `bots.connection` cookie for this user's daemon, including after `?reason=revoked|replaced`: it checks the grant's server ID against the pin and redirects to `/connect?code=<payload>`. `/hub/pair` does the same on demand. At most 5 grants per user per 10 minutes, which also ends any redirect loop. `/hub/whoami` returns the email, user id and pinned server ID.
+- Each daemon only receives its own user's traffic, so its peer-keyed throttles count one user's devices and hub calls together, never the whole organization.

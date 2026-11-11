@@ -55,6 +55,7 @@
   "workspaces": {
     "patterns": [
       "apps/daemon",
+      "apps/hub",
       "apps/mobile",
       "apps/web",
       "packages/*"
