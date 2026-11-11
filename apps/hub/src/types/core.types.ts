@@ -13,7 +13,7 @@ export interface CoreServices {
 
 export interface CoreIncoming {
   request: Request;
-  forwarded: Record<string, string>;
+  publicUrl: URL;
 }
 
 export interface CoreForward extends CoreIncoming {

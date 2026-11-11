@@ -9,7 +9,9 @@ import type * as CoreTypes from '../types/core.types';
 import type { Server } from 'bun';
 
 const DAEMON_PATHS = [/^\/rpc(?:\/|$)/u, /^\/health$/u, /^\/files\//u, /^\/avatars\//u, /^\/embed\//u, /^\/mcp\/callback$/u];
-const PUBLIC_PATHS = [/^\/img\/favicon\//u, /^\/favicon\.ico$/u];
+const PUBLIC_PATHS = [/^\/img\/favicon\/[^/]+$/u, /^\/favicon\.ico$/u];
+const URL_HEADERS = ['location', 'content-location'];
+const REFRESH_URL = /(?<prefix>url\s*=\s*)(?<url>\S+)/iu;
 const ACCESS_HEADER = 'cf-access-jwt-assertion';
 const ACCESS_COOKIE = 'CF_Authorization';
 
@@ -33,14 +35,12 @@ const STRIPPED_HEADERS = new Set([
 ]);
 
 export function coreServer(services: CoreTypes.CoreServices, publicUrl: URL): Server<CoreTypes.CoreSocket> {
-  const forwarded = { 'x-forwarded-proto': publicUrl.protocol.slice(0, -1), 'x-forwarded-host': publicUrl.host };
-
   return Bun.serve<CoreTypes.CoreSocket>({
     hostname: env.HUB_HOST,
     port: env.HUB_PORT,
     idleTimeout: 255,
     routes: { '/hub/health': () => Response.json({ status: 'ok' }) },
-    fetch: (request, server) => coreServerHandle(services, { request, forwarded }, server),
+    fetch: (request, server) => coreServerHandle(services, { request, publicUrl }, server),
     websocket: makeCoreRelay(services),
     error: (error) => {
       log.error({
@@ -56,7 +56,7 @@ export function coreServer(services: CoreTypes.CoreServices, publicUrl: URL): Se
 
 async function coreServerHandle(
   services: CoreTypes.CoreServices,
-  { request, forwarded }: CoreTypes.CoreIncoming,
+  { request, publicUrl }: CoreTypes.CoreIncoming,
   server: Server<CoreTypes.CoreSocket>,
 ): Promise<Response | undefined> {
   const url = new URL(request.url);
@@ -70,7 +70,7 @@ async function coreServerHandle(
     return coreServerWeb({
       request,
       url,
-      forwarded,
+      publicUrl,
     }, null).catch(() => new Response(null, { status: 502 }));
   }
 
@@ -88,7 +88,7 @@ async function coreServerHandle(
       url,
       identity,
       user,
-      forwarded,
+      publicUrl,
     }, server);
   } catch (error) {
     const failure = match(error)
@@ -189,7 +189,7 @@ async function coreServerDaemon(
     Object.entries(corePairingFileHeaders(request)).forEach(([name, value]) => headers.set(name, value));
   }
 
-  return coreServerForward(request, target, headers).catch((error: unknown) => {
+  return coreServerForward(context, target, headers).catch((error: unknown) => {
     services.daemons.actions.forget({ user });
     throw new Errors.SERVER_UNREACHABLE({ internal: `The daemon of ${user.id} failed the request`, cause: error });
   });
@@ -204,12 +204,12 @@ async function coreServerWeb(context: CoreTypes.CoreForward, token: string | nul
 
   const target = coreServerTarget(env.HUB_WEB_URL, url);
 
-  return coreServerForward(request, target, coreServerHeaders(context, token)).catch((error: unknown) => {
+  return coreServerForward(context, target, coreServerHeaders(context, token)).catch((error: unknown) => {
     throw new Errors.SERVER_UNREACHABLE({ internal: 'The web app failed the request', cause: error });
   });
 }
 
-async function coreServerForward(request: Request, target: URL, headers: Headers): Promise<Response> {
+async function coreServerForward({ request, publicUrl }: CoreTypes.CoreIncoming, target: URL, headers: Headers): Promise<Response> {
   const response = await fetch(target, {
     method: request.method,
     headers,
@@ -218,10 +218,26 @@ async function coreServerForward(request: Request, target: URL, headers: Headers
     decompress: false,
   });
 
+  const relayed = new Headers(response.headers);
+  const internal = [new URL(env.HUB_WEB_URL).origin, target.origin];
+
+  const toPublic = (value: string) => {
+    const resolved = URL.parse(value, target);
+
+    return resolved && internal.includes(resolved.origin) ? new URL(`${resolved.pathname}${resolved.search}${resolved.hash}`, publicUrl).href : value;
+  };
+
+  URL_HEADERS.forEach((name) => match(relayed.get(name))
+    .with(P.string, (value) => relayed.set(name, toPublic(value)))
+    .otherwise(() => undefined));
+  match(relayed.get('refresh'))
+    .with(P.string, (value) => relayed.set('refresh', value.replace(REFRESH_URL, (_all, prefix: string, url: string) => `${prefix}${toPublic(url)}`)))
+    .otherwise(() => undefined);
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers,
+    headers: relayed,
   });
 }
 
@@ -233,13 +249,14 @@ function coreServerTarget(base: string, url: URL): URL {
   return target;
 }
 
-function coreServerHeaders({ request, forwarded }: CoreTypes.CoreForward, token: string | null): Headers {
+function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, token: string | null): Headers {
   const headers = new Headers(request.headers);
 
   [...headers.keys()]
     .filter((name) => STRIPPED_HEADERS.has(name) || name.startsWith('x-forwarded-'))
     .forEach((name) => headers.delete(name));
-  Object.entries(forwarded).forEach(([name, value]) => headers.set(name, value));
+  headers.set('x-forwarded-proto', publicUrl.protocol.slice(0, -1));
+  headers.set('x-forwarded-host', publicUrl.host);
 
   match(token)
     .with(P.string, (verified) => headers.set(ACCESS_HEADER, verified))

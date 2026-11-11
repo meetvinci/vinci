@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { match, P } from 'ts-pattern';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ export const HUB_FIXTURE = {
   teamDomain: `http://127.0.0.1:${PORTS.access}`,
   audience: 'hub-test-audience',
   publicOrigin: 'https://team.example',
+  web: `http://127.0.0.1:${PORTS.web}`,
   daemons: { alice: `http://127.0.0.1:${PORTS.alice}`, bob: `http://127.0.0.1:${PORTS.bob}` },
   emails: { alice: 'alice@team.example', bob: 'bob@team.example' },
 };
@@ -148,6 +149,27 @@ async function hubFixtureServerId(url: string): Promise<string> {
   return serverHealth.parse(await (await fetch(`${url}/health`)).json()).id;
 }
 
+export async function hubFixtureFakeSocket(path: string) {
+  const requests: string[] = [];
+
+  const server = createServer((request, response) => {
+    requests.push(request.url ?? '');
+    response.end();
+  });
+
+  await mkdir(dirname(path), { recursive: true });
+  await new Promise((done) => {
+    server.listen(path, () => done(null));
+  });
+
+  return {
+    requests,
+    close: () => new Promise((done) => {
+      server.close(done);
+    }),
+  };
+}
+
 export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'orbs-hub-')));
   const hubData = join(root, 'hub');
@@ -171,12 +193,16 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
 
   const servers = await Promise.all([
     hubFixtureListen(PORTS.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
-    hubFixtureListen(PORTS.web, (request, response, body) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({
-      web: true,
-      path: request.url,
-      headers: request.headers,
-      body,
-    }))),
+    hubFixtureListen(PORTS.web, (request, response, body) => {
+      const relayed = Object.fromEntries(new URL(request.url ?? '/', HUB_FIXTURE.web).searchParams);
+
+      response.writeHead(request.url?.startsWith('/relay') ? 302 : 200, { 'content-type': 'application/json', ...relayed }).end(JSON.stringify({
+        web: true,
+        path: request.url,
+        headers: request.headers,
+        body,
+      }));
+    }),
     hubFixtureListen(PORTS.model, (_request, response, body) => response.writeHead(200, { 'content-type': 'text/event-stream' }).end(hubFixtureModelReply(body))),
   ]);
 
@@ -194,7 +220,7 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
       HUB_HOST: '127.0.0.1',
       HUB_PORT: String(PORTS.hub),
       HUB_DATA_DIR: hubData,
-      HUB_WEB_URL: `http://127.0.0.1:${PORTS.web}`,
+      HUB_WEB_URL: HUB_FIXTURE.web,
       ACCESS_TEAM_DOMAIN: HUB_FIXTURE.teamDomain,
       ACCESS_AUD: HUB_FIXTURE.audience,
       HUB_PUBLIC_URL: HUB_FIXTURE.publicOrigin,

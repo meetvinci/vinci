@@ -80,7 +80,7 @@ Assistant text that is only `NO_REPLY` or `<|eos|>` (`replySilent` in `contracts
 
 ## Hub (team installs)
 
-`apps/hub` is the only public origin, behind Cloudflare Access. Every request needs a valid Access JWT (`Cf-Access-Jwt-Assertion`, else the `CF_Authorization` cookie): RS256 against `ACCESS_TEAM_DOMAIN/cdn-cgi/access/certs`, issuer, `ACCESS_AUD`, expiry with 60 s leeway, and an `email` claim. Failures are empty 401s; a valid identity without a user is an empty 403. Only `/hub/health`, `/img/favicon/*` and `/favicon.ico` skip it, and those reach the web app without cookies or token. A path with an empty or dot segment (`//rpc`, `/a//b`) is a 400 before routing.
+`apps/hub` is the only public origin, behind Cloudflare Access. Every request needs a valid Access JWT (`Cf-Access-Jwt-Assertion`, else the `CF_Authorization` cookie): RS256 against `ACCESS_TEAM_DOMAIN/cdn-cgi/access/certs`, issuer, `ACCESS_AUD`, expiry with 60 s leeway, and an `email` claim. Failures are empty 401s; a valid identity without a user is an empty 403. Only `/hub/health` and the icon files `/favicon.ico` and `/img/favicon/<file>` (GET or HEAD, one segment) skip it; the icon files reach the web app without cookies or token, and anything else under `/img/favicon/` needs identity. A path with an empty or dot segment (`//rpc`, `/a//b`) is a 400 before routing.
 
 ```text
 HUB_DATA_DIR/
@@ -89,7 +89,7 @@ HUB_DATA_DIR/
 ```
 
 - A missing, unreadable or invalid users.json means zero users: every identity gets 403 and the hub logs an error until the file is fixed. Fail closed, never the last good file.
-- `/rpc*`, `/health`, `/files/*`, `/avatars/*`, `/embed/*` and `/mcp/callback` (HTTP and WebSocket) go to the user's `daemonUrl`; everything else goes to `HUB_WEB_URL` with the verified token in `Cf-Access-Jwt-Assertion`. Client identity and forwarding headers are stripped; `X-Forwarded-Proto` and `X-Forwarded-Host` come from `HUB_PUBLIC_URL`; `Origin` passes through. `/files/*` without `Authorization` gets the device token from the `bots.connection` cookie.
+- `/rpc*`, `/health`, `/files/*`, `/avatars/*`, `/embed/*` and `/mcp/callback` (HTTP and WebSocket) go to the user's `daemonUrl`; everything else goes to `HUB_WEB_URL` with the verified token in `Cf-Access-Jwt-Assertion`. Client identity and forwarding headers are stripped; `X-Forwarded-Proto` and `X-Forwarded-Host` come from `HUB_PUBLIC_URL`; `Origin` passes through. A relayed `Location`, `Content-Location` or `Refresh` URL that resolves to `HUB_WEB_URL` or the daemon URL is rewritten onto `HUB_PUBLIC_URL`, so no internal address reaches the client. `/files/*` without `Authorization` gets the device token from the `bots.connection` cookie.
 - An open WebSocket is rechecked every 5 s and closed (1008) once its Access token has expired or its user is gone from users.json.
 - Before forwarding, the daemon's `/health` must report the pinned server ID (checked at most every 5 s and on every address change), and a new pin may not equal another user's. A mismatch is a 502 and an admin-facing log line; nobody changes `pins.json` until the admin has confirmed which daemon belongs to whom.
 - `socketPath` must be the real path: the hub refuses a socket that is a symlink or sits below a symlinked folder, before connecting.

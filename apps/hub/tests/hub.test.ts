@@ -1,11 +1,10 @@
 import { makeClient } from '@repo/client/client';
 import { authPairCode, authRedeemResult, botList, serverHealth } from '@repo/contracts/universal';
-import { mkdir, readFile, rm, symlink } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import { dirname, join } from 'node:path';
+import { readFile, rm, symlink } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { HUB_FIXTURE, hubFixtureEncode, hubFixtureStart } from './support/hub.fixture';
+import { HUB_FIXTURE, hubFixtureEncode, hubFixtureFakeSocket, hubFixtureStart } from './support/hub.fixture';
 import type { HubFixture } from './support/hub.fixture';
 import type { WebSocketOptions } from 'bun';
 
@@ -58,27 +57,6 @@ function hubTestOpens(socket: WebSocket): Promise<boolean> {
     socket.addEventListener('open', () => done(true));
     socket.addEventListener('error', () => done(false));
   });
-}
-
-async function hubTestFakeSocket(path: string) {
-  const requests: string[] = [];
-
-  const server = createServer((request, response) => {
-    requests.push(request.url ?? '');
-    response.end();
-  });
-
-  await mkdir(dirname(path), { recursive: true });
-  await new Promise((done) => {
-    server.listen(path, () => done(null));
-  });
-
-  return {
-    requests,
-    close: () => new Promise((done) => {
-      server.close(done);
-    }),
-  };
 }
 
 function hubTestAuth(device: HubTestDevice, extra: Record<string, string> = {}) {
@@ -238,6 +216,29 @@ describe('routing by identity', () => {
     expect(headers).not.toHaveProperty('cookie');
     expect(headers).not.toHaveProperty('cf-access-jwt-assertion');
     expect((await hubTestGet('/img/favicon/../../health')).status).toBe(401);
+  });
+
+  it.for(['/img/favicon/', '/img/favicon', '/img/favicon/nested/icon.png', '/favicon.ico/x'])('requires identity for %s, which is not an icon file', async (path) => {
+    expect((await hubTestGet(path)).status).toBe(401);
+  });
+
+  it.for([
+    ['an internal absolute URL', `${HUB_FIXTURE.web}/img/favicon/?a=1`, `${publicOrigin}/img/favicon/?a=1`],
+    ['a relative URL', '/rooms#top', `${publicOrigin}/rooms#top`],
+    ['an external URL', 'https://example.com/x', 'https://example.com/x'],
+  ] as const)('rewrites %s in relayed Location, Content-Location and Refresh', async ([, value, expected], { tokens }) => {
+    const query = new URLSearchParams({
+      'location': value,
+      'content-location': value,
+      'refresh': `0; url=${value}`,
+    });
+
+    const response = await hubTestGet(`/relay?${query}`, { 'cf-access-jwt-assertion': tokens.alice });
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(expected);
+    expect(response.headers.get('content-location')).toBe(expected);
+    expect(response.headers.get('refresh')).toBe(`0; url=${expected}`);
   });
 
   it('refuses a WebSocket upgrade outside the daemon paths', async ({ tokens }) => {
@@ -407,7 +408,7 @@ describe('owner socket', () => {
     ['a path through a symlinked folder', (root: string) => ({ link: join(root, 'linked'), target: join(root, 'fake'), socketPath: join(root, 'linked/rpc.sock') })],
   ] as const)('refuses %s and never connects to it', async ([, paths], { fixture, tokens }) => {
     const { link, target, socketPath } = paths(fixture.root);
-    const fake = await hubTestFakeSocket(join(fixture.root, 'fake/rpc.sock'));
+    const fake = await hubFixtureFakeSocket(join(fixture.root, 'fake/rpc.sock'));
 
     await symlink(target, link);
     await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], socketPath } });
