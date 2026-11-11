@@ -6,25 +6,25 @@ Known problems, what they look like, and the fix. Most end with a prompt you can
 
 Either the daemon does not accept the team address, or the hub does not know the person.
 
-- The daemon: set `DAEMON_PUBLIC_URLS=https://<team>.<domain>` on every daemon and restart them. See [configuration](configuration.md).
-- The hub: the person's email must be in `users.json`, and the file must load without errors.
+- The daemon: `ORBS_PUBLIC_HOST` in `/opt/orbs/.env` must be the team address without `https://`. Compose turns it into `DAEMON_PUBLIC_URLS`. After a fix, run `docker compose up -d --wait`.
+- The hub: the person's email must be in `/opt/orbs/users.yaml`, and `bun deploy.ts apply` must have run since the last edit.
 
-> On `root@<server>`, check that every Orbs daemon container has `DAEMON_PUBLIC_URLS` set to `https://<team>.<domain>`, and that `<email>` is in the hub's `users.json` and the hub's log shows the file loaded after its last edit. Fix and restart only what is wrong.
+> On `root@<server>`, in `/opt/orbs`, check that `ORBS_PUBLIC_HOST` in `.env` is `<team>.<domain>`, that `<email>` is in `users.yaml`, and that `hub/users.json` lists it. If not, fix the file and run `bun deploy.ts apply`. Confirm `docker compose logs hub --since 5m` shows "Users loaded" with no error.
 
 ## Nobody can get in, and the hub log says the users file is invalid
 
-`users.json` is missing or has a mistake, so the hub lets nobody in. Common mistakes: a missing comma, or the same id, address or socket path used twice.
+`/opt/orbs/hub/users.json` is missing or was edited by hand, so the hub lets nobody in. `bun deploy.ts apply` writes it from `users.yaml` and checks the list first.
 
-> On `root@<server>`, read the hub's latest log error about `users.json`, fix the file without removing anyone, and confirm the hub's log shows the users loaded.
+> On `root@<server>`, in `/opt/orbs`, read the hub's latest log error about `users.json`, then run `bun deploy.ts apply` and confirm `docker compose logs hub --since 5m` shows the users loaded. Don't edit `hub/users.json` by hand.
 
 ## A person gets an error page (502) instead of their bots
 
 The hub checks that each person's Orbs has the ID it saw the first time. If the ID changed, it refuses to forward. That happens when someone's Orbs was reset on purpose, or when two people's settings point at the same Orbs.
 
-- If you reset that person's Orbs on purpose: delete their line in the hub's `pins.json`.
-- Otherwise: check `users.json` for a copied address. Don't change `pins.json` until you know which Orbs belongs to whom; the hub's log says which check failed.
+- If you reset that person's Orbs on purpose: stop the hub (`docker compose stop hub`), delete their line in `/opt/orbs/hub/pins.json`, and start it (`docker compose start hub`). The hub keeps pins in memory and would write the old line back.
+- Otherwise: check `hub/users.json` for a copied address. Don't change `pins.json` until you know which Orbs belongs to whom; the hub's log says which check failed.
 
-> On `root@<server>`, the hub returns 502 for Orbs user `<name>`. Compare their `daemonUrl` in `users.json` with everyone else's, and report what the hub's log says. Don't change `pins.json` unless I confirm their Orbs was reset on purpose.
+> On `root@<server>`, the hub returns 502 for Orbs user `<name>`. Compare their `daemonUrl` in `/opt/orbs/hub/users.json` with everyone else's, and report what the hub's log says. Don't change `pins.json` unless I confirm their Orbs was reset on purpose.
 
 ## Bots never answer, with no error
 
@@ -44,7 +44,7 @@ If it happens often, someone may be removing the device in **Settings → Device
 
 The Cloudflare login expired (24 hours by default). Orbs reloads the page, at most once a minute, so Cloudflare can ask the person to log in again. Unsent messages are kept.
 
-- To make it rarer, run the Cloudflare setup again with a longer session, for example `--session 168h` (a week). A lost or shared device then stays logged in that long; removing the person from `users.json` still locks them out at once.
+- To make it rarer, run the Cloudflare setup again with a longer session, for example `--session 168h` (a week). A lost or shared device then stays logged in that long; removing the person from `users.yaml` and running `bun deploy.ts apply` still locks them out at once.
 
 > In the Orbs repository, run `bun scripts/deploy.ts cloudflare apply` again with the same arguments as at install and `--session 168h`, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Confirm it prints `updated` only for the Access app.
 

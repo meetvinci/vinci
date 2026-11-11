@@ -1,10 +1,17 @@
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
+// Runs from a repo checkout (images) and, copied to /opt/orbs on the server, from there (every other command).
+// It imports only Bun and node builtins, so the server needs Bun and Docker and nothing else.
 const root = path.resolve(import.meta.dir, '..');
 const dockerfile = path.join(root, 'deploy/docker/Dockerfile');
 const targets = ['daemon', 'web', 'hub'];
+const project = 'orbs';
+const hubData = 'hub';
+const userId = /^[a-z\d][a-z\d-]{0,62}$/u;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+const daemonUid = 1000;
 const cloudflareApi = 'https://api.cloudflare.com/client/v4';
 // Objects are found by exact names built from --name: the account may hold unrelated objects that share a prefix.
 const cloudflareNamePattern = /^orbs-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
@@ -59,6 +66,33 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+interface DockerOptions {
+  input?: string;
+  output?: string;
+  env?: Record<string, string>;
+}
+
+function docker(args: string[], { input, output, env }: DockerOptions = {}): string {
+  const out = output ? openSync(output, 'wx', 0o600) : 'pipe';
+
+  const result = Bun.spawnSync(['docker', ...args], {
+    env: { ...process.env, ...env },
+    stdin: input ? Bun.file(input) : 'inherit',
+    stdout: out,
+    stderr: 'inherit',
+  });
+
+  if (typeof out === 'number') {
+    closeSync(out);
+  }
+
+  if (!result.success) {
+    fail(`docker ${args.slice(0, 3).join(' ')} failed.`);
+  }
+
+  return result.stdout?.toString().trim() ?? '';
+}
+
 // Builds orbs-<target>:<tag> images into the local Docker image store. linux/amd64 is the server target;
 // pass --platform linux/arm64 for local runs on Apple Silicon.
 function images() {
@@ -92,6 +126,206 @@ function images() {
       fail(`Building ${image} failed.`);
     }
   }
+}
+
+// users.yaml is the one list of people: `users: { <id>: <email> }`. `-` reads it from stdin, for example over ssh.
+function users(file = 'users.yaml'): Map<string, string> {
+  if (file !== '-' && !existsSync(file)) {
+    fail(`${file} not found: pass the team's users.yaml, or - to read it from stdin.`);
+  }
+
+  const parsed: unknown = Bun.YAML.parse(readFileSync(file === '-' ? 0 : file, 'utf8'));
+  const list = parsed && typeof parsed === 'object' && 'users' in parsed ? parsed.users ?? {} : null;
+
+  if (!list || typeof list !== 'object' || Array.isArray(list)) {
+    fail('users.yaml must hold a `users:` map of user id to email.');
+  }
+
+  const entries = Object.entries(list).map(([id, address]) => [id, String(address).toLowerCase()] as const);
+  const invalid = entries.filter(([id, address]) => !userId.test(id) || !emailPattern.test(address));
+
+  if (invalid.length > 0) {
+    fail(`users.yaml: each id must be lowercase letters, digits and dashes, each value an email: ${invalid.map(([id]) => id).join(', ')}`);
+  }
+
+  if (new Set(entries.map(([, address]) => address)).size !== entries.length) {
+    fail('users.yaml: each email must appear once.');
+  }
+
+  return new Map(entries);
+}
+
+function volumeName(id: string): string {
+  return `${project}_data-${id}`;
+}
+
+function writeAtomic(file: string, content: string, mode: number) {
+  writeFileSync(`${file}.tmp`, content, { mode });
+  renameSync(`${file}.tmp`, file);
+}
+
+// The per-person part of the stack: a daemon, its network shared only with the hub, and its volume.
+function renderCompose(ids: string[]): string {
+  const services = Object.fromEntries(ids.map((id) => [`daemon-${id}`, {
+    extends: { file: 'daemon.yaml', service: 'daemon' },
+    networks: { [`user-${id}`]: {} },
+    volumes: [
+      `data-${id}:/data`,
+      { type: 'volume', source: 'ipc', target: '/data/data/ipc', volume: { subpath: id } },
+    ],
+  }]));
+
+  const hub = { networks: Object.fromEntries(ids.map((id) => [`user-${id}`, {}])) };
+
+  return [
+    '# Written by `bun deploy.ts apply` from users.yaml. Do not edit: edit users.yaml and run apply again.',
+    Bun.YAML.stringify({
+      services: { ...services, hub },
+      networks: Object.fromEntries(ids.map((id) => [`user-${id}`, {}])),
+      volumes: Object.fromEntries(ids.map((id) => [`data-${id}`, {}])),
+    }, null, 2),
+  ].join('\n');
+}
+
+function renderUsers(list: Map<string, string>): string {
+  const entries = [...list].map(([id, address]) => [address, { id, daemonUrl: `http://daemon-${id}:47191`, socketPath: `/ipc/${id}/rpc.sock` }]);
+
+  return `${JSON.stringify({ users: Object.fromEntries(entries) }, null, 2)}\n`;
+}
+
+// A one-off root job in the tools service (compose.yaml): no network, the ipc volume and at most one person's volume.
+function tools(script: string, args: string[], { volume, ...options }: DockerOptions & { volume?: string } = {}): string {
+  const mount = volume ? ['--volume', volume] : [];
+
+  return docker(['compose', 'run', '--rm', '--no-TTY', '--quiet-pull', ...mount, 'tools', script, 'tools', ...args], { ...options, env: { COMPOSE_IGNORE_ORPHANS: 'true' } });
+}
+
+// The hub joins each person's network without being recreated, so adding or removing someone keeps everyone else's
+// connections open. A full `docker compose up` recreates it with the same networks from users.compose.yaml.
+function connectHub(ids: string[]) {
+  const hub = docker(['compose', 'ps', '--all', '--quiet', 'hub']);
+  const wanted = new Set(ids.map((id) => `${project}_user-${id}`));
+  const attached = Object.keys(JSON.parse(docker(['inspect', '--format', '{{json .NetworkSettings.Networks}}', hub])));
+  const stale = attached.filter((network) => network.startsWith(`${project}_user-`) && !wanted.has(network));
+
+  for (const network of wanted) {
+    if (!attached.includes(network)) {
+      docker(['network', 'connect', network, hub]);
+    }
+  }
+
+  for (const network of stale) {
+    docker(['network', 'disconnect', network, hub]);
+    docker(['network', 'rm', network]);
+  }
+}
+
+// Brings the stack in line with users.yaml: first start, add a person, remove a person.
+// users.json is written first, so a removed person loses access before their container stops.
+function apply() {
+  const list = users();
+  const ids = [...list.keys()];
+
+  writeFileSync('users.compose.yaml', renderCompose(ids));
+
+  if (!existsSync(hubData)) {
+    mkdirSync(hubData, { mode: 0o700 });
+
+    if (process.getuid?.() === 0) {
+      chownSync(hubData, daemonUid, daemonUid);
+    }
+  }
+
+  writeAtomic(path.join(hubData, 'users.json'), renderUsers(list), 0o644);
+
+  if (ids.length > 0) {
+    tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', ids);
+  }
+
+  const others = docker(['compose', 'config', '--services']).split('\n').filter((service) => service !== 'hub');
+
+  docker(['compose', 'up', '--detach', '--wait', '--remove-orphans', ...others]);
+  docker(['compose', 'up', '--detach', '--wait', '--no-recreate', 'hub']);
+  connectHub(ids);
+  console.log(`Applied ${ids.length} users: ${ids.join(', ')}`);
+}
+
+function known(id: string | undefined): string {
+  if (!id || !users().has(id)) {
+    fail(`${id ?? '<id>'} is not in users.yaml.`);
+  }
+
+  return id;
+}
+
+// Copies one person's whole volume (database, credentials key, bots, Pi settings, home) with their daemon stopped.
+function backupVolume(id: string): string {
+  const folder = 'backups';
+  const file = path.join(folder, `${id}-${new Date().toISOString().replaceAll(/[:.]/gu, '-')}.tar.gz`);
+
+  mkdirSync(folder, { recursive: true, mode: 0o700 });
+  docker(['compose', 'stop', `daemon-${id}`]);
+  tools('tar -C /data -czf - .', [], { volume: `${volumeName(id)}:/data:ro`, output: file });
+
+  return file;
+}
+
+function backup() {
+  const id = known(process.argv[3]);
+  const file = backupVolume(id);
+
+  docker(['compose', 'up', '--detach', '--wait', `daemon-${id}`]);
+  console.log(`Backed up ${id} to ${file}. It contains their keys: keep it secret.`);
+}
+
+// Replaces one person's volume with a backup. Takes a fresh backup of the current data first.
+function restore() {
+  const id = known(process.argv[3]);
+  const file = process.argv[4];
+
+  if (!file || !existsSync(file)) {
+    fail('Usage: bun deploy.ts restore <id> <backup file>');
+  }
+
+  const safety = backupVolume(id);
+
+  console.log(`Saved the current data of ${id} to ${safety}.`);
+  tools('find /data -mindepth 1 -delete && tar -C /data -xzpf -', [], { volume: `${volumeName(id)}:/data`, input: file });
+  docker(['compose', 'up', '--detach', '--wait', `daemon-${id}`]);
+  console.log(`Restored ${id} from ${file}.`);
+}
+
+// Deletes a removed person's volume, owner-socket folder and hub pin for good. Restarts the hub (it keeps pins in memory).
+function purge() {
+  const id = process.argv[3];
+
+  if (!id || !userId.test(id)) {
+    fail('Usage: bun deploy.ts purge <id>');
+  }
+
+  if (users().has(id)) {
+    fail(`${id} is still in users.yaml: remove them and run apply first.`);
+  }
+
+  docker(['volume', 'rm', '--force', volumeName(id)]);
+  tools('rm -rf "/ipc/$1"', [id]);
+
+  const pinsFile = path.join(hubData, 'pins.json');
+
+  docker(['compose', 'stop', 'hub']);
+
+  if (existsSync(pinsFile)) {
+    const { [id]: _removed, ...pins } = JSON.parse(readFileSync(pinsFile, 'utf8'));
+
+    writeAtomic(pinsFile, `${JSON.stringify(pins, null, 2)}\n`, 0o600);
+
+    if (process.getuid?.() === 0) {
+      chownSync(pinsFile, daemonUid, daemonUid);
+    }
+  }
+
+  docker(['compose', 'start', 'hub']);
+  console.log(`Purged ${id}: volume, owner-socket folder and hub pin deleted.`);
 }
 
 async function cloudflareCall<T>(method: string, route: string, body?: unknown): Promise<CloudflareResponse<T>> {
@@ -165,7 +399,7 @@ function cloudflareOptions() {
 
   if (!['apply', 'emails', 'destroy'].includes(action)) {
     fail(
-      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name orbs-<team> [--users <users.json|->] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
+      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name orbs-<team> [--users <users.yaml|->] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
     );
   }
 
@@ -210,18 +444,12 @@ function cloudflareOptions() {
 
 type CloudflareOptions = ReturnType<typeof cloudflareOptions>;
 
-// The hub's users.json is the one source of truth for who may log in; `-` reads it from stdin, for example over ssh.
+// users.yaml decides who may log in, as it decides who gets a daemon.
 function cloudflareEmails(file: string | undefined): string[] {
-  if (file === undefined || (file !== '-' && !existsSync(file))) {
-    fail('Pass --users with the path of the hub users.json, or - to read it from stdin.');
-  }
+  const emails = [...users(file ?? fail('Pass --users with the path of users.yaml, or - to read it from stdin.')).values()].sort();
 
-  const text = readFileSync(file === '-' ? 0 : file, 'utf8');
-  const users = (JSON.parse(text) as { users?: Record<string, unknown> }).users ?? {};
-  const emails = [...new Set(Object.keys(users).map((email) => email.trim().toLowerCase()))].sort();
-
-  if (emails.length === 0 || emails.some((email) => !/^[^\s@]+@[^\s@]+$/u.test(email))) {
-    fail('The users file needs at least one user, and every key must be one email address.');
+  if (emails.length === 0) {
+    fail('users.yaml needs at least one user.');
   }
 
   return emails;
@@ -455,7 +683,7 @@ async function cloudflareApply(options: CloudflareOptions) {
   console.log(`Wrote these values and TUNNEL_TOKEN to ${options.envOut} (mode 600).`);
 }
 
-// Updates only the allow policy, after a person is added to or removed from the hub's users.json.
+// Updates only the allow policy, after a person is added to or removed from users.yaml.
 async function cloudflareSync(options: CloudflareOptions) {
   const emails = cloudflareEmails(options.users);
   const context = await cloudflareContext(options.zone);
@@ -541,11 +769,20 @@ async function cloudflare() {
   await actions[options.action as keyof typeof actions](options);
 }
 
-const commands = { images, cloudflare };
+const commands = { images, cloudflare, apply, backup, restore, purge };
 const command = process.argv[2] ?? '';
 
 if (!(command in commands)) {
-  fail('Usage: bun scripts/deploy.ts images [daemon|web|hub ...] [--platform linux/amd64|linux/arm64] [--tag <tag>] | cloudflare apply|emails|destroy ...');
+  fail([
+    'Usage:',
+    '  bun scripts/deploy.ts images [daemon|web|hub ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
+    '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
+    'On the server, in /opt/orbs:',
+    '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
+    '  bun deploy.ts backup <id>               copy one person\'s volume to backups/',
+    '  bun deploy.ts restore <id> <file>       replace one person\'s volume with a backup',
+    '  bun deploy.ts purge <id>                delete a removed person\'s data for good',
+  ].join('\n'));
 }
 
 await commands[command as keyof typeof commands]();

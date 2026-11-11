@@ -1,0 +1,32 @@
+# The daemon every person gets: each daemon-<id> service in users.compose.yaml extends this one.
+# Not a Compose file of its own: never list it in COMPOSE_FILE.
+services:
+  daemon:
+    image: orbs-daemon:${ORBS_TAG:?set ORBS_TAG in .env}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${DAEMON_MEMORY:-512m}
+    memswap_limit: ${DAEMON_MEMORY:-512m}
+    cpus: ${DAEMON_CPUS:-1}
+    pids_limit: ${DAEMON_PIDS:-256}
+    restart: unless-stopped
+    # The image's health check, probed every second while starting, so `apply` does not wait 30 s per daemon.
+    healthcheck:
+      start_period: 30s
+      start_interval: 1s
+    environment:
+      DAEMON_PUBLIC_URLS: https://${ORBS_PUBLIC_HOST:?set ORBS_PUBLIC_HOST in .env}
+      WEB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Model API keys from .env, the same for every person. Each person's bots can read them (risk 1).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      XAI_API_KEY: ${XAI_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}

@@ -52,8 +52,9 @@ FROM ${BUN_IMAGE}-slim AS daemon
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=build /src/apps/desktop/dist/server/daemon /app/daemon
 COPY --chmod=755 deploy/docker/orbs.sh /usr/local/bin/orbs
-# A fresh named volume copies these directories with their owner, so the daemon can write them.
-RUN mkdir -p /data/home /data/pi && chown -R 1000:1000 /data
+# A fresh named volume copies these directories with their owner, so the daemon can write them. data/ipc exists so
+# a nested mount of the owner-socket folder there does not make Docker create data/ as root.
+RUN mkdir -p /data/home /data/pi /data/data/ipc && chown -R 1000:1000 /data
 USER 1000:1000
 WORKDIR /app
 ENV DATA_DIR=/data HOME=/data/home PI_CODING_AGENT_DIR=/data/pi DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191

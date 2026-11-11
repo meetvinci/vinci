@@ -3,7 +3,7 @@
 Orbs normally runs on one person's computer. The team workspace runs it on one server for a small team, about 3 to 7 people.
 
 > [!WARNING]
-> This is work in progress. The install steps are not final yet; the parts still missing are marked `TODO(wave 2)`.
+> This is a first version. It has not yet been installed from scratch on a real server.
 > Until the hardening phase, a bot has full control of its own user's Orbs: it can read that person's keys and give itself access as them. Keeping it away from other people's Orbs depends on the hub's checks and on each person's Orbs being reachable only by the hub. Use this only with people you trust.
 
 ## What it is

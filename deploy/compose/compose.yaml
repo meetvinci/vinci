@@ -1,0 +1,74 @@
+# Orbs for a team: the hub and the web app. Lives in /opt/orbs next to .env, users.yaml, daemon.yaml and
+# cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (one daemon, network
+# and volume per person, each extending daemon.yaml) and hub/users.json from users.yaml. .env sets COMPOSE_FILE to
+# load this file, cloudflared.compose.yaml and users.compose.yaml together.
+# Nothing is published on a host interface: cloudflared is the only way in.
+name: orbs
+
+services:
+  # One-off root jobs for `bun deploy.ts`: owner-socket folders, backups, restores and purges. No network.
+  tools:
+    profiles: [setup]
+    image: orbs-daemon:${ORBS_TAG}
+    user: "0:0"
+    entrypoint: ["sh", "-c"]
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - ipc:/ipc
+
+  # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
+  # nothing else of their data. Its user list and pins live in ./hub.
+  hub:
+    image: orbs-hub:${ORBS_TAG}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    environment:
+      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
+      ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
+      HUB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
+      HUB_WEB_URL: http://web:47190
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./hub:/data
+      - ipc:/ipc
+    networks:
+      tunnel: {}
+      web: {}
+
+  # One shared web app in hub mode: its server calls only the hub, never a daemon.
+  web:
+    image: orbs-web:${ORBS_TAG}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    environment:
+      WEB_HUB_URL: http://hub:47192
+      WEB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks:
+      web: {}
+
+networks:
+  # cloudflared (deploy/cloudflare/cloudflared.compose.yaml) and the hub. Outbound internet: the tunnel and the hub's
+  # Access key fetch.
+  tunnel: {}
+  # The hub and the web app only. No internet.
+  web:
+    internal: true
+
+volumes:
+  # Each person's data/ipc folder, as ipc/<id>. Daemons mount only their own subfolder.
+  ipc: {}
