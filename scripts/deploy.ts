@@ -329,7 +329,12 @@ function purge() {
 }
 
 async function cloudflareCall<T>(method: string, route: string, body?: unknown): Promise<CloudflareResponse<T>> {
-  const token = process.env.CLOUDFLARE_API_TOKEN ?? fail('Set CLOUDFLARE_API_TOKEN.');
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+
+  // An empty token usually means the password manager read failed; Cloudflare would only answer "Invalid request headers".
+  if (!token) {
+    fail('CLOUDFLARE_API_TOKEN is unset or empty: check that reading it from your password manager worked.');
+  }
 
   const response = await fetch(`${cloudflareApi}${route}`, {
     method,

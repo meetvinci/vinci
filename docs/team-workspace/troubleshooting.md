@@ -87,15 +87,17 @@ Containers are locked down: no root, read-only system files. `apt`, `npm -g` and
 
 ## Memory runs low
 
-Each person's Orbs is limited to 512 MB. On a Mac test it used about 120 MB idle and 190 MB after an artifact preview; these numbers are not yet confirmed on a server. Plan about 5 people on 4 GB and 12 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
+Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's Orbs used about 105 MB, the web app 35-55 MB, cloudflared 15-35 MB and the hub 12 MB; the system and Docker about 470 MB. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 6 people on 4 GB, so that everyone can reach their limit at once, and about 14 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
 
 > On `root@<server>`, show memory use per Orbs container with `docker stats --no-stream` and the server's free memory with `free -h`. Suggest whether the server needs more memory.
 
 ## The disk fills up
 
-Docker build caches grow fast, about 14 GB after a few builds.
+Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades and backups in `/opt/orbs/backups/`.
 
-> On `root@<server>`, show Docker disk use with `docker system df` and remove the build cache with `docker builder prune`. Do not remove volumes.
+- Fix: remove old Orbs image tags by name, `docker rmi orbs-daemon:<old tag> orbs-web:<old tag> orbs-hub:<old tag>`, and old backups by file name. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
+
+> On `root@<server>`, show `docker system df`, `docker images` and `ls -la /opt/orbs/backups`. Suggest which old `orbs-*` tags (not the `ORBS_TAG` in `/opt/orbs/.env`) and which backups can go, and remove only the ones I confirm, by name. Never use a prune command.
 
 ## What a bot can do
 

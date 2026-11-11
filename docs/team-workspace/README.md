@@ -3,7 +3,7 @@
 Orbs normally runs on one person's computer. The team workspace runs it on one server for a small team, about 3 to 7 people.
 
 > [!WARNING]
-> This is a first version. It has not yet been installed from scratch on a real server.
+> This is a first version. It was installed from scratch on a test server by following these guides (November 2026), but no team uses it yet.
 > Until the hardening phase, a bot has full control of its own user's Orbs: it can read that person's keys and give itself access as them. Keeping it away from other people's Orbs depends on the hub's checks and on each person's Orbs being reachable only by the hub. Use this only with people you trust.
 
 ## What it is
@@ -50,7 +50,7 @@ The admin does not log in as a user. A later version adds an admin panel for che
 
 ## What you need
 
-- A Linux server: Ubuntu 24.04, x86, with Docker. 4 GB of memory fits about 5 people; 8 GB fits about 12.
+- A Linux server: Ubuntu 24.04, x86, with Docker. 4 GB of memory fits up to 6 people; 8 GB fits about 14.
 - A domain on Cloudflare and a Cloudflare account.
 - An API key from a model provider (for example Anthropic or OpenAI) for each person, or one each person brings.
 

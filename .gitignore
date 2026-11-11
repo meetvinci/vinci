@@ -1,5 +1,7 @@
 .env*
 !.env.example
+# Written by `bun scripts/deploy.ts cloudflare apply --env-out`: holds the tunnel token
+cloudflare.env
 .dev.vars*
 .prod.vars
 dist/

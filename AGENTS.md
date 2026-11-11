@@ -8,6 +8,7 @@ A bot backend. Each native daemon serves one owner and runs each bot as a persis
 - For daemon, RPC, storage and Pi behavior, read `.agents/references/api.md`.
 - Before UI changes, read `DESIGN.md`.
 - For team installations (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/team-workspace/` current when that work changes.
+- To install, operate or tear down a team installation on a server, use the `orbs-deploy` skill.
 - For Pi Durable work, read `packages/runtime/node_modules/@earendil-works/pi-durable/README.md` first.
 
 ## Rules

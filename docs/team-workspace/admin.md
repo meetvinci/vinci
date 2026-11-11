@@ -35,7 +35,8 @@ users:
 - Each email appears once. It must match the email the person logs in with at Cloudflare.
 - After every edit, run `bun deploy.ts apply`. It writes the hub's `hub/users.json` and `users.compose.yaml` from this list and starts or stops containers to match. Never edit those two files by hand: the next `apply` overwrites them.
 - `apply` never restarts the hub or the other people's containers, so nobody else is logged out.
-- The hub reads the new list within about a second. If the list has a mistake, `apply` stops before changing anything and says what is wrong.
+- The hub reads the new list on the next request that reaches it, at most once a second. Its log line `Users loaded` with the new count therefore appears only after someone uses Orbs; to check right after `apply`, count the users in `hub/users.json` instead: `grep -c daemonUrl hub/users.json`.
+- If the list has a mistake, `apply` stops before changing anything and says what is wrong.
 
 ## Add a person
 
@@ -49,15 +50,17 @@ users:
 2. Let them log in at Cloudflare. On your computer, in the Orbs repository, copy the list's emails into the Access policy (the Cloudflare token stays on your computer, so the server cannot do this step):
 
    ```sh
-   ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN=… bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>
+   ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>
    ```
+
+   Expected: `Access policy orbs-<team>-allow: updated` and the list of allowed emails.
 3. Send them the address, `https://<team>.<domain>`. On their first visit they type their email and enter the code from their inbox. Their browser pairs itself and shows their bots.
 
 Model keys come from the server's `.env` (see [Set model API keys](#set-model-api-keys)); a new person gets them automatically.
 
 **Give this to your agent:**
 
-> On `root@<server>`, add `<email>` as Orbs user `<id>`: add the line `<id>: <email>` under `users:` in `/opt/orbs/users.yaml`, and run `bun deploy.ts apply` in `/opt/orbs`. Confirm `docker compose ps` shows `orbs-daemon-<id>-1` healthy and `docker compose logs hub --since 2m` shows "Users loaded" with no error. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>` so they can log in.
+> On `root@<server>`, add `<email>` as Orbs user `<id>`: add the line `  <id>: <email>` under `users:` in `/opt/orbs/users.yaml`, and run `bun deploy.ts apply` in `/opt/orbs`. Confirm `docker compose ps` shows `orbs-daemon-<id>-1` healthy and `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people in `users.yaml`. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>` so they can log in. If it says the token is empty, ask me to unlock my password manager.
 
 ## Remove a person
 
@@ -71,7 +74,7 @@ Model keys come from the server's `.env` (see [Set model API keys](#set-model-ap
 2. Take their email out of the Access policy with the same command as when adding someone:
 
    ```sh
-   ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN=… bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>
+   ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>
    ```
 3. Keep their volume until you have a backup or are sure it is not needed. To delete it for good:
 
@@ -83,7 +86,7 @@ Model keys come from the server's `.env` (see [Set model API keys](#set-model-ap
 
 **Give this to your agent:**
 
-> On `root@<server>`, remove Orbs user `<id>` (`<email>`): delete their line from `/opt/orbs/users.yaml`, run `bun deploy.ts apply` in `/opt/orbs`, and confirm their container is gone and `docker compose logs hub --since 2m` shows "Users loaded" with no error. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>`. Keep their volume.
+> On `root@<server>`, remove Orbs user `<id>` (`<email>`): delete their line from `/opt/orbs/users.yaml`, run `bun deploy.ts apply` in `/opt/orbs`, and confirm their container is gone and `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people left. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>`. Keep their volume.
 
 ## Set model API keys
 
@@ -127,7 +130,7 @@ Users can do all of this themselves in the app. To do it for them, edit files in
 
 Skill and instruction changes show up within about 30 seconds. Files must be owned by the container user.
 
-Creating bots for someone is done in the app today. Default bots for new people come with templates (Phase 9).
+There is no command yet to create a bot for someone: they create bots in the app. Default bots for new people come with templates (Phase 9). Don't pair a device of your own into someone's Orbs to do it for them: it can read and act as that person.
 
 **Give this to your agent:**
 
@@ -141,7 +144,13 @@ A backup is a copy of one person's whole volume: bots, chats, files, database, e
 bun deploy.ts backup <id>
 ```
 
-It writes `backups/<id>-<time>.tar.gz`, readable only by root. The backup contains the person's keys: store it like a password.
+It takes a few seconds and writes `backups/<id>-<time>.tar.gz`, readable only by root. The backup contains the person's keys: store it like a password. Copy it off the server, keeping it private:
+
+```sh
+scp -p root@<server>:/opt/orbs/backups/<id>-<time>.tar.gz <safe folder>/
+```
+
+Backups stay on the server until you delete them by name (`rm /opt/orbs/backups/<file>`).
 
 To put a backup back:
 
@@ -149,7 +158,7 @@ To put a backup back:
 bun deploy.ts restore <id> backups/<id>-<time>.tar.gz
 ```
 
-This replaces everything in that person's volume. It first takes a fresh backup of what is there, and prints its name.
+This replaces everything in that person's volume. It first takes a fresh backup of what is there, and prints its name. Expected: `Saved the current data of <id> to backups/…` and `Restored <id> from …`, and their container healthy again.
 
 **Give this to your agent:**
 
@@ -157,7 +166,7 @@ This replaces everything in that person's volume. It first takes a fresh backup 
 
 ## Upgrades
 
-New images arrive with a new tag (see [install, step 3](install.md#3-get-orbs-onto-the-server)). To switch:
+New images arrive with a new tag. Build and load them as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
 1. Back up everyone (above). A new version can change the database; the old version may not read it again.
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
@@ -166,7 +175,7 @@ New images arrive with a new tag (see [install, step 3](install.md#3-get-orbs-on
    docker compose up -d --wait
    ```
 
-   Every container restarts, which takes a few seconds. Open chats reconnect on their own. Routines that were due during the restart run once when Orbs is back.
+   Every Orbs container restarts, which takes about 10 seconds; cloudflared stays up. Open chats reconnect on their own. Routines that were due during the restart run once when Orbs is back. `docker compose ps` should show the new tag on the hub, web and every daemon.
 
 To roll back, set the old tag again and run the same command. If the new version changed someone's data, restore their backup from before the upgrade.
 
@@ -186,3 +195,35 @@ docker compose logs daemon-<id> -f       # one person's Orbs, live
 **Give this to your agent:**
 
 > On `root@<server>`, in `/opt/orbs`, report `docker compose ps`, `docker stats --no-stream` and any error in `docker compose logs --since 1h`. Change nothing.
+
+## Tear down
+
+Removes the team's Orbs from the server and Cloudflare. Back up everyone first if anything may be needed later. Do the steps in this order: the connector must stop before Cloudflare deletes the tunnel.
+
+1. On the server, stop and remove the containers and networks. Volumes stay:
+
+   ```sh
+   cd /opt/orbs && docker compose down
+   ```
+
+2. On your computer, in the Orbs repository, list what the Cloudflare script would delete. Use the same `--zone`, `--hostname`, `--name` and, if you set up SSH, `--ssh-hostname` as at install:
+
+   ```sh
+   CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name orbs-<team> [--ssh-hostname <team>-ssh.<domain>]
+   ```
+
+   Check that every line names `orbs-<team>` or `<team>.<domain>`. Then run the same command with `--yes` to delete exactly those. Expected: one `Deleted …` line per object.
+
+3. Only when nobody's data is needed any more, delete it on the server, by name:
+
+   ```sh
+   docker volume rm orbs_ipc $(docker volume ls -q --filter name=^orbs_data-)
+   docker rmi orbs-daemon:<tag> orbs-web:<tag> orbs-hub:<tag>
+   rm -rf /opt/orbs
+   ```
+
+   This deletes every person's bots, chats, files and keys, and the backups in `/opt/orbs/backups`. Never use `docker system prune` or `docker volume prune` instead: they act on everything on the server.
+
+**Give this to your agent:**
+
+> Tear down the Orbs team install on `root@<server>`: run `docker compose down` in `/opt/orbs`. Then in my Orbs checkout, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the command, run `bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name orbs-<team>` (add `--ssh-hostname <team>-ssh.<domain>` if SSH was set up), show me the list, and check that every object carries `orbs-<team>` or `<team>.<domain>`. Run it again with `--yes` only after I confirm. Keep the volumes and `/opt/orbs` unless I say to delete the data.

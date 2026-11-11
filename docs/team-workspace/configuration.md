@@ -85,7 +85,7 @@ Nothing is published on the server's network interfaces. Docker Compose creates:
 | `orbs_web` | the hub and the web app | no |
 | `orbs_user-<id>` | one person's container and the hub | yes: bots need model providers, MCP servers and the web |
 
-A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It can reach the internet, and nothing stops it from trying the server's own addresses, such as SSH. The hub joins each person's network while running, so adding someone never restarts it.
+A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It can reach the internet, and nothing stops it from trying the server's own addresses: on the test server every person's container could open the host's SSH port and read the cloud provider's metadata service (`169.254.169.254`, including the server's user-data). Never put secrets in the server's user-data or cloud-init, and keep host services off `0.0.0.0` unless they need to be public. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to an `orbs_user-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
 
 ## Container limits
 
@@ -97,7 +97,7 @@ Each person's container runs with:
 - restart on crash and on reboot
 - its own network, reachable only by the hub
 
-On a Mac test, a daemon used about 125 MB after a few chats and about 190 MB after opening an artifact preview; the hub used about 25 MB and the web app about 50 MB. Keep the 512 MB limit until the numbers are confirmed on the server.
+Measured idle on a 2 vCPU, 4 GB x86 server (`docker stats`): each daemon about 105-110 MB after a chat, the web app 35-55 MB, cloudflared 15-35 MB, the hub 12 MB; each under 0.5% CPU. The system and Docker took about 470 MB. On a Mac test a daemon reached about 190 MB after opening an artifact preview. Keep the 512 MB limit.
 
 ## Cloudflare
 
