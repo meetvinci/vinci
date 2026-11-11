@@ -1,12 +1,13 @@
 # Orbs
 
-A bot backend for one owner. A native daemon runs each bot as a persistent Pi Durable agent; the web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) clients pair with it and talk over oRPC.
+A bot backend. Each native daemon serves one owner and runs each bot as a persistent Pi Durable agent; the web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) clients pair with it and talk over oRPC. A team installation runs one daemon per user behind a hub (`apps/hub`) that takes identity from Cloudflare Access.
 
 ## Read first
 
 - Before code changes, read `.agents/references/architecture.md` for structure and module conventions.
 - For daemon, RPC, storage and Pi behavior, read `.agents/references/api.md`.
 - Before UI changes, read `DESIGN.md`.
+- For team installations (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/team-workspace/` current when that work changes.
 - For Pi Durable work, read `packages/runtime/node_modules/@earendil-works/pi-durable/README.md` first.
 
 ## Rules
@@ -14,7 +15,7 @@ A bot backend for one owner. A native daemon runs each bot as a persistent Pi Du
 - Follow nearby code. Keep changes direct; add no compatibility shims or speculative abstractions.
 - Prefer library features to custom infrastructure. For Pi Durable, check its tools, extensions, hooks, documents, tasks, watches and recovery before adding app tables, queues, registries or wait mechanisms. Name the concrete API gap before writing a replacement; Orbs keeps only product policy and host integration.
 - Store application secrets as encrypted entries in the shared `credentials` table through the credentials service. Pi provider authentication stays in Pi's own auth store.
-- Each daemon has one owner, and devices get access only through pairing: no users, organizations, roles or password login. Paired devices issue grants through authenticated RPC; the local CLI uses the owner-only daemon socket. Public transport cannot issue local grants. CLI commands reuse running services; only startup opens stores.
+- Each daemon has one owner, and devices get access only through pairing: no users, organizations, roles or password login inside a daemon. A team installation gives each user their own daemon; the hub maps Cloudflare Access identities to daemons. Paired devices issue grants through authenticated RPC; the local CLI uses the owner-only daemon socket. Public transport cannot issue local grants. CLI commands reuse running services; only startup opens stores.
 - `apps/daemon` is startup, composition, transport and shutdown only. Product logic belongs in server, Pi integration in runtime, and native implementations in their owning package. Follow the ownership table in the architecture reference; fix conflicting code rather than the rules.
 - Services own one concrete domain and receive whole service dependencies. A combined response does not justify a catchall service.
 - User-facing copy uses English keys in `packages/i18n/messages/en/`.

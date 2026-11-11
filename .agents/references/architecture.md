@@ -11,7 +11,7 @@
 
 ## 1. How Orbs works
 
-Orbs is a bot backend for one owner. A native daemon on the owner's computer runs each bot as a persistent Pi Durable agent. Web, iOS and macOS clients pair with the daemon and talk to it over oRPC.
+Orbs is a bot backend. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS clients pair with the daemon and talk to it over oRPC. A team installation runs one daemon per user, each in its own container, behind a hub that takes identity from Cloudflare Access and routes each user to their own daemon.
 
 ### System
 
@@ -29,6 +29,19 @@ flowchart TB
   end
   Runtime --> Models["model providers"]
   Server -->|"push"| Expo["Expo push service"]
+```
+
+### Team installation
+
+```mermaid
+flowchart TB
+  Clients["browser, PWA"] -->|"Cloudflare Tunnel and Access"| Hub
+  subgraph Host["Team server"]
+    Hub["apps/hub<br/>Access JWT, email to daemon"] -->|"daemon paths"| Daemons["one daemon container per user"]
+    Hub -->|"other paths"| Web["apps/web<br/>one shared web app"]
+    Web -->|"SSR with the Access JWT"| Hub
+    Hub -.->|"owner socket: pairing grant"| Daemons
+  end
 ```
 
 ### Layers
@@ -240,8 +253,9 @@ packages/
 ├── AGENTS.md                           agent instructions; CLAUDE.md links to it
 ├── DESIGN.md                           UI principles
 ├── README.md                           what Orbs is, setup, scripts
+├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
-├── .agents/references/<name>.md        standing references: architecture, API, quality gate
+├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace
 ├── .agents/docs/<name>.md              library notes: Pi Durable examples
 ├── .agents/orchestrators/              worktree configs for Paseo, Orca, Conductor and T3 Code, and workspace.sh
 ├── .agents/sync.ts                     links CLAUDE.md, .claude/ and the orchestrator configs: bun run agents:sync
@@ -262,6 +276,7 @@ packages/
 | `packages/contracts` | Public schemas, input and output types, oRPC contracts and errors, including the schemas clients validate forms, search params, pairing codes and stored preferences with. No implementations. |
 | `packages/client` | Typed RPC calls, reconnect, applying Pi view updates, and the data and view helpers web and mobile share. Chat and bot hooks live here, not in the apps. `./client` stays free of React. No UI components; apps keep route-bound hooks, toasts and navigation. |
 | Shared packages | Env, errors, logging, i18n, avatars and the secret proxy. No application dependencies. |
+| `docs/` | Human setup and operation guides. Agent references stay in `.agents/references/`. |
 
 Native code stays in its owning package behind `/native`. Using files, SQLite or subprocesses does **not** make code daemon logic.
 
@@ -312,7 +327,8 @@ export type SkillService = ReturnType<typeof makeSkillService>;
 
 ### State and security
 
-- One implicit owner per independent daemon. Devices pair with revocable credentials. No users, organizations, roles or password login.
+- One implicit owner per independent daemon. Devices pair with revocable credentials. Inside a daemon there are no users, organizations, roles or password login.
+- A team installation runs one daemon per user behind the hub. Identity comes from Cloudflare Access at the hub, which routes by the verified email, never by a client-chosen address.
 - Pairing stores token hashes and atomically consumes grants with device creation. Issuing a grant requires an authenticated device or trusted local transport. CLI pairing uses the owner-only daemon socket before or after initial setup; public transport cannot acquire local authority. The daemon prints a startup pairing link while no device exists.
 - App persistence uses `node:sqlite` and Kysely. SQL identifiers are snake_case; `CamelCasePlugin` maps TypeScript camelCase. Migrations preserve existing data.
 - Generic non-secret key/value data belongs to the shared `settings` service and table, with domain keys such as `skills.directories`, `mcp.paths` and `tools.approvalRules`.

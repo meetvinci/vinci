@@ -2,7 +2,7 @@
 
 > Your own bots, on your own Mac. Chat with them from the web, your iPhone or the desktop app.
 
-Orbs runs a small daemon on your computer. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Your devices pair with the daemon once, then talk to it over your local network or Tailscale. There are no accounts and no cloud service in between.
+Orbs runs a small daemon on your computer. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Your devices pair with the daemon once, then talk to it over your local network or Tailscale. A personal install has no accounts and no cloud service in between. A small team can also share one server: see [Team workspace](#-team-workspace).
 
 ## ⬇️ Download
 
@@ -19,9 +19,15 @@ Orbs runs a small daemon on your computer. Each bot is a persistent [Pi](https:/
 - 📎 **Files, questions and reactions.** Attach files and images, answer a bot's multiple-choice questions, and react to messages.
 - ⏰ **Routines.** Schedule a bot to run on its own; results land in its chat.
 - 📊 **Artifacts.** Bots build documents, charts and HTML pages you can open and edit from the artifacts page.
-- 📱 **iOS app.** Scan the pairing QR code and chat on the go. Push notifications show the bot's own avatar.
+- 📱 **iOS app.** Scan the pairing QR code and chat on the go. Push notifications show the bot's own avatar. Android is planned.
 - 🍎 **macOS app.** Starts the daemon for you, pairs itself, and can also open Orbs running on another Mac.
 - 💾 **Backups.** One command snapshots every bot, its files and the database, and restores them later.
+
+## 👥 Team workspace
+
+Orbs can also run on one Linux server for a team of about 3 to 7 people. Each person gets their own Orbs in its own container, everyone uses one web address, and Cloudflare Access handles the login. It is work in progress and meant for trusted teams for now.
+
+Start with the [team workspace guide](docs/team-workspace/README.md).
 
 ## 🧰 Built with
 
