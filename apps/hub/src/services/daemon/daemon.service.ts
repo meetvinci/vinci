@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { daemonActionDoor } from './daemon-action.door';
 import { daemonActionResolve } from './daemon-action.resolve';
 import { DAEMON } from './daemon.constants';
 import { daemonDriverPinsRead } from './daemon.driver';
@@ -9,8 +10,12 @@ export async function makeDaemonService({ directory }: DaemonTypes.DaemonService
   const deps: DaemonTypes.DaemonServiceDeps = { path, state: { pins: await daemonDriverPinsRead(path), checked: new Map(), saving: Promise.resolve() } };
 
   return {
+    queries: {
+      pinned: () => Object.keys(deps.state.pins),
+    },
     actions: {
       resolve: (input) => daemonActionResolve(deps, input),
+      door: (input) => daemonActionDoor(deps, input),
       forget: ({ user }) => {
         deps.state.checked.delete(user.id);
       },

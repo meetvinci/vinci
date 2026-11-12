@@ -21,14 +21,18 @@ import { Switch } from '../switch';
 import { BotMcpLogo } from './bot-mcp-logo';
 import type { BotMcpRow } from '@repo/client/client';
 import type { Bot } from '@repo/contracts/universal';
+import type { LinkOptions } from '@tanstack/react-router';
 
 const BOT_MCP_SEARCH_MIN = 8;
 
 interface BotMcpPanelProps {
   bot: Bot
+  /** False in the admin panel: the provider's callback would reach the admin's own identity, not this daemon. */
+  canSignIn: boolean
+  removeLink: (server: string) => LinkOptions
 }
 
-export function BotMcpPanel({ bot }: BotMcpPanelProps) {
+export function BotMcpPanel({ bot, canSignIn, removeLink }: BotMcpPanelProps) {
   const mcp = useBotMcp({
     bot,
     login: () => {
@@ -107,8 +111,9 @@ export function BotMcpPanel({ bot }: BotMcpPanelProps) {
             />
           ) : (
             <BotMcpPanelActions
-              bot={bot}
+              canSignIn={canSignIn}
               mcp={mcp}
+              removeLink={removeLink}
               row={row}
             />
           )}
@@ -152,12 +157,13 @@ export function BotMcpPanel({ bot }: BotMcpPanelProps) {
 }
 
 interface BotMcpPanelActionsProps {
-  bot: Bot
+  canSignIn: boolean
   row: BotMcpRow
   mcp: ReturnType<typeof useBotMcp>
+  removeLink: (server: string) => LinkOptions
 }
 
-function BotMcpPanelActions({ bot, row, mcp }: BotMcpPanelActionsProps) {
+function BotMcpPanelActions({ canSignIn, row, mcp, removeLink }: BotMcpPanelActionsProps) {
   const navigate = useNavigate();
   const { name, server } = row;
 
@@ -166,7 +172,7 @@ function BotMcpPanelActions({ bot, row, mcp }: BotMcpPanelActionsProps) {
   }
 
   const isPending = mcp.pending === name;
-  const needsLogin = !isPending && server.auth === 'required';
+  const needsLogin = canSignIn && !isPending && server.auth === 'required';
   const canTurnOff = row.isShared && row.isOn;
   const hasMenu = server.auth === 'authorized' || server.isOwned || canTurnOff;
 
@@ -225,11 +231,7 @@ function BotMcpPanelActions({ bot, row, mcp }: BotMcpPanelActionsProps) {
             {server.isOwned ? (
               <DropdownMenuItem
                 variant="destructive"
-                onSelect={() => void navigate({
-                  to: '/bots/$botId/mcp/$server/remove',
-                  params: { botId: bot.id, server: name },
-                  resetScroll: false,
-                })}
+                onSelect={() => void navigate({ ...removeLink(name), resetScroll: false })}
               >
                 <IconTrash2 />
                 {m.bots_mcp_remove()}

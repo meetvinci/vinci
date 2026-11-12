@@ -2,6 +2,7 @@ import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSen
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ROOMS, ROOMS_DRAG_PRESS } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { EmptyCompact } from '@repo/ui/empty';
 import { FormErrors } from '@repo/ui/forms/form';
@@ -11,7 +12,7 @@ import { toasty } from '@repo/ui/sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RoomsPrefillLink } from '@/components/rooms/rooms-prefill-link';
 import { TodosItem } from '@/components/todos/todos-item';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import IconListTodo from '~icons/lucide/list-todo';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { Bot } from '@repo/contracts/universal';
@@ -22,7 +23,9 @@ interface TodosListProps {
 }
 
 export function TodosList({ bot, handle }: TodosListProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
+  const scope = useSectionScope();
   const options = rpc.todos.list.queryOptions({ input: { botId: bot.id }, refetchInterval: ROOMS.todosRefreshMs });
   const list = useQuery(options);
 
@@ -71,9 +74,9 @@ export function TodosList({ bot, handle }: TodosListProps) {
             <ItemGroup variant="outline">
               {open.map((todo) => (
                 <TodosItem
-                  isSortable
                   bot={bot}
                   handle={handle}
+                  isSortable={Boolean(scope.rooms)}
                   key={todo.id}
                   todo={todo}
                 />
@@ -99,7 +102,7 @@ export function TodosList({ bot, handle }: TodosListProps) {
       ) : null}
       {list.isSuccess && todos.length === 0 ? (
         <EmptyCompact
-          description={(
+          description={scope.isAdmin ? m.admin_bot_todos_empty({ bot: bot.name }) : (
             <>
               {m.rooms_todos_empty_hint({ bot: bot.name })}
               {' '}
@@ -112,7 +115,7 @@ export function TodosList({ bot, handle }: TodosListProps) {
           title={m.rooms_todos_empty_title()}
         />
       ) : null}
-      {todos.length > 0 ? (
+      {todos.length > 0 && !scope.isAdmin ? (
         <p className="text-xs text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary">
           <RoomsPrefillLink bot={bot} prompt={m.rooms_todos_prompt()}>{m.rooms_prefill_create()}</RoomsPrefillLink>
         </p>

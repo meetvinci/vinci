@@ -6,7 +6,7 @@ import { onError } from '@orpc/server';
 import { RPCHandler as FetchRPCHandler } from '@orpc/server/fetch';
 import { CORSPlugin, RequestHeadersPlugin, ResponseHeadersPlugin } from '@orpc/server/plugins';
 import { RPCHandler as WebsocketRPCHandler } from '@orpc/server/websocket';
-import { artifactGet, SERVER_PROTOCOL, serverOrigin } from '@repo/contracts/universal';
+import { artifactGet, AVATAR, SERVER_PROTOCOL, serverOrigin } from '@repo/contracts/universal';
 import { env } from '@repo/env/server';
 import { Errors, errorStatusMap, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
@@ -385,9 +385,9 @@ async function coreNativeLocal(services: CoreTypes.CoreServices) {
 
   const server = Bun.serve({
     unix: SOCKET,
-    maxRequestBodySize: 16 * 1024,
+    maxRequestBodySize: AVATAR.maxBytes + 1024 * 1024,
     routes: {
-      '/rpc/pairing/bootstrap': {
+      '/rpc/*': {
         POST: async (request) => (request.headers.has('origin')
           ? new Response(null, { status: 403 })
           : coreNativeReply(await rpc.http.handle(request, { prefix: '/rpc', context: rpc.context }), 'no-store')),

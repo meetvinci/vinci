@@ -4,6 +4,7 @@ import { log } from '@repo/logger/client';
 import { toasty } from '@repo/ui/sonner';
 import { isCancelledError, QueryCache, QueryClient } from '@tanstack/react-query';
 import { match, P } from 'ts-pattern';
+import { adminQueryClient } from '@/services/admin/admin.client';
 import { connectionLost } from '@/services/connection/connection.client';
 
 export function tanstackQueryContext() {
@@ -32,5 +33,5 @@ export function tanstackQueryContext() {
 
   chatAttachmentUrlRelease(queryClient);
 
-  return { queryClient };
+  return { queryClient, adminQueryClient: adminQueryClient() };
 }

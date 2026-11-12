@@ -58,16 +58,16 @@ Build the images on your own computer, not on the server: building needs a lot o
 ```sh
 TAG=$(git rev-parse --short HEAD)
 bun run build:images --tag $TAG
-docker image inspect orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG --format '{{.RepoTags}} {{.Architecture}}'
+docker image inspect orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG --format '{{.RepoTags}} {{.Architecture}}'
 ```
 
-The last command must print `amd64` three times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
+The last command must print `amd64` four times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
 
 ```sh
-docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
+docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
 ```
 
-Expected: three `Loaded image:` lines. It takes about a minute on a home connection (about 180 MB).
+Expected: four `Loaded image:` lines. It takes a minute or two on a home connection (about 250 MB).
 
 Copy the deployment files into `/opt/orbs`. Only the first time, also copy the settings template as `.env`:
 
@@ -87,23 +87,27 @@ Expected: a Bun version such as `1.4.2`.
 
 **Give this to your agent:**
 
-> In my Orbs checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `orbs-daemon:$TAG`, `orbs-web:$TAG` and `orbs-hub:$TAG`. Load them on `root@<server>` with `docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/orbs` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/orbs/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat orbs-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> In my Orbs checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `orbs-daemon:$TAG`, `orbs-web:$TAG`, `orbs-hub:$TAG` and `orbs-provisioner:$TAG`. Load them on `root@<server>` with `docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/orbs` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/orbs/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat orbs-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
 `/opt/orbs/users.yaml` is the one list of people. It decides who can log in at Cloudflare and who gets their own Orbs. One line per person: a short user id and their login email. The id names the person's container and volume and cannot be changed later; use lowercase letters, digits and dashes.
+
+Under `admins:`, list the email of the first admin of the admin panel. An admin can log in at Cloudflare but gets no Orbs of their own unless they are also under `users:`. Later admins are added in the admin panel.
 
 ```sh
 ssh root@<server> 'cat > /opt/orbs/users.yaml' <<'LIST'
 users:
   alice: alice@example.com
   bob: bob@example.com
+admins:
+  - admin@example.com
 LIST
 ```
 
 **Give this to your agent:**
 
-> Write `/opt/orbs/users.yaml` on `root@<server>` with `users:` and one `  <id>: <email>` line for each of `<people>`. Ids are short, lowercase letters, digits and dashes, and each email appears once. Don't print the emails anywhere public.
+> Write `/opt/orbs/users.yaml` on `root@<server>` with `users:` and one `  <id>: <email>` line for each of `<people>`, and `admins:` with one `  - <email>` line for `<first admin email>`. Ids are short, lowercase letters, digits and dashes, and each email appears once under `users:`. Don't print the emails anywhere public.
 
 ## 5. Create the Cloudflare objects
 
@@ -160,17 +164,17 @@ Running it again is safe: it prints `unchanged` for what is already right and fi
 The tunnel connector, cloudflared, runs as a container next to the hub; the Compose file starts it. It needs only the values from `cloudflare.env`, in `/opt/orbs/.env`. This command merges them into that file, keeps its other lines, keeps it readable by root only, and then deletes the local copy:
 
 ```sh
-ssh root@<server> 'umask 077 && cd /opt/orbs && { grep -v -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|TUNNEL_TOKEN)=" .env 2>/dev/null || true; cat; } > .env.new && mv .env.new .env' < cloudflare.env && rm cloudflare.env
-ssh root@<server> 'stat -c "%a %U" /opt/orbs/.env; grep -c -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|TUNNEL_TOKEN)=." /opt/orbs/.env'
+ssh root@<server> 'umask 077 && cd /opt/orbs && { grep -v -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|TUNNEL_TOKEN)=" .env 2>/dev/null || true; cat; } > .env.new && mv .env.new .env' < cloudflare.env && rm cloudflare.env
+ssh root@<server> 'stat -c "%a %U" /opt/orbs/.env; grep -c -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|TUNNEL_TOKEN)=." /opt/orbs/.env'
 ```
 
-Expected: `600 root` and `4`.
+Expected: `600 root` and `6`. `CLOUDFLARE_ZONE` and `CLOUDFLARE_NAME` are not secret; the admin panel needs them only if you later let the server update Cloudflare Access ([admin tasks](admin.md#let-the-server-update-cloudflare-access)).
 
 The token lets anyone run a connector for this tunnel. Treat it like a password.
 
 **Give this to your agent:**
 
-> Merge `cloudflare.env` into `/opt/orbs/.env` on `root@<server>` with the merge command in step 6 of `docs/team-workspace/install.md`, then delete the local `cloudflare.env`. Confirm `stat -c "%a %U" /opt/orbs/.env` prints `600 root` and that the four Cloudflare lines have values. Don't print the file.
+> Merge `cloudflare.env` into `/opt/orbs/.env` on `root@<server>` with the merge command in step 6 of `docs/team-workspace/install.md`, then delete the local `cloudflare.env`. Confirm `stat -c "%a %U" /opt/orbs/.env` prints `600 root` and that the six Cloudflare lines have values. Don't print the file.
 
 ### Optional: SSH through the tunnel
 
@@ -198,13 +202,22 @@ ssh root@<server> "sed -i 's/^ORBS_TAG=.*/ORBS_TAG=$TAG/' /opt/orbs/.env"
 
 Write each model key the same way, for example `ANTHROPIC_API_KEY=`, reading it from your password manager inside the command. Leave a key empty to skip that provider. Without any key, people add their own in **Settings → Providers** on their first visit. Every setting is explained in the file and in [configuration](configuration.md).
 
+Set the first admin of the admin panel (the same email as under `admins:` in `users.yaml`), and create the secret the hub uses to reach the provisioner, the service that adds and removes people for the admin panel. Nobody types this secret; it never leaves the server:
+
+```sh
+ssh root@<server> 'cd /opt/orbs && sed -i "/^HUB_ADMIN_EMAILS=/d" .env && echo "HUB_ADMIN_EMAILS=admin@example.com" >> .env'
+ssh root@<server> 'cd /opt/orbs && { grep -q "^PROVISIONER_TOKEN=." .env || { sed -i "/^PROVISIONER_TOKEN=/d" .env && echo "PROVISIONER_TOKEN=$(openssl rand -hex 32)" >> .env; }; } && grep -c "^PROVISIONER_TOKEN=.\{64\}$" .env'
+```
+
+Expected: `1`.
+
 Start everything:
 
 ```sh
 ssh root@<server> 'cd /opt/orbs && bun deploy.ts apply'
 ```
 
-This writes the per-person files from `users.yaml`, then starts the web app, cloudflared and one container per person, then the hub, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
+This writes the per-person files from `users.yaml`, then starts the web app, cloudflared and one container per person, then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
 
 Check it:
 
@@ -212,17 +225,17 @@ Check it:
 ssh root@<server> 'cd /opt/orbs && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `orbs-hub-1`, `orbs-web-1`, `orbs-cloudflared-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
 If it differs:
 
 - `pull access denied for orbs-daemon`: the tag in `.env` is not loaded on the server. Check `docker images` and step 3.
-- `set ACCESS_AUD in .env` or a similar message: step 6 did not merge the Cloudflare values.
+- `set ACCESS_AUD in .env` or a similar message: step 6 did not merge the Cloudflare values. `set PROVISIONER_TOKEN in .env` or `set HUB_ADMIN_EMAILS in .env`: the two commands above did not run.
 - cloudflared unhealthy or no `Registered tunnel connection` line: check `docker compose logs cloudflared` for a token error, and run step 5 and 6 again.
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, web, cloudflared and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines.
+> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines.
 
 ## 8. Check it works
 
@@ -249,16 +262,17 @@ Then log in:
 2. Log in with a team email and the code you get by email.
 3. Orbs opens for that person. The browser pairs itself; there is no PIN and no device name to type. On the first visit Orbs asks the person to set up a model provider unless the admin set a shared key.
 4. Try an email that is not on the list. Cloudflare should not send it a code.
+5. Log in as the first admin and open `https://<team>.<domain>/admin`. You should see **Users** with everyone from `users.yaml`, and **Admins** with your email. A person who is not an admin gets 403 there.
 
 **Give this to your agent:**
 
-> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the three `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Then tell me to open `https://<team>.<domain>` in a private window and log in.
+> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the three `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
 
 ## The whole install in one prompt
 
 Fill in the angle brackets and paste:
 
-> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 8 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and tell me the address to log in at.
+> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 8 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and tell me the address to log in at and the admin panel address (`/admin`).
 
 ## Next
 

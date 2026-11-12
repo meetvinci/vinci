@@ -1,5 +1,5 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { useSettingsTools } from '@repo/client/react';
+import { useRpc, useSettingsTools } from '@repo/client/react';
 import { TOOL_APPROVAL, toolSettingsForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { ButtonLoading } from '@repo/ui/button-loading';
@@ -11,9 +11,9 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsToolsRules } from '@repo/ui/settings/settings-tools-rules';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
-import { rpc } from '@/services/rpc/rpc.client';
 
 export function SettingsTools() {
+  const { rpc } = useRpc();
   const { data: settings } = useSuspenseQuery(rpc.tools.settings.queryOptions());
 
   const form = useForm({

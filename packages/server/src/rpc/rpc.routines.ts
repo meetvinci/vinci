@@ -1,7 +1,7 @@
-import { authedRouter } from './rpc.procedures';
+import { authedRouter, ownerRouter } from './rpc.procedures';
 
 export const routines = {
-  list: authedRouter.routines.list.handler(async ({ context, input }) => context.routines.queries.list(input)),
+  list: ownerRouter.routines.list.handler(async ({ context, input }) => context.routines.queries.list(input)),
   create: authedRouter.routines.create.handler(async ({ context, input }) => context.routines.actions.create(input)),
   update: authedRouter.routines.update.handler(async ({ context, input }) => context.routines.actions.update(input)),
   run: authedRouter.routines.run.handler(async ({ context, input }) => context.routines.actions.run(input)),

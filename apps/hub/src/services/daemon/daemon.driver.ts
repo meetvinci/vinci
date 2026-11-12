@@ -1,5 +1,7 @@
 import { serverHealth } from '@repo/contracts/universal';
-import { readFile, rename, stat, writeFile } from 'node:fs/promises';
+import { Errors } from '@repo/errors/universal';
+import { lstat, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { daemonPins } from '../../types/daemon.types';
 import { DAEMON } from './daemon.constants';
 import type { DaemonPins } from '../../types/daemon.types';
@@ -22,4 +24,15 @@ export async function daemonDriverPinsWrite(path: string, pins: DaemonPins): Pro
 
   await writeFile(draft, `${JSON.stringify(pins, null, 2)}\n`, { mode: 0o600 });
   await rename(draft, path);
+}
+
+export async function daemonDriverSocket(socketPath: string, request: Request): Promise<Response> {
+  const entry = await lstat(socketPath).catch(() => null);
+  const folder = await realpath(dirname(socketPath)).catch(() => null);
+
+  if (!entry?.isSocket() || folder !== dirname(socketPath)) {
+    throw new Errors.SERVER_UNREACHABLE({ internal: `Owner socket ${socketPath} is not a socket at its configured real path` });
+  }
+
+  return fetch(request, { unix: socketPath, redirect: 'manual' });
 }

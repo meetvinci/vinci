@@ -1,5 +1,5 @@
 import { ROOMS_SEND_MODES } from '@repo/client/client';
-import { useChatDefaults } from '@repo/client/react';
+import { useChatDefaults, useRpc } from '@repo/client/react';
 import { usePreferences } from '@repo/client/web';
 import { conversationWhenBusy, preferencesEnterAction } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
@@ -7,7 +7,7 @@ import { PanelContent, PanelRow, PanelTitle } from '@repo/ui/panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 
 const SETTINGS_ENTER_KEYS = [
   { device: 'desktop', label: m.settings_chat_enter_desktop },
@@ -17,13 +17,15 @@ const SETTINGS_ENTER_KEYS = [
 const SETTINGS_ENTER_ACTIONS = { send: m.settings_chat_enter_send, newline: m.settings_chat_enter_newline };
 
 export function SettingsChat() {
+  const { rpc } = useRpc();
   const { preferences, save } = usePreferences();
   const { data: settings } = useSuspenseQuery(rpc.conversation.settings.queryOptions());
   const configure = useChatDefaults();
+  const scope = useSectionScope();
 
   return (
     <SettingsGroup title={m.settings_chat()}>
-      {SETTINGS_ENTER_KEYS.map((row) => (
+      {scope.isAdmin ? null : SETTINGS_ENTER_KEYS.map((row) => (
         <PanelRow key={row.device}>
           <PanelContent>
             <PanelTitle>{row.label()}</PanelTitle>

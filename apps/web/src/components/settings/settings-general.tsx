@@ -10,6 +10,7 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { Switch } from '@repo/ui/switch';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import type { NotificationPlatform } from '@repo/contracts/universal';
 
 const SETTINGS_NOTIFY_PREFER = {
@@ -48,6 +49,7 @@ export function SettingsGeneral() {
   const defaults = useChatDefaults();
   const notify = useNotificationSettings();
   const verboseId = useId();
+  const scope = useSectionScope();
 
   return (
     <SettingsGroup title={m.settings_general()}>
@@ -80,9 +82,11 @@ export function SettingsGeneral() {
           </SelectContent>
         </Select>
       </PanelRow>
-      <ClientOnly>
-        <SettingsGeneralNotifications />
-      </ClientOnly>
+      {scope.isAdmin ? null : (
+        <ClientOnly>
+          <SettingsGeneralNotifications />
+        </ClientOnly>
+      )}
       <PanelRow>
         <PanelContent>
           <PanelTitle>{m.settings_notify_prefer()}</PanelTitle>

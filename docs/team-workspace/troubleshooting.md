@@ -17,6 +17,12 @@ Either the daemon does not accept the team address, or the hub does not know the
 
 > On `root@<server>`, in `/opt/orbs`, read the hub's latest log error about `users.json`, then run `bun deploy.ts apply` and confirm `docker compose logs hub --since 5m` shows the users loaded. Don't edit `hub/users.json` by hand.
 
+## The admin panel answers 403
+
+Your email is not in `/opt/orbs/hub/admins.json`, or the file is invalid (the hub log says so, and then nobody is an admin). Admins who are not users get 403 everywhere except `/admin`; that is expected.
+
+> On `root@<server>`, in `/opt/orbs`, check that `hub/admins.json` is valid JSON of the form `{"admins": ["<email>"]}` and lists `<email>`. If it is broken, move it aside, set `HUB_ADMIN_EMAILS=<email>` in `.env` and run `docker compose up -d hub`. Confirm `docker compose logs hub --since 5m` shows "Admins seeded" or "Admins loaded" with no error.
+
 ## A person gets an error page (502) instead of their bots
 
 The hub checks that each person's Orbs has the ID it saw the first time. If the ID changed, it refuses to forward. That happens when someone's Orbs was reset on purpose, or when two people's settings point at the same Orbs.
@@ -25,6 +31,18 @@ The hub checks that each person's Orbs has the ID it saw the first time. If the 
 - Otherwise: check `hub/users.json` for a copied address. Don't change `pins.json` until you know which Orbs belongs to whom; the hub's log says which check failed.
 
 > On `root@<server>`, the hub returns 502 for Orbs user `<name>`. Compare their `daemonUrl` in `/opt/orbs/hub/users.json` with everyone else's, and report what the hub's log says. Don't change `pins.json` unless I confirm their Orbs was reset on purpose.
+
+## The admin panel cannot add, disable or remove people
+
+The panel asks the provisioner, which runs `bun deploy.ts apply`. Its log names the step that failed: `docker compose logs provisioner --since 15m`.
+
+- `EACCES` on `hub/users.json`: the `hub` folder is still owned by group 1000 from an older install. Run `bun deploy.ts apply` once by hand as root; it changes the folder to group root, mode 770.
+- `PROVISIONER_TOKEN must be at least 32 random characters` or `CLOUDFLARE_ZONE and CLOUDFLARE_NAME … must be set`: the provisioner did not start. Fix `.env` and run `docker compose up -d --wait provisioner`.
+- `docker compose up … failed`: the same failure as `apply` by hand would show; run `bun deploy.ts apply` on the server to see Compose's full message. `cannot start a paused container` means someone paused a container: `docker unpause` it. A failed add was undone, so try again.
+- `Another apply or admin panel change is running (users.yaml.lock)`: a by-hand `apply` or another panel change was running. Try again in a minute. If nothing is running, a crash left the lock behind; it is ignored after 10 minutes, or delete `/opt/orbs/users.yaml.lock`.
+- The panel says to add the email in Cloudflare Access by hand: there is no `CLOUDFLARE_API_TOKEN` on the server, or Cloudflare refused it (the log says `Access sync failed`). Run `cloudflare emails` from your computer ([admin tasks](admin.md#add-a-person), step 2) or [let the server do it](admin.md#let-the-server-update-cloudflare-access).
+
+> On `root@<server>`, in `/opt/orbs`, the admin panel failed to change people. Report the errors in `docker compose logs provisioner --since 15m` and `stat -c "%u:%g %a" hub`, without printing secrets. If it does not print `1000:0 770`, run `bun deploy.ts apply` and confirm it ends with `Applied <n> users`. Change nothing else.
 
 ## Bots never answer, with no error
 
@@ -101,4 +119,4 @@ Images are built on your computer, so the server has no build cache. What grows 
 
 ## What a bot can do
 
-Until the hardening phase, a bot that can run commands has full control of its own person's Orbs: it can read that person's model key and saved secrets, and give itself access as that person. It can also tamper with the folder the hub uses to pair that person's browser. The hub refuses anything there that is not a real socket, but a bot can still swap the socket at the exact moment the hub uses it. What really keeps a bot away from other people's Orbs is that each person's Orbs sits on its own network that only the hub can reach (set up by the deployment files). Only invite people you trust, and give bots the read-only or ask permission mode when they don't need more.
+Until the hardening phase, a bot that can run commands has full control of its own person's Orbs: it can read that person's model key and saved secrets, and give itself access as that person. Everything the admin can change through a person's private door (settings, keys, bots, devices), that person's bots can change too. It can also tamper with the folder the hub uses to pair that person's browser. The hub refuses anything there that is not a real socket, but a bot can still swap the socket at the exact moment the hub uses it. What really keeps a bot away from other people's Orbs is that each person's Orbs sits on its own network that only the hub can reach (set up by the deployment files). Only invite people you trust, and give bots the read-only or ask permission mode when they don't need more.

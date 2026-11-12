@@ -1,4 +1,4 @@
-import { authedRouter } from './rpc.procedures';
+import { authedRouter, ownerRouter } from './rpc.procedures';
 
 export const conversation = {
   watchNotifications: authedRouter.conversation.watchNotifications.handler(async ({ context, signal }) => (
@@ -19,8 +19,8 @@ export const conversation = {
   setHidden: authedRouter.conversation.setHidden.handler(async ({ context, input }) => context.conversation.actions.setHidden(input)),
   setMuted: authedRouter.conversation.setMuted.handler(async ({ context, input }) => context.conversation.actions.setMuted(input)),
   setWhenBusy: authedRouter.conversation.setWhenBusy.handler(async ({ context, input }) => context.conversation.actions.setWhenBusy(input)),
-  settings: authedRouter.conversation.settings.handler(async ({ context }) => context.conversation.queries.settings()),
-  configure: authedRouter.conversation.configure.handler(async ({ context, input }) => context.conversation.actions.configure(input)),
+  settings: ownerRouter.conversation.settings.handler(async ({ context }) => context.conversation.queries.settings()),
+  configure: ownerRouter.conversation.configure.handler(async ({ context, input }) => context.conversation.actions.configure(input)),
   arrange: authedRouter.conversation.arrange.handler(async ({ context, input }) => context.conversation.actions.arrange(input)),
 
   contextUsage: authedRouter.conversation.contextUsage.handler(async ({ context, input }) => context.conversation.queries.contextUsage(input)),

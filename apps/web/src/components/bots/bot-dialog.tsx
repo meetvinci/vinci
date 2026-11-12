@@ -1,6 +1,6 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { botDefaultSettings, botHandle } from '@repo/client/client';
-import { useBotCreate } from '@repo/client/react';
+import { useBotCreate, useRpc } from '@repo/client/react';
 import { botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { BotFormAvatar } from '@repo/ui/bots/bot-form-avatar';
@@ -17,17 +17,19 @@ import { useForm, useFormContext, useWatch } from 'react-hook-form';
 import { BotEdit } from '@/components/bots/bot-edit';
 import { BotFormModel } from '@/components/bots/bot-form-model';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import IconChevronLeft from '~icons/lucide/chevron-left';
 import type { BotDialogView } from '@/types/bot.types';
 import type { BotForm } from '@repo/contracts/universal';
 
 interface BotDialogProps {
+  variant?: 'dialog' | 'page'
   view: BotDialogView
   onClose: () => void
 }
 
-export function BotDialog({ view, onClose }: BotDialogProps) {
+export function BotDialog({ variant, view, onClose }: BotDialogProps) {
+  const { rpc } = useRpc();
   const { data: bots } = useSuspenseQuery(rpc.bots.list.queryOptions());
 
   const bot = view.kind === 'create' ? undefined : bots.find((item) => item.id === view.botId);
@@ -46,6 +48,7 @@ export function BotDialog({ view, onClose }: BotDialogProps) {
       description={m.bots_description()}
       isBusy={isBusy}
       title={m.bots_title()}
+      variant={variant}
       onClose={onClose}
     >
       {view.kind === 'create' ? <BotDialogCreate /> : null}
@@ -62,7 +65,9 @@ export function BotDialog({ view, onClose }: BotDialogProps) {
 }
 
 function BotDialogCreate() {
+  const { rpc } = useRpc();
   const navigate = useNavigate();
+  const scope = useSectionScope();
   const { data: models } = useQuery({ ...rpc.models.list.queryOptions(), retry: false });
   const settings = models ? botDefaultSettings({ models, thinkingLevel: 'medium' }) : null;
 
@@ -86,11 +91,7 @@ function BotDialogCreate() {
   });
 
   const create = useBotCreate({
-    onCreated: (bot) => void navigate({
-      to: '/bots/$botId/$tab',
-      params: { botId: bot.id, tab: 'instructions' },
-      replace: true,
-    }),
+    onCreated: (bot) => void navigate(scope.bots.section(bot.id, 'instructions')),
   });
 
   const submit = form.handleSubmit(create.create);
@@ -125,7 +126,7 @@ function BotDialogCreate() {
             size="sm"
             variant="ghost"
           >
-            <Link replace to="/bots">
+            <Link {...scope.bots.list}>
               <IconChevronLeft />
               {m.bots_back()}
             </Link>
@@ -174,6 +175,7 @@ interface BotDialogDraftProps {
 }
 
 function BotDialogDraft({ busy }: BotDialogDraftProps) {
+  const { rpc } = useRpc();
   const form = useFormContext<BotForm>();
   const [name, handle, modelId] = useWatch({ control: form.control, name: ['name', 'handle', 'modelId'] });
   const { data: models } = useQuery({ ...rpc.models.list.queryOptions(), retry: false });

@@ -1,9 +1,9 @@
-import { authedRouter } from './rpc.procedures';
+import { ownerRouter } from './rpc.procedures';
 
 export const secrets = {
-  list: authedRouter.secrets.list.handler(async ({ context }) => context.secrets.queries.rules()),
-  save: authedRouter.secrets.save.handler(async ({ context, input }) => context.secrets.actions.save(input)),
-  remove: authedRouter.secrets.remove.handler(async ({ context, input }) => context.secrets.actions.remove(input)),
-  settings: authedRouter.secrets.settings.handler(async ({ context }) => context.secrets.queries.settings()),
-  configure: authedRouter.secrets.configure.handler(async ({ context, input }) => context.secrets.actions.configure(input)),
+  list: ownerRouter.secrets.list.handler(async ({ context }) => context.secrets.queries.rules()),
+  save: ownerRouter.secrets.save.handler(async ({ context, input }) => context.secrets.actions.save(input)),
+  remove: ownerRouter.secrets.remove.handler(async ({ context, input }) => context.secrets.actions.remove(input)),
+  settings: ownerRouter.secrets.settings.handler(async ({ context }) => context.secrets.queries.settings()),
+  configure: ownerRouter.secrets.configure.handler(async ({ context, input }) => context.secrets.actions.configure(input)),
 };

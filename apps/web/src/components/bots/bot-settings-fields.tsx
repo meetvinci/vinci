@@ -1,4 +1,5 @@
 import { BOT_THINKING_LEVEL_LABELS, botChooseModel, botModelBrand, botModelKey } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { modelThinkingLevel } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { BotBrandLogo } from '@repo/ui/bots/bot-brand-logo';
@@ -8,7 +9,6 @@ import { Label } from '@repo/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { useQuery } from '@tanstack/react-query';
 import { Fragment } from 'react';
-import { rpc } from '@/services/rpc/rpc.client';
 import type { BotSettings } from '@repo/client/client';
 import type { Bot } from '@repo/contracts/universal';
 import type { ComboboxGroup } from '@repo/ui/combobox';
@@ -23,6 +23,7 @@ interface BotSettingsFieldsProps {
 }
 
 export function BotSettingsFields({ value, fallback, disabled = false, onChange, renderField }: BotSettingsFieldsProps) {
+  const { rpc } = useRpc();
   const modelsQuery = useQuery({ ...rpc.models.list.queryOptions(), retry: false });
   const { data: providerList } = useQuery(rpc.providers.list.queryOptions());
   const models = modelsQuery.data ?? [];

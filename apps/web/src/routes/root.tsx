@@ -10,7 +10,11 @@ import appCss from '../application/styles.css?url';
 import type { RouterContext } from '@/types/router.types';
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
+    if (location.pathname === '/admin' || location.pathname.startsWith('/admin/')) {
+      return { connection: null };
+    }
+
     const connection = await connectionRead();
 
     if (!connection) {

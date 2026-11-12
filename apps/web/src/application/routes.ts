@@ -51,6 +51,40 @@ export const routes = rootRoute('root.tsx', [
       route('/$tab', 'settings/settings.$tab.tsx'),
     ]),
   ]),
+  route('/admin', 'admin/admin.tsx', [
+    index('admin/admin.index.tsx'),
+    route('/admins', 'admin/admin.admins.tsx', [
+      route('/$email/remove', 'admin/admin.admins.$email.remove.tsx'),
+    ]),
+    route('/users', 'admin/admin.users.tsx', [
+      route('/create', 'admin/admin.users.create.tsx'),
+    ]),
+    route('/users/$userId', 'admin/admin.users.$userId.tsx', [
+      index('admin/admin.users.$userId.index.tsx'),
+      route('/remove', 'admin/admin.users.$userId.remove.tsx'),
+      route('/devices', 'admin/admin.users.$userId.devices.tsx', [
+        route('/$deviceId/revoke', 'admin/admin.users.$userId.devices.$deviceId.revoke.tsx'),
+      ]),
+      route('/settings', 'admin/admin.users.$userId.settings.tsx', [
+        index('admin/admin.users.$userId.settings.index.tsx'),
+        route('/providers/$providerId/logout', 'admin/admin.users.$userId.settings.providers.$providerId.logout.tsx'),
+        route('/models/$model', 'admin/admin.users.$userId.settings.models.$model.tsx'),
+        route('/$tab', 'admin/admin.users.$userId.settings.$tab.tsx'),
+      ]),
+      route('/bots', 'admin/admin.users.$userId.bots.tsx', [
+        index('admin/admin.users.$userId.bots.index.tsx'),
+        route('/create', 'admin/admin.users.$userId.bots.create.tsx'),
+        route('/$botId', 'admin/admin.users.$userId.bots.$botId.tsx', [
+          index('admin/admin.users.$userId.bots.$botId.index.tsx'),
+          route('/delete', 'admin/admin.users.$userId.bots.$botId.delete.tsx'),
+          route('/reset', 'admin/admin.users.$userId.bots.$botId.reset.tsx'),
+          route('/skills/local', 'admin/admin.users.$userId.bots.$botId.skills.local.tsx'),
+          route('/mcp/$server/remove', 'admin/admin.users.$userId.bots.$botId.mcp.$server.remove.tsx'),
+          route('/$tab', 'admin/admin.users.$userId.bots.$botId.$tab.tsx'),
+        ]),
+      ]),
+    ]),
+  ]),
   route('/lab/avatars', 'lab/lab.avatars.tsx'),
   route('/lab/chat', 'lab/lab.chat.tsx'),
   route('/img/favicon/site.webmanifest', 'handlers/handler.webmanifest.ts'),

@@ -31,3 +31,8 @@ export type BotDialogView =
   | { kind: 'routine-delete'; botId: string; routineId: string }
   | { kind: 'todo-delete'; botId: string; todoId: string }
   | { kind: 'mcp-remove'; botId: string; server: string };
+
+export interface BotDialogViewParams {
+  path: string | undefined
+  params: { botId?: string; tab?: string; routineId?: string; todoId?: string; server?: string }
+}

@@ -33,9 +33,17 @@ export interface DaemonUserParams {
   user: User;
 }
 
+export interface DaemonDoorParams extends DaemonUserParams {
+  request: Request;
+}
+
 export interface DaemonService {
+  queries: {
+    pinned: () => string[];
+  };
   actions: {
     resolve: (params: DaemonUserParams) => Promise<DaemonTarget>;
+    door: (params: DaemonDoorParams) => Promise<Response>;
     forget: (params: DaemonUserParams) => void;
   };
 }

@@ -46,7 +46,7 @@ flowchart TB
 - can add their own model API key in **Settings → Providers**
 - cannot see anyone else's bots or chats
 
-The admin does not log in as a user. A later version adds an admin panel for checking on people's bots.
+The admin does not log in as a user and cannot chat as them. Admins use the admin panel at `/admin` to add, disable and remove people and to set up their bots and settings through each person's private door, which refuses chat messages, approvals and pairing.
 
 ## What you need
 
@@ -59,7 +59,7 @@ Shared logins from a Claude or ChatGPT subscription are not supported: the provi
 ## Guides
 
 - [Install](install.md): set up the server and Cloudflare.
-- [Admin tasks](admin.md): add and remove people, keys, bots, backups, upgrades.
+- [Admin tasks](admin.md): the admin panel, people, keys, bots, backups, upgrades.
 - [Configuration](configuration.md): every setting and file.
 - [Troubleshooting](troubleshooting.md): known problems and fixes.
 

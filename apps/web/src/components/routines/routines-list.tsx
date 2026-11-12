@@ -1,4 +1,5 @@
 import { ROOMS, routinesSections } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { EmptyCompact } from '@repo/ui/empty';
 import { FormErrors } from '@repo/ui/forms/form';
@@ -8,7 +9,7 @@ import { Skeleton } from '@repo/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
 import { RoomsPrefillLink } from '@/components/rooms/rooms-prefill-link';
 import { RoutinesItem } from '@/components/routines/routines-item';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import IconCalendarClock from '~icons/lucide/calendar-clock';
 import type { Bot } from '@repo/contracts/universal';
 
@@ -17,8 +18,10 @@ interface RoutinesListProps {
 }
 
 export function RoutinesList({ bot }: RoutinesListProps) {
+  const { rpc } = useRpc();
   const list = useQuery(rpc.routines.list.queryOptions({ input: { botId: bot.id }, refetchInterval: ROOMS.routinesRefreshMs }));
   const sections = routinesSections(list.data ?? []);
+  const scope = useSectionScope();
 
   return (
     <div className="flex flex-col gap-3">
@@ -48,7 +51,7 @@ export function RoutinesList({ bot }: RoutinesListProps) {
       ))}
       {list.isSuccess && list.data.length === 0 ? (
         <EmptyCompact
-          description={(
+          description={scope.isAdmin ? m.admin_bot_routines_empty({ bot: bot.name }) : (
             <>
               {m.rooms_routines_empty_hint({ bot: bot.name })}
               {' '}
@@ -61,7 +64,7 @@ export function RoutinesList({ bot }: RoutinesListProps) {
           title={m.rooms_routines_empty_title()}
         />
       ) : null}
-      {(list.data ?? []).length > 0 ? (
+      {(list.data ?? []).length > 0 && !scope.isAdmin ? (
         <p className="text-xs text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary">
           <RoomsPrefillLink bot={bot} prompt={m.rooms_routines_prefill()}>{m.rooms_prefill_create()}</RoomsPrefillLink>
         </p>

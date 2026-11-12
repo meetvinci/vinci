@@ -1,7 +1,7 @@
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { ConfirmationDialog } from '@repo/ui/alert-dialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { rpc } from '@/services/rpc/rpc.client';
 import type { Bot, Todo } from '@repo/contracts/universal';
 
 interface TodosDeleteDialogProps {
@@ -11,6 +11,7 @@ interface TodosDeleteDialogProps {
 }
 
 export function TodosDeleteDialog({ bot, todo, onOpenChange }: TodosDeleteDialogProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
 
   const remove = useMutation(rpc.todos.remove.mutationOptions({

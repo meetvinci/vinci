@@ -19,7 +19,7 @@ export async function pairingActionGrant(deps: PairingTypes.PairingServiceDeps, 
   deps.state.attempts.set(user.id, [...recent, now]);
 
   const target = await deps.daemons.actions.resolve({ user });
-  const grant = await pairingDriverBootstrap(user.socketPath);
+  const grant = await pairingDriverBootstrap((request) => deps.daemons.actions.door({ user, request }));
 
   if (authPairEntry.parse(grant.qr.payload).target?.serverId !== target.serverId) {
     throw new Errors.SERVER_MISMATCH({ internal: `The owner socket of ${user.id} belongs to another daemon` });

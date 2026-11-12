@@ -1,7 +1,7 @@
-import { authedRouter } from './rpc.procedures';
+import { ownerRouter } from './rpc.procedures';
 
 export const instructions = {
-  discover: authedRouter.instructions.discover.handler(async ({ context, input }) => context.bots.queries.instructions(input)),
-  settings: authedRouter.instructions.settings.handler(async ({ context }) => context.instructions.queries.settings()),
-  configure: authedRouter.instructions.configure.handler(async ({ context, input }) => context.instructions.actions.configure(input)),
+  discover: ownerRouter.instructions.discover.handler(async ({ context, input }) => context.bots.queries.instructions(input)),
+  settings: ownerRouter.instructions.settings.handler(async ({ context }) => context.instructions.queries.settings()),
+  configure: ownerRouter.instructions.configure.handler(async ({ context, input }) => context.instructions.actions.configure(input)),
 };

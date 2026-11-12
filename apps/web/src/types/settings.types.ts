@@ -7,3 +7,16 @@ export interface SettingsNavItem {
   description: () => string
   icon: ComponentType<{ className?: string }>
 }
+
+export interface SettingsDialogState {
+  section: SettingsSection
+  view: 'theme' | 'swap' | undefined
+}
+
+export interface SettingsDialogStateParams {
+  isTheme: boolean
+  tab: string | undefined
+  model: string | undefined
+  deviceId: string | undefined
+  providerId: string | undefined
+}

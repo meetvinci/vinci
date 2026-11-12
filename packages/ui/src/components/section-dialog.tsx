@@ -11,6 +11,8 @@ import type { ComponentProps, ReactNode } from 'react';
 interface SectionDialogProps {
   title: string
   description: string
+  /** `page` draws the same sections in place, without the dialog or its close button. */
+  variant?: 'dialog' | 'page'
   /** Fills the screen, for content that needs room. */
   isExpanded?: boolean
   /** Keeps the dialog open while an action it started is still running. */
@@ -19,11 +21,21 @@ interface SectionDialogProps {
   children: ReactNode
 }
 
+const SECTION_DIALOG_FRAME = 'flex min-h-0 min-w-0 flex-1 flex-col bg-card ring-1 ring-border ring-inset sm:rounded-lg @min-[720px]/section-dialog:flex-row';
+
 /**
  * A dialog with its sections listed on the left, or as tabs on top below 720px.
  * Escape inside an element marked `data-escape="local"` stays with that element.
  */
-export function SectionDialog({ title, description, isExpanded = false, isBusy = false, onClose, children }: SectionDialogProps) {
+export function SectionDialog({ title, description, variant = 'dialog', isExpanded = false, isBusy = false, onClose, children }: SectionDialogProps) {
+  if (variant === 'page') {
+    return (
+      <section aria-label={title} className="@container/section-dialog flex h-[min(44rem,calc(100svh-12rem))] min-h-96 flex-col">
+        <div className={SECTION_DIALOG_FRAME}>{children}</div>
+      </section>
+    );
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && !isBusy && onClose()}>
       <DialogContent
@@ -43,7 +55,7 @@ export function SectionDialog({ title, description, isExpanded = false, isBusy =
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card ring-1 ring-border ring-inset sm:rounded-lg @min-[720px]/section-dialog:flex-row">
+        <div className={SECTION_DIALOG_FRAME}>
           {children}
         </div>
         <DialogClose asChild>

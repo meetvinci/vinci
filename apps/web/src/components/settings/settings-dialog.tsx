@@ -1,4 +1,6 @@
 import { botModelUsage } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
+import { providerAuthType } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { Button } from '@repo/ui/button';
 import { SectionDialog, SectionDialogBody, SectionDialogNav, SectionDialogNavItem, SectionDialogNavTitle } from '@repo/ui/section-dialog';
@@ -21,13 +23,14 @@ import { SettingsModelSwap } from '@/components/settings/settings-model-swap';
 import { SettingsModels } from '@/components/settings/settings-models';
 import { SettingsTools } from '@/components/settings/settings-tools';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
-import { rpc } from '@/services/rpc/rpc.client';
-import { SETTINGS_NAV } from '@/services/settings/settings.constants';
+import { useSectionScope } from '@/hooks/use-section-scope';
+import { SETTINGS_ADMIN_AUTH_TYPES, SETTINGS_ADMIN_HIDDEN, SETTINGS_NAV } from '@/services/settings/settings.constants';
 import type { ConnectionInfo } from '@repo/client/client';
 import type { SettingsSection } from '@repo/contracts/universal';
 
 interface SettingsDialogProps {
-  connection: ConnectionInfo
+  variant?: 'dialog' | 'page'
+  connection: ConnectionInfo | null
   section: SettingsSection
   view: 'theme' | 'swap' | undefined
   modelKey: string | undefined
@@ -36,8 +39,10 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
-export function SettingsDialog({ connection, section, view, modelKey, deviceId, providerId, onClose }: SettingsDialogProps) {
+export function SettingsDialog({ variant, connection, section, view, modelKey, deviceId, providerId, onClose }: SettingsDialogProps) {
+  const { rpc } = useRpc();
   const navigate = useNavigate();
+  const scope = useSectionScope();
 
   const current = SETTINGS_NAV.find((item) => item.id === section) ?? SETTINGS_NAV[0];
 
@@ -52,6 +57,7 @@ export function SettingsDialog({ connection, section, view, modelKey, deviceId, 
       description={m.settings_description()}
       isBusy={isBusy}
       title={m.settings_title()}
+      variant={variant}
       onClose={onClose}
     >
       <SettingsDialogNav section={section} />
@@ -68,11 +74,7 @@ export function SettingsDialog({ connection, section, view, modelKey, deviceId, 
             providerId={providerId}
             section={section}
             view={view}
-            onBack={() => void navigate({
-              to: '/settings/$tab',
-              params: { tab: section },
-              replace: true,
-            })}
+            onBack={() => void navigate(scope.settings.section(section))}
           />
         </Suspense>
       </SectionDialogBody>
@@ -86,12 +88,15 @@ interface SettingsDialogNavProps {
 
 function SettingsDialogNav({ section }: SettingsDialogNavProps) {
   const hydrated = useHydrated();
-  const items = SETTINGS_NAV.filter((item) => item.id !== 'desktop' || (hydrated && Boolean(window.__electrobunSendToHost)));
+  const scope = useSectionScope();
+
+  const items = SETTINGS_NAV.filter((item) => !(scope.isAdmin && SETTINGS_ADMIN_HIDDEN.includes(item.id))
+    && (item.id !== 'desktop' || (hydrated && Boolean(window.__electrobunSendToHost))));
 
   return (
     <SectionDialogNav
       activeKey={section}
-      footer={(
+      footer={scope.isAdmin ? undefined : (
         <>
           <Button
             asChild
@@ -114,12 +119,7 @@ function SettingsDialogNav({ section }: SettingsDialogNavProps) {
     >
       {items.map((item) => (
         <SectionDialogNavItem isActive={item.id === section} key={item.id}>
-          <Link
-            replace
-            params={{ tab: item.id }}
-            resetScroll={false}
-            to="/settings/$tab"
-          >
+          <Link {...scope.settings.section(item.id)} resetScroll={false}>
             <item.icon />
             {item.label()}
           </Link>
@@ -135,6 +135,7 @@ interface SettingsDialogSwapProps {
 }
 
 function SettingsDialogSwap({ modelKey, onBack }: SettingsDialogSwapProps) {
+  const { rpc } = useRpc();
   const { data: bots } = useSuspenseQuery(rpc.bots.list.queryOptions());
   const usage = botModelUsage({ bots }).get(modelKey ?? '');
 
@@ -148,7 +149,7 @@ function SettingsDialogSwap({ modelKey, onBack }: SettingsDialogSwapProps) {
 }
 
 interface SettingsDialogSectionProps {
-  connection: ConnectionInfo
+  connection: ConnectionInfo | null
   section: SettingsSection
   view: 'theme' | 'swap' | undefined
   modelKey: string | undefined
@@ -158,17 +159,24 @@ interface SettingsDialogSectionProps {
 }
 
 function SettingsDialogSection({ connection, section, view, modelKey, deviceId, providerId, onBack }: SettingsDialogSectionProps) {
+  const scope = useSectionScope();
+
   return match(section)
     .with('general', () => (view === 'theme' ? <ClientOnly><SettingsThemeCreate onBack={onBack} /></ClientOnly> : (
       <>
         <SettingsGeneral />
-        <SettingsAppearance />
+        {scope.isAdmin ? null : <SettingsAppearance />}
       </>
     )))
     .with('chat', () => <SettingsChat />)
     .with('models', () => (view === 'swap' ? <SettingsDialogSwap modelKey={modelKey} onBack={onBack} /> : (
       <>
-        <SettingsProviders signOutId={providerId} onSignOutClose={onBack} />
+        <SettingsProviders
+          authTypes={scope.isAdmin ? SETTINGS_ADMIN_AUTH_TYPES : providerAuthType.options}
+          signOutId={providerId}
+          signOutLink={scope.settings.providerLogout}
+          onSignOutClose={onBack}
+        />
         <SettingsModels />
       </>
     )))
@@ -178,8 +186,10 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
     .with('server', () => <SettingsServer />)
     .with('devices', () => (
       <SettingsDevices
-        connection={connection}
+        canPair={!scope.isAdmin}
+        currentDeviceId={connection?.deviceId ?? null}
         revokeId={deviceId}
+        revokeLink={scope.settings.deviceRevoke}
         onRevokeClose={onBack}
       />
     ))

@@ -10,16 +10,25 @@ import { SettingsGroup } from './settings-group';
 import { SettingsProviderLogo } from './settings-provider-logo';
 import { SettingsProviderRow } from './settings-provider-row';
 import { SettingsProviderSession } from './settings-provider-session';
+import type { Provider, ProviderAuthType } from '@repo/contracts/universal';
+import type { LinkOptions } from '@tanstack/react-router';
 
 interface SettingsProvidersProps {
+  /** The sign-in kinds offered; an admin keeps API keys only, as a provider sign-in would be the admin's own account. */
+  authTypes: readonly ProviderAuthType[]
   signOutId: string | undefined
+  signOutLink: (providerId: string) => LinkOptions
   onSignOutClose: () => void
 }
 
-export function SettingsProviders({ signOutId, onSignOutClose }: SettingsProvidersProps) {
+export function SettingsProviders({ authTypes, signOutId, signOutLink, onSignOutClose }: SettingsProvidersProps) {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState('');
-  const { session, status, connected, available, isBusy, problem, login, dismiss } = useSettingsProviders();
+  const providers = useSettingsProviders();
+  const { session, status, isBusy, problem, login, dismiss } = providers;
+  const offer = (provider: Provider) => ({ ...provider, authTypes: provider.authTypes.filter((authType) => authTypes.includes(authType)) });
+  const connected = providers.connected.map(offer);
+  const available = providers.available.map(offer).filter((provider) => provider.authTypes.length > 0);
   const selected = available.find((provider) => provider.id === selectedId);
   const visible = selected ? [...connected, selected] : connected;
   const logout = useSettingsProviderLogout({ onDone: onSignOutClose });
@@ -64,12 +73,7 @@ export function SettingsProviders({ signOutId, onSignOutClose }: SettingsProvide
             onLogin={login}
             onSignOut={provider.isConfigured && provider.source === 'stored' ? () => {
               logout.reset();
-              void navigate({
-                to: '/settings/providers/$providerId/logout',
-                params: { providerId: provider.id },
-                replace: true,
-                resetScroll: false,
-              });
+              void navigate({ ...signOutLink(provider.id), resetScroll: false });
             } : undefined}
           />
           {signOutId === provider.id ? (

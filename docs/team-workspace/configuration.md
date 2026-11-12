@@ -10,11 +10,14 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/orbs`. Keep as is. |
 | `ORBS_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
-| `ORBS_TAG` | `v0.2.0` | The tag of the `orbs-daemon`, `orbs-web` and `orbs-hub` images. Change it to upgrade or roll back. |
+| `ORBS_TAG` | `v0.2.0` | The tag of the `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` images. Change it to upgrade or roll back. |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
 | `LOG_LEVEL` | `info` | Log detail for every container. |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's Orbs gets as environment variables. Every person's bots can read them. |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
+| `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
+| `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
+| `CLOUDFLARE_API_TOKEN` | empty | Optional secret: lets the provisioner update the Access allow policy. See [admin tasks](admin.md#let-the-server-update-cloudflare-access). |
 
 A required value that is missing stops `docker compose` with a message naming it.
 
@@ -49,29 +52,46 @@ A required value that is missing stops `docker compose` with a message naming it
 | `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required. |
 | `HUB_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. Outside the image the default is `127.0.0.1`. |
 | `HUB_PORT` | `47192` (set by the image) | The port cloudflared connects to. Internal only. |
-| `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json` and `pins.json`. Compose mounts the server folder `/opt/orbs/hub` there. |
+| `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json`, `admins.json` and `pins.json`. Compose mounts the server folder `/opt/orbs/hub` there. |
 | `HUB_WEB_URL` | `http://web:47190` (set by Compose) | Where the hub sends everything that is not for a daemon. Not the same as the web app's `WEB_HUB_URL`. |
 | `HUB_PUBLIC_URL` | `https://<team>.<domain>` (set by Compose) | The team address, so the web app knows it is served over HTTPS at that name. Required. |
+| `HUB_ADMIN_EMAILS` | the first admin's email, from `.env` (set by Compose) | Comma-separated emails written to `admins.json` when it is empty, so the first admin can open `/admin`. Ignored once the file lists anyone. Required. |
+| `PROVISIONER_URL` | `http://provisioner:47193` (set by Compose) | Where the hub asks for people to be added, changed or removed. Without it (outside Compose) the panel lists people but changes answer 501. |
+| `PROVISIONER_TOKEN` | generated into `.env` at install (set by Compose) | Sent to the provisioner on every call. Required with `PROVISIONER_URL`; the hub won't start without it. Secret. |
 
 The hub runs as the same user as the daemons (uid 1000), because it talks to their owner sockets.
+
+## Provisioner (one per team)
+
+Adds, disables and removes people for the admin panel by running `bun deploy.ts apply` in `/opt/orbs`, and updates the Access allow policy when it has a token. It is the only container with the Docker socket.
+
+| Setting | Value in a team install | What it does |
+| --- | --- | --- |
+| `PROVISIONER_TOKEN` | from `.env` (set by Compose) | Every request must carry it as `Authorization: Bearer <token>`. At least 32 characters, or it won't start. |
+| `PROVISIONER_PORT` | `47193` (set by the image) | Port on the `orbs_provisioner` network. Never published. |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME` | from `.env` (set by Compose) | With a token it updates the policy `<CLOUDFLARE_NAME>-allow` after each change; with a token but no zone or name it won't start. Without a token every answer says `manual`. |
+
+It runs as root with every Linux capability dropped, a read-only system, no published port, 256 MB of memory, and `/opt/orbs` mounted at the same path so Compose finds the same files as on the server. Root lets it read `.env` and the Docker socket as their owner; without capabilities it can write only files root owns or that are group root, which is why the `hub` folder is owned by uid 1000, group root, mode 770.
 
 ## Files
 
 | File | Where | What it holds |
 | --- | --- | --- |
 | `.env` | `/opt/orbs/` | Every setting above. Secret. |
-| `users.yaml` | `/opt/orbs/` | The one list of people: user id and login email. The admin edits it, then runs `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
-| `compose.yaml`, `daemon.yaml` | `/opt/orbs/`, copied from `deploy/compose/` | The hub, the web app, the one-off `tools` service, and the container every person gets. |
+| `users.yaml` | `/opt/orbs/` | The one list of people (user id, login email, optional name and enabled) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
+| `compose.yaml`, `daemon.yaml` | `/opt/orbs/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the container every person gets. |
 | `cloudflared.compose.yaml` | `/opt/orbs/`, copied from `deploy/cloudflare/` | The tunnel connector. |
-| `deploy.ts` | `/opt/orbs/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `restore` and `purge`. Runs with Bun. |
+| `deploy.ts` | `/opt/orbs/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
+| `hub/` | `/opt/orbs/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
 | `users.compose.yaml` | `/opt/orbs/` | One container, network and volume per person. Written by `apply`; do not edit. |
-| `hub/users.json` | `/opt/orbs/hub/`, `/data/` in the hub | Each email's user id, daemon address (`http://daemon-<id>:47191`) and owner socket (`/ipc/<id>/rpc.sock`). Written by `apply`; do not edit. |
+| `hub/users.json` | `/opt/orbs/hub/`, `/data/` in the hub | Each enabled person's email, user id, daemon address (`http://daemon-<id>:47191`) and owner socket (`/ipc/<id>/rpc.sock`). Written by `apply`; do not edit. |
+| `hub/admins.json` | `/opt/orbs/hub/`, `/data/` in the hub | `{"admins": ["<email>", ...]}`: who may open the admin panel at `/admin`. An admin does not need to be a user. Written by the hub when admins change in the panel; seeded from `HUB_ADMIN_EMAILS` while empty. If it is unreadable or invalid nobody is an admin until it is fixed. |
 | `hub/pins.json` | `/opt/orbs/hub/`, `/data/` in the hub | The ID of each person's Orbs, saved the first time the hub reaches it. The hub refuses to forward if the ID changes. Written by the hub; `purge` removes a person's line. |
 | `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume. Secret. |
 | `models.json` | `/data/pi/` in each person's volume | Model provider settings, such as a different address for a provider. Read only at start. |
 | `auth.json` | `/data/pi/` in each person's volume | Keys and logins the person adds in Settings. Plain text. |
 | `data/credentials.key` | `/data/` in each person's volume | Encryption key for secrets the person's bots saved. |
-| `data/ipc/rpc.sock` | the `orbs_ipc` volume, folder `<id>` | The owner socket. The person's container sees only its own folder, at `/data/data/ipc`; the hub sees all of them at `/ipc/<id>`, and nothing else of anyone's volume. |
+| `data/ipc/rpc.sock` | the `orbs_ipc` volume, folder `<id>` | The owner socket: the private door for pairing and admin changes to settings and bots, never chats. The person's container sees only its own folder, at `/data/data/ipc`; the hub sees all of them at `/ipc/<id>`, and nothing else of anyone's volume. |
 | `.agents/skills/`, `.agents/AGENTS.md`, `.agents/mcp.json` | `/data/home/` in each person's volume | Skills, instructions and MCP servers for all of the person's bots. |
 | tunnel routes | in Cloudflare, not on the server | Send `<team>.<domain>` to the hub, `http://hub:47192`. Set by `bun scripts/deploy.ts cloudflare apply`; don't edit them in the dashboard, the next run puts them back. The tunnel's only credential is `TUNNEL_TOKEN` in `.env`. |
 
@@ -83,6 +103,8 @@ Nothing is published on the server's network interfaces. Docker Compose creates:
 | --- | --- | --- |
 | `orbs_tunnel` | cloudflared and the hub | yes: the tunnel, and the hub's fetch of Cloudflare's login keys |
 | `orbs_web` | the hub and the web app | no |
+| `orbs_provisioner` | the hub and the provisioner | no |
+| `orbs_egress` | the provisioner only | yes: the Cloudflare API, used only with `CLOUDFLARE_API_TOKEN` |
 | `orbs_user-<id>` | one person's container and the hub | yes: bots need model providers, MCP servers and the web |
 
 A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It can reach the internet, and nothing stops it from trying the server's own addresses: on the test server every person's container could open the host's SSH port and read the cloud provider's metadata service (`169.254.169.254`, including the server's user-data). Never put secrets in the server's user-data or cloud-init, and keep host services off `0.0.0.0` unless they need to be public. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to an `orbs_user-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
@@ -106,7 +128,7 @@ Measured idle on a 2 vCPU, 4 GB x86 server (`docker stats`): each daemon about 1
 | Object | Name | Setting |
 | --- | --- | --- |
 | Tunnel | `orbs-<team>` | one per server, routes kept in Cloudflare. The team name goes to `http://hub:47192`. Only `/img/favicon/<file>` and `/favicon.ico` skip cloudflared's own check of the Access login. |
-| Access policy | `orbs-<team>-allow` | allow the emails in `users.yaml` |
+| Access policy | `orbs-<team>-allow` | allow the enabled users' and the admins' emails in `users.yaml` |
 | Access policy | `orbs-<team>-bypass` | bypass, everyone |
 | Access app | `orbs-<team>` | `<team>.<domain>` with the allow policy; session `--session`, 24 hours by default; cookie HttpOnly on, SameSite Lax, binding cookie off |
 | Access app | `orbs-<team>-favicon` | `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico` with the bypass policy |
@@ -120,9 +142,10 @@ The values the server needs:
 | `ORBS_PUBLIC_HOST` | `acme.example.com` | The team address, without `https://`. |
 | `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | The hub's `ACCESS_TEAM_DOMAIN`. |
 | `ACCESS_AUD` | 64 hex characters | The hub's `ACCESS_AUD`: the AUD tag of the `orbs-<team>` application. |
+| `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME` | `example.com`, `orbs-acme` | The `--zone` and `--name` of the install, for the provisioner's Access sync. Not secret. |
 | `TUNNEL_TOKEN` | secret | Lets cloudflared connect the tunnel. Only in `/opt/orbs/.env`. |
 
-The API token needs Account: Cloudflare Tunnel: Edit, Account: Access: Apps and Policies: Edit, and Zone: DNS: Edit for the domain.
+The API token needs Account: Cloudflare Tunnel: Edit, Account: Access: Apps and Policies: Edit, and Zone: DNS: Edit for the domain. The optional token on the server needs only Zone: Zone: Read for the domain and Account: Access: Apps and Policies: Edit.
 
 Remove everything (only objects with these exact names, after listing them; stop cloudflared first):
 

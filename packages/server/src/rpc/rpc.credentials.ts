@@ -1,6 +1,6 @@
-import { authedRouter } from './rpc.procedures';
+import { ownerRouter } from './rpc.procedures';
 
 export const credentials = {
-  list: authedRouter.credentials.list.handler(async ({ context }) => context.credentials.queries.list()),
-  set: authedRouter.credentials.set.handler(async ({ context, input }) => context.credentials.actions.set(input)),
+  list: ownerRouter.credentials.list.handler(async ({ context }) => context.credentials.queries.list()),
+  set: ownerRouter.credentials.set.handler(async ({ context, input }) => context.credentials.actions.set(input)),
 };

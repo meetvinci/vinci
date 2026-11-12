@@ -1,3 +1,5 @@
+import { commandExecute } from '@repo/contracts/universal';
+import { z } from 'zod';
 import type { ActivityService } from '../services/activity/activity.service';
 import type { ArtifactService } from '../services/artifact/artifact.service';
 import type { AttachmentService } from '../services/attachment/attachment.service';
@@ -22,6 +24,7 @@ import type { SkillService } from '../services/skill/skill.service';
 import type { TodoService } from '../services/todo/todo.service';
 import type { ToolService } from '../services/tool/tool.service';
 import type { RequestHeadersPluginContext, ResponseHeadersPluginContext } from '@orpc/server/plugins';
+import type { contract, Device } from '@repo/contracts/universal';
 import type { ProviderService, RuntimeService } from '@repo/runtime/server';
 
 export interface RpcContext extends RequestHeadersPluginContext, ResponseHeadersPluginContext {
@@ -52,4 +55,20 @@ export interface RpcContext extends RequestHeadersPluginContext, ResponseHeaders
   bots: BotService;
   sidebarSections: SidebarSectionService;
   conversation: ConversationService;
+}
+
+export const rpcLocalReset = commandExecute.extend({ name: z.literal('reset'), arguments: z.undefined().optional() });
+
+export type RpcLocalRule = true | z.ZodType;
+
+export type RpcLocalAllowlist = { [Area in keyof typeof contract]?: { [Name in keyof (typeof contract)[Area]]?: RpcLocalRule } };
+
+export interface RpcLocalAuthorizeParams {
+  isLocal: boolean;
+  path: readonly string[];
+  input: Parameters<z.ZodType['safeParse']>[0];
+}
+
+export interface RpcOwnerContext {
+  device: Device | null;
 }

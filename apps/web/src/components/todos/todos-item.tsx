@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { Button } from '@repo/ui/button';
 import { Checkbox } from '@repo/ui/checkbox';
@@ -7,7 +8,7 @@ import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from '@repo/ui/i
 import { toasty } from '@repo/ui/sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import IconGripVertical from '~icons/lucide/grip-vertical';
 import IconX from '~icons/lucide/x';
 import type { Bot, Todo } from '@repo/contracts/universal';
@@ -20,6 +21,7 @@ interface TodosItemProps {
 }
 
 export function TodosItem({ bot, todo, handle, isSortable = false }: TodosItemProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: todo.id, disabled: !isSortable });
 
@@ -28,6 +30,7 @@ export function TodosItem({ bot, todo, handle, isSortable = false }: TodosItemPr
     onSettled: () => queryClient.invalidateQueries({ queryKey: rpc.todos.key() }),
   }));
 
+  const { rooms } = useSectionScope();
   const label = m.rooms_todos_remove({ title: todo.title });
   const todoId = String(todo.id);
 
@@ -43,7 +46,7 @@ export function TodosItem({ bot, todo, handle, isSortable = false }: TodosItemPr
         <Checkbox
           aria-label={todo.isDone ? m.rooms_todos_reopen({ title: todo.title }) : m.rooms_todos_toggle({ title: todo.title })}
           checked={todo.isDone}
-          disabled={update.isPending}
+          disabled={update.isPending || !rooms}
           onCheckedChange={(checked) => update.mutate({
             botId: bot.id,
             todoId: todo.id,
@@ -72,32 +75,29 @@ export function TodosItem({ bot, todo, handle, isSortable = false }: TodosItemPr
             <IconGripVertical />
           </Button>
         ) : null}
-        <Button
-          asChild
-          aria-label={label}
-          size="icon-xs"
-          title={label}
-          variant="ghost"
-        >
-          {handle ? (
-            <Link
-              params={{ handle, todoId }}
-              resetScroll={false}
-              to="/rooms/direct/$handle/todos/$todoId/delete"
-            >
-              <IconX />
-            </Link>
-          ) : (
-            <Link
-              replace
-              params={{ botId: bot.id, todoId }}
-              resetScroll={false}
-              to="/bots/$botId/todos/$todoId/delete"
-            >
-              <IconX />
-            </Link>
-          )}
-        </Button>
+        {rooms ? (
+          <Button
+            asChild
+            aria-label={label}
+            size="icon-xs"
+            title={label}
+            variant="ghost"
+          >
+            {handle ? (
+              <Link
+                params={{ handle, todoId }}
+                resetScroll={false}
+                to="/rooms/direct/$handle/todos/$todoId/delete"
+              >
+                <IconX />
+              </Link>
+            ) : (
+              <Link {...rooms.todoDelete(bot.id, todoId)} resetScroll={false}>
+                <IconX />
+              </Link>
+            )}
+          </Button>
+        ) : null}
       </ItemActions>
     </Item>
   );

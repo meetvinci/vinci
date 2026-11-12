@@ -1,4 +1,5 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
+import { useRpc } from '@repo/client/react';
 import { routineEditForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { ButtonLoading } from '@repo/ui/button-loading';
@@ -8,7 +9,6 @@ import { RoutinesScheduleFields } from '@repo/ui/routines/routines-schedule-fiel
 import { Textarea } from '@repo/ui/textarea';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { rpc } from '@/services/rpc/rpc.client';
 import type { Bot, Routine, RoutineEditForm } from '@repo/contracts/universal';
 
 interface RoutinesEditProps {
@@ -18,6 +18,7 @@ interface RoutinesEditProps {
 }
 
 export function RoutinesEdit({ bot, routine, onDone }: RoutinesEditProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
 
   const form = useForm<RoutineEditForm>({

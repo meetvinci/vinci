@@ -1,4 +1,5 @@
 import { botDisabledSkills } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { FormErrors } from '@repo/ui/forms/form';
 import { Input } from '@repo/ui/input';
@@ -12,7 +13,7 @@ import { useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { match } from 'ts-pattern';
 import { BotFormShared } from '@/components/bots/bot-form-shared';
-import { rpc } from '@/services/rpc/rpc.client';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import type { BotForm } from '@repo/contracts/universal';
 
 interface BotFormSkillsProps {
@@ -21,23 +22,17 @@ interface BotFormSkillsProps {
 }
 
 export function BotFormSkills({ botId, busy }: BotFormSkillsProps) {
+  const { rpc } = useRpc();
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
+  const scope = useSectionScope();
   const shared = useQuery(rpc.skills.shared.queryOptions({ input: { botId } }));
-  const tab = matchRoute({ to: '/bots/$botId/skills/local', params: { botId } }) ? 'local' : 'shared';
+  const tab = matchRoute(scope.bots.skillsLocal(botId)) ? 'local' : 'shared';
 
   function openTab(next: string) {
     void match(next)
-      .with('local', () => navigate({
-        to: '/bots/$botId/skills/local',
-        params: { botId },
-        replace: true,
-      }))
-      .otherwise(() => navigate({
-        to: '/bots/$botId/$tab',
-        params: { botId, tab: 'skills' },
-        replace: true,
-      }));
+      .with('local', () => navigate(scope.bots.skillsLocal(botId)))
+      .otherwise(() => navigate(scope.bots.section(botId, 'skills')));
   }
 
   return (
@@ -79,6 +74,7 @@ interface BotFormSkillsLocalProps {
 }
 
 function BotFormSkillsLocal({ botId, busy }: BotFormSkillsLocalProps) {
+  const { rpc } = useRpc();
   const form = useFormContext<BotForm>();
   const disabled = useWatch({ control: form.control, name: 'disabledSkills' });
   const skills = useQuery(rpc.skills.local.queryOptions({ input: { botId } }));

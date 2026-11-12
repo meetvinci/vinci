@@ -12,14 +12,14 @@ export interface McpAuthServiceDeps {
 }
 
 export interface McpAuthTargetParams extends McpAuthTarget {
-  deviceId: string;
+  deviceId: string | null;
 }
 
 export interface McpAuthStartParams extends McpAuthStartInput {
-  deviceId: string;
+  deviceId: string | null;
   authorization: string | null | undefined;
 }
 
 export interface McpAuthCompleteParams extends McpAuthCompleteInput {
-  deviceId: string;
+  deviceId: string | null;
 }

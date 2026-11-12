@@ -4,6 +4,7 @@ import { SettingsConfirm } from '@repo/ui/settings/settings-confirm';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsSubview } from '@repo/ui/settings/settings-subview';
 import { useNavigate } from '@tanstack/react-router';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import type { Bot } from '@repo/contracts/universal';
 
 interface BotMcpRemoveProps {
@@ -13,12 +14,9 @@ interface BotMcpRemoveProps {
 
 export function BotMcpRemove({ bot, server }: BotMcpRemoveProps) {
   const navigate = useNavigate();
+  const scope = useSectionScope();
 
-  const onBack = () => void navigate({
-    to: '/bots/$botId/$tab',
-    params: { botId: bot.id, tab: 'mcp' },
-    replace: true,
-  });
+  const onBack = () => void navigate(scope.bots.section(bot.id, 'mcp'));
 
   const remove = useBotMcpRemove({ onDone: onBack });
 

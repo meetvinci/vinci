@@ -2,6 +2,7 @@
 # cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (one daemon, network
 # and volume per person, each extending daemon.yaml) and hub/users.json from users.yaml. .env sets COMPOSE_FILE to
 # load this file, cloudflared.compose.yaml and users.compose.yaml together.
+# The provisioner runs the same apply for the hub's admin panel.
 # Nothing is published on a host interface: cloudflared is the only way in.
 name: orbs
 
@@ -21,7 +22,7 @@ services:
       - ipc:/ipc
 
   # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
-  # nothing else of their data. Its user list and pins live in ./hub.
+  # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
     image: orbs-hub:${ORBS_TAG}
     read_only: true
@@ -35,6 +36,9 @@ services:
       ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
       HUB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
       HUB_WEB_URL: http://web:47190
+      HUB_ADMIN_EMAILS: ${HUB_ADMIN_EMAILS:?set HUB_ADMIN_EMAILS in .env}
+      PROVISIONER_URL: http://provisioner:47193
+      PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./hub:/data
@@ -42,6 +46,36 @@ services:
     networks:
       tunnel: {}
       web: {}
+      provisioner: {}
+
+  # Adds, disables and removes people for the hub's admin panel by running `bun deploy.ts apply` in /opt/orbs, and
+  # updates the Access allow policy when CLOUDFLARE_API_TOKEN is set. It holds the Docker socket, which is root on the
+  # host: it answers only the hub's token on the provisioner network, a fixed set of requests, one change at a time.
+  # Root without capabilities: it reads and writes root's files in /opt/orbs and the socket as their owner.
+  # /opt/orbs is mounted at the same path, so Compose resolves ./hub and the other relative paths as on the host.
+  provisioner:
+    image: orbs-provisioner:${ORBS_TAG}
+    user: "0:0"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    environment:
+      PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
+      # Optional: with a token, the provisioner keeps the Access allow policy in line with users.yaml.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
+      CLOUDFLARE_NAME: ${CLOUDFLARE_NAME:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - .:/opt/orbs
+    networks:
+      provisioner: {}
+      egress: {}
 
   # One shared web app in hub mode: its server calls only the hub, never a daemon.
   web:
@@ -68,6 +102,11 @@ networks:
   # The hub and the web app only. No internet.
   web:
     internal: true
+  # The hub and the provisioner only. No internet.
+  provisioner:
+    internal: true
+  # The provisioner's way out, to the Cloudflare API only when a token is set. Nothing else joins it.
+  egress: {}
 
 volumes:
   # Each person's data/ipc folder, as ipc/<id>. Daemons mount only their own subfolder.

@@ -11,10 +11,14 @@
 import { Route as rootRouteImport } from "./../routes/root";
 import { Route as indexRouteImport } from "./../routes/index";
 import { Route as chatDotlayoutRouteImport } from "./../routes/chat.layout";
+import { Route as adminAdminRouteImport } from "./../routes/admin/admin";
 import { Route as connectConnectRouteImport } from "./../routes/connect/connect";
 import { Route as artifactsArtifactsRouteImport } from "./../routes/artifacts/artifacts";
 import { Route as botsBotsRouteImport } from "./../routes/bots/bots";
 import { Route as settingsSettingsRouteImport } from "./../routes/settings/settings";
+import { Route as adminAdminDotindexRouteImport } from "./../routes/admin/admin.index";
+import { Route as adminAdminDotadminsRouteImport } from "./../routes/admin/admin.admins";
+import { Route as adminAdminDotusersRouteImport } from "./../routes/admin/admin.users";
 import { Route as labLabDotavatarsRouteImport } from "./../routes/lab/lab.avatars";
 import { Route as labLabDotchatRouteImport } from "./../routes/lab/lab.chat";
 import { Route as artifactsArtifactsDotindexRouteImport } from "./../routes/artifacts/artifacts.index";
@@ -25,6 +29,8 @@ import { Route as onboardingOnboardingDotstepRouteImport } from "./../routes/onb
 import { Route as roomsRoomsDotindexRouteImport } from "./../routes/rooms/rooms.index";
 import { Route as settingsSettingsDotindexRouteImport } from "./../routes/settings/settings.index";
 import { Route as settingsSettingsDottabRouteImport } from "./../routes/settings/settings.$tab";
+import { Route as adminAdminDotusersDotuserIdRouteImport } from "./../routes/admin/admin.users.$userId";
+import { Route as adminAdminDotusersDotcreateRouteImport } from "./../routes/admin/admin.users.create";
 import { Route as handlersHandlerDotwebmanifestRouteImport } from "./../routes/handlers/handler.webmanifest";
 import { Route as botsBotsDotbotIdDotindexRouteImport } from "./../routes/bots/bots.$botId.index";
 import { Route as botsBotsDotbotIdDottabRouteImport } from "./../routes/bots/bots.$botId.$tab";
@@ -33,6 +39,12 @@ import { Route as botsBotsDotbotIdDotresetRouteImport } from "./../routes/bots/b
 import { Route as roomsRoomsDotdirectDothandleRouteImport } from "./../routes/rooms/rooms.direct.$handle";
 import { Route as settingsSettingsDotmodelsDotmodelRouteImport } from "./../routes/settings/settings.models.$model";
 import { Route as settingsSettingsDotthemesDotcreateRouteImport } from "./../routes/settings/settings.themes.create";
+import { Route as adminAdminDotadminsDotemailDotremoveRouteImport } from "./../routes/admin/admin.admins.$email.remove";
+import { Route as adminAdminDotusersDotuserIdDotindexRouteImport } from "./../routes/admin/admin.users.$userId.index";
+import { Route as adminAdminDotusersDotuserIdDotbotsRouteImport } from "./../routes/admin/admin.users.$userId.bots";
+import { Route as adminAdminDotusersDotuserIdDotdevicesRouteImport } from "./../routes/admin/admin.users.$userId.devices";
+import { Route as adminAdminDotusersDotuserIdDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.remove";
+import { Route as adminAdminDotusersDotuserIdDotsettingsRouteImport } from "./../routes/admin/admin.users.$userId.settings";
 import { Route as artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRouteImport } from "./../routes/artifacts/artifacts.$botId.$conversationId.$artifactId";
 import { Route as botsBotsDotbotIdDotskillsDotlocalRouteImport } from "./../routes/bots/bots.$botId.skills.local";
 import { Route as roomsRoomsDotdirectDothandleDotactivityRouteImport } from "./../routes/rooms/rooms.direct.$handle.activity";
@@ -42,14 +54,28 @@ import { Route as roomsRoomsDotdirectDothandleDotroutinesRouteImport } from "./.
 import { Route as roomsRoomsDotdirectDothandleDottodosRouteImport } from "./../routes/rooms/rooms.direct.$handle.todos";
 import { Route as settingsSettingsDotdevicesDotdeviceIdDotrevokeRouteImport } from "./../routes/settings/settings.devices.$deviceId.revoke";
 import { Route as settingsSettingsDotprovidersDotproviderIdDotlogoutRouteImport } from "./../routes/settings/settings.providers.$providerId.logout";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotindexRouteImport } from "./../routes/admin/admin.users.$userId.bots.index";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotcreateRouteImport } from "./../routes/admin/admin.users.$userId.bots.create";
+import { Route as adminAdminDotusersDotuserIdDotsettingsDotindexRouteImport } from "./../routes/admin/admin.users.$userId.settings.index";
+import { Route as adminAdminDotusersDotuserIdDotsettingsDottabRouteImport } from "./../routes/admin/admin.users.$userId.settings.$tab";
 import { Route as botsBotsDotbotIdDotmcpDotserverDotremoveRouteImport } from "./../routes/bots/bots.$botId.mcp.$server.remove";
 import { Route as botsBotsDotbotIdDotroutinesDotroutineIdDotdeleteRouteImport } from "./../routes/bots/bots.$botId.routines.$routineId.delete";
 import { Route as botsBotsDotbotIdDotroutinesDotroutineIdDoteditRouteImport } from "./../routes/bots/bots.$botId.routines.$routineId.edit";
 import { Route as botsBotsDotbotIdDottodosDottodoIdDotdeleteRouteImport } from "./../routes/bots/bots.$botId.todos.$todoId.delete";
 import { Route as roomsRoomsDotdirectDothandleDotactivityDotrunIdRouteImport } from "./../routes/rooms/rooms.direct.$handle.activity.$runId";
 import { Route as roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRouteImport } from "./../routes/rooms/rooms.direct.$handle.media.$attachmentId";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.index";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.$tab";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.delete";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.reset";
+import { Route as adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRouteImport } from "./../routes/admin/admin.users.$userId.devices.$deviceId.revoke";
+import { Route as adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRouteImport } from "./../routes/admin/admin.users.$userId.settings.models.$model";
 import { Route as roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRouteImport } from "./../routes/rooms/rooms.direct.$handle.todos.$todoId.delete";
 import { Route as roomsRoomsDotdirectDothandleDotwithDotpeerRouteImport } from "./../routes/rooms/rooms.direct.$handle.with.$peer";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.skills.local";
+import { Route as adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRouteImport } from "./../routes/admin/admin.users.$userId.settings.providers.$providerId.logout";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.mcp.$server.remove";
 
 const indexRoute = indexRouteImport.update({
   id: "/",
@@ -58,6 +84,11 @@ const indexRoute = indexRouteImport.update({
 } as any);
 const chatDotlayoutRoute = chatDotlayoutRouteImport.update({
   id: "/_chat",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const adminAdminRoute = adminAdminRouteImport.update({
+  id: "/admin",
+  path: "/admin",
   getParentRoute: () => rootRouteImport,
 } as any);
 const connectConnectRoute = connectConnectRouteImport.update({
@@ -79,6 +110,21 @@ const settingsSettingsRoute = settingsSettingsRouteImport.update({
   id: "/settings",
   path: "/settings",
   getParentRoute: () => chatDotlayoutRoute,
+} as any);
+const adminAdminDotindexRoute = adminAdminDotindexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => adminAdminRoute,
+} as any);
+const adminAdminDotadminsRoute = adminAdminDotadminsRouteImport.update({
+  id: "/admins",
+  path: "/admins",
+  getParentRoute: () => adminAdminRoute,
+} as any);
+const adminAdminDotusersRoute = adminAdminDotusersRouteImport.update({
+  id: "/users",
+  path: "/users",
+  getParentRoute: () => adminAdminRoute,
 } as any);
 const labLabDotavatarsRoute = labLabDotavatarsRouteImport.update({
   id: "/lab/avatars",
@@ -133,6 +179,18 @@ const settingsSettingsDottabRoute = settingsSettingsDottabRouteImport.update({
   path: "/$tab",
   getParentRoute: () => settingsSettingsRoute,
 } as any);
+const adminAdminDotusersDotuserIdRoute =
+  adminAdminDotusersDotuserIdRouteImport.update({
+    id: "/users/$userId",
+    path: "/users/$userId",
+    getParentRoute: () => adminAdminRoute,
+  } as any);
+const adminAdminDotusersDotcreateRoute =
+  adminAdminDotusersDotcreateRouteImport.update({
+    id: "/create",
+    path: "/create",
+    getParentRoute: () => adminAdminDotusersRoute,
+  } as any);
 const handlersHandlerDotwebmanifestRoute =
   handlersHandlerDotwebmanifestRouteImport.update({
     id: "/img/favicon/site.webmanifest",
@@ -179,6 +237,42 @@ const settingsSettingsDotthemesDotcreateRoute =
     id: "/themes/create",
     path: "/themes/create",
     getParentRoute: () => settingsSettingsRoute,
+  } as any);
+const adminAdminDotadminsDotemailDotremoveRoute =
+  adminAdminDotadminsDotemailDotremoveRouteImport.update({
+    id: "/$email/remove",
+    path: "/$email/remove",
+    getParentRoute: () => adminAdminDotadminsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotindexRoute =
+  adminAdminDotusersDotuserIdDotindexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsRoute =
+  adminAdminDotusersDotuserIdDotbotsRouteImport.update({
+    id: "/bots",
+    path: "/bots",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotdevicesRoute =
+  adminAdminDotusersDotuserIdDotdevicesRouteImport.update({
+    id: "/devices",
+    path: "/devices",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotremoveRoute =
+  adminAdminDotusersDotuserIdDotremoveRouteImport.update({
+    id: "/remove",
+    path: "/remove",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotsettingsRoute =
+  adminAdminDotusersDotuserIdDotsettingsRouteImport.update({
+    id: "/settings",
+    path: "/settings",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
   } as any);
 const artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute =
   artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRouteImport.update({
@@ -234,6 +328,36 @@ const settingsSettingsDotprovidersDotproviderIdDotlogoutRoute =
     path: "/providers/$providerId/logout",
     getParentRoute: () => settingsSettingsRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotbotsDotindexRoute =
+  adminAdminDotusersDotuserIdDotbotsDotindexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdRouteImport.update({
+    id: "/$botId",
+    path: "/$botId",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsDotcreateRoute =
+  adminAdminDotusersDotuserIdDotbotsDotcreateRouteImport.update({
+    id: "/create",
+    path: "/create",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotsettingsDotindexRoute =
+  adminAdminDotusersDotuserIdDotsettingsDotindexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotsettingsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotsettingsDottabRoute =
+  adminAdminDotusersDotuserIdDotsettingsDottabRouteImport.update({
+    id: "/$tab",
+    path: "/$tab",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotsettingsRoute,
+  } as any);
 const botsBotsDotbotIdDotmcpDotserverDotremoveRoute =
   botsBotsDotbotIdDotmcpDotserverDotremoveRouteImport.update({
     id: "/mcp/$server/remove",
@@ -270,6 +394,42 @@ const roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRoute =
     path: "/$attachmentId",
     getParentRoute: () => roomsRoomsDotdirectDothandleDotmediaRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRouteImport.update({
+    id: "/",
+    path: "/",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRouteImport.update({
+    id: "/$tab",
+    path: "/$tab",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRouteImport.update({
+    id: "/delete",
+    path: "/delete",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRouteImport.update({
+    id: "/reset",
+    path: "/reset",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute =
+  adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRouteImport.update({
+    id: "/$deviceId/revoke",
+    path: "/$deviceId/revoke",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotdevicesRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute =
+  adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRouteImport.update({
+    id: "/models/$model",
+    path: "/models/$model",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotsettingsRoute,
+  } as any);
 const roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute =
   roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRouteImport.update({
     id: "/$todoId/delete",
@@ -282,19 +442,49 @@ const roomsRoomsDotdirectDothandleDotwithDotpeerRoute =
     path: "/with/$peer/$conversationId",
     getParentRoute: () => roomsRoomsDotdirectDothandleRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRouteImport.update(
+    {
+      id: "/skills/local",
+      path: "/skills/local",
+      getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+    } as any,
+  );
+const adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute =
+  adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRouteImport.update(
+    {
+      id: "/providers/$providerId/logout",
+      path: "/providers/$providerId/logout",
+      getParentRoute: () => adminAdminDotusersDotuserIdDotsettingsRoute,
+    } as any,
+  );
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRouteImport.update(
+    {
+      id: "/mcp/$server/remove",
+      path: "/mcp/$server/remove",
+      getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+    } as any,
+  );
 
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
+  "/admin": typeof adminAdminRouteWithChildren;
   "/connect": typeof connectConnectRoute;
   "/artifacts": typeof artifactsArtifactsRouteWithChildren;
   "/bots": typeof botsBotsRouteWithChildren;
   "/settings": typeof settingsSettingsRouteWithChildren;
+  "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
+  "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
   "/lab/chat": typeof labLabDotchatRoute;
+  "/admin/": typeof adminAdminDotindexRoute;
   "/bots/$botId": typeof botsBotsDotbotIdRouteWithChildren;
   "/bots/create": typeof botsBotsDotcreateRoute;
   "/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/settings/$tab": typeof settingsSettingsDottabRoute;
+  "/admin/users/$userId": typeof adminAdminDotusersDotuserIdRouteWithChildren;
+  "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
   "/img/favicon/site.webmanifest": typeof handlersHandlerDotwebmanifestRoute;
   "/artifacts/": typeof artifactsArtifactsDotindexRoute;
   "/bots/": typeof botsBotsDotindexRoute;
@@ -306,7 +496,13 @@ export interface FileRoutesByFullPath {
   "/rooms/direct/$handle": typeof roomsRoomsDotdirectDothandleRouteWithChildren;
   "/settings/models/$model": typeof settingsSettingsDotmodelsDotmodelRoute;
   "/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
+  "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
+  "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
+  "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
   "/bots/$botId/": typeof botsBotsDotbotIdDotindexRoute;
+  "/admin/users/$userId/": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
   "/bots/$botId/skills/local": typeof botsBotsDotbotIdDotskillsDotlocalRoute;
   "/rooms/direct/$handle/activity": typeof roomsRoomsDotdirectDothandleDotactivityRouteWithChildren;
@@ -316,23 +512,41 @@ export interface FileRoutesByFullPath {
   "/rooms/direct/$handle/todos": typeof roomsRoomsDotdirectDothandleDottodosRouteWithChildren;
   "/settings/devices/$deviceId/revoke": typeof settingsSettingsDotdevicesDotdeviceIdDotrevokeRoute;
   "/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren;
+  "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
+  "/admin/users/$userId/bots/": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
+  "/admin/users/$userId/settings/": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
   "/bots/$botId/mcp/$server/remove": typeof botsBotsDotbotIdDotmcpDotserverDotremoveRoute;
   "/bots/$botId/routines/$routineId/delete": typeof botsBotsDotbotIdDotroutinesDotroutineIdDotdeleteRoute;
   "/bots/$botId/routines/$routineId/edit": typeof botsBotsDotbotIdDotroutinesDotroutineIdDoteditRoute;
   "/bots/$botId/todos/$todoId/delete": typeof botsBotsDotbotIdDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/activity/$runId": typeof roomsRoomsDotdirectDothandleDotactivityDotrunIdRoute;
   "/rooms/direct/$handle/media/$attachmentId": typeof roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRoute;
+  "/admin/users/$userId/bots/$botId/$tab": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute;
+  "/admin/users/$userId/bots/$botId/delete": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute;
+  "/admin/users/$userId/bots/$botId/reset": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute;
+  "/admin/users/$userId/devices/$deviceId/revoke": typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute;
+  "/admin/users/$userId/settings/models/$model": typeof adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute;
+  "/admin/users/$userId/bots/$botId/": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
+  "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
 }
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/connect": typeof connectConnectRoute;
+  "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
+  "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
   "/lab/chat": typeof labLabDotchatRoute;
+  "/admin": typeof adminAdminDotindexRoute;
   "/bots/create": typeof botsBotsDotcreateRoute;
   "/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/settings/$tab": typeof settingsSettingsDottabRoute;
+  "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
   "/img/favicon/site.webmanifest": typeof handlersHandlerDotwebmanifestRoute;
   "/artifacts": typeof artifactsArtifactsDotindexRoute;
   "/bots": typeof botsBotsDotindexRoute;
@@ -344,7 +558,11 @@ export interface FileRoutesByTo {
   "/rooms/direct/$handle": typeof roomsRoomsDotdirectDothandleRouteWithChildren;
   "/settings/models/$model": typeof settingsSettingsDotmodelsDotmodelRoute;
   "/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
+  "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
+  "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/bots/$botId": typeof botsBotsDotbotIdDotindexRoute;
+  "/admin/users/$userId": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
   "/bots/$botId/skills/local": typeof botsBotsDotbotIdDotskillsDotlocalRoute;
   "/rooms/direct/$handle/activity": typeof roomsRoomsDotdirectDothandleDotactivityRouteWithChildren;
@@ -354,29 +572,48 @@ export interface FileRoutesByTo {
   "/rooms/direct/$handle/todos": typeof roomsRoomsDotdirectDothandleDottodosRouteWithChildren;
   "/settings/devices/$deviceId/revoke": typeof settingsSettingsDotdevicesDotdeviceIdDotrevokeRoute;
   "/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
+  "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
+  "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
   "/bots/$botId/mcp/$server/remove": typeof botsBotsDotbotIdDotmcpDotserverDotremoveRoute;
   "/bots/$botId/routines/$routineId/delete": typeof botsBotsDotbotIdDotroutinesDotroutineIdDotdeleteRoute;
   "/bots/$botId/routines/$routineId/edit": typeof botsBotsDotbotIdDotroutinesDotroutineIdDoteditRoute;
   "/bots/$botId/todos/$todoId/delete": typeof botsBotsDotbotIdDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/activity/$runId": typeof roomsRoomsDotdirectDothandleDotactivityDotrunIdRoute;
   "/rooms/direct/$handle/media/$attachmentId": typeof roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRoute;
+  "/admin/users/$userId/bots/$botId/$tab": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute;
+  "/admin/users/$userId/bots/$botId/delete": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute;
+  "/admin/users/$userId/bots/$botId/reset": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute;
+  "/admin/users/$userId/devices/$deviceId/revoke": typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute;
+  "/admin/users/$userId/settings/models/$model": typeof adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute;
+  "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
+  "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/_chat": typeof chatDotlayoutRouteWithChildren;
+  "/admin": typeof adminAdminRouteWithChildren;
   "/connect": typeof connectConnectRoute;
   "/_chat/artifacts": typeof artifactsArtifactsRouteWithChildren;
   "/_chat/bots": typeof botsBotsRouteWithChildren;
   "/_chat/settings": typeof settingsSettingsRouteWithChildren;
+  "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
+  "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
   "/lab/chat": typeof labLabDotchatRoute;
+  "/admin/": typeof adminAdminDotindexRoute;
   "/_chat/bots/$botId": typeof botsBotsDotbotIdRouteWithChildren;
   "/_chat/bots/create": typeof botsBotsDotcreateRoute;
   "/_chat/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/_chat/settings/$tab": typeof settingsSettingsDottabRoute;
+  "/admin/users/$userId": typeof adminAdminDotusersDotuserIdRouteWithChildren;
+  "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
   "/img/favicon/site.webmanifest": typeof handlersHandlerDotwebmanifestRoute;
   "/_chat/artifacts/": typeof artifactsArtifactsDotindexRoute;
   "/_chat/bots/": typeof botsBotsDotindexRoute;
@@ -388,7 +625,13 @@ export interface FileRoutesById {
   "/_chat/rooms/direct/$handle": typeof roomsRoomsDotdirectDothandleRouteWithChildren;
   "/_chat/settings/models/$model": typeof settingsSettingsDotmodelsDotmodelRoute;
   "/_chat/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
+  "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
+  "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
+  "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
   "/_chat/bots/$botId/": typeof botsBotsDotbotIdDotindexRoute;
+  "/admin/users/$userId/": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/_chat/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
   "/_chat/bots/$botId/skills/local": typeof botsBotsDotbotIdDotskillsDotlocalRoute;
   "/_chat/rooms/direct/$handle/activity": typeof roomsRoomsDotdirectDothandleDotactivityRouteWithChildren;
@@ -398,29 +641,49 @@ export interface FileRoutesById {
   "/_chat/rooms/direct/$handle/todos": typeof roomsRoomsDotdirectDothandleDottodosRouteWithChildren;
   "/_chat/settings/devices/$deviceId/revoke": typeof settingsSettingsDotdevicesDotdeviceIdDotrevokeRoute;
   "/_chat/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren;
+  "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
+  "/admin/users/$userId/bots/": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
+  "/admin/users/$userId/settings/": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
   "/_chat/bots/$botId/mcp/$server/remove": typeof botsBotsDotbotIdDotmcpDotserverDotremoveRoute;
   "/_chat/bots/$botId/routines/$routineId/delete": typeof botsBotsDotbotIdDotroutinesDotroutineIdDotdeleteRoute;
   "/_chat/bots/$botId/routines/$routineId/edit": typeof botsBotsDotbotIdDotroutinesDotroutineIdDoteditRoute;
   "/_chat/bots/$botId/todos/$todoId/delete": typeof botsBotsDotbotIdDottodosDottodoIdDotdeleteRoute;
   "/_chat/rooms/direct/$handle/activity/$runId": typeof roomsRoomsDotdirectDothandleDotactivityDotrunIdRoute;
   "/_chat/rooms/direct/$handle/media/$attachmentId": typeof roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRoute;
+  "/admin/users/$userId/bots/$botId/$tab": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute;
+  "/admin/users/$userId/bots/$botId/delete": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute;
+  "/admin/users/$userId/bots/$botId/reset": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute;
+  "/admin/users/$userId/devices/$deviceId/revoke": typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute;
+  "/admin/users/$userId/settings/models/$model": typeof adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute;
+  "/admin/users/$userId/bots/$botId/": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/_chat/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/_chat/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
+  "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
+  "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | "/"
+    | "/admin"
     | "/connect"
     | "/artifacts"
     | "/bots"
     | "/settings"
+    | "/admin/admins"
+    | "/admin/users"
     | "/lab/avatars"
     | "/lab/chat"
+    | "/admin/"
     | "/bots/$botId"
     | "/bots/create"
     | "/onboarding/$step"
     | "/settings/$tab"
+    | "/admin/users/$userId"
+    | "/admin/users/create"
     | "/img/favicon/site.webmanifest"
     | "/artifacts/"
     | "/bots/"
@@ -432,7 +695,13 @@ export interface FileRouteTypes {
     | "/rooms/direct/$handle"
     | "/settings/models/$model"
     | "/settings/themes/create"
+    | "/admin/admins/$email/remove"
+    | "/admin/users/$userId/bots"
+    | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/remove"
+    | "/admin/users/$userId/settings"
     | "/bots/$botId/"
+    | "/admin/users/$userId/"
     | "/artifacts/$botId/$conversationId/$artifactId"
     | "/bots/$botId/skills/local"
     | "/rooms/direct/$handle/activity"
@@ -442,23 +711,41 @@ export interface FileRouteTypes {
     | "/rooms/direct/$handle/todos"
     | "/settings/devices/$deviceId/revoke"
     | "/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/$botId"
+    | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/settings/$tab"
+    | "/admin/users/$userId/bots/"
+    | "/admin/users/$userId/settings/"
     | "/bots/$botId/mcp/$server/remove"
     | "/bots/$botId/routines/$routineId/delete"
     | "/bots/$botId/routines/$routineId/edit"
     | "/bots/$botId/todos/$todoId/delete"
     | "/rooms/direct/$handle/activity/$runId"
     | "/rooms/direct/$handle/media/$attachmentId"
+    | "/admin/users/$userId/bots/$botId/$tab"
+    | "/admin/users/$userId/bots/$botId/delete"
+    | "/admin/users/$userId/bots/$botId/reset"
+    | "/admin/users/$userId/devices/$deviceId/revoke"
+    | "/admin/users/$userId/settings/models/$model"
+    | "/admin/users/$userId/bots/$botId/"
     | "/rooms/direct/$handle/todos/$todoId/delete"
-    | "/rooms/direct/$handle/with/$peer/$conversationId";
+    | "/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/skills/local"
+    | "/admin/users/$userId/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
   fileRoutesByTo: FileRoutesByTo;
   to:
     | "/"
     | "/connect"
+    | "/admin/admins"
+    | "/admin/users"
     | "/lab/avatars"
     | "/lab/chat"
+    | "/admin"
     | "/bots/create"
     | "/onboarding/$step"
     | "/settings/$tab"
+    | "/admin/users/create"
     | "/img/favicon/site.webmanifest"
     | "/artifacts"
     | "/bots"
@@ -470,7 +757,11 @@ export interface FileRouteTypes {
     | "/rooms/direct/$handle"
     | "/settings/models/$model"
     | "/settings/themes/create"
+    | "/admin/admins/$email/remove"
+    | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/remove"
     | "/bots/$botId"
+    | "/admin/users/$userId"
     | "/artifacts/$botId/$conversationId/$artifactId"
     | "/bots/$botId/skills/local"
     | "/rooms/direct/$handle/activity"
@@ -480,28 +771,47 @@ export interface FileRouteTypes {
     | "/rooms/direct/$handle/todos"
     | "/settings/devices/$deviceId/revoke"
     | "/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/settings/$tab"
+    | "/admin/users/$userId/bots"
+    | "/admin/users/$userId/settings"
     | "/bots/$botId/mcp/$server/remove"
     | "/bots/$botId/routines/$routineId/delete"
     | "/bots/$botId/routines/$routineId/edit"
     | "/bots/$botId/todos/$todoId/delete"
     | "/rooms/direct/$handle/activity/$runId"
     | "/rooms/direct/$handle/media/$attachmentId"
+    | "/admin/users/$userId/bots/$botId/$tab"
+    | "/admin/users/$userId/bots/$botId/delete"
+    | "/admin/users/$userId/bots/$botId/reset"
+    | "/admin/users/$userId/devices/$deviceId/revoke"
+    | "/admin/users/$userId/settings/models/$model"
+    | "/admin/users/$userId/bots/$botId"
     | "/rooms/direct/$handle/todos/$todoId/delete"
-    | "/rooms/direct/$handle/with/$peer/$conversationId";
+    | "/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/skills/local"
+    | "/admin/users/$userId/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
   id:
     | "__root__"
     | "/"
     | "/_chat"
+    | "/admin"
     | "/connect"
     | "/_chat/artifacts"
     | "/_chat/bots"
     | "/_chat/settings"
+    | "/admin/admins"
+    | "/admin/users"
     | "/lab/avatars"
     | "/lab/chat"
+    | "/admin/"
     | "/_chat/bots/$botId"
     | "/_chat/bots/create"
     | "/_chat/onboarding/$step"
     | "/_chat/settings/$tab"
+    | "/admin/users/$userId"
+    | "/admin/users/create"
     | "/img/favicon/site.webmanifest"
     | "/_chat/artifacts/"
     | "/_chat/bots/"
@@ -513,7 +823,13 @@ export interface FileRouteTypes {
     | "/_chat/rooms/direct/$handle"
     | "/_chat/settings/models/$model"
     | "/_chat/settings/themes/create"
+    | "/admin/admins/$email/remove"
+    | "/admin/users/$userId/bots"
+    | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/remove"
+    | "/admin/users/$userId/settings"
     | "/_chat/bots/$botId/"
+    | "/admin/users/$userId/"
     | "/_chat/artifacts/$botId/$conversationId/$artifactId"
     | "/_chat/bots/$botId/skills/local"
     | "/_chat/rooms/direct/$handle/activity"
@@ -523,19 +839,34 @@ export interface FileRouteTypes {
     | "/_chat/rooms/direct/$handle/todos"
     | "/_chat/settings/devices/$deviceId/revoke"
     | "/_chat/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/$botId"
+    | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/settings/$tab"
+    | "/admin/users/$userId/bots/"
+    | "/admin/users/$userId/settings/"
     | "/_chat/bots/$botId/mcp/$server/remove"
     | "/_chat/bots/$botId/routines/$routineId/delete"
     | "/_chat/bots/$botId/routines/$routineId/edit"
     | "/_chat/bots/$botId/todos/$todoId/delete"
     | "/_chat/rooms/direct/$handle/activity/$runId"
     | "/_chat/rooms/direct/$handle/media/$attachmentId"
+    | "/admin/users/$userId/bots/$botId/$tab"
+    | "/admin/users/$userId/bots/$botId/delete"
+    | "/admin/users/$userId/bots/$botId/reset"
+    | "/admin/users/$userId/devices/$deviceId/revoke"
+    | "/admin/users/$userId/settings/models/$model"
+    | "/admin/users/$userId/bots/$botId/"
     | "/_chat/rooms/direct/$handle/todos/$todoId/delete"
-    | "/_chat/rooms/direct/$handle/with/$peer/$conversationId";
+    | "/_chat/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/skills/local"
+    | "/admin/users/$userId/settings/providers/$providerId/logout"
+    | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   chatDotlayoutRoute: typeof chatDotlayoutRouteWithChildren;
+  adminAdminRoute: typeof adminAdminRouteWithChildren;
   connectConnectRoute: typeof connectConnectRoute;
   labLabDotavatarsRoute: typeof labLabDotavatarsRoute;
   labLabDotchatRoute: typeof labLabDotchatRoute;
@@ -556,6 +887,13 @@ declare module "@tanstack/react-router" {
       path: "";
       fullPath: "/";
       preLoaderRoute: typeof chatDotlayoutRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/admin": {
+      id: "/admin";
+      path: "/admin";
+      fullPath: "/admin";
+      preLoaderRoute: typeof adminAdminRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/connect": {
@@ -585,6 +923,27 @@ declare module "@tanstack/react-router" {
       fullPath: "/settings";
       preLoaderRoute: typeof settingsSettingsRouteImport;
       parentRoute: typeof chatDotlayoutRoute;
+    };
+    "/admin/": {
+      id: "/admin/";
+      path: "/";
+      fullPath: "/admin/";
+      preLoaderRoute: typeof adminAdminDotindexRouteImport;
+      parentRoute: typeof adminAdminRoute;
+    };
+    "/admin/admins": {
+      id: "/admin/admins";
+      path: "/admins";
+      fullPath: "/admin/admins";
+      preLoaderRoute: typeof adminAdminDotadminsRouteImport;
+      parentRoute: typeof adminAdminRoute;
+    };
+    "/admin/users": {
+      id: "/admin/users";
+      path: "/users";
+      fullPath: "/admin/users";
+      preLoaderRoute: typeof adminAdminDotusersRouteImport;
+      parentRoute: typeof adminAdminRoute;
     };
     "/lab/avatars": {
       id: "/lab/avatars";
@@ -656,6 +1015,20 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof settingsSettingsDottabRouteImport;
       parentRoute: typeof settingsSettingsRoute;
     };
+    "/admin/users/$userId": {
+      id: "/admin/users/$userId";
+      path: "/users/$userId";
+      fullPath: "/admin/users/$userId";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdRouteImport;
+      parentRoute: typeof adminAdminRoute;
+    };
+    "/admin/users/create": {
+      id: "/admin/users/create";
+      path: "/create";
+      fullPath: "/admin/users/create";
+      preLoaderRoute: typeof adminAdminDotusersDotcreateRouteImport;
+      parentRoute: typeof adminAdminDotusersRoute;
+    };
     "/img/favicon/site.webmanifest": {
       id: "/img/favicon/site.webmanifest";
       path: "/img/favicon/site.webmanifest";
@@ -711,6 +1084,48 @@ declare module "@tanstack/react-router" {
       fullPath: "/settings/themes/create";
       preLoaderRoute: typeof settingsSettingsDotthemesDotcreateRouteImport;
       parentRoute: typeof settingsSettingsRoute;
+    };
+    "/admin/admins/$email/remove": {
+      id: "/admin/admins/$email/remove";
+      path: "/$email/remove";
+      fullPath: "/admin/admins/$email/remove";
+      preLoaderRoute: typeof adminAdminDotadminsDotemailDotremoveRouteImport;
+      parentRoute: typeof adminAdminDotadminsRoute;
+    };
+    "/admin/users/$userId/": {
+      id: "/admin/users/$userId/";
+      path: "/";
+      fullPath: "/admin/users/$userId/";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotindexRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/bots": {
+      id: "/admin/users/$userId/bots";
+      path: "/bots";
+      fullPath: "/admin/users/$userId/bots";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/devices": {
+      id: "/admin/users/$userId/devices";
+      path: "/devices";
+      fullPath: "/admin/users/$userId/devices";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/remove": {
+      id: "/admin/users/$userId/remove";
+      path: "/remove";
+      fullPath: "/admin/users/$userId/remove";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotremoveRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/settings": {
+      id: "/admin/users/$userId/settings";
+      path: "/settings";
+      fullPath: "/admin/users/$userId/settings";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
     };
     "/_chat/artifacts/$botId/$conversationId/$artifactId": {
       id: "/_chat/artifacts/$botId/$conversationId/$artifactId";
@@ -775,6 +1190,41 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRouteImport;
       parentRoute: typeof settingsSettingsRoute;
     };
+    "/admin/users/$userId/bots/": {
+      id: "/admin/users/$userId/bots/";
+      path: "/";
+      fullPath: "/admin/users/$userId/bots/";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotindexRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsRoute;
+    };
+    "/admin/users/$userId/bots/$botId": {
+      id: "/admin/users/$userId/bots/$botId";
+      path: "/$botId";
+      fullPath: "/admin/users/$userId/bots/$botId";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsRoute;
+    };
+    "/admin/users/$userId/bots/create": {
+      id: "/admin/users/$userId/bots/create";
+      path: "/create";
+      fullPath: "/admin/users/$userId/bots/create";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotcreateRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsRoute;
+    };
+    "/admin/users/$userId/settings/": {
+      id: "/admin/users/$userId/settings/";
+      path: "/";
+      fullPath: "/admin/users/$userId/settings/";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotindexRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotsettingsRoute;
+    };
+    "/admin/users/$userId/settings/$tab": {
+      id: "/admin/users/$userId/settings/$tab";
+      path: "/$tab";
+      fullPath: "/admin/users/$userId/settings/$tab";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsDottabRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotsettingsRoute;
+    };
     "/_chat/bots/$botId/mcp/$server/remove": {
       id: "/_chat/bots/$botId/mcp/$server/remove";
       path: "/mcp/$server/remove";
@@ -817,6 +1267,48 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof roomsRoomsDotdirectDothandleDotmediaDotattachmentIdRouteImport;
       parentRoute: typeof roomsRoomsDotdirectDothandleDotmediaRoute;
     };
+    "/admin/users/$userId/bots/$botId/": {
+      id: "/admin/users/$userId/bots/$botId/";
+      path: "/";
+      fullPath: "/admin/users/$userId/bots/$botId/";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
+    "/admin/users/$userId/bots/$botId/$tab": {
+      id: "/admin/users/$userId/bots/$botId/$tab";
+      path: "/$tab";
+      fullPath: "/admin/users/$userId/bots/$botId/$tab";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
+    "/admin/users/$userId/bots/$botId/delete": {
+      id: "/admin/users/$userId/bots/$botId/delete";
+      path: "/delete";
+      fullPath: "/admin/users/$userId/bots/$botId/delete";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
+    "/admin/users/$userId/bots/$botId/reset": {
+      id: "/admin/users/$userId/bots/$botId/reset";
+      path: "/reset";
+      fullPath: "/admin/users/$userId/bots/$botId/reset";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
+    "/admin/users/$userId/devices/$deviceId/revoke": {
+      id: "/admin/users/$userId/devices/$deviceId/revoke";
+      path: "/$deviceId/revoke";
+      fullPath: "/admin/users/$userId/devices/$deviceId/revoke";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotdevicesRoute;
+    };
+    "/admin/users/$userId/settings/models/$model": {
+      id: "/admin/users/$userId/settings/models/$model";
+      path: "/models/$model";
+      fullPath: "/admin/users/$userId/settings/models/$model";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotsettingsRoute;
+    };
     "/_chat/rooms/direct/$handle/todos/$todoId/delete": {
       id: "/_chat/rooms/direct/$handle/todos/$todoId/delete";
       path: "/$todoId/delete";
@@ -830,6 +1322,27 @@ declare module "@tanstack/react-router" {
       fullPath: "/rooms/direct/$handle/with/$peer/$conversationId";
       preLoaderRoute: typeof roomsRoomsDotdirectDothandleDotwithDotpeerRouteImport;
       parentRoute: typeof roomsRoomsDotdirectDothandleRoute;
+    };
+    "/admin/users/$userId/bots/$botId/skills/local": {
+      id: "/admin/users/$userId/bots/$botId/skills/local";
+      path: "/skills/local";
+      fullPath: "/admin/users/$userId/bots/$botId/skills/local";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
+    "/admin/users/$userId/settings/providers/$providerId/logout": {
+      id: "/admin/users/$userId/settings/providers/$providerId/logout";
+      path: "/providers/$providerId/logout";
+      fullPath: "/admin/users/$userId/settings/providers/$providerId/logout";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotsettingsRoute;
+    };
+    "/admin/users/$userId/bots/$botId/mcp/$server/remove": {
+      id: "/admin/users/$userId/bots/$botId/mcp/$server/remove";
+      path: "/mcp/$server/remove";
+      fullPath: "/admin/users/$userId/bots/$botId/mcp/$server/remove";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
     };
   }
 }
@@ -1019,9 +1532,169 @@ const chatDotlayoutRouteWithChildren = chatDotlayoutRoute._addFileChildren(
   chatDotlayoutRouteChildren,
 );
 
+interface adminAdminDotadminsRouteChildren {
+  adminAdminDotadminsDotemailDotremoveRoute: typeof adminAdminDotadminsDotemailDotremoveRoute;
+}
+
+const adminAdminDotadminsRouteChildren: adminAdminDotadminsRouteChildren = {
+  adminAdminDotadminsDotemailDotremoveRoute:
+    adminAdminDotadminsDotemailDotremoveRoute,
+};
+
+const adminAdminDotadminsRouteWithChildren =
+  adminAdminDotadminsRoute._addFileChildren(adminAdminDotadminsRouteChildren);
+
+interface adminAdminDotusersRouteChildren {
+  adminAdminDotusersDotcreateRoute: typeof adminAdminDotusersDotcreateRoute;
+}
+
+const adminAdminDotusersRouteChildren: adminAdminDotusersRouteChildren = {
+  adminAdminDotusersDotcreateRoute: adminAdminDotusersDotcreateRoute,
+};
+
+const adminAdminDotusersRouteWithChildren =
+  adminAdminDotusersRoute._addFileChildren(adminAdminDotusersRouteChildren);
+
+interface adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren {
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
+}
+
+const adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren: adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDottabRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute,
+  };
+
+const adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdRoute._addFileChildren(
+    adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren,
+  );
+
+interface adminAdminDotusersDotuserIdDotbotsRouteChildren {
+  adminAdminDotusersDotuserIdDotbotsDotbotIdRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren;
+  adminAdminDotusersDotuserIdDotbotsDotcreateRoute: typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  adminAdminDotusersDotuserIdDotbotsDotindexRoute: typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
+}
+
+const adminAdminDotusersDotuserIdDotbotsRouteChildren: adminAdminDotusersDotuserIdDotbotsRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotbotsDotbotIdRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren,
+    adminAdminDotusersDotuserIdDotbotsDotcreateRoute:
+      adminAdminDotusersDotuserIdDotbotsDotcreateRoute,
+    adminAdminDotusersDotuserIdDotbotsDotindexRoute:
+      adminAdminDotusersDotuserIdDotbotsDotindexRoute,
+  };
+
+const adminAdminDotusersDotuserIdDotbotsRouteWithChildren =
+  adminAdminDotusersDotuserIdDotbotsRoute._addFileChildren(
+    adminAdminDotusersDotuserIdDotbotsRouteChildren,
+  );
+
+interface adminAdminDotusersDotuserIdDotdevicesRouteChildren {
+  adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute: typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute;
+}
+
+const adminAdminDotusersDotuserIdDotdevicesRouteChildren: adminAdminDotusersDotuserIdDotdevicesRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute:
+      adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute,
+  };
+
+const adminAdminDotusersDotuserIdDotdevicesRouteWithChildren =
+  adminAdminDotusersDotuserIdDotdevicesRoute._addFileChildren(
+    adminAdminDotusersDotuserIdDotdevicesRouteChildren,
+  );
+
+interface adminAdminDotusersDotuserIdDotsettingsRouteChildren {
+  adminAdminDotusersDotuserIdDotsettingsDottabRoute: typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
+  adminAdminDotusersDotuserIdDotsettingsDotindexRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
+  adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute;
+  adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute: typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
+}
+
+const adminAdminDotusersDotuserIdDotsettingsRouteChildren: adminAdminDotusersDotuserIdDotsettingsRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotsettingsDottabRoute:
+      adminAdminDotusersDotuserIdDotsettingsDottabRoute,
+    adminAdminDotusersDotuserIdDotsettingsDotindexRoute:
+      adminAdminDotusersDotuserIdDotsettingsDotindexRoute,
+    adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute:
+      adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRoute,
+    adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute:
+      adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute,
+  };
+
+const adminAdminDotusersDotuserIdDotsettingsRouteWithChildren =
+  adminAdminDotusersDotuserIdDotsettingsRoute._addFileChildren(
+    adminAdminDotusersDotuserIdDotsettingsRouteChildren,
+  );
+
+interface adminAdminDotusersDotuserIdRouteChildren {
+  adminAdminDotusersDotuserIdDotbotsRoute: typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  adminAdminDotusersDotuserIdDotdevicesRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  adminAdminDotusersDotuserIdDotremoveRoute: typeof adminAdminDotusersDotuserIdDotremoveRoute;
+  adminAdminDotusersDotuserIdDotsettingsRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
+  adminAdminDotusersDotuserIdDotindexRoute: typeof adminAdminDotusersDotuserIdDotindexRoute;
+}
+
+const adminAdminDotusersDotuserIdRouteChildren: adminAdminDotusersDotuserIdRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotbotsRoute:
+      adminAdminDotusersDotuserIdDotbotsRouteWithChildren,
+    adminAdminDotusersDotuserIdDotdevicesRoute:
+      adminAdminDotusersDotuserIdDotdevicesRouteWithChildren,
+    adminAdminDotusersDotuserIdDotremoveRoute:
+      adminAdminDotusersDotuserIdDotremoveRoute,
+    adminAdminDotusersDotuserIdDotsettingsRoute:
+      adminAdminDotusersDotuserIdDotsettingsRouteWithChildren,
+    adminAdminDotusersDotuserIdDotindexRoute:
+      adminAdminDotusersDotuserIdDotindexRoute,
+  };
+
+const adminAdminDotusersDotuserIdRouteWithChildren =
+  adminAdminDotusersDotuserIdRoute._addFileChildren(
+    adminAdminDotusersDotuserIdRouteChildren,
+  );
+
+interface adminAdminRouteChildren {
+  adminAdminDotadminsRoute: typeof adminAdminDotadminsRouteWithChildren;
+  adminAdminDotusersRoute: typeof adminAdminDotusersRouteWithChildren;
+  adminAdminDotindexRoute: typeof adminAdminDotindexRoute;
+  adminAdminDotusersDotuserIdRoute: typeof adminAdminDotusersDotuserIdRouteWithChildren;
+}
+
+const adminAdminRouteChildren: adminAdminRouteChildren = {
+  adminAdminDotadminsRoute: adminAdminDotadminsRouteWithChildren,
+  adminAdminDotusersRoute: adminAdminDotusersRouteWithChildren,
+  adminAdminDotindexRoute: adminAdminDotindexRoute,
+  adminAdminDotusersDotuserIdRoute:
+    adminAdminDotusersDotuserIdRouteWithChildren,
+};
+
+const adminAdminRouteWithChildren = adminAdminRoute._addFileChildren(
+  adminAdminRouteChildren,
+);
+
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   chatDotlayoutRoute: chatDotlayoutRouteWithChildren,
+  adminAdminRoute: adminAdminRouteWithChildren,
   connectConnectRoute: connectConnectRoute,
   labLabDotavatarsRoute: labLabDotavatarsRoute,
   labLabDotchatRoute: labLabDotchatRoute,

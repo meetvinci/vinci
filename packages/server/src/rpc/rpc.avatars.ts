@@ -1,5 +1,5 @@
-import { authedRouter } from './rpc.procedures';
+import { ownerRouter } from './rpc.procedures';
 
 export const avatars = {
-  upload: authedRouter.avatars.upload.handler(async ({ context, input }) => context.avatars.actions.upload(input)),
+  upload: ownerRouter.avatars.upload.handler(async ({ context, input }) => context.avatars.actions.upload(input)),
 };

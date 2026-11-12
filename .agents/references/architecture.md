@@ -35,12 +35,14 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  Clients["browser, PWA"] -->|"Cloudflare Tunnel and Access"| Hub
+  Clients["browser, PWA, admin panel"] -->|"Cloudflare Tunnel and Access"| Hub
   subgraph Host["Team server"]
-    Hub["apps/hub<br/>Access JWT, email to daemon"] -->|"daemon paths"| Daemons["one daemon container per user"]
-    Hub -->|"other paths"| Web["apps/web<br/>one shared web app"]
+    Hub["apps/hub<br/>Access JWT, email to daemon, admin list"] -->|"daemon paths"| Daemons["one daemon container per user"]
+    Hub -->|"other paths, /admin pages"| Web["apps/web<br/>one shared web app"]
     Web -->|"SSR with the Access JWT"| Hub
-    Hub -.->|"owner socket: pairing grant"| Daemons
+    Hub -.->|"owner socket: pairing grant, admin allowlist"| Daemons
+    Hub -->|"/admin/api user changes"| Provisioner["provisioner<br/>Docker socket, users.yaml"]
+    Provisioner -->|"apply"| Daemons
   end
 ```
 
@@ -172,10 +174,10 @@ apps/daemon/src/
 apps/hub/
 ├── src/entry.native.ts                 the hub entry
 ├── src/core/core.native.ts             startup composition, signals and shutdown
-├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off
-├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing
+├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API
+├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner
 ├── src/types/<domain>.types.ts         hub schemas, deps and service types
-├── tests/<app>.test.ts                 Vitest end-to-end tests against real throwaway processes
+├── tests/<app>[-<part>].test.ts         Vitest end-to-end tests against real throwaway processes
 └── tests/support/<app>.fixture.ts      the processes, servers and helpers those tests start
 ```
 
@@ -255,11 +257,11 @@ packages/
 ├── README.md                           what Orbs is, setup, scripts
 ├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
-├── scripts/deploy.ts                   container images and deployment, a subcommand per step
+├── scripts/deploy.ts                   container images and deployment, a subcommand per step; `provisioner` serves apply to the hub
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
-├── deploy/docker/Dockerfile            hub, web and daemon image targets built from one repo checkout
+├── deploy/docker/Dockerfile            hub, web, daemon and provisioner image targets built from one repo checkout
 ├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's orbs CLI wrapper
-├── deploy/compose/compose.yaml         the team stack: hub, web app, networks and the one-off tools service
+├── deploy/compose/compose.yaml         the team stack: hub, provisioner, web app, networks and the one-off tools service
 ├── deploy/compose/daemon.yaml          the hardened daemon service each person's generated service extends
 ├── deploy/cloudflare/cloudflared.compose.yaml  the tunnel connector service the Compose stack includes; tunnel, Access and DNS come from scripts/deploy.ts cloudflare
 ├── deploy/.env.example                 the server's /opt/orbs/.env keys, one block per deploy area
@@ -277,7 +279,7 @@ packages/
 | Location | Owns |
 | --- | --- |
 | `apps/daemon` | Entry, startup composition, listener and transport, signals, shutdown. |
-| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning and the first-visit pairing hand-off. No product logic. |
+| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning, the first-visit pairing hand-off, the admin list and admin API, and relaying admin calls to owner sockets. No product logic. |
 | `apps/web`, `apps/desktop`, `apps/mobile` | UI, server connections, device credential storage. Web uses TanStack Start SSR and query hydration; SSR calls the daemon through the shared client, the browser through the `/rpc` proxy with WebSockets for live updates. Web credentials live in a cookie and reach the daemon as Bearer headers. |
 | `packages/server` | Product services: bots, pairing, settings, credentials, permissions, skill, instruction, plugin and MCP selection and discovery; RPC handlers. |
 | `packages/runtime` | Pi integration: Harness, conversations, tools, hooks, approvals, tasks, watches, recovery, skill, instruction and plugin loading, MCP clients. |

@@ -3,6 +3,7 @@ import { Errors, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { parse } from 'cookie-es';
 import { match, P } from 'ts-pattern';
+import { coreAdminApi } from './core-admin.native';
 import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from './core-pairing.native';
 import { makeCoreRelay } from './core-relay.native';
 import type * as CoreTypes from '../types/core.types';
@@ -10,6 +11,9 @@ import type { Server } from 'bun';
 
 const DAEMON_PATHS = [/^\/rpc(?:\/|$)/u, /^\/health$/u, /^\/files\//u, /^\/avatars\//u, /^\/embed\//u, /^\/mcp\/callback$/u];
 const PUBLIC_PATHS = [/^\/img\/favicon\/[^/]+$/u, /^\/favicon\.ico$/u];
+const ADMIN_PAGES = /^\/admin(?:\/|$)/u;
+const ADMIN_API = /^\/admin\/api(?:\/|$)/u;
+const ADMIN_WEB_FILES = [/^\/assets\//u];
 const URL_HEADERS = ['location', 'content-location'];
 const REFRESH_URL = /(?<prefix>url\s*=\s*)(?<url>\S+)/iu;
 const ACCESS_HEADER = 'cf-access-jwt-assertion';
@@ -77,10 +81,16 @@ async function coreServerHandle(
   try {
     const token = request.headers.get(ACCESS_HEADER) ?? parse(request.headers.get('cookie') ?? '')[ACCESS_COOKIE] ?? '';
     const identity = await services.access.queries.verify({ token });
-    const user = await services.users.queries.find({ email: identity.email });
+    const isAdminPath = url.pathname.startsWith('/admin');
+    const user = isAdminPath ? null : await services.users.queries.find({ email: identity.email });
 
     if (!user) {
-      throw new Errors.FORBIDDEN({ internal: 'No hub user has this Access identity' });
+      return await coreServerAdmin(services, {
+        request,
+        url,
+        identity,
+        publicUrl,
+      });
     }
 
     return await coreServerRoute(services, {
@@ -98,6 +108,9 @@ async function coreServerHandle(
     const status = match(failure?.code)
       .with('UNAUTHORIZED', () => 401)
       .with('FORBIDDEN', () => 403)
+      .with('NOT_FOUND', () => 404)
+      .with('CONFLICT', () => 409)
+      .with('VALIDATION_ERROR', () => 422)
       .with('RATE_LIMITED', () => 429)
       .otherwise(() => 502);
 
@@ -115,6 +128,25 @@ async function coreServerHandle(
 
     return new Response(null, { status, headers: { 'Cache-Control': 'no-store' } });
   }
+}
+
+async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTypes.CoreAdminContext): Promise<Response> {
+  const { request, url, identity } = context;
+
+  if (!await services.admins.queries.has({ email: identity.email })) {
+    throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This Access identity is not an admin' : 'No hub user has this Access identity' });
+  }
+
+  const isRead = request.method === 'GET' || request.method === 'HEAD';
+
+  return match(url.pathname)
+    .when((path) => ADMIN_API.test(path), () => coreAdminApi(services, context))
+    .when((path) => ADMIN_PAGES.test(path), () => coreServerWeb(context, identity.token))
+    .when((path) => isRead && ADMIN_WEB_FILES.some((pattern) => pattern.test(path)), () => coreServerWeb(context, identity.token))
+    .when((path) => path.startsWith('/admin'), async () => new Response(null, { status: 404 }))
+    .otherwise(() => {
+      throw new Errors.FORBIDDEN({ internal: 'An admin without a hub user reaches only the admin panel' });
+    });
 }
 
 function coreServerRoute(services: CoreTypes.CoreServices, context: CoreTypes.CoreContext, server: Server<CoreTypes.CoreSocket>) {

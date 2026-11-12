@@ -9,6 +9,7 @@ import IconServer from '~icons/lucide/server';
 import IconSettings from '~icons/lucide/settings';
 import IconShieldCheck from '~icons/lucide/shield-check';
 import type { SettingsNavItem } from '@/types/settings.types';
+import type { ProviderAuthType, SettingsSection } from '@repo/contracts/universal';
 
 export const SETTINGS_NAV: SettingsNavItem[] = [
   { id: 'general', label: m.settings_general, description: m.settings_general_hint, icon: IconSettings },
@@ -21,3 +22,7 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   { id: 'devices', label: m.settings_devices, description: m.settings_devices_hint, icon: IconLaptop },
   { id: 'desktop', label: m.settings_desktop, description: m.settings_desktop_hint, icon: IconMonitor },
 ];
+
+export const SETTINGS_ADMIN_AUTH_TYPES: readonly ProviderAuthType[] = ['api_key'];
+
+export const SETTINGS_ADMIN_HIDDEN: readonly SettingsSection[] = ['devices', 'desktop'];

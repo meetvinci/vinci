@@ -2,7 +2,7 @@ import { serverHealth } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -13,24 +13,45 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 
 const ROOT = resolve(import.meta.dirname, '../../../..');
 
-const PORTS = {
-  hub: 48690,
-  access: 48691,
-  web: 48692,
-  alice: 48693,
-  bob: 48694,
-  model: 48695,
-};
+function hubFixtureConfig(base: number) {
+  const ports = {
+    hub: base,
+    access: base + 1,
+    web: base + 2,
+    alice: base + 3,
+    bob: base + 4,
+    model: base + 5,
+    provisioner: base + 6,
+    byHand: base + 7,
+  };
 
-export const HUB_FIXTURE = {
-  hub: `http://127.0.0.1:${PORTS.hub}`,
-  teamDomain: `http://127.0.0.1:${PORTS.access}`,
-  audience: 'hub-test-audience',
-  publicOrigin: 'https://team.example',
-  web: `http://127.0.0.1:${PORTS.web}`,
-  daemons: { alice: `http://127.0.0.1:${PORTS.alice}`, bob: `http://127.0.0.1:${PORTS.bob}` },
-  emails: { alice: 'alice@team.example', bob: 'bob@team.example' },
-};
+  return {
+    ports,
+    hub: `http://127.0.0.1:${ports.hub}`,
+    teamDomain: `http://127.0.0.1:${ports.access}`,
+    audience: 'hub-test-audience',
+    publicOrigin: 'https://team.example',
+    web: `http://127.0.0.1:${ports.web}`,
+    daemons: { alice: `http://127.0.0.1:${ports.alice}`, bob: `http://127.0.0.1:${ports.bob}` },
+    emails: { alice: 'alice@team.example', bob: 'bob@team.example' },
+    admin: 'root@team.example',
+    byHand: `http://127.0.0.1:${ports.byHand}`,
+    provisionerToken: 'hub-test-provisioner-token',
+  };
+}
+
+export const HUB_FIXTURE = hubFixtureConfig(48690);
+
+export const HUB_ADMIN_FIXTURE = hubFixtureConfig(48610);
+
+type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
+
+interface HubFixtureCall {
+  method: string;
+  url: string;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+}
 
 const modelRequest = z.object({
   model: z.string(),
@@ -46,6 +67,12 @@ export interface HubFixtureUser {
   socketPath: string;
 }
 
+interface HubFixtureHubOptions {
+  port: number;
+  data: string;
+  extra: Record<string, string>;
+}
+
 export interface HubFixtureMintOptions {
   key?: CryptoKey;
   kid?: string;
@@ -56,7 +83,7 @@ export function hubFixtureEncode(value: object): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-function hubFixtureListen(port: number, handler: (request: IncomingMessage, response: ServerResponse, body: string) => void): Promise<Server> {
+function hubFixtureListen(port: number | string, handler: (request: IncomingMessage, response: ServerResponse, body: string) => void): Promise<Server> {
   const server = createServer((request, response) => {
     const chunks: Buffer[] = [];
 
@@ -64,9 +91,17 @@ function hubFixtureListen(port: number, handler: (request: IncomingMessage, resp
     request.on('end', () => handler(request, response, Buffer.concat(chunks).toString('utf8')));
   });
 
-  return new Promise((ready) => {
-    server.listen(port, '127.0.0.1', () => ready(server));
-  });
+  return match(port)
+    .with(P.number, (tcp) => new Promise<Server>((ready) => {
+      server.listen(tcp, '127.0.0.1', () => ready(server));
+    }))
+    .otherwise(async (path) => {
+      await mkdir(dirname(path), { recursive: true });
+
+      return new Promise<Server>((ready) => {
+        server.listen(path, () => ready(server));
+      });
+    });
 }
 
 function hubFixtureModelReply(body: string): string {
@@ -122,12 +157,12 @@ function hubFixtureEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
   return { ...Object.fromEntries(kept), LOG_LEVEL: 'warn', ...extra };
 }
 
-async function hubFixtureDaemon(root: string, name: 'alice' | 'bob'): Promise<ChildProcess> {
+async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'alice' | 'bob'): Promise<ChildProcess> {
   const data = join(root, name);
   const pi = join(data, 'pi');
 
   await mkdir(pi, { recursive: true });
-  await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${PORTS.model}` } } }));
+  await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${config.ports.model}` } } }));
   await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: 'hub-test-not-real' } }), { mode: 0o600 });
 
   return spawn('bun', ['src/entry.native.ts'], {
@@ -138,9 +173,80 @@ async function hubFixtureDaemon(root: string, name: 'alice' | 'bob'): Promise<Ch
       DATA_DIR: data,
       PI_CODING_AGENT_DIR: pi,
       DAEMON_HOST: '127.0.0.1',
-      DAEMON_PORT: String(PORTS[name]),
-      WEB_PUBLIC_URL: HUB_FIXTURE.publicOrigin,
-      DAEMON_ALLOWED_ORIGINS: HUB_FIXTURE.publicOrigin,
+      DAEMON_PORT: String(config.ports[name]),
+      WEB_PUBLIC_URL: config.publicOrigin,
+      DAEMON_ALLOWED_ORIGINS: config.publicOrigin,
+    }),
+  });
+}
+
+function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
+  const calls: HubFixtureCall[] = [];
+
+  const userBody = z.object({
+    name: z.string(),
+    email: z.string(),
+    enabled: z.boolean(),
+  });
+
+  const users = new Map(Object.entries(emails).map(([id, email]) => [id, {
+    id,
+    name: id,
+    email,
+    enabled: true,
+    state: 'running',
+  }]));
+
+  const handle = (request: IncomingMessage, response: ServerResponse, body: string) => {
+    const [, kind = '', id = ''] = (request.url ?? '').split('/');
+
+    calls.push({
+      method: request.method ?? '',
+      url: request.url ?? '',
+      headers: request.headers,
+      body,
+    });
+
+    if (request.headers.authorization !== `Bearer ${provisionerToken}`) {
+      response.writeHead(401).end();
+      return;
+    }
+
+    match({ method: request.method, kind })
+      .with({ method: 'GET', kind: 'users' }, () => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ users: [...users.values()] })))
+      .with({ method: 'PUT', kind: 'users' }, () => {
+        users.set(id, {
+          id,
+          ...userBody.parse(JSON.parse(body)),
+          state: 'running',
+        });
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+      })
+      .with({ method: 'DELETE', kind: 'users' }, () => {
+        users.delete(id);
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+      })
+      .with({ method: 'PUT', kind: 'access' }, () => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' })))
+      .otherwise(() => response.writeHead(404).end());
+  };
+
+  return { calls, handle };
+}
+
+function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtureHubOptions): ChildProcess {
+  return spawn('bun', ['src/entry.native.ts'], {
+    cwd: join(ROOT, 'apps/hub'),
+    stdio: 'ignore',
+    env: hubFixtureEnv({
+      HUB_HOST: '127.0.0.1',
+      HUB_PORT: String(port),
+      HUB_DATA_DIR: data,
+      HUB_WEB_URL: config.web,
+      ACCESS_TEAM_DOMAIN: config.teamDomain,
+      ACCESS_AUD: config.audience,
+      HUB_PUBLIC_URL: config.publicOrigin,
+      HUB_ADMIN_EMAILS: `${config.admin},${config.emails.alice}`,
+      ...extra,
     }),
   });
 }
@@ -149,17 +255,31 @@ async function hubFixtureServerId(url: string): Promise<string> {
   return serverHealth.parse(await (await fetch(`${url}/health`)).json()).id;
 }
 
-export async function hubFixtureFakeSocket(path: string) {
-  const requests: string[] = [];
-
-  const server = createServer((request, response) => {
-    requests.push(request.url ?? '');
-    response.end();
+export function hubFixtureOwner(socketPath: string, path: string, headers: Record<string, string>): Promise<number | undefined> {
+  return new Promise((done, fail) => {
+    httpRequest({
+      socketPath,
+      path: `/rpc/${path}`,
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-bots-protocol': '1', ...headers },
+    }, (response) => {
+      response.resume();
+      response.on('end', () => done(response.statusCode));
+    }).on('error', fail).end('{}');
   });
+}
 
-  await mkdir(dirname(path), { recursive: true });
-  await new Promise((done) => {
-    server.listen(path, () => done(null));
+export async function hubFixtureFakeSocket(path: string) {
+  const requests: HubFixtureCall[] = [];
+
+  const server = await hubFixtureListen(path, (request, response, body) => {
+    requests.push({
+      method: request.method ?? '',
+      url: request.url ?? '',
+      headers: request.headers,
+      body,
+    });
+    response.writeHead(200, { 'content-type': 'application/json', 'set-cookie': 'door=1' }).end(JSON.stringify({ json: { relayed: true } }));
   });
 
   return {
@@ -170,7 +290,8 @@ export async function hubFixtureFakeSocket(path: string) {
   };
 }
 
-export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
+export async function hubFixtureStart(config: HubFixtureConfig) {
+  const { emails } = config;
   const root = await realpath(await mkdtemp(join(tmpdir(), 'orbs-hub-')));
   const hubData = join(root, 'hub');
   const algorithm = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' };
@@ -184,17 +305,22 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
   };
 
   const users = {
-    [emails.alice]: { id: 'alice', daemonUrl: HUB_FIXTURE.daemons.alice, socketPath: join(root, 'alice/data/ipc/rpc.sock') },
-    [emails.bob]: { id: 'bob', daemonUrl: HUB_FIXTURE.daemons.bob, socketPath: join(root, 'bob/data/ipc/rpc.sock') },
+    [emails.alice]: { id: 'alice', daemonUrl: config.daemons.alice, socketPath: join(root, 'alice/data/ipc/rpc.sock') },
+    [emails.bob]: { id: 'bob', daemonUrl: config.daemons.bob, socketPath: join(root, 'bob/data/ipc/rpc.sock') },
   } satisfies Record<string, HubFixtureUser>;
 
-  await mkdir(hubData, { recursive: true });
-  await writeFile(join(hubData, 'users.json'), JSON.stringify({ users }));
+  const byHandData = join(root, 'by-hand');
+  const provisioner = hubFixtureProvisioner(config);
+
+  await Promise.all([hubData, byHandData].map(async (directory) => {
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, 'users.json'), JSON.stringify({ users }));
+  }));
 
   const servers = await Promise.all([
-    hubFixtureListen(PORTS.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
-    hubFixtureListen(PORTS.web, (request, response, body) => {
-      const relayed = Object.fromEntries(new URL(request.url ?? '/', HUB_FIXTURE.web).searchParams);
+    hubFixtureListen(config.ports.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
+    hubFixtureListen(config.ports.web, (request, response, body) => {
+      const relayed = Object.fromEntries(new URL(request.url ?? '/', config.web).searchParams);
 
       response.writeHead(request.url?.startsWith('/relay') ? 302 : 200, { 'content-type': 'application/json', ...relayed }).end(JSON.stringify({
         web: true,
@@ -203,33 +329,34 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
         body,
       }));
     }),
-    hubFixtureListen(PORTS.model, (_request, response, body) => response.writeHead(200, { 'content-type': 'text/event-stream' }).end(hubFixtureModelReply(body))),
+    hubFixtureListen(config.ports.model, (_request, response, body) => response.writeHead(200, { 'content-type': 'text/event-stream' }).end(hubFixtureModelReply(body))),
+    hubFixtureListen(config.ports.provisioner, provisioner.handle),
   ]);
 
   const daemons = await Promise.all([
-    hubFixtureDaemon(root, 'alice'),
-    hubFixtureDaemon(root, 'bob'),
+    hubFixtureDaemon(config, root, 'alice'),
+    hubFixtureDaemon(config, root, 'bob'),
   ]);
 
-  await Promise.all(Object.entries(HUB_FIXTURE.daemons).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
+  await Promise.all(Object.entries(config.daemons).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
 
-  const hub = spawn('bun', ['src/entry.native.ts'], {
-    cwd: join(ROOT, 'apps/hub'),
-    stdio: 'ignore',
-    env: hubFixtureEnv({
-      HUB_HOST: '127.0.0.1',
-      HUB_PORT: String(PORTS.hub),
-      HUB_DATA_DIR: hubData,
-      HUB_WEB_URL: HUB_FIXTURE.web,
-      ACCESS_TEAM_DOMAIN: HUB_FIXTURE.teamDomain,
-      ACCESS_AUD: HUB_FIXTURE.audience,
-      HUB_PUBLIC_URL: HUB_FIXTURE.publicOrigin,
+  const hubs = [
+    hubFixtureHub(config, {
+      port: config.ports.hub,
+      data: hubData,
+      extra: { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken },
     }),
-  });
+    hubFixtureHub(config, {
+      port: config.ports.byHand,
+      data: byHandData,
+      extra: {},
+    }),
+  ];
 
-  await hubFixtureWait('hub', `${HUB_FIXTURE.hub}/hub/health`);
+  await hubFixtureWait('hub', `${config.hub}/hub/health`);
+  await hubFixtureWait('by-hand hub', `${config.byHand}/hub/health`);
 
-  const serverIds = { alice: await hubFixtureServerId(HUB_FIXTURE.daemons.alice), bob: await hubFixtureServerId(HUB_FIXTURE.daemons.bob) };
+  const serverIds = { alice: await hubFixtureServerId(config.daemons.alice), bob: await hubFixtureServerId(config.daemons.bob) };
 
   async function mint(claims: Record<string, string | number | string[]>, { key = keys.good.privateKey, kid = 'kid-good', alg = 'RS256' }: HubFixtureMintOptions = {}): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
@@ -241,8 +368,8 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
     });
 
     const payload = hubFixtureEncode({
-      iss: HUB_FIXTURE.teamDomain,
-      aud: [HUB_FIXTURE.audience],
+      iss: config.teamDomain,
+      aud: [config.audience],
       iat: now,
       nbf: now,
       exp: now + 3600,
@@ -263,7 +390,7 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
   }
 
   async function stop(): Promise<void> {
-    const children = [hub, ...daemons];
+    const children = [...hubs, ...daemons];
 
     children.forEach((child) => child.kill('SIGTERM'));
     await Promise.all(children.map((child) => new Promise((done) => {
@@ -279,7 +406,7 @@ export async function hubFixtureStart(emails: typeof HUB_FIXTURE.emails) {
     await rm(root, { recursive: true, force: true });
   }
 
-  return { root, hubData, keys, users, serverIds, mint, writeUsers, stop };
+  return { root, hubData, keys, users, serverIds, provisioner: provisioner.calls, mint, writeUsers, stop };
 }
 
 export type HubFixture = Awaited<ReturnType<typeof hubFixtureStart>>;

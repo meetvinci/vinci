@@ -1,6 +1,8 @@
 import type { AccessService } from '../services/access/access.service';
 import type { PairingService } from '../services/pairing/pairing.service';
+import type { ProvisionerService } from '../services/provisioner/provisioner.service';
 import type { AccessIdentity } from './access.types';
+import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
 import type { User, UserService } from './user.types';
 
@@ -9,6 +11,8 @@ export interface CoreServices {
   users: UserService;
   daemons: DaemonService;
   pairing: PairingService;
+  admins: AdminService;
+  provisioner: ProvisionerService;
 }
 
 export interface CoreIncoming {
@@ -20,8 +24,16 @@ export interface CoreForward extends CoreIncoming {
   url: URL;
 }
 
-export interface CoreContext extends CoreForward {
+export interface CoreAdminContext extends CoreForward {
   identity: AccessIdentity;
+}
+
+export interface CoreAdminRelay {
+  id: string;
+  procedure: string;
+}
+
+export interface CoreContext extends CoreAdminContext {
   user: User;
 }
 

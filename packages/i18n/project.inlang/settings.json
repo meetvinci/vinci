@@ -10,6 +10,7 @@
   ],
   "plugin.inlang.messageFormat": {
     "pathPattern": [
+      "./messages/{locale}/admin.json",
       "./messages/{locale}/avatars.json",
       "./messages/{locale}/connect.json",
       "./messages/{locale}/desktop.json",

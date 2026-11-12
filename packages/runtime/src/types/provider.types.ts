@@ -7,22 +7,24 @@ export interface ProviderServiceDeps {
 }
 
 export interface ProviderLoginParams extends UniversalTypes.ProviderLoginInput {
-  deviceId: string;
+  deviceId: string | null;
   serverId: string;
 }
 
 export interface ProviderCompleteParams extends UniversalTypes.ProviderCompleteInput {
-  deviceId: string;
+  deviceId: string | null;
 }
 
 export interface ProviderSessionParams extends UniversalTypes.ProviderSessionIdInput {
-  deviceId: string;
+  deviceId: string | null;
 }
 
 export type ProviderCancelParams = ProviderSessionParams;
 export type ProviderListParams = Pick<ProviderLoginParams, 'deviceId'>;
 export type ProviderLogoutParams = UniversalTypes.ProviderLogoutInput;
-export type ProviderCancelDeviceParams = Pick<ProviderLoginParams, 'deviceId'>;
+export interface ProviderCancelDeviceParams {
+  deviceId: string;
+}
 
 export interface ProviderPromptWaiter {
   promptId: string;
@@ -34,7 +36,7 @@ export interface ProviderLoginRecord {
   id: string;
   providerId: string;
   authType: UniversalTypes.ProviderAuthType;
-  deviceId: string;
+  deviceId: string | null;
   status: UniversalTypes.ProviderSession['status'];
   expiresAt: number;
   abort: AbortController;

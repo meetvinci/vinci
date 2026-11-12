@@ -4,6 +4,7 @@ import { Button } from '@repo/ui/button';
 import { Combobox } from '@repo/ui/combobox';
 import { SectionDialogNav, SectionDialogNavItem } from '@repo/ui/section-dialog';
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import { BOT_NAV } from '@/services/bot/bot.constants';
 import IconPlus from '~icons/lucide/plus';
 import type { Bot, BotSection } from '@repo/contracts/universal';
@@ -16,6 +17,7 @@ interface BotDialogNavProps {
 
 export function BotDialogNav({ bots, bot, section }: BotDialogNavProps) {
   const navigate = useNavigate();
+  const scope = useSectionScope();
 
   return (
     <SectionDialogNav
@@ -27,10 +29,7 @@ export function BotDialogNav({ bots, bot, section }: BotDialogNavProps) {
           size="sm"
           variant="ghost"
         >
-          <Link
-            replace
-            to="/bots/create"
-          >
+          <Link {...scope.bots.create}>
             <IconPlus />
             {m.bots_create()}
           </Link>
@@ -55,11 +54,7 @@ export function BotDialogNav({ bots, bot, section }: BotDialogNavProps) {
             placeholder={m.bots_new()}
             search={{ placeholder: m.bots_search(), empty: m.bots_search_empty() }}
             value={bot?.id ?? ''}
-            onValueChange={(botId) => void navigate({
-              to: '/bots/$botId/$tab',
-              params: { botId, tab: section ?? 'profile' },
-              replace: true,
-            })}
+            onValueChange={(botId) => void navigate(scope.bots.section(botId, section ?? 'profile'))}
           />
           <Button
             asChild
@@ -69,10 +64,7 @@ export function BotDialogNav({ bots, bot, section }: BotDialogNavProps) {
             title={m.bots_create()}
             variant="ghost"
           >
-            <Link
-              replace
-              to="/bots/create"
-            >
+            <Link {...scope.bots.create}>
               <IconPlus />
             </Link>
           </Button>
@@ -83,12 +75,7 @@ export function BotDialogNav({ bots, bot, section }: BotDialogNavProps) {
       {BOT_NAV.map((item) => (
         <SectionDialogNavItem isActive={item.id === section} key={item.id}>
           {bot ? (
-            <Link
-              replace
-              params={{ botId: bot.id, tab: item.id }}
-              resetScroll={false}
-              to="/bots/$botId/$tab"
-            >
+            <Link {...scope.bots.section(bot.id, item.id)} resetScroll={false}>
               <item.icon />
               {item.label()}
             </Link>

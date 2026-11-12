@@ -1,11 +1,10 @@
-import { settingsSection } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { createFileRoute, useMatch, useParams } from '@tanstack/react-router';
-import { match, P } from 'ts-pattern';
 import { SettingsDialog } from '@/components/settings/settings-dialog';
 import { useSectionDialogClose } from '@/hooks/use-section-dialog-close';
 import { rpc } from '@/services/rpc/rpc.client';
 import { seoHead } from '@/services/seo/seo.utils';
+import { settingsDialogState } from '@/services/settings/settings.utils';
 
 export const Route = createFileRoute('/_chat/settings')({
   head: () => seoHead({ title: m.settings_title() }),
@@ -32,19 +31,13 @@ function SettingsRoute() {
   const theme = useMatch({ from: '/_chat/settings/themes/create', shouldThrow: false });
   const close = useSectionDialogClose();
 
-  const state = match({
-    theme,
+  const state = settingsDialogState({
+    isTheme: Boolean(theme),
+    tab,
     model,
     deviceId,
     providerId,
-    tab: settingsSection.safeParse(tab),
-  })
-    .with({ theme: P.nonNullable }, () => ({ section: 'general' as const, view: 'theme' as const }))
-    .with({ model: P.string }, () => ({ section: 'models' as const, view: 'swap' as const }))
-    .with({ deviceId: P.string }, () => ({ section: 'devices' as const, view: undefined }))
-    .with({ providerId: P.string }, () => ({ section: 'models' as const, view: undefined }))
-    .with({ tab: { success: true } }, ({ tab: parsed }) => ({ section: parsed.data, view: undefined }))
-    .otherwise(() => null);
+  });
 
   if (!state) {
     return null;

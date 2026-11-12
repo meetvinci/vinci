@@ -31,7 +31,7 @@ export interface McpAuthServiceDeps {
 }
 
 export interface McpAuthPending {
-  deviceId: string;
+  deviceId: string | null;
   botId: string;
   returnUrl?: string;
   serverUrl: string;
@@ -64,7 +64,7 @@ export interface McpAuthServerParams {
 }
 
 export interface McpAuthDeviceParams extends McpAuthServerParams {
-  deviceId: string;
+  deviceId: string | null;
 }
 
 export interface McpAuthStartParams extends McpAuthDeviceParams {

@@ -4,7 +4,7 @@ import { readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { HUB_FIXTURE, hubFixtureEncode, hubFixtureFakeSocket, hubFixtureStart } from './support/hub.fixture';
+import { HUB_FIXTURE, hubFixtureEncode, hubFixtureFakeSocket, hubFixtureOwner, hubFixtureStart } from './support/hub.fixture';
 import type { HubFixture } from './support/hub.fixture';
 import type { WebSocketOptions } from 'bun';
 
@@ -87,7 +87,7 @@ async function hubTestPair(token: string, name: string) {
 const it = test.extend<HubTestFixtures>({
   emails: [emails, { scope: 'file' }],
   fixture: [async ({ emails: users }, use) => {
-    const fixture = await hubFixtureStart(users);
+    const fixture = await hubFixtureStart({ ...HUB_FIXTURE, emails: users });
 
     await use(fixture);
     await fixture.stop();
@@ -403,6 +403,15 @@ describe('server ID pinning', () => {
 });
 
 describe('owner socket', () => {
+  it('serves only allowlisted procedures to the owner without a device', async ({ fixture }) => {
+    const owner = (path: string, headers = {}) => hubFixtureOwner(fixture.users[emails.alice].socketPath, path, headers);
+    const allowed = ['server/info', 'bots/list', 'tools/settings'].map((path) => owner(path));
+    const refused = ['conversation/submit', 'conversation/list', 'tools/answer', 'pairing/redeem'].map((path) => owner(path)).concat(owner('bots/list', { origin: publicOrigin }));
+
+    expect(await Promise.all(allowed)).toEqual([200, 200, 200]);
+    expect(await Promise.all(refused)).toEqual([403, 403, 403, 403, 403]);
+  });
+
   it.for([
     ['a symlink to another socket', (root: string) => ({ link: join(root, 'alice-link.sock'), target: join(root, 'fake/rpc.sock'), socketPath: join(root, 'alice-link.sock') })],
     ['a path through a symlinked folder', (root: string) => ({ link: join(root, 'linked'), target: join(root, 'fake'), socketPath: join(root, 'linked/rpc.sock') })],

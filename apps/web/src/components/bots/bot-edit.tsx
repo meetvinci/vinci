@@ -1,5 +1,5 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { useBotDelete, useBotUpdate, useChatReset } from '@repo/client/react';
+import { useBotDelete, useBotUpdate, useChatReset, useRpc } from '@repo/client/react';
 import { botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { BotMcpPanel } from '@repo/ui/bots/bot-mcp-panel';
@@ -22,8 +22,8 @@ import { BotMcpRemove } from '@/components/bots/bot-mcp-remove';
 import { RoutinesEdit } from '@/components/routines/routines-edit';
 import { RoutinesList } from '@/components/routines/routines-list';
 import { TodosList } from '@/components/todos/todos-list';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import { BOT_FORM_SECTIONS, BOT_NAV } from '@/services/bot/bot.constants';
-import { rpc } from '@/services/rpc/rpc.client';
 import IconRotateCcw from '~icons/lucide/rotate-ccw';
 import IconTrash from '~icons/lucide/trash-2';
 import type { BotDialogView } from '@/types/bot.types';
@@ -38,6 +38,7 @@ interface BotEditProps {
 export function BotEdit({ bot, bots, view }: BotEditProps) {
   const router = useRouter();
   const navigate = useNavigate();
+  const scope = useSectionScope();
 
   const form = useForm({
     resolver: standardSchemaResolver(botForm),
@@ -74,11 +75,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
   const isSubview = view.kind !== 'section';
 
   function openSection(tab: BotSection) {
-    void navigate({
-      to: '/bots/$botId/$tab',
-      params: { botId: bot.id, tab },
-      replace: true,
-    });
+    void navigate(scope.bots.section(bot.id, tab));
   }
 
   const submit = form.handleSubmit(
@@ -157,7 +154,13 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
                 </fieldset>
               </form>
             ))
-            .with({ kind: 'section', section: 'mcp' }, () => <BotMcpPanel bot={bot} />)
+            .with({ kind: 'section', section: 'mcp' }, () => (
+              <BotMcpPanel
+                bot={bot}
+                canSignIn={!scope.isAdmin}
+                removeLink={(server) => scope.bots.mcpRemove(bot.id, server)}
+              />
+            ))
             .with({ kind: 'section', section: 'todos' }, () => <TodosList bot={bot} />)
             .with({ kind: 'section', section: 'routines' }, () => <RoutinesList bot={bot} />)
             .with({ kind: 'section', section: 'danger' }, () => <BotEditDanger bot={bot} isDeletable={bots.length > 1} />)
@@ -200,6 +203,8 @@ interface BotEditDangerProps {
 }
 
 function BotEditDanger({ bot, isDeletable }: BotEditDangerProps) {
+  const scope = useSectionScope();
+
   return (
     <SettingsGroup title={m.bots_danger()}>
       <PanelRow className="flex-wrap">
@@ -212,11 +217,7 @@ function BotEditDanger({ bot, isDeletable }: BotEditDangerProps) {
           size="sm"
           variant="outline"
         >
-          <Link
-            replace
-            params={{ botId: bot.id }}
-            to="/bots/$botId/reset"
-          >
+          <Link {...scope.bots.reset(bot.id)}>
             <IconRotateCcw />
             {m.bots_reset_chat()}
           </Link>
@@ -233,11 +234,7 @@ function BotEditDanger({ bot, isDeletable }: BotEditDangerProps) {
             size="sm"
             variant="destructive"
           >
-            <Link
-              replace
-              params={{ botId: bot.id }}
-              to="/bots/$botId/delete"
-            >
+            <Link {...scope.bots.remove(bot.id)}>
               <IconTrash />
               {m.rooms_bot_delete()}
             </Link>
@@ -285,7 +282,8 @@ interface BotEditDeleteProps {
 
 function BotEditDelete({ bot, onBack }: BotEditDeleteProps) {
   const navigate = useNavigate();
-  const remove = useBotDelete({ botId: bot.id, onDeleted: () => navigate({ to: '/bots', replace: true }) });
+  const scope = useSectionScope();
+  const remove = useBotDelete({ botId: bot.id, onDeleted: () => navigate(scope.bots.list) });
 
   return (
     <SettingsSubview
@@ -316,6 +314,7 @@ interface BotEditRoutineProps {
 }
 
 function BotEditRoutine({ bot, routineId, onBack }: BotEditRoutineProps) {
+  const { rpc } = useRpc();
   const list = useQuery(rpc.routines.list.queryOptions({ input: { botId: bot.id } }));
   const routine = list.data?.find((item) => item.id === routineId);
 
@@ -345,6 +344,7 @@ interface BotEditRoutineDeleteProps {
 }
 
 function BotEditRoutineDelete({ bot, routineId, onBack }: BotEditRoutineDeleteProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
   const list = useQuery(rpc.routines.list.queryOptions({ input: { botId: bot.id } }));
   const routine = list.data?.find((item) => item.id === routineId);
@@ -387,6 +387,7 @@ interface BotEditTodoDeleteProps {
 }
 
 function BotEditTodoDelete({ bot, todoId, onBack }: BotEditTodoDeleteProps) {
+  const { rpc } = useRpc();
   const queryClient = useQueryClient();
   const list = useQuery(rpc.todos.list.queryOptions({ input: { botId: bot.id } }));
   const todo = list.data?.find((item) => String(item.id) === todoId);
