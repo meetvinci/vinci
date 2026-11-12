@@ -1,7 +1,8 @@
 import { BOT_ACTIVITY_LABELS, botBlobPresentation } from '@repo/client/client';
-import { useBotCheer } from '@repo/client/react';
+import { rpcContext, useBotCheer } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { cva } from 'cva';
+import { use } from 'react';
 import { match } from 'ts-pattern';
 import { cn } from '../../lib/cn';
 import { AvatarBlob } from '../avatars/avatar-blob';
@@ -34,6 +35,7 @@ export function BotAvatar({ bot, activity = 'idle', size = 32, animate, cheer = 
   const avatar = bot.avatar;
   const busy = activity === 'thinking' || activity === 'working' || activity === 'writing' || activity === 'compacting';
   const cheering = useBotCheer();
+  const avatarSrc = use(rpcContext)?.avatarSrc;
   const idle = activity === 'idle';
   const moving = (idle && cheering.moving) || (animate ?? busy);
   const presentation = botBlobPresentation({ avatar, activity });
@@ -44,7 +46,7 @@ export function BotAvatar({ bot, activity = 'idle', size = 32, animate, cheer = 
       <img
         alt=""
         className="size-full rounded-full object-cover"
-        src={src}
+        src={avatarSrc?.(src) ?? src}
       />
     ))
     .with({ kind: 'color' }, ({ color }) => <span className="block size-full rounded-full" style={{ backgroundColor: color }} />)

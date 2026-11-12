@@ -1,13 +1,15 @@
 import { MutationCache } from '@tanstack/react-query';
 import type { QueryMutationCacheParams } from '../../types/query.types';
 
-export function queryMutationCache({ notify, onError }: QueryMutationCacheParams) {
+export function queryMutationCache({ notify, onError, errorMessage }: QueryMutationCacheParams) {
   return new MutationCache({
     onError: (error, _variables, _result, mutation) => {
       onError?.(error);
 
-      if (mutation.meta?.error) {
-        notify({ message: mutation.meta.error, variant: 'error' });
+      const message = errorMessage?.(error) ?? mutation.meta?.error;
+
+      if (message) {
+        notify({ message, variant: 'error' });
       }
     },
     onSuccess: (_data, _variables, _result, mutation) => {

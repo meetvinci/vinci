@@ -18,7 +18,8 @@ Ask the human for everything below before touching anything, in one message. Don
 | Where the Cloudflare API token is | `op://<vault>/<item>/credential` | read inside each command that needs it |
 | People: id and email each | `alice: alice@example.com` | `users.yaml` |
 | First admin of the admin panel (need not be one of the people; admins are fully trusted) | `admin@example.com` | `admins:` in `users.yaml`, `HUB_ADMIN_EMAILS` (the same email in both) |
-| Model keys: provider and where they are, or none | `ANTHROPIC_API_KEY` from `op://…` | `.env` |
+| How Cloudflare lets people in: a domain rule for the company's email domain (recommended when everyone has one; never a public mail domain), or a list of emails plus a small server token so the panel keeps it in step; by hand only as a fallback | `--domain example.com`, or a token at `op://…` | install steps 5 and 6 |
+| Model keys: provider and where they are, or none. Keys can also be set once in the panel's Global settings → Models, which copies them to everyone | `ANTHROPIC_API_KEY` from `op://…` | `.env` or Global settings |
 | Optional: SSH through the tunnel, admin emails | `acme-ssh.example.com` | `--ssh-hostname`, `--ssh-email` |
 | For a change: the image tag in use | `ORBS_TAG` in `/opt/orbs/.env` | upgrades and teardown |
 
@@ -45,12 +46,12 @@ Follow `docs/team-workspace/install.md` steps 1 to 8 in order. Stop at the first
 | 2. Docker | server version 26 or newer, `docker compose version` works, service `enabled` |
 | 3. Images and files | `amd64` for all four images locally; four `Loaded image:` lines; `/opt/orbs` mode 700 with the four files; `.env` mode 600; `bun --version` on the server |
 | 4. `users.yaml` | one `<id>: <email>` per person under `users:`; the first admin under `admins:` |
-| 5. Cloudflare | `created` or `unchanged` for the tunnel, policies, apps, routes and DNS; the five values printed (`ORBS_PUBLIC_HOST`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`); `cloudflare.env` written (git ignores it) |
+| 5. Cloudflare | `created` or `unchanged` for the tunnel, policies, apps, routes and DNS; the six values printed (`ORBS_PUBLIC_HOST`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, empty without `--domain`); `cloudflare.env` written (git ignores it). Ask the human first: a domain rule (`--domain`) or a list of emails plus the small server token (install step 6); never a public mail domain |
 | 6. Tunnel token | `600 root` and `6` from the step's check; local `cloudflare.env` deleted |
-| 7. Start | `HUB_ADMIN_EMAILS` set and `1` from the `PROVISIONER_TOKEN` check; `Applied <n> users`; every container `(healthy)`, the provisioner included; `Registered tunnel connection` in the cloudflared log |
+| 7. Start | `HUB_ADMIN_EMAILS` set and `1` from the `PROVISIONER_TOKEN` check; `Applied <n> users: … (and the template workspace)`; every container `(healthy)`, the provisioner and `orbs-daemon-template-1` included; `Registered tunnel connection` in the cloudflared log; the provisioner's `listening` line says `Access sync on` when step 6 put a token on the server (`; domain rule @<domain>` with a domain rule) |
 | 8. Check | `/rpc` and `/admin` 302 to `<team>.cloudflareaccess.com`, `/favicon.ico` and `/img/favicon/site.webmanifest` 200; `ss -tlnp` shows only sshd and 127.0.0.53/54; isolation check all `blocked`, hub lines `200`; `hub/admins.json` lists the first admin and the hub log has `Admins seeded from HUB_ADMIN_EMAILS` and no `Admins file` error |
 
-You cannot pass Cloudflare Access yourself: it emails a one-time code to the person. Finish by telling the human the address, which emails can log in, and that the first admin opens the admin panel at `https://<team>.<domain>/admin` (where they add people and set up their bots). On the first visit each person sees the model-provider step of onboarding unless shared keys are set.
+You cannot pass Cloudflare Access yourself: it emails a one-time code to the person. Finish by telling the human the address, which emails can log in, and that the first admin opens the admin panel at `https://<team>.<domain>/admin`. Their first tasks there, in this order (`admin.md`, "Global settings and suggested bots"): set Global settings (Models with an API key, then Chat, Tools, Secrets, Sources), create the suggested bots, then add people with the bots each should start with. A person sees no onboarding steps: whatever the admin set up is what they get. An admin who is not a user is sent to `/admin` when opening the team address.
 
 Deeper checks, when asked to verify an install. Only the daemon image has a shell: `docker exec <container> sh` fails on the hub, web, provisioner and cloudflared, so run checks with `docker exec <container> bun -e '…'` (not cloudflared). In `fetch` errors, code `23` is a timeout (packets dropped), `ETIMEOUT` means the name did not resolve, and `FailedToOpenSocket` means no route; all count as blocked.
 
@@ -85,9 +86,13 @@ Deeper checks, when asked to verify an install. Only the daemon image has a shel
 
 ## Add a person
 
-Normally the admin panel does this. By hand: `admin.md`, "Add a person": add the line, `bun deploy.ts apply` on the server, then `cloudflare emails` from the admin's computer (skip it if the server has `CLOUDFLARE_API_TOKEN` and the provisioner log says `Access sync on.`; run it anyway after a by-hand change). Proof: `orbs-daemon-<id>-1` healthy; `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people; `Access policy orbs-<team>-allow: updated`. The hub's `Users loaded` log line only updates on the next request, so don't wait for it. Nobody else's container or the hub restarts.
+Normally the admin panel does this. By hand: `admin.md`, "Add a person": add the line, `bun deploy.ts apply` on the server, then `cloudflare emails` from the admin's computer (skip it if the email is inside `CLOUDFLARE_ACCESS_DOMAINS`, or the server has `CLOUDFLARE_API_TOKEN` and the provisioner log says `Access sync on`; run it anyway after a by-hand change; it keeps the domain rule). Proof: `orbs-daemon-<id>-1` healthy; `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people; `Access policy orbs-<team>-allow: updated`. The hub's `Users loaded` log line only updates on the next request, so don't wait for it. Nobody else's container or the hub restarts.
 
 Bots for a person are created in the admin panel (or by the person in the app). Without the panel, `admin.md`, "Create a bot for someone", uses the person's owner socket. Never pair a device into their Orbs.
+
+## Global settings and suggested bots
+
+Done in the panel by an admin (`admin.md`, "Global settings and suggested bots"); you cannot pass Access, so you only check the server side. The template workspace (`orbs-daemon-template-1`, volume `orbs_data-template`) is kept by every `apply`; never add `template` to `users.yaml` (refused) and never pair a device into it. Proof after the admin's changes: `hub/global.json` exists, and a sync status of everyone `in-sync` (the admin reads *Sync status* in the panel). After editing files in the template's `~/.agents` by hand, the admin runs *Sync now*: editing files triggers no copy. Back it up like a person (`bun deploy.ts backup template`); it can't be purged. It costs one more daemon's memory.
 
 ## Disable a person
 
@@ -119,7 +124,7 @@ Bots for a person are created in the admin panel (or by the person in the app). 
 
 ## Tear down
 
-`admin.md`, "Tear down": `docker compose down` on the server first, then `cloudflare destroy` without `--yes`, check every name, then with `--yes` after the human confirms. Keep volumes and `/opt/orbs` unless the human says to delete the data. Remove any test containers, images and networks you added, by name.
+`admin.md`, "Tear down": `docker compose down` on the server first, then `cloudflare destroy` without `--yes`, check every name, then with `--yes` after the human confirms. Keep volumes (the template's `orbs_data-template` too) and `/opt/orbs` unless the human says to delete the data. Remove any test containers, images and networks you added, by name.
 
 ## When something is off
 

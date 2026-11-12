@@ -1,21 +1,28 @@
 import { createRouterUtils } from '@orpc/tanstack-query';
 import { makeHttpClient } from '@repo/client/client';
 import { queryMutationCache } from '@repo/client/react';
-import { adminChangeResult, adminList, adminMe, adminUserCreateResult, adminUserList } from '@repo/contracts/universal';
+import { adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
+import { m } from '@repo/i18n/client';
 import { log } from '@repo/logger/client';
 import { toasty } from '@repo/ui/sonner';
 import { isCancelledError, QueryClient, queryOptions } from '@tanstack/react-query';
 import { ADMIN } from '@/services/admin/admin.constants';
-import { adminRequest } from '@/services/admin/admin.utils';
-import type { AdminRpcParams } from '@/types/admin.types';
+import { adminIsSectionRefused, adminRequest, adminRpcPrefix } from '@/services/admin/admin.utils';
+import type { AdminBotCopyParams, AdminRpcParams, AdminSectionModeParams } from '@/types/admin.types';
 import type { RpcContextValue } from '@repo/client/react';
-import type { Admin, AdminUserCreate, AdminUserPatch } from '@repo/contracts/universal';
+import type * as UniversalTypes from '@repo/contracts/universal';
 
 export function adminQueryClient() {
-  return new QueryClient({
+  const client: QueryClient = new QueryClient({
     mutationCache: queryMutationCache({
       notify: ({ message, variant }) => toasty(message, variant === 'error' ? '⚠️' : '✅'),
+      errorMessage: (error) => (adminIsSectionRefused(error) ? m.admin_section_refused() : undefined),
       onError: (error) => {
+        if (adminIsSectionRefused(error)) {
+          void client.invalidateQueries({ queryKey: ['admin', 'sections'] });
+          return;
+        }
+
         if (!isCancelledError(error)) {
           log.error({ action: 'admin_mutation_error', error });
         }
@@ -28,6 +35,17 @@ export function adminQueryClient() {
       },
     },
   });
+
+  client.getMutationCache().subscribe((event) => {
+    if (event.type !== 'updated' || event.action.type !== 'success' || event.mutation.options.mutationKey?.[0] !== adminRpcPrefix(ADMIN.templateId)) {
+      return;
+    }
+
+    void client.invalidateQueries({ queryKey: ['admin', 'sections'] });
+    client.getQueryData(adminUserListQuery().queryKey)?.users.forEach((user) => void client.invalidateQueries({ queryKey: [adminRpcPrefix(user.id)], refetchType: 'none' }));
+  });
+
+  return client;
 }
 
 export function adminMeQuery() {
@@ -44,15 +62,79 @@ export function adminAdminsQuery() {
   });
 }
 
-export function adminUsersQuery() {
+export function adminUserListQuery() {
   return queryOptions({
     queryKey: ['admin', 'users'],
-    queryFn: async () => (await adminRequest({ path: '/users', schema: adminUserList })).users,
-    refetchInterval: (query) => (query.state.data?.some((user) => user.state === 'starting') ? ADMIN.usersRefreshMs : false),
+    queryFn: () => adminRequest({ path: '/users', schema: adminUserList }),
+    refetchInterval: (query) => (query.state.data?.users.some((user) => user.state === 'starting') ? ADMIN.usersRefreshMs : false),
   });
 }
 
-export function adminAddAdmin({ email }: Admin) {
+export function adminGlobalQuery() {
+  return queryOptions({
+    queryKey: ['admin', 'global'],
+    queryFn: () => adminRequest({ path: '/global', schema: adminGlobal }),
+    refetchInterval: (query) => (query.state.data?.state === 'starting' ? ADMIN.usersRefreshMs : false),
+  });
+}
+
+export function adminUserSectionsQuery({ userId }: AdminRpcParams) {
+  return queryOptions({
+    queryKey: ['admin', 'sections', 'user', userId],
+    queryFn: async ({ client, queryKey }) => {
+      const wasPending = client.getQueryData<UniversalTypes.AdminSection[]>(queryKey)?.some((section) => section.sync === 'pending');
+      const { sections } = await adminRequest({ path: `/users/${encodeURIComponent(userId)}/sections`, schema: adminUserSections });
+
+      if (wasPending && !sections.some((section) => section.sync === 'pending')) {
+        await client.invalidateQueries({ queryKey: [adminRpcPrefix(userId)] });
+      }
+
+      return sections;
+    },
+    refetchInterval: (query) => (query.state.data?.some((section) => section.sync === 'pending') ? ADMIN.syncRefreshMs : false),
+  });
+}
+
+export function adminGlobalStatusQuery() {
+  return queryOptions({
+    queryKey: ['admin', 'sections', 'status'],
+    queryFn: async () => (await adminRequest({ path: '/global/status', schema: adminGlobalStatus })).users,
+    refetchInterval: (query) => (query.state.data?.some((user) => user.sections.some((section) => section.sync === 'pending')) ? ADMIN.syncRefreshMs : false),
+  });
+}
+
+export function adminSetSectionMode({ userId, section, mode }: AdminSectionModeParams) {
+  return adminRequest({
+    path: `/users/${encodeURIComponent(userId)}/sections/${section}`,
+    schema: adminChangeResult,
+    method: 'PUT',
+    body: { mode },
+  });
+}
+
+export function adminGlobalSync(input: UniversalTypes.AdminGlobalSyncInput) {
+  return adminRequest({
+    path: '/global/sync',
+    schema: adminChangeResult,
+    method: 'POST',
+    body: input,
+  });
+}
+
+export function adminCopyBots({ userId, bots }: AdminBotCopyParams) {
+  return adminRequest({
+    path: `/users/${encodeURIComponent(userId)}/bots/copy`,
+    schema: adminBotCopyResult,
+    method: 'POST',
+    body: { bots },
+  });
+}
+
+export function adminUsersQuery() {
+  return queryOptions({ ...adminUserListQuery(), select: ({ users }) => users });
+}
+
+export function adminAddAdmin({ email }: UniversalTypes.Admin) {
   return adminRequest({
     path: '/admins',
     schema: adminChangeResult,
@@ -61,7 +143,7 @@ export function adminAddAdmin({ email }: Admin) {
   });
 }
 
-export function adminRemoveAdmin({ email }: Admin) {
+export function adminRemoveAdmin({ email }: UniversalTypes.Admin) {
   return adminRequest({
     path: `/admins/${encodeURIComponent(email)}`,
     schema: adminChangeResult,
@@ -69,7 +151,7 @@ export function adminRemoveAdmin({ email }: Admin) {
   });
 }
 
-export function adminCreateUser(input: AdminUserCreate) {
+export function adminCreateUser(input: UniversalTypes.AdminUserCreate) {
   return adminRequest({
     path: '/users',
     schema: adminUserCreateResult,
@@ -78,7 +160,7 @@ export function adminCreateUser(input: AdminUserCreate) {
   });
 }
 
-export function adminUpdateUser({ id, ...input }: AdminUserPatch) {
+export function adminUpdateUser({ id, ...input }: UniversalTypes.AdminUserPatch) {
   return adminRequest({
     path: `/users/${encodeURIComponent(id)}`,
     schema: adminChangeResult,
@@ -87,7 +169,7 @@ export function adminUpdateUser({ id, ...input }: AdminUserPatch) {
   });
 }
 
-export function adminRemoveUser({ id }: Pick<AdminUserPatch, 'id'>) {
+export function adminRemoveUser({ id }: Pick<UniversalTypes.AdminUserPatch, 'id'>) {
   return adminRequest({
     path: `/users/${encodeURIComponent(id)}`,
     schema: adminChangeResult,
@@ -96,7 +178,12 @@ export function adminRemoveUser({ id }: Pick<AdminUserPatch, 'id'>) {
 }
 
 export function adminRpc({ userId }: AdminRpcParams): RpcContextValue {
-  const client = makeHttpClient(() => ({ url: `${ADMIN.apiPath}/users/${encodeURIComponent(userId)}/rpc` }));
+  const user = `${ADMIN.apiPath}/users/${encodeURIComponent(userId)}`;
+  const client = makeHttpClient(() => ({ url: `${user}/rpc` }));
 
-  return { client, rpc: createRouterUtils(client, { prefix: `admin-user:${userId}` }) };
+  return {
+    client,
+    rpc: createRouterUtils(client, { prefix: adminRpcPrefix(userId) }),
+    avatarSrc: (src) => (src.startsWith(AVATAR.pathPrefix) ? `${user}${src}` : src),
+  };
 }

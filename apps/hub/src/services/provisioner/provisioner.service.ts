@@ -1,9 +1,11 @@
-import { provisionerReply, provisionerUsers } from '../../types/provisioner.types';
+import { provisionerUsers } from '../../types/provisioner.types';
+import { provisionerActionChange } from './provisioner-action.change';
+import { provisionerQueryAccess } from './provisioner-query.access';
 import { provisionerDriverRequest } from './provisioner.driver';
 import type * as ProvisionerTypes from '../../types/provisioner.types';
 
 export function makeProvisionerService({ url, token }: ProvisionerTypes.ProvisionerServiceParams) {
-  const deps: ProvisionerTypes.ProvisionerServiceDeps = { config: url && token ? { url, token } : null };
+  const deps: ProvisionerTypes.ProvisionerServiceDeps = { config: url && token ? { url, token } : null, state: { access: null } };
 
   return {
     queries: {
@@ -13,25 +15,23 @@ export function makeProvisionerService({ url, token }: ProvisionerTypes.Provisio
         path: '/users',
         schema: provisionerUsers,
       })).users,
+      access: () => provisionerQueryAccess(deps),
     },
     actions: {
-      put: async ({ user: { id, ...user } }: ProvisionerTypes.ProvisionerPutParams) => (await provisionerDriverRequest(deps.config, {
+      put: ({ user: { id, ...user } }: ProvisionerTypes.ProvisionerPutParams) => provisionerActionChange(deps, {
         method: 'PUT',
         path: `/users/${id}`,
         body: user,
-        schema: provisionerReply,
-      })).access,
-      remove: async ({ id }: ProvisionerTypes.ProvisionerRemoveParams) => (await provisionerDriverRequest(deps.config, {
+      }),
+      remove: ({ id }: ProvisionerTypes.ProvisionerRemoveParams) => provisionerActionChange(deps, {
         method: 'DELETE',
         path: `/users/${id}`,
-        schema: provisionerReply,
-      })).access,
-      admins: async ({ emails }: ProvisionerTypes.ProvisionerAdminsParams) => (await provisionerDriverRequest(deps.config, {
+      }),
+      admins: ({ emails }: ProvisionerTypes.ProvisionerAdminsParams) => provisionerActionChange(deps, {
         method: 'PUT',
         path: '/access/admins',
         body: { emails },
-        schema: provisionerReply,
-      })).access,
+      }),
     },
   };
 }

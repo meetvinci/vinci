@@ -1,12 +1,15 @@
-import { ROOMS_SEND_MODES } from '@repo/client/client';
-import { useChatDefaults, useRpc } from '@repo/client/react';
+import { GIF_PROVIDER_LABELS, ROOMS_SEND_MODES } from '@repo/client/client';
+import { useChatDefaults, useChatHideVerbose, useRpc } from '@repo/client/react';
 import { usePreferences } from '@repo/client/web';
-import { conversationWhenBusy, preferencesEnterAction } from '@repo/contracts/universal';
+import { conversationWhenBusy, gifProvider, preferencesEnterAction } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
-import { PanelContent, PanelRow, PanelTitle } from '@repo/ui/panel';
+import { Label } from '@repo/ui/label';
+import { PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
+import { Switch } from '@repo/ui/switch';
 import { useSuspenseQuery } from '@tanstack/react-query';
+import { useId } from 'react';
 import { useSectionScope } from '@/hooks/use-section-scope';
 
 const SETTINGS_ENTER_KEYS = [
@@ -22,6 +25,8 @@ export function SettingsChat() {
   const { data: settings } = useSuspenseQuery(rpc.conversation.settings.queryOptions());
   const configure = useChatDefaults();
   const scope = useSectionScope();
+  const verbose = useChatHideVerbose();
+  const verboseId = useId();
 
   return (
     <SettingsGroup title={m.settings_chat()}>
@@ -57,6 +62,35 @@ export function SettingsChat() {
           </SelectTrigger>
           <SelectContent>
             {conversationWhenBusy.options.map((mode) => <SelectItem key={mode} value={mode}>{ROOMS_SEND_MODES[mode]()}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </PanelRow>
+      <PanelRow>
+        <PanelContent>
+          <Label htmlFor={verboseId}>{m.settings_general_verbose()}</Label>
+        </PanelContent>
+        <Switch
+          checked={verbose.hideVerbose}
+          disabled={verbose.isPending}
+          id={verboseId}
+          onCheckedChange={verbose.setHideVerbose}
+        />
+      </PanelRow>
+      <PanelRow>
+        <PanelContent>
+          <PanelTitle>{m.settings_gifs()}</PanelTitle>
+          <PanelDescription>{m.settings_gifs_credit()}</PanelDescription>
+        </PanelContent>
+        <Select
+          disabled={configure.isPending}
+          value={settings.gifProvider}
+          onValueChange={(value) => configure.configure({ gifProvider: gifProvider.parse(value) })}
+        >
+          <SelectTrigger aria-label={m.settings_gifs()} className="w-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {gifProvider.options.map((provider) => <SelectItem key={provider} value={provider}>{GIF_PROVIDER_LABELS[provider]()}</SelectItem>)}
           </SelectContent>
         </Select>
       </PanelRow>

@@ -1,14 +1,17 @@
 import { z } from 'zod';
+import { settingsSection } from './settings.types';
 
 export const adminEmail = z.email().max(254);
 export const adminUserId = z.string().regex(/^[a-z\d][a-z\d-]{0,62}$/u);
 export const adminAccess = z.enum(['synced', 'manual']);
+export const adminAccessState = z.enum(['allowed', 'not-allowed', 'unknown']);
+export const adminAccessMode = z.enum(['emails', 'domain', 'unknown']);
 export const adminUserState = z.enum(['running', 'starting', 'stopped', 'unknown']);
 
 export const adminMe = z.object({ email: adminEmail });
 
 export const admin = z.object({ email: adminEmail });
-export const adminList = z.object({ admins: z.array(admin) });
+export const adminList = z.object({ admins: z.array(admin.extend({ access: adminAccessState })) });
 
 export const adminUser = z.object({
   id: adminUserId,
@@ -18,11 +21,21 @@ export const adminUser = z.object({
   state: adminUserState,
 });
 
-export const adminUserList = z.object({ users: z.array(adminUser) });
-export const adminUserCreate = z.object({ name: z.string().trim().min(1).max(80), email: adminEmail });
+export const adminUserList = z.object({
+  users: z.array(adminUser.extend({ access: adminAccessState })),
+  accessMode: adminAccessMode,
+  accessDomains: z.array(z.string()).optional(),
+});
+
+export const adminTemplateId = 'template';
+
+export const adminUserCreate = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: adminEmail,
+  bots: z.array(z.uuid()).max(50).optional(),
+});
 
 export const adminChangeResult = z.object({ access: adminAccess.optional() });
-export const adminUserCreateResult = adminUser.extend(adminChangeResult.shape);
 
 export const adminUserPatch = z.object({
   id: adminUserId,
@@ -30,9 +43,55 @@ export const adminUserPatch = z.object({
   enabled: z.boolean().optional(),
 });
 
+export const adminSectionId = settingsSection.extract(['models', 'chat', 'tools', 'secrets', 'sources']);
+export const adminSectionMode = z.enum(['global', 'overridden']);
+export const adminSectionSync = z.enum(['in-sync', 'pending', 'failed']);
+export const adminTemplateState = z.enum(['ready', 'starting', 'missing']);
+
+export const adminGlobal = z.object({
+  sections: z.array(z.object({ id: adminSectionId, procedures: z.array(z.string()) })),
+  state: adminTemplateState,
+});
+
+export const adminSection = z.object({
+  id: adminSectionId,
+  mode: adminSectionMode,
+  sync: adminSectionSync,
+  error: z.string().optional(),
+});
+
+export const adminUserSections = z.object({ sections: z.array(adminSection) });
+export const adminSectionModeInput = z.object({ mode: adminSectionMode });
+export const adminGlobalSyncInput = z.object({ section: adminSectionId.optional() });
+export const adminGlobalStatus = z.object({ users: z.array(adminUserSections.extend({ id: adminUserId })) });
+export const adminBotCopyInput = z.object({ bots: z.array(z.uuid()).min(1).max(50) });
+
+export const adminBotCopy = z.object({
+  from: z.uuid(),
+  botId: z.uuid().nullable(),
+  error: z.string().optional(),
+});
+
+export const adminBotCopyResult = z.object({ bots: z.array(adminBotCopy) });
+export const adminUserCreateResult = adminUser.extend(adminChangeResult.shape).extend({ bots: z.array(adminBotCopy).optional() });
+export const adminSectionConflict = z.object({ code: z.literal('SECTION_FOLLOWS_GLOBAL'), section: adminSectionId });
+export const adminRelayRefusal = z.object({ status: z.literal(409), body: adminSectionConflict });
+
 export type Admin = z.infer<typeof admin>;
 export type AdminAccess = z.infer<typeof adminAccess>;
+export type AdminAccessState = z.infer<typeof adminAccessState>;
+export type AdminUserList = z.infer<typeof adminUserList>;
 export type AdminUser = z.infer<typeof adminUser>;
 export type AdminUserCreate = z.infer<typeof adminUserCreate>;
 export type AdminUserState = z.infer<typeof adminUserState>;
 export type AdminUserPatch = z.infer<typeof adminUserPatch>;
+export type AdminSectionId = z.infer<typeof adminSectionId>;
+export type AdminSectionMode = z.infer<typeof adminSectionMode>;
+export type AdminSectionSync = z.infer<typeof adminSectionSync>;
+export type AdminSection = z.infer<typeof adminSection>;
+export type AdminGlobal = z.infer<typeof adminGlobal>;
+export type AdminGlobalStatus = z.infer<typeof adminGlobalStatus>;
+export type AdminBotCopy = z.infer<typeof adminBotCopy>;
+export type AdminGlobalSyncInput = z.infer<typeof adminGlobalSyncInput>;
+export type AdminSectionModeInput = z.infer<typeof adminSectionModeInput>;
+export type AdminBotCopyInput = z.infer<typeof adminBotCopyInput>;

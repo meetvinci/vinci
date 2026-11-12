@@ -6,15 +6,16 @@ import { Panel, PanelContent, PanelDescription, PanelRow, PanelTitle } from '@re
 import { StatusDot } from '@repo/ui/status-dot';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { AdminAccess, AdminAccessNotice } from '@/components/admin/admin-access';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
-import { adminUsersQuery } from '@/services/admin/admin.client';
+import { adminUserListQuery } from '@/services/admin/admin.client';
 import { adminStateLabel } from '@/services/admin/admin.utils';
 import IconPlus from '~icons/lucide/plus';
 import IconUsers from '~icons/lucide/users';
-import type { AdminUser } from '@repo/contracts/universal';
+import type { AdminUserList } from '@repo/contracts/universal';
 
 export function AdminUsers() {
-  const { data: users } = useSuspenseQuery(adminUsersQuery());
+  const { data: { users, accessMode, accessDomains } } = useSuspenseQuery(adminUserListQuery());
 
   return (
     <>
@@ -30,6 +31,7 @@ export function AdminUsers() {
         description={m.admin_users_hint()}
         title={m.admin_users_title()}
       />
+      <AdminAccessNotice domains={accessDomains} isUnknown={accessMode === 'unknown' || users.some((user) => user.access === 'unknown')} />
       {users.length === 0 ? (
         <EmptyCompact
           description={m.admin_users_empty_hint()}
@@ -54,7 +56,7 @@ export function AdminUsers() {
 }
 
 interface AdminUsersRowProps {
-  user: AdminUser
+  user: AdminUserList['users'][number]
 }
 
 function AdminUsersRow({ user }: AdminUsersRowProps) {
@@ -68,6 +70,7 @@ function AdminUsersRow({ user }: AdminUsersRowProps) {
       </PanelContent>
       <div className="flex items-center gap-2">
         {user.enabled ? null : <Badge variant="outline-secondary">{m.admin_user_login_off()}</Badge>}
+        <AdminAccess access={user.access} isEnabled={user.enabled} />
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <StatusDot label={state.label} variant={state.tone} />
           {state.label}

@@ -6,7 +6,7 @@ import type { z } from 'zod';
 
 export async function provisionerDriverRequest<T extends z.ZodType>(
   config: ProvisionerTypes.ProvisionerConfig | null,
-  { method, path, body, schema }: ProvisionerTypes.ProvisionerRequest<T>,
+  { method, path, body, schema, timeoutMs }: ProvisionerTypes.ProvisionerRequest<T>,
 ): Promise<z.output<T>> {
   if (!config) {
     throw new Errors.INTERNAL_ERROR({ internal: 'PROVISIONER_URL is not set' });
@@ -16,7 +16,7 @@ export async function provisionerDriverRequest<T extends z.ZodType>(
     method,
     headers: { 'authorization': `Bearer ${config.token}`, 'content-type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(method === 'GET' ? PROVISIONER.readTimeoutMs : PROVISIONER.writeTimeoutMs),
+    signal: AbortSignal.timeout(timeoutMs ?? (method === 'GET' ? PROVISIONER.readTimeoutMs : PROVISIONER.writeTimeoutMs)),
   }).catch((error: unknown) => {
     throw new Errors.SERVER_UNREACHABLE({ internal: `The provisioner did not answer ${method} ${path}`, cause: error });
   });

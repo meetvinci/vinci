@@ -1,4 +1,4 @@
-import { authedRouter, ownerRouter } from './rpc.procedures';
+import { authedRouter, localRouter, ownerRouter } from './rpc.procedures';
 
 export const bots = {
   swapModels: ownerRouter.bots.swapModels.handler(async ({ context, input }) => context.bots.actions.swapModels(input)),
@@ -9,4 +9,6 @@ export const bots = {
   delete: ownerRouter.bots.delete.handler(async ({ context, input }) => context.bots.actions.delete(input)),
   catalog: ownerRouter.bots.catalog.handler(async ({ context, input }) => context.bots.queries.catalog(input)),
   usage: authedRouter.bots.usage.handler(async ({ context, input }) => context.bots.queries.usage(input)),
+  exportFiles: localRouter.bots.exportFiles.handler(async ({ context, input }) => context.bots.queries.files(input)),
+  importFiles: localRouter.bots.importFiles.handler(async ({ context, input }) => context.bots.actions.importFiles(input)),
 };

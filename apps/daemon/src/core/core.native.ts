@@ -462,6 +462,11 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
   const serverUrl = new URL(env.WEB_PUBLIC_URL).origin;
   let timer: Timer | undefined;
 
+  if (env.DAEMON_PUBLIC_URLS.length > 0) {
+    process.stdout.write('\nNo pairing PIN at startup: this daemon has public addresses. To pair a device, run `orbs pair` where this daemon runs (in its container: docker exec <container> orbs pair).\n\n');
+    return () => undefined;
+  }
+
   async function issue(): Promise<void> {
     const devices = await services.auth.queries.devices();
 

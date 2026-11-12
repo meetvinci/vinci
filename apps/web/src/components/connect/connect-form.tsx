@@ -30,6 +30,7 @@ export function ConnectForm() {
 
   const linkedTarget = useRef<AuthPairEntry['target']>(null);
   const isConfirmPending = useRef(false);
+  const isRedeeming = useRef(false);
 
   const readCode = useEffectEvent(() => {
     const code = search.code ?? new URLSearchParams(location.hash.slice(1)).get('code');
@@ -95,10 +96,17 @@ export function ConnectForm() {
         form.setError('code', { message: m.connect_code_invalid() });
       })
       .with({ success: true }, async ({ data }) => {
+        if (isRedeeming.current) {
+          return;
+        }
+
+        isRedeeming.current = true;
+
         try {
           await connectionPair({ entry: { pin: data.pin, target: data.target ?? linkedTarget.current }, name });
           location.assign('/rooms');
         } catch {
+          isRedeeming.current = false;
           toasty(m.connect_failed(), '🔴', { id: 'connect' });
         }
       })

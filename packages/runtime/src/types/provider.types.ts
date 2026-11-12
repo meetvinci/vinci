@@ -58,10 +58,12 @@ export interface ProviderService {
     cancel(params: ProviderCancelParams): void;
     logout(params: ProviderLogoutParams): Promise<void>;
     cancelDevice(params: ProviderCancelDeviceParams): void;
+    import(params: UniversalTypes.ProviderKeys): Promise<void>;
   };
   queries: {
     list(params: ProviderListParams): UniversalTypes.ProviderList;
     session(params: ProviderSessionParams): UniversalTypes.ProviderSession;
+    export(): Promise<UniversalTypes.ProviderKeys>;
   };
   close(): Promise<void>;
 }

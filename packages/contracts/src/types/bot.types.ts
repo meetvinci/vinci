@@ -2,10 +2,11 @@ import { EXPRESSIONS } from '@repo/avatar-blobs/expressions';
 import { BODIES, COLORS } from '@repo/avatar-blobs/skins';
 import { z } from 'zod';
 import { instructionCatalog } from './instruction.types';
-import { mcpCatalog } from './mcp.types';
+import { mcpCatalog, mcpOwned } from './mcp.types';
 import { modelSelection, modelThinkingLevel } from './model.types';
 import { pluginCatalog } from './plugin.types';
 import { skill } from './skill.types';
+import { workspaceFiles } from './workspace.types';
 
 export const BOT_FIELDS = {
   maxInstructions: 64_000,
@@ -71,6 +72,10 @@ export const botUpdate = botFields.partial().extend(botGet.shape);
 
 export const botDeleteResult = z.void();
 
+export const botFiles = workspaceFiles.extend({ mcp: mcpOwned });
+export const botFilesImport = botFiles.extend(botGet.shape);
+export const botFilesImportResult = z.void();
+
 export const botCatalog = z.object({
   skills: z.array(skill),
   mcp: mcpCatalog,
@@ -102,6 +107,8 @@ export type BotCreateInput = z.infer<typeof botCreate>;
 export type BotUpdateInput = z.infer<typeof botUpdate>;
 export type BotGetInput = z.infer<typeof botGet>;
 export type BotCatalog = z.infer<typeof botCatalog>;
+export type BotFiles = z.infer<typeof botFiles>;
+export type BotFilesImportInput = z.infer<typeof botFilesImport>;
 export type BotSwapModelsInput = z.infer<typeof botSwapModels>;
 export type BotSwapModelsResult = z.infer<typeof botSwapModelsResult>;
 export type BotForm = z.infer<typeof botForm>;

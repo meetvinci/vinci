@@ -45,6 +45,7 @@ import { Route as adminAdminDotusersDotuserIdDotbotsRouteImport } from "./../rou
 import { Route as adminAdminDotusersDotuserIdDotdevicesRouteImport } from "./../routes/admin/admin.users.$userId.devices";
 import { Route as adminAdminDotusersDotuserIdDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.remove";
 import { Route as adminAdminDotusersDotuserIdDotsettingsRouteImport } from "./../routes/admin/admin.users.$userId.settings";
+import { Route as adminAdminDotusersDotuserIdDotstatusRouteImport } from "./../routes/admin/admin.users.$userId.status";
 import { Route as artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRouteImport } from "./../routes/artifacts/artifacts.$botId.$conversationId.$artifactId";
 import { Route as botsBotsDotbotIdDotskillsDotlocalRouteImport } from "./../routes/bots/bots.$botId.skills.local";
 import { Route as roomsRoomsDotdirectDothandleDotactivityRouteImport } from "./../routes/rooms/rooms.direct.$handle.activity";
@@ -274,6 +275,12 @@ const adminAdminDotusersDotuserIdDotsettingsRoute =
     path: "/settings",
     getParentRoute: () => adminAdminDotusersDotuserIdRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotstatusRoute =
+  adminAdminDotusersDotuserIdDotstatusRouteImport.update({
+    id: "/status",
+    path: "/status",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
 const artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute =
   artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRouteImport.update({
     id: "/$botId/$conversationId/$artifactId",
@@ -501,6 +508,7 @@ export interface FileRoutesByFullPath {
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
+  "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
   "/bots/$botId/": typeof botsBotsDotbotIdDotindexRoute;
   "/admin/users/$userId/": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
@@ -561,6 +569,7 @@ export interface FileRoutesByTo {
   "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
+  "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
   "/bots/$botId": typeof botsBotsDotbotIdDotindexRoute;
   "/admin/users/$userId": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
@@ -630,6 +639,7 @@ export interface FileRoutesById {
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
+  "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
   "/_chat/bots/$botId/": typeof botsBotsDotbotIdDotindexRoute;
   "/admin/users/$userId/": typeof adminAdminDotusersDotuserIdDotindexRoute;
   "/_chat/artifacts/$botId/$conversationId/$artifactId": typeof artifactsArtifactsDotbotIdDotconversationIdDotartifactIdRoute;
@@ -700,6 +710,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
+    | "/admin/users/$userId/status"
     | "/bots/$botId/"
     | "/admin/users/$userId/"
     | "/artifacts/$botId/$conversationId/$artifactId"
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | "/admin/admins/$email/remove"
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
+    | "/admin/users/$userId/status"
     | "/bots/$botId"
     | "/admin/users/$userId"
     | "/artifacts/$botId/$conversationId/$artifactId"
@@ -828,6 +840,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
+    | "/admin/users/$userId/status"
     | "/_chat/bots/$botId/"
     | "/admin/users/$userId/"
     | "/_chat/artifacts/$botId/$conversationId/$artifactId"
@@ -1125,6 +1138,13 @@ declare module "@tanstack/react-router" {
       path: "/settings";
       fullPath: "/admin/users/$userId/settings";
       preLoaderRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/status": {
+      id: "/admin/users/$userId/status";
+      path: "/status";
+      fullPath: "/admin/users/$userId/status";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotstatusRouteImport;
       parentRoute: typeof adminAdminDotusersDotuserIdRoute;
     };
     "/_chat/artifacts/$botId/$conversationId/$artifactId": {
@@ -1650,6 +1670,7 @@ interface adminAdminDotusersDotuserIdRouteChildren {
   adminAdminDotusersDotuserIdDotdevicesRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   adminAdminDotusersDotuserIdDotremoveRoute: typeof adminAdminDotusersDotuserIdDotremoveRoute;
   adminAdminDotusersDotuserIdDotsettingsRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
+  adminAdminDotusersDotuserIdDotstatusRoute: typeof adminAdminDotusersDotuserIdDotstatusRoute;
   adminAdminDotusersDotuserIdDotindexRoute: typeof adminAdminDotusersDotuserIdDotindexRoute;
 }
 
@@ -1663,6 +1684,8 @@ const adminAdminDotusersDotuserIdRouteChildren: adminAdminDotusersDotuserIdRoute
       adminAdminDotusersDotuserIdDotremoveRoute,
     adminAdminDotusersDotuserIdDotsettingsRoute:
       adminAdminDotusersDotuserIdDotsettingsRouteWithChildren,
+    adminAdminDotusersDotuserIdDotstatusRoute:
+      adminAdminDotusersDotuserIdDotstatusRoute,
     adminAdminDotusersDotuserIdDotindexRoute:
       adminAdminDotusersDotuserIdDotindexRoute,
   };

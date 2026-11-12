@@ -250,9 +250,9 @@ describe('no client value steers the daemon choice', () => {
   it.for([
     ['a bots.connection cookie naming bob', (fixture: HubFixture) => ({ cookie: hubTestConnectionCookie({ serverId: fixture.serverIds.bob, token: 'x' }) }), '/health'],
     ['x-bots-server-id of bob', (fixture: HubFixture) => ({ 'x-bots-server-id': fixture.serverIds.bob }), '/health'],
-    ['a Host of bob', () => ({ host: '127.0.0.1:48694' }), '/health'],
-    ['forwarded identity headers of bob', () => ({ 'x-forwarded-host': '127.0.0.1:48694', 'cf-access-authenticated-user-email': emails.bob }), '/health'],
-    ['a protocol-relative path', () => ({}), '//127.0.0.1:48694/health'],
+    ['a Host of bob', () => ({ host: `127.0.0.1:${HUB_FIXTURE.ports.bob}` }), '/health'],
+    ['forwarded identity headers of bob', () => ({ 'x-forwarded-host': `127.0.0.1:${HUB_FIXTURE.ports.bob}`, 'cf-access-authenticated-user-email': emails.bob }), '/health'],
+    ['a protocol-relative path', () => ({}), `//127.0.0.1:${HUB_FIXTURE.ports.bob}/health`],
     ['a dot-segment path', () => ({}), '/rpc/../health'],
   ] as const)('keeps alice on her daemon with %s', async ([, headers, path], { fixture, tokens }) => {
     const response = await hubTestGet(path, { 'cf-access-jwt-assertion': tokens.alice, ...headers(fixture) });
@@ -375,7 +375,7 @@ describe('server ID pinning', () => {
   });
 
   it("refuses to forward when alice's address answers as another daemon", async ({ fixture, tokens }) => {
-    await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], daemonUrl: 'http://localhost:48694' } });
+    await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], daemonUrl: `http://localhost:${HUB_FIXTURE.ports.bob}` } });
 
     const health = await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice });
     const bob = serverHealth.parse(await (await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.bob })).json());
@@ -390,7 +390,7 @@ describe('server ID pinning', () => {
   it('refuses to pin a daemon that is already pinned to another user', async ({ fixture }) => {
     const carol = await fixture.mint({ email: 'carol@team.example' });
 
-    await fixture.writeUsers({ ...fixture.users, 'carol@team.example': { id: 'carol', daemonUrl: 'http://localhost:48694', socketPath: join(fixture.root, 'carol.sock') } });
+    await fixture.writeUsers({ ...fixture.users, 'carol@team.example': { id: 'carol', daemonUrl: `http://localhost:${HUB_FIXTURE.ports.bob}`, socketPath: join(fixture.root, 'carol.sock') } });
 
     const health = await hubTestGet('/health', { 'cf-access-jwt-assertion': carol });
     const pins = z.record(z.string(), z.string()).parse(JSON.parse(await readFile(join(fixture.hubData, 'pins.json'), 'utf8')));
@@ -436,7 +436,7 @@ describe('owner socket', () => {
 describe('users file', () => {
   it.for([
     ['a duplicate daemonUrl', (fixture: HubFixture) => ({ ...fixture.users, 'carol@team.example': { ...fixture.users[emails.bob], id: 'carol', socketPath: join(fixture.root, 'carol.sock') } })],
-    ['a duplicate socketPath', (fixture: HubFixture) => ({ ...fixture.users, 'carol@team.example': { ...fixture.users[emails.bob], id: 'carol', daemonUrl: 'http://localhost:48694' } })],
+    ['a duplicate socketPath', (fixture: HubFixture) => ({ ...fixture.users, 'carol@team.example': { ...fixture.users[emails.bob], id: 'carol', daemonUrl: `http://localhost:${HUB_FIXTURE.ports.bob}` } })],
     ['no file at all', () => null],
   ] as const)('refuses everyone with %s and recovers once fixed', async ([, users], { fixture, tokens }) => {
     await fixture.writeUsers(users(fixture));

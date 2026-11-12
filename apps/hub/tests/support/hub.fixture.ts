@@ -23,6 +23,7 @@ function hubFixtureConfig(base: number) {
     model: base + 5,
     provisioner: base + 6,
     byHand: base + 7,
+    template: base + 9,
   };
 
   return {
@@ -33,6 +34,7 @@ function hubFixtureConfig(base: number) {
     publicOrigin: 'https://team.example',
     web: `http://127.0.0.1:${ports.web}`,
     daemons: { alice: `http://127.0.0.1:${ports.alice}`, bob: `http://127.0.0.1:${ports.bob}` },
+    template: `http://127.0.0.1:${ports.template}`,
     emails: { alice: 'alice@team.example', bob: 'bob@team.example' },
     admin: 'root@team.example',
     byHand: `http://127.0.0.1:${ports.byHand}`,
@@ -40,11 +42,20 @@ function hubFixtureConfig(base: number) {
   };
 }
 
-export const HUB_FIXTURE = hubFixtureConfig(48690);
+export const HUB_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_PORT ?? 48690));
 
-export const HUB_ADMIN_FIXTURE = hubFixtureConfig(48610);
+export const HUB_ADMIN_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_ADMIN_PORT ?? 48610));
 
-type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
+export const HUB_GLOBAL_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_GLOBAL_PORT ?? 48630));
+
+export type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
+
+interface HubFixtureAccess {
+  domains: string[];
+  missing: string[];
+  isDown: boolean;
+  admins: string[];
+}
 
 interface HubFixtureCall {
   method: string;
@@ -157,13 +168,13 @@ function hubFixtureEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
   return { ...Object.fromEntries(kept), LOG_LEVEL: 'warn', ...extra };
 }
 
-async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'alice' | 'bob'): Promise<ChildProcess> {
+async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'alice' | 'bob' | 'template'): Promise<ChildProcess> {
   const data = join(root, name);
   const pi = join(data, 'pi');
 
   await mkdir(pi, { recursive: true });
   await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${config.ports.model}` } } }));
-  await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: 'hub-test-not-real' } }), { mode: 0o600 });
+  await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: `hub-test-${name}` } }), { mode: 0o600 });
 
   return spawn('bun', ['src/entry.native.ts'], {
     cwd: join(ROOT, 'apps/daemon'),
@@ -197,6 +208,14 @@ function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
     state: 'running',
   }]));
 
+  const access: HubFixtureAccess = { domains: [], missing: [], isDown: false, admins: [] };
+
+  const accessRule = () => ({
+    domains: access.domains,
+    emails: [...[...users.values()].filter((user) => user.enabled).map((user) => user.email), ...access.admins]
+      .filter((email) => !access.missing.includes(email) && !access.domains.some((domain) => email.endsWith(`@${domain}`))),
+  });
+
   const handle = (request: IncomingMessage, response: ServerResponse, body: string) => {
     const [, kind = '', id = ''] = (request.url ?? '').split('/');
 
@@ -226,11 +245,17 @@ function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
         users.delete(id);
         response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
       })
-      .with({ method: 'PUT', kind: 'access' }, () => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' })))
+      .with({ method: 'PUT', kind: 'access' }, () => {
+        access.admins = z.object({ emails: z.array(z.string()) }).parse(JSON.parse(body)).emails;
+        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+      })
+      .with({ method: 'GET', kind: 'access' }, () => (access.isDown
+        ? response.writeHead(500).end()
+        : response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(accessRule()))))
       .otherwise(() => response.writeHead(404).end());
   };
 
-  return { calls, handle };
+  return { calls, access, handle };
 }
 
 function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtureHubOptions): ChildProcess {
@@ -309,12 +334,13 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     [emails.bob]: { id: 'bob', daemonUrl: config.daemons.bob, socketPath: join(root, 'bob/data/ipc/rpc.sock') },
   } satisfies Record<string, HubFixtureUser>;
 
+  const template = { daemonUrl: config.template, socketPath: join(root, 'template/data/ipc/rpc.sock') };
   const byHandData = join(root, 'by-hand');
   const provisioner = hubFixtureProvisioner(config);
 
   await Promise.all([hubData, byHandData].map(async (directory) => {
     await mkdir(directory, { recursive: true });
-    await writeFile(join(directory, 'users.json'), JSON.stringify({ users }));
+    await writeFile(join(directory, 'users.json'), JSON.stringify({ users, template }));
   }));
 
   const servers = await Promise.all([
@@ -336,9 +362,10 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
   const daemons = await Promise.all([
     hubFixtureDaemon(config, root, 'alice'),
     hubFixtureDaemon(config, root, 'bob'),
+    hubFixtureDaemon(config, root, 'template'),
   ]);
 
-  await Promise.all(Object.entries(config.daemons).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
+  await Promise.all(Object.entries({ ...config.daemons, template: config.template }).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
 
   const hubs = [
     hubFixtureHub(config, {
@@ -385,7 +412,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
   async function writeUsers(next: Record<string, HubFixtureUser> | null): Promise<void> {
     const path = join(hubData, 'users.json');
 
-    await (next ? writeFile(path, JSON.stringify({ users: next })) : rm(path));
+    await (next ? writeFile(path, JSON.stringify({ users: next, template })) : rm(path));
     await sleep(1500);
   }
 
@@ -406,7 +433,18 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     await rm(root, { recursive: true, force: true });
   }
 
-  return { root, hubData, keys, users, serverIds, provisioner: provisioner.calls, mint, writeUsers, stop };
+  return {
+    root,
+    hubData,
+    keys,
+    users,
+    serverIds,
+    provisioner: provisioner.calls,
+    access: provisioner.access,
+    mint,
+    writeUsers,
+    stop,
+  };
 }
 
 export type HubFixture = Awaited<ReturnType<typeof hubFixtureStart>>;

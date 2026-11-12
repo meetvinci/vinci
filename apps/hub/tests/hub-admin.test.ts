@@ -1,67 +1,15 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { describe, expect, test } from 'vitest';
+import { describe, expect } from 'vitest';
 import { z } from 'zod';
-import { HUB_ADMIN_FIXTURE, hubFixtureFakeSocket, hubFixtureStart } from './support/hub.fixture';
-import type { HubFixture } from './support/hub.fixture';
+import { hubAdminTestKit } from './support/hub-admin.fixture';
+import { HUB_ADMIN_FIXTURE, hubFixtureFakeSocket } from './support/hub.fixture';
 
 const { hub, byHand, publicOrigin, emails, admin, provisionerToken } = HUB_ADMIN_FIXTURE;
-const WRITE = { 'content-type': 'application/json', 'origin': publicOrigin };
+const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_ADMIN_FIXTURE);
 
 const webEcho = z.object({ path: z.string(), headers: z.record(z.string(), z.union([z.string(), z.array(z.string())])) });
-
-interface HubAdminTestWrite {
-  method?: string;
-  body?: object;
-  headers?: Record<string, string>;
-  base?: string;
-}
-
-interface HubAdminTestFixtures {
-  config: typeof HUB_ADMIN_FIXTURE;
-  fixture: HubFixture;
-  tokens: { alice: string; bob: string; root: string };
-}
-
-function hubAdminTestGet(path: string, token?: string): Promise<Response> {
-  return fetch(`${hub}${path}`, { headers: token ? { 'cf-access-jwt-assertion': token } : {}, redirect: 'manual' });
-}
-
-async function hubAdminTestJson(response: Response) {
-  const text = await response.text();
-
-  return { status: response.status, json: text ? z.json().parse(JSON.parse(text)) : null };
-}
-
-async function hubAdminTestRead(token: string, path: string, base = hub) {
-  return hubAdminTestJson(await fetch(`${base}${path}`, { headers: { 'cf-access-jwt-assertion': token } }));
-}
-
-async function hubAdminTestWrite(token: string, path: string, { method = 'POST', body, headers = {}, base = hub }: HubAdminTestWrite = {}) {
-  return hubAdminTestJson(await fetch(`${base}${path}`, {
-    method,
-    headers: { 'cf-access-jwt-assertion': token, ...WRITE, ...headers },
-    body: body ? JSON.stringify(body) : undefined,
-  }));
-}
-
-const it = test.extend<HubAdminTestFixtures>({
-  config: [HUB_ADMIN_FIXTURE, { scope: 'file' }],
-  fixture: [async ({ config }, use) => {
-    const fixture = await hubFixtureStart(config);
-
-    await use(fixture);
-    await fixture.stop();
-  }, { scope: 'file' }],
-  tokens: [async ({ fixture }, use) => {
-    await use({
-      alice: await fixture.mint({ email: emails.alice }),
-      bob: await fixture.mint({ email: emails.bob }),
-      root: await fixture.mint({ email: admin }),
-    });
-  }, { scope: 'file' }],
-});
 
 describe('admin access', () => {
   it.for([
@@ -99,6 +47,33 @@ describe('admin access', () => {
     expect(unknown.map(({ status }) => status)).toEqual([404, 404, 404]);
   });
 
+  it.for([
+    ['eve', 'eve@team.example', '/', 'No workspace for this email'],
+    ['eve', 'eve@team.example', '/admin/users', 'This page is for admins'],
+    ['bob', emails.bob, '/admin', 'This page is for admins'],
+  ] as const)('shows %s (%s) on %s a page that says %s', async ([who, email, path, title], { tokens }) => {
+    const page = await hubAdminTestGet(path, tokens[who], { accept: 'text/html,application/xhtml+xml' });
+    const api = await hubAdminTestGet(path, tokens[who]);
+    const html = await page.text();
+
+    expect(page.status).toBe(403);
+    expect(page.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(page.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(html).toContain(`<h1>${title}</h1>`);
+    expect(html).toContain(`<b>${email}</b>`);
+    expect(api.status).toBe(403);
+    expect(await api.text()).toBe('');
+  });
+
+  it('sends an admin who is not a user from a workspace page to the admin panel', async ({ tokens }) => {
+    const page = await hubAdminTestGet('/rooms', tokens.root, { accept: 'text/html' });
+    const api = await hubAdminTestGet('/rooms', tokens.root);
+
+    expect(page.status).toBe(303);
+    expect(page.headers.get('location')).toBe('/admin');
+    expect(api.status).toBe(403);
+  });
+
   it('refuses an admin write without a same-origin Origin and a JSON or Orbs header', async ({ tokens }) => {
     const cases: Record<string, string>[] = [{ origin: '' }, { origin: 'https://evil.example' }, { 'content-type': 'text/plain' }];
     const responses = await Promise.all(cases.map((headers) => hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: 'mallory@team.example' }, headers })));
@@ -128,7 +103,13 @@ describe('admin list', () => {
     const restored = await hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: emails.alice } });
 
     expect(added.json).toEqual({ email: 'carol@team.example', access: 'synced' });
-    expect(listed.json).toEqual({ admins: [{ email: admin }, { email: emails.alice }, { email: 'carol@team.example' }] });
+    expect(listed.json).toEqual({
+      admins: [
+        { email: admin, access: 'allowed' },
+        { email: emails.alice, access: 'allowed' },
+        { email: 'carol@team.example', access: 'allowed' },
+      ],
+    });
     expect(sync?.headers.authorization).toBe(`Bearer ${provisionerToken}`);
     expect(JSON.parse(sync?.body ?? '')).toEqual({ emails: [admin, emails.alice, 'carol@team.example'] });
     expect(invalid.status).toBe(422);
@@ -175,6 +156,7 @@ describe('admin users', () => {
           email: emails.alice,
           enabled: true,
           state: 'running',
+          access: 'allowed',
         },
         {
           id: 'bob',
@@ -182,8 +164,10 @@ describe('admin users', () => {
           email: emails.bob,
           enabled: true,
           state: 'running',
+          access: 'allowed',
         },
       ],
+      accessMode: 'emails',
     });
     expect(carol.json).toEqual({
       id: 'carol-doe',
@@ -192,6 +176,7 @@ describe('admin users', () => {
       enabled: true,
       state: 'running',
       access: 'synced',
+      bots: [],
     });
     expect(second.json).toMatchObject({ id: 'alice-2' });
     expect(duplicate.status).toBe(409);
@@ -219,11 +204,52 @@ describe('admin users', () => {
     expect(created.json).toEqual({ error: 'provisioner_not_configured' });
     expect(listed.json).toMatchObject({
       users: [
-        { id: 'alice', email: emails.alice, state: 'unknown' },
-        { id: 'bob', email: emails.bob, state: 'unknown' },
+        { id: 'alice', email: emails.alice, state: 'unknown', access: 'unknown' },
+        { id: 'bob', email: emails.bob, state: 'unknown', access: 'unknown' },
       ],
+      accessMode: 'unknown',
     });
     expect(added.json).toEqual({ email: 'carol@team.example', access: 'manual' });
+  });
+});
+
+describe('Cloudflare Access state', () => {
+  it('shows whom the allow policy lets in, by domain, by email or unknown, and reads it again after a change', async ({ fixture, tokens }) => {
+    const outsider = 'dave@outside.example';
+    const toggle = (method: 'POST' | 'DELETE') => hubAdminTestWrite(tokens.root, method === 'POST' ? '/admin/api/admins' : `/admin/api/admins/${encodeURIComponent(outsider)}`, { method, body: method === 'POST' ? { email: outsider } : undefined });
+    const users = async () => (await hubAdminTestRead(tokens.root, '/admin/api/users')).json;
+    const admins = async () => (await hubAdminTestRead(tokens.root, '/admin/api/admins')).json;
+
+    fixture.access.domains = ['team.example'];
+    await toggle('POST');
+
+    const byDomain = { users: await users(), admins: await admins() };
+
+    fixture.access.domains = [];
+    fixture.access.missing = [emails.bob];
+    await toggle('DELETE');
+
+    const cached = await users();
+
+    fixture.access.isDown = true;
+    await toggle('POST');
+
+    const down = { users: await users(), admins: await admins() };
+
+    fixture.access.isDown = false;
+    fixture.access.missing = [];
+    await toggle('DELETE');
+
+    expect(byDomain.users).toMatchObject({
+      users: [{ id: 'alice', access: 'allowed' }, { id: 'bob', access: 'allowed' }],
+      accessMode: 'domain',
+      accessDomains: ['team.example'],
+    });
+    expect(byDomain.admins).toEqual({ admins: [{ email: admin, access: 'allowed' }, { email: emails.alice, access: 'allowed' }, { email: outsider, access: 'allowed' }] });
+    expect(cached).toMatchObject({ users: [{ id: 'alice', access: 'allowed' }, { id: 'bob', access: 'not-allowed' }], accessMode: 'emails' });
+    expect(cached).not.toHaveProperty('accessDomains');
+    expect(down.users).toMatchObject({ users: [{ id: 'alice', access: 'unknown' }, { id: 'bob', access: 'unknown' }], accessMode: 'unknown' });
+    expect(down.admins).toMatchObject({ admins: [{ access: 'unknown' }, { access: 'unknown' }, { access: 'unknown' }] });
   });
 });
 
@@ -272,6 +298,42 @@ describe('admin relay to the private door', () => {
     expect(call.headers['x-bots-server-id']).toBe(fixture.serverIds.alice);
     expect(call.headers['x-bots-protocol']).toBe('1');
     expect(leaked).toEqual([]);
+  });
+
+  it('completes onboarding with the first-visit grant, so a provisioned person is never asked to configure anything', async ({ tokens }) => {
+    const state = () => hubAdminTestWrite(tokens.root, '/admin/api/users/bob/rpc/onboarding/state', { headers: { 'x-bots-protocol': '1' } });
+    const before = await state();
+    const handoff = await hubAdminTestGet('/connect', tokens.bob);
+    const after = await state();
+
+    expect(before.json).toEqual({ json: { completedAt: null } });
+    expect(handoff.status).toBe(303);
+    expect(after.json).toEqual({ json: { completedAt: expect.any(Number) } });
+  });
+
+  it("serves a user's bot avatars to admins only, from that user's own daemon", async ({ tokens }) => {
+    const created = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/rpc/bots/create', {
+      body: { json: { name: 'Avatarbot', handle: 'avatarbot', modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'medium' } },
+      headers: { 'x-bots-protocol': '1' },
+    });
+
+    const { id } = z.object({ json: z.object({ id: z.uuid() }) }).parse(created.json).json;
+    const avatar = (path: string, token = tokens.root) => hubAdminTestGet(`/admin/api/users/${path}`, token);
+
+    const own = await avatar(`alice/avatars/bots/${id}.png`);
+
+    const refused = await Promise.all([
+      avatar(`alice/avatars/bots/${id}.png`, tokens.bob),
+      avatar(`bob/avatars/bots/${id}.png`),
+      avatar(`nobody/avatars/bots/${id}.png`),
+      avatar('alice/avatars/health'),
+      avatar(`alice/avatars/${id}.svg`),
+    ]);
+
+    expect(own.status).toBe(200);
+    expect(own.headers.get('content-type')).toBe('image/png');
+    expect(own.headers.get('cache-control')).toBe('private, no-store');
+    expect(refused.map(({ status }) => status)).toEqual([403, 404, 404, 404, 404]);
   });
 
   it("reaches the user's real owner socket for the forms and refuses conversations, approvals and pairing", async ({ fixture, tokens }) => {

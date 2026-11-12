@@ -60,6 +60,11 @@ export const mcpServerAdd = z.object({
 
 export const mcpServerRemove = z.object({ botId: z.uuid(), name: mcpServerName });
 
+export const mcpOwned = z.object({
+  mcpServers: z.record(z.string().min(1).max(128), z.json()),
+  credentials: z.record(z.string().min(1).max(256), z.string().min(1).max(16384)),
+});
+
 export const mcpShared = z.array(z.object({
   name: z.string(),
   source: z.string(),
@@ -80,3 +85,4 @@ export type McpCatalog = z.infer<typeof mcpCatalog>;
 export type McpShared = z.infer<typeof mcpShared>;
 export type McpServerAddInput = z.infer<typeof mcpServerAdd>;
 export type McpServerRemoveInput = z.infer<typeof mcpServerRemove>;
+export type McpOwned = z.infer<typeof mcpOwned>;

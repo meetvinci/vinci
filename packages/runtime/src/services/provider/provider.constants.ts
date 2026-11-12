@@ -4,4 +4,5 @@ export const PROVIDER = {
   maxEvents: 32,
   sessionTimeoutMs: 600_000,
   agentName: 'bots',
+  importTimeoutMs: 30_000,
 } as const;

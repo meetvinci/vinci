@@ -1,5 +1,5 @@
 import type { SettingsSection } from '@repo/contracts/universal';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 export interface SettingsNavItem {
   id: SettingsSection
@@ -19,4 +19,10 @@ export interface SettingsDialogStateParams {
   model: string | undefined
   deviceId: string | undefined
   providerId: string | undefined
+}
+
+export interface SettingsSectionFrame {
+  actions: ReactNode
+  notice: ReactNode
+  isLocked: boolean
 }

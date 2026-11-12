@@ -1,4 +1,4 @@
-import { ownerRouter } from './rpc.procedures';
+import { localRouter, ownerRouter } from './rpc.procedures';
 
 export const secrets = {
   list: ownerRouter.secrets.list.handler(async ({ context }) => context.secrets.queries.rules()),
@@ -6,4 +6,5 @@ export const secrets = {
   remove: ownerRouter.secrets.remove.handler(async ({ context, input }) => context.secrets.actions.remove(input)),
   settings: ownerRouter.secrets.settings.handler(async ({ context }) => context.secrets.queries.settings()),
   configure: ownerRouter.secrets.configure.handler(async ({ context, input }) => context.secrets.actions.configure(input)),
+  export: localRouter.secrets.export.handler(async ({ context }) => context.secrets.queries.export()),
 };

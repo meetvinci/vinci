@@ -5,6 +5,7 @@ import { botActionConfigure } from './bot-action.configure';
 import { botActionConnectMcp } from './bot-action.connect-mcp';
 import { botActionCreate } from './bot-action.create';
 import { botActionDelete } from './bot-action.delete';
+import { botActionImportFiles } from './bot-action.import-files';
 import { botActionMarkRead } from './bot-action.mark-read';
 import { botActionRemoveMcp } from './bot-action.remove-mcp';
 import { botActionRestore } from './bot-action.restore';
@@ -13,6 +14,7 @@ import { botActionSwapModels } from './bot-action.swap-models';
 import { botActionUpdate } from './bot-action.update';
 import { botPreferenceScheduleExpiry } from './bot-preference.utils';
 import { botQueryCatalog } from './bot-query.catalog';
+import { botQueryFiles } from './bot-query.files';
 import { botQueryGet } from './bot-query.get';
 import { botQueryInstructions } from './bot-query.instructions';
 import { botQueryList } from './bot-query.list';
@@ -59,6 +61,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       setPreferences: (params: BotTypes.BotPreferencesUpdate) => botActionSetPreferences(serviceDeps, params),
       markRead: (params: BotTypes.BotMarkReadParams) => botActionMarkRead(serviceDeps, params),
       arrange: (params: BotTypes.BotArrangeParams) => botActionArrange(serviceDeps, params),
+      importFiles: (params: UniversalTypes.BotFilesImportInput) => botActionImportFiles(serviceDeps, params),
     },
     queries: {
       plugins: (params: UniversalTypes.BotGetInput) => botQueryPlugins(serviceDeps, params),
@@ -73,6 +76,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       list: () => botQueryList(serviceDeps),
       preferences: () => botQueryPreferences(serviceDeps),
       get: (params: UniversalTypes.BotGetInput) => botQueryGet(serviceDeps, params),
+      files: (params: UniversalTypes.BotGetInput) => botQueryFiles(serviceDeps, params),
     },
   };
 }

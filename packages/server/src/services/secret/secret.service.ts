@@ -1,6 +1,7 @@
 import { secretActionConfigure } from './secret-action.configure';
 import { secretActionRemove } from './secret-action.remove';
 import { secretActionSave } from './secret-action.save';
+import { secretQueryExport } from './secret-query.export';
 import { secretQueryRules } from './secret-query.rules';
 import { secretQuerySettings } from './secret-query.settings';
 import { secretQueryValue } from './secret-query.value';
@@ -18,6 +19,7 @@ export function makeSecretService(deps: SecretTypes.SecretServiceDeps) {
       rules: () => secretQueryRules(deps),
       value: (params: SecretTypes.SecretValueParams) => secretQueryValue(deps, params),
       settings: () => secretQuerySettings(deps),
+      export: () => secretQueryExport(deps),
     },
   };
 }

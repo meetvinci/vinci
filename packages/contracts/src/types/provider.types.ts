@@ -40,6 +40,15 @@ export const providerLogout = z.object({
   providerId,
 });
 
+export const providerKey = z.object({
+  providerId,
+  key: z.string().min(1).max(PROVIDER.maxAnswer),
+  env: z.record(z.string().regex(/^[A-Z][A-Z0-9_]{0,63}$/), z.string().min(1).max(PROVIDER.maxAnswer)).optional(),
+});
+
+export const providerKeys = z.object({ keys: z.array(providerKey).max(100) });
+export const providerImportResult = z.void();
+
 export const providerCancelResult = z.void();
 export const providerLogoutResult = z.void();
 
@@ -139,6 +148,7 @@ export type ProviderAuthType = z.infer<typeof providerAuthType>;
 export type ProviderLoginInput = z.infer<typeof providerLogin>;
 export type ProviderCompleteInput = z.infer<typeof providerComplete>;
 export type ProviderLogoutInput = z.infer<typeof providerLogout>;
+export type ProviderKeys = z.infer<typeof providerKeys>;
 export type ProviderSessionIdInput = z.infer<typeof providerSessionId>;
 export type ProviderPrompt = z.infer<typeof providerPrompt>;
 export type ProviderEvent = z.infer<typeof providerEvent>;

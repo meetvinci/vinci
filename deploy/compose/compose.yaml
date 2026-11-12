@@ -70,6 +70,8 @@ services:
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
       CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
       CLOUDFLARE_NAME: ${CLOUDFLARE_NAME:-}
+      # The domain rule of the allow policy, if any: people at these domains need no change in Cloudflare.
+      CLOUDFLARE_ACCESS_DOMAINS: ${CLOUDFLARE_ACCESS_DOMAINS:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/opt/orbs

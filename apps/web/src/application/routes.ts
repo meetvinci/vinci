@@ -62,6 +62,7 @@ export const routes = rootRoute('root.tsx', [
     route('/users/$userId', 'admin/admin.users.$userId.tsx', [
       index('admin/admin.users.$userId.index.tsx'),
       route('/remove', 'admin/admin.users.$userId.remove.tsx'),
+      route('/status', 'admin/admin.users.$userId.status.tsx'),
       route('/devices', 'admin/admin.users.$userId.devices.tsx', [
         route('/$deviceId/revoke', 'admin/admin.users.$userId.devices.$deviceId.revoke.tsx'),
       ]),

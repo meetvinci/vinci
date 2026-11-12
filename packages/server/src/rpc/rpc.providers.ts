@@ -1,4 +1,4 @@
-import { ownerRouter } from './rpc.procedures';
+import { localRouter, ownerRouter } from './rpc.procedures';
 
 export const providers = {
   list: ownerRouter.providers.list.handler(async ({ context }) => context.providers.queries.list({ deviceId: context.device?.id ?? null })),
@@ -20,4 +20,6 @@ export const providers = {
     deviceId: context.device?.id ?? null,
   })),
   logout: ownerRouter.providers.logout.handler(async ({ context, input }) => context.providers.actions.logout(input)),
+  export: localRouter.providers.export.handler(async ({ context }) => context.providers.queries.export()),
+  import: localRouter.providers.import.handler(async ({ context, input }) => context.providers.actions.import(input)),
 };

@@ -2,6 +2,7 @@ import { toolActionAllowAlways } from './tool-action.allow-always';
 import { toolActionAuthorize } from './tool-action.authorize';
 import { toolActionConfigure } from './tool-action.configure';
 import { toolQueryAlwaysAllowed } from './tool-query.always-allowed';
+import { toolQueryExport } from './tool-query.export';
 import { toolQuerySettings } from './tool-query.settings';
 import { TOOL } from './tool.constants';
 import type { ToolAllowAlwaysParams, ToolAlwaysAllowedParams, ToolServiceDeps } from '../../types/tool.types';
@@ -19,6 +20,7 @@ export function makeToolService(deps: ToolServiceDeps) {
     },
     queries: {
       settings: () => toolQuerySettings(deps),
+      export: () => toolQueryExport(deps),
       alwaysAllowed: (params: ToolAlwaysAllowedParams) => toolQueryAlwaysAllowed(deps, params),
     },
   };

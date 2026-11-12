@@ -4,12 +4,14 @@ import type { ProvisionerService } from '../services/provisioner/provisioner.ser
 import type { AccessIdentity } from './access.types';
 import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
+import type { GlobalService } from './global.types';
 import type { User, UserService } from './user.types';
 
 export interface CoreServices {
   access: AccessService;
   users: UserService;
   daemons: DaemonService;
+  global: GlobalService;
   pairing: PairingService;
   admins: AdminService;
   provisioner: ProvisionerService;
@@ -28,9 +30,19 @@ export interface CoreAdminContext extends CoreForward {
   identity: AccessIdentity;
 }
 
+export interface CoreRefusal {
+  email: string;
+  reason: 'no-user' | 'not-admin';
+}
+
 export interface CoreAdminRelay {
   id: string;
   procedure: string;
+}
+
+export interface CoreAdminAvatar {
+  id: string;
+  file: string;
 }
 
 export interface CoreContext extends CoreAdminContext {

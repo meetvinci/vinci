@@ -71,12 +71,12 @@ export function AdminUser({ userId, children }: AdminUserProps) {
 }
 
 interface AdminUserTabProps {
-  to: '/admin/users/$userId/bots' | '/admin/users/$userId/settings' | '/admin/users/$userId/devices'
+  to: '/admin/users/$userId/bots' | '/admin/users/$userId/settings' | '/admin/users/$userId/devices' | '/admin/users/$userId/status'
   params: { userId: string }
   children: ReactNode
 }
 
-function AdminUserTab({ to, params, children }: AdminUserTabProps) {
+export function AdminUserTab({ to, params, children }: AdminUserTabProps) {
   return (
     <Link
       className="-mb-px border-b-2 border-transparent px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:border-foreground aria-[current=page]:text-foreground"

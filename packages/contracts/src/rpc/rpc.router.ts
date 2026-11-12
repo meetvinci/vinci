@@ -23,7 +23,21 @@ import {
   authRedeemResult,
 } from '../types/auth.types';
 import { avatarUpload } from '../types/avatar.types';
-import { bot, botAvatarImage, botCatalog, botCreate, botDeleteResult, botGet, botList, botSwapModels, botSwapModelsResult, botUpdate } from '../types/bot.types';
+import {
+  bot,
+  botAvatarImage,
+  botCatalog,
+  botCreate,
+  botDeleteResult,
+  botFiles,
+  botFilesImport,
+  botFilesImportResult,
+  botGet,
+  botList,
+  botSwapModels,
+  botSwapModelsResult,
+  botUpdate,
+} from '../types/bot.types';
 import { commandCatalog, commandExecute, commandExecuteResult, commandList } from '../types/command.types';
 import { conversationContextUsage } from '../types/conversation-context-usage.types';
 import { conversationUsage } from '../types/conversation-usage.types';
@@ -81,9 +95,20 @@ import { modelList } from '../types/model.types';
 import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid } from '../types/notification.types';
 import { onboardingState } from '../types/onboarding.types';
 import { pluginCatalog, pluginConfigure, pluginDiscover, pluginSettings } from '../types/plugin.types';
-import { providerCancelResult, providerComplete, providerList, providerLogin, providerLogout, providerLogoutResult, providerSession, providerSessionId } from '../types/provider.types';
+import {
+  providerCancelResult,
+  providerComplete,
+  providerImportResult,
+  providerKeys,
+  providerList,
+  providerLogin,
+  providerLogout,
+  providerLogoutResult,
+  providerSession,
+  providerSessionId,
+} from '../types/provider.types';
 import { routine, routineCreate, routineList, routineRemoveResult, routineTarget, routineUpdate } from '../types/routine.types';
-import { secretConfigure, secretRemove, secretRules, secretSave, secretSettings, secretVoid } from '../types/secret.types';
+import { secretConfigure, secretExport, secretRemove, secretRules, secretSave, secretSettings, secretVoid } from '../types/secret.types';
 import { serverConfigure, serverInfo } from '../types/server.types';
 import {
   sidebarSection,
@@ -102,9 +127,11 @@ import {
   toolAnswerResult,
   toolApprovalList,
   toolConfigure,
+  toolExport,
   toolPending,
   toolSettings,
 } from '../types/tool.types';
+import { workspaceFiles, workspaceImportResult } from '../types/workspace.types';
 
 const oc = baseContract.errors({
   RATE_LIMITED: errorSchemas.RATE_LIMITED,
@@ -135,6 +162,10 @@ export const contract = {
       .input(providerSessionId)
       .output(providerCancelResult),
     logout: ocFind.input(providerLogout).output(providerLogoutResult),
+
+    export: ocAdmin.output(providerKeys),
+
+    import: ocAdmin.input(providerKeys).output(providerImportResult),
   },
   limits: {
     settings: ocAuth.output(limitSettings),
@@ -164,6 +195,8 @@ export const contract = {
     remove: ocAuth.input(secretRemove).output(secretVoid),
     settings: ocAuth.output(secretSettings),
     configure: ocAuth.input(secretConfigure).output(secretSettings),
+
+    export: ocAdmin.output(secretExport),
   },
   artifacts: {
     blocks: ocAuth.output(artifactBlocks),
@@ -279,6 +312,12 @@ export const contract = {
     configure: ocAuth.input(mcpConfigure).output(mcpSettings),
   },
 
+  workspace: {
+    export: ocAdmin.output(workspaceFiles),
+
+    import: ocAdmin.input(workspaceFiles).output(workspaceImportResult),
+  },
+
   tools: {
     settings: ocAuth.output(toolSettings),
 
@@ -287,6 +326,8 @@ export const contract = {
     pending: ocFind.input(toolPending).output(toolApprovalList),
 
     answer: ocFind.input(toolAnswer).output(toolAnswerResult),
+
+    export: ocAdmin.output(toolExport),
   },
 
   bots: {
@@ -312,6 +353,10 @@ export const contract = {
     catalog: ocFind.input(botGet).output(botCatalog),
 
     usage: ocFind.input(botGet).output(conversationUsage),
+
+    exportFiles: ocAdmin.input(botGet).output(botFiles),
+
+    importFiles: ocAdmin.input(botFilesImport).output(botFilesImportResult),
   },
 
   pairing: {

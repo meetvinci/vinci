@@ -5,6 +5,7 @@ import { parse } from 'cookie-es';
 import { match, P } from 'ts-pattern';
 import { coreAdminApi } from './core-admin.native';
 import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from './core-pairing.native';
+import { coreRefusalPage, coreRefusalWanted } from './core-refusal.native';
 import { makeCoreRelay } from './core-relay.native';
 import type * as CoreTypes from '../types/core.types';
 import type { Server } from 'bun';
@@ -134,6 +135,10 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
   const { request, url, identity } = context;
 
   if (!await services.admins.queries.has({ email: identity.email })) {
+    if (coreRefusalWanted(request)) {
+      return coreServerRefusal(context, url.pathname.startsWith('/admin') ? 'not-admin' : 'no-user');
+    }
+
     throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This Access identity is not an admin' : 'No hub user has this Access identity' });
   }
 
@@ -144,9 +149,22 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
     .when((path) => ADMIN_PAGES.test(path), () => coreServerWeb(context, identity.token))
     .when((path) => isRead && ADMIN_WEB_FILES.some((pattern) => pattern.test(path)), () => coreServerWeb(context, identity.token))
     .when((path) => path.startsWith('/admin'), async () => new Response(null, { status: 404 }))
+    .when(() => coreRefusalWanted(request), async () => new Response(null, { status: 303, headers: { 'Location': '/admin', 'Cache-Control': 'no-store' } }))
     .otherwise(() => {
       throw new Errors.FORBIDDEN({ internal: 'An admin without a hub user reaches only the admin panel' });
     });
+}
+
+async function coreServerRefusal({ url, identity }: CoreTypes.CoreAdminContext, reason: CoreTypes.CoreRefusal['reason']): Promise<Response> {
+  log.warn({
+    tag: 'hub',
+    message: 'Request refused with the no-access page',
+    status: 403,
+    path: url.pathname,
+    reason,
+  });
+
+  return coreRefusalPage({ email: identity.email, reason });
 }
 
 function coreServerRoute(services: CoreTypes.CoreServices, context: CoreTypes.CoreContext, server: Server<CoreTypes.CoreSocket>) {

@@ -4,9 +4,10 @@ import { Alert, AlertDescription, AlertTitle } from '@repo/ui/alert';
 import { Button } from '@repo/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/empty';
 import { LayoutError } from '@repo/ui/layout/layout-error';
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { adminNoticeContext } from '@/context/admin';
+import { ADMIN } from '@/services/admin/admin.constants';
 import IconTriangleAlert from '~icons/lucide/triangle-alert';
 import type { AdminNotice } from '@/types/admin.types';
 import type { ErrorComponentProps } from '@tanstack/react-router';
@@ -19,6 +20,9 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ email, children }: AdminLayoutProps) {
   const [notice, setNotice] = useState<AdminNotice | null>(null);
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const { userId } = useParams({ strict: false });
+  const isGlobal = userId === ADMIN.templateId;
 
   return (
     <adminNoticeContext.Provider value={setNotice}>
@@ -26,8 +30,15 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
         <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-3 md:px-6">
           <p className="text-base font-semibold tracking-tight">{m.admin_title()}</p>
           <nav aria-label={m.admin_nav()} className="flex items-center gap-1">
-            <AdminLayoutNavLink to="/admin/users">{m.admin_users_title()}</AdminLayoutNavLink>
-            <AdminLayoutNavLink to="/admin/admins">{m.admin_admins_title()}</AdminLayoutNavLink>
+            <AdminLayoutNavLink isCurrent={!isGlobal && pathname.startsWith('/admin/users')} to="/admin/users">{m.admin_users_title()}</AdminLayoutNavLink>
+            <AdminLayoutNavLink
+              isCurrent={isGlobal}
+              params={{ userId: ADMIN.templateId }}
+              to="/admin/users/$userId/settings"
+            >
+              {m.admin_global_title()}
+            </AdminLayoutNavLink>
+            <AdminLayoutNavLink isCurrent={pathname.startsWith('/admin/admins')} to="/admin/admins">{m.admin_admins_title()}</AdminLayoutNavLink>
           </nav>
           <p className="ml-auto truncate text-sm text-muted-foreground">{m.admin_signed_in_as({ email })}</p>
         </header>
@@ -41,14 +52,19 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
 }
 
 interface AdminLayoutNavLinkProps {
-  to: '/admin/users' | '/admin/admins'
+  to: '/admin/users' | '/admin/admins' | '/admin/users/$userId/settings'
+  params?: { userId: string }
+  isCurrent: boolean
   children: ReactNode
 }
 
-function AdminLayoutNavLink({ to, children }: AdminLayoutNavLinkProps) {
+function AdminLayoutNavLink({ to, params, isCurrent, children }: AdminLayoutNavLinkProps) {
   return (
     <Link
-      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground aria-[current=page]:bg-muted aria-[current=page]:text-foreground"
+      activeOptions={{ exact: true }}
+      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground data-current:bg-muted data-current:text-foreground"
+      data-current={isCurrent || undefined}
+      params={params}
       to={to}
     >
       {children}
@@ -62,12 +78,14 @@ interface AdminLayoutNoticeProps {
 }
 
 function AdminLayoutNotice({ notice, onDismiss }: AdminLayoutNoticeProps) {
+  const isAdd = notice.change === 'add';
+
   return (
-    <Alert>
-      <IconTriangleAlert className="text-warning" />
-      <AlertTitle>{m.admin_access_manual_title()}</AlertTitle>
+    <Alert variant={isAdd ? 'destructive' : 'default'}>
+      <IconTriangleAlert className={isAdd ? undefined : 'text-warning'} />
+      <AlertTitle>{isAdd ? m.admin_access_manual_add_title({ email: notice.email }) : m.admin_access_manual_remove_title({ email: notice.email })}</AlertTitle>
       <AlertDescription>
-        <p>{notice.change === 'add' ? m.admin_access_manual_add({ email: notice.email }) : m.admin_access_manual_remove({ email: notice.email })}</p>
+        <p>{isAdd ? m.admin_access_manual_add({ email: notice.email }) : m.admin_access_manual_remove({ email: notice.email })}</p>
         <Button
           size="xs"
           variant="outline"

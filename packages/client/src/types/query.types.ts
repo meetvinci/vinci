@@ -15,6 +15,7 @@ export interface QueryNotifyParams {
 export interface QueryMutationCacheParams {
   notify: (params: QueryNotifyParams) => void;
   onError?: (error: Error) => void;
+  errorMessage?: (error: Error) => string | undefined;
 }
 
 declare module '@tanstack/react-query' {

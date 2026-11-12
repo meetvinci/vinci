@@ -11,6 +11,12 @@ Either the daemon does not accept the team address, or the hub does not know the
 
 > On `root@<server>`, in `/opt/orbs`, check that `ORBS_PUBLIC_HOST` in `.env` is `<team>.<domain>`, that `<email>` is in `users.yaml`, and that `hub/users.json` lists it. If not, fix the file and run `bun deploy.ts apply`. Confirm `docker compose logs hub --since 5m` shows "Users loaded" with no error.
 
+## A person sees "No workspace for this email"
+
+They passed the Cloudflare login, but Orbs has no user with that email. With a domain rule this is what everyone at the domain who is not on the team sees; it is expected. If they should be on the team, add them in the admin panel. If they signed in with the wrong address, the page's **Sign out** link lets them try another. *This page is for admins* means the same for `/admin`: their email is not on the admin list.
+
+> On `root@<server>`, in `/opt/orbs`, check whether `<email>` is in `users.yaml` (and enabled) or in `hub/admins.json`. Report which, without printing the other emails. Change nothing.
+
 ## Nobody can get in, and the hub log says the users file is invalid
 
 `/opt/orbs/hub/users.json` is missing or was edited by hand, so the hub lets nobody in. `bun deploy.ts apply` writes it from `users.yaml` and checks the list first.
@@ -43,6 +49,22 @@ The panel asks the provisioner, which runs `bun deploy.ts apply`. Its log names 
 - The panel says to add the email in Cloudflare Access by hand: there is no `CLOUDFLARE_API_TOKEN` on the server, or Cloudflare refused it (the log says `Access sync failed`). Run `cloudflare emails` from your computer ([admin tasks](admin.md#add-a-person), step 2) or [let the server do it](admin.md#let-the-server-update-cloudflare-access).
 
 > On `root@<server>`, in `/opt/orbs`, the admin panel failed to change people. Report the errors in `docker compose logs provisioner --since 15m` and `stat -c "%u:%g %a" hub`, without printing secrets. If it does not print `1000:0 770`, run `bun deploy.ts apply` and confirm it ends with `Applied <n> users`. Change nothing else.
+
+## The admin panel says a setting follows global (409)
+
+The person follows the global value for that section, so the panel does not change it for them. Change it under Global settings for everyone, or switch that section to *overridden* for this person first. The hub answers `409` with `SECTION_FOLLOWS_GLOBAL` and the section's name.
+
+## Global settings show *failed* for someone
+
+The copy to that person did not work, usually because their Orbs was restarting. The reason is next to it in `/admin/api/global/status`. Once their container is healthy (`docker compose ps daemon-<id>`), run *Sync now*. A person who is turned off shows *pending* and catches up when turned on.
+
+## Every global change answers 503
+
+`/opt/orbs/hub/global.json` is unreadable or invalid, and `docker compose logs hub` says so. The hub refuses section changes rather than guess who follows what. Restore the file from a backup, or fix the JSON by hand; the hub picks it up on the next request.
+
+**Give this to your agent:**
+
+> On `root@<server>`, in `/opt/orbs`, the admin panel's global settings fail. Show me `docker compose logs hub --since 1h | grep -i global`, check that `hub/global.json` is valid JSON of the form `{"users": {"<id>": {"<section>": {"mode": ..., "sync": ...}}}}`, and check `docker compose ps daemon-template` is healthy. Don't edit the file without asking me.
 
 ## Bots never answer, with no error
 
@@ -95,7 +117,7 @@ Orbs reads `models.json` only when it starts. A key entered in **Settings → Pr
 
 Skills are picked up within about 30 seconds. They must sit in the person's volume, not inside the container's system files.
 
-- Fix: put the skill in `/data/home/.agents/skills/<skill>/`, owned by uid 1000.
+- Fix: put the skill in `/data/home/.agents/skills/<skill>/`, owned by uid 1000. That folder does not exist until the first shared skill; create it then.
 
 > On `root@<server>`, check that `/data/home/.agents/skills/<skill>/SKILL.md` exists in Orbs user `<name>`'s volume and is owned by uid 1000.
 

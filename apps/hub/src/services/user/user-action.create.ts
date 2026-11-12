@@ -1,9 +1,10 @@
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
+import { USER } from './user.constants';
 import { userNewId } from './user.utils';
 import type * as UserTypes from '../../types/user.types';
 
-export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, email, by }: UserTypes.UserCreateParams): Promise<UserTypes.UserChanged> {
+export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, email, by }: Omit<UserTypes.UserCreateParams, 'bots'>): Promise<UserTypes.UserChanged> {
   const created = deps.state.creating.then(async () => {
     const users = await deps.provisioner.queries.list();
 
@@ -11,7 +12,7 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
       throw new Errors.CONFLICT({ internal: `A user already has ${email}` });
     }
 
-    const id = userNewId(name, email, new Set([...users.map((user) => user.id), ...deps.daemons.queries.pinned()]));
+    const id = userNewId(name, email, new Set([...users.map((user) => user.id), ...deps.daemons.queries.pinned(), ...USER.reservedIds]));
     const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true } });
     const listed = (await deps.provisioner.queries.list()).find((user) => user.id === id);
 

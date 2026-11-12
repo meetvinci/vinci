@@ -23,6 +23,7 @@ import type { SidebarSectionService } from '../services/sidebar-section/sidebar-
 import type { SkillService } from '../services/skill/skill.service';
 import type { TodoService } from '../services/todo/todo.service';
 import type { ToolService } from '../services/tool/tool.service';
+import type { WorkspaceService } from '../services/workspace/workspace.service';
 import type { RequestHeadersPluginContext, ResponseHeadersPluginContext } from '@orpc/server/plugins';
 import type { contract, Device } from '@repo/contracts/universal';
 import type { ProviderService, RuntimeService } from '@repo/runtime/server';
@@ -55,6 +56,7 @@ export interface RpcContext extends RequestHeadersPluginContext, ResponseHeaders
   bots: BotService;
   sidebarSections: SidebarSectionService;
   conversation: ConversationService;
+  workspace: WorkspaceService;
 }
 
 export const rpcLocalReset = commandExecute.extend({ name: z.literal('reset'), arguments: z.undefined().optional() });

@@ -7,6 +7,7 @@ import { match, P } from 'ts-pattern';
 import { makeAccessService } from '../services/access/access.service';
 import { makeAdminService } from '../services/admin/admin.service';
 import { makeDaemonService } from '../services/daemon/daemon.service';
+import { makeGlobalService } from '../services/global/global.service';
 import { makePairingService } from '../services/pairing/pairing.service';
 import { makeProvisionerService } from '../services/provisioner/provisioner.service';
 import { makeUserService } from '../services/user/user.service';
@@ -40,14 +41,21 @@ export async function coreNativeRun(): Promise<void> {
   const daemons = await makeDaemonService({ directory });
   const provisioner = makeProvisionerService({ url: env.PROVISIONER_URL, token: env.PROVISIONER_TOKEN });
 
+  const users = await makeUserService({
+    directory,
+    provisioner,
+    daemons,
+  });
+
   const services: CoreTypes.CoreServices = {
     access: makeAccessService(access),
-    users: await makeUserService({
+    users,
+    daemons,
+    global: await makeGlobalService({
       directory,
-      provisioner,
+      users,
       daemons,
     }),
-    daemons,
     pairing: makePairingService({ daemons }),
     admins: await makeAdminService({
       directory,

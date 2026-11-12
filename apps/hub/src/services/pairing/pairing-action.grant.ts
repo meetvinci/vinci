@@ -2,7 +2,7 @@ import { authPairEntry } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { PAIRING } from './pairing.constants';
-import { pairingDriverBootstrap } from './pairing.driver';
+import { pairingDriverSocket } from './pairing.driver';
 import type * as PairingTypes from '../../types/pairing.types';
 
 export async function pairingActionGrant(deps: PairingTypes.PairingServiceDeps, { user }: PairingTypes.PairingGrantParams): Promise<string> {
@@ -19,11 +19,15 @@ export async function pairingActionGrant(deps: PairingTypes.PairingServiceDeps, 
   deps.state.attempts.set(user.id, [...recent, now]);
 
   const target = await deps.daemons.actions.resolve({ user });
-  const grant = await pairingDriverBootstrap((request) => deps.daemons.actions.door({ user, request }));
+  const socket = pairingDriverSocket((request) => deps.daemons.actions.door({ user, request }));
+
+  const grant = await socket.pairing.bootstrap();
 
   if (authPairEntry.parse(grant.qr.payload).target?.serverId !== target.serverId) {
     throw new Errors.SERVER_MISMATCH({ internal: `The owner socket of ${user.id} belongs to another daemon` });
   }
+
+  await socket.onboarding.complete();
 
   log.info({
     tag: 'hub',

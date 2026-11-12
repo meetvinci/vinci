@@ -15,4 +15,5 @@ export type { SkillExpandParams, SkillExpandResult, SkillLoadParams, SkillLoadRe
 export type { SkillLoaderService } from './services/skill/skill-loader.service';
 export type { PluginLoaderService } from './services/plugin/plugin-loader.service';
 export type { InstructionLoaderService } from './services/instruction/instruction-loader.service';
+export { INSTRUCTION } from './services/instruction/instruction.constants';
 export { notificationItemKey } from './services/notification/notification.utils';

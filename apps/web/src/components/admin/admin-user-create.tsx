@@ -6,11 +6,15 @@ import { ButtonLoading } from '@repo/ui/button-loading';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@repo/ui/dialog';
 import { Form, FormErrors } from '@repo/ui/forms/form';
 import { FormInput } from '@repo/ui/forms/form-input';
+import { toasty } from '@repo/ui/sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { AdminBotChecklist } from '@/components/admin/admin-bot-checklist';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
+import { useAdminTemplateBots } from '@/hooks/use-admin-template-bots';
 import { adminCreateUser, adminUsersQuery } from '@/services/admin/admin.client';
-import { adminProblem } from '@/services/admin/admin.utils';
+import { adminBotCopyProblem, adminProblem } from '@/services/admin/admin.utils';
 import type { AdminUser } from '@repo/contracts/universal';
 
 interface AdminUserCreateProps {
@@ -21,6 +25,10 @@ interface AdminUserCreateProps {
 export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProps) {
   const queryClient = useQueryClient();
   const notice = useAdminNotice();
+  const templateBots = useAdminTemplateBots();
+  const suggested = templateBots.data ?? [];
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const bots = suggested.map((bot) => bot.id).filter((id) => !skipped.includes(id));
 
   const form = useForm({
     resolver: standardSchemaResolver(adminUserCreate),
@@ -30,8 +38,14 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
   const create = useMutation({
     mutationFn: adminCreateUser,
     meta: { success: m.admin_user_created() },
-    onSuccess: async ({ access, ...user }) => {
+    onSuccess: async ({ access, bots: copies = [], ...user }) => {
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
+      const failed = adminBotCopyProblem({ copies, bots: suggested });
+
+      if (failed) {
+        toasty(failed, '⚠️');
+      }
+
       notice({
         access,
         email: user.email,
@@ -49,7 +63,7 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
           <DialogDescription>{m.admin_user_create_hint()}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((input) => create.mutate(input))}>
+          <form className="flex flex-col gap-4" onSubmit={form.handleSubmit((input) => create.mutate(suggested.length > 0 ? { ...input, bots } : input))}>
             <fieldset className="flex flex-col gap-4" disabled={create.isPending}>
               <FormInput
                 autoComplete="name"
@@ -64,6 +78,15 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
                 type="email"
               />
             </fieldset>
+            {suggested.length > 0 ? (
+              <AdminBotChecklist
+                bots={suggested}
+                disabled={create.isPending}
+                label={m.admin_user_bots()}
+                selected={bots}
+                onToggle={(botId, isTicked) => setSkipped((current) => (isTicked ? current.filter((id) => id !== botId) : [...current, botId]))}
+              />
+            ) : null}
             <FormErrors error={create.isError ? adminProblem({ error: create.error, failed: m.admin_user_create_failed() }) : null} />
             <DialogFooter>
               <Button
@@ -74,7 +97,13 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
               >
                 {m.ui_cancel()}
               </Button>
-              <ButtonLoading loading={create.isPending} type="submit">{m.admin_user_create()}</ButtonLoading>
+              <ButtonLoading
+                disabled={templateBots.isLoading}
+                loading={create.isPending}
+                type="submit"
+              >
+                {m.admin_user_create()}
+              </ButtonLoading>
             </DialogFooter>
           </form>
         </Form>

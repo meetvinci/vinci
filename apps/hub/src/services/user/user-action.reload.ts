@@ -15,14 +15,16 @@ export async function userActionReload(deps: UserTypes.UserServiceDeps): Promise
   state.mtimeMs = mtimeMs;
 
   try {
-    state.users = await userDriverRead(deps.path);
+    ({ users: state.users, template: state.template } = await userDriverRead(deps.path));
     log.info({
       tag: 'hub',
       message: 'Users loaded',
       users: state.users.size,
+      template: state.template !== null,
     });
   } catch (error) {
     state.users = new Map();
+    state.template = null;
     log.error({
       tag: 'hub',
       message: `Users file ${deps.path} is missing, unreadable or invalid: every request is refused until it is fixed`,

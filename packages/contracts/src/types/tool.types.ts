@@ -22,6 +22,8 @@ export const toolConfigure = toolSettings.pick({ approvalRules: true, approvalTi
   jevApiKey: z.string().trim().min(1).max(8192).nullable(),
 }).partial();
 
+export const toolExport = z.object({ jevApiKey: z.string().min(1).max(8192).nullable() });
+
 export const toolPending = z.object({ botId: z.uuid() });
 
 export const toolApproval = z.object({
@@ -55,6 +57,7 @@ export const toolSettingsForm = z.object({
 
 export type ToolConfigureInput = z.infer<typeof toolConfigure>;
 export type ToolSettings = z.infer<typeof toolSettings>;
+export type ToolExport = z.infer<typeof toolExport>;
 export type ToolPendingInput = z.infer<typeof toolPending>;
 export type ToolApproval = z.infer<typeof toolApproval>;
 export type ToolAnswerInput = z.infer<typeof toolAnswer>;

@@ -3,6 +3,7 @@ import { useRpc } from '@repo/client/react';
 import { providerAuthType } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { Button } from '@repo/ui/button';
+import { cn } from '@repo/ui/cn';
 import { SectionDialog, SectionDialogBody, SectionDialogNav, SectionDialogNavItem, SectionDialogNavTitle } from '@repo/ui/section-dialog';
 import { SettingsAppearance } from '@repo/ui/settings/settings-appearance';
 import { SettingsDevices } from '@repo/ui/settings/settings-devices';
@@ -25,6 +26,7 @@ import { SettingsTools } from '@/components/settings/settings-tools';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { SETTINGS_ADMIN_AUTH_TYPES, SETTINGS_ADMIN_HIDDEN, SETTINGS_NAV } from '@/services/settings/settings.constants';
+import type { SettingsSectionFrame } from '@/types/settings.types';
 import type { ConnectionInfo } from '@repo/client/client';
 import type { SettingsSection } from '@repo/contracts/universal';
 
@@ -36,10 +38,12 @@ interface SettingsDialogProps {
   modelKey: string | undefined
   deviceId: string | undefined
   providerId: string | undefined
+  sections?: readonly SettingsSection[]
+  frame?: SettingsSectionFrame | null
   onClose: () => void
 }
 
-export function SettingsDialog({ variant, connection, section, view, modelKey, deviceId, providerId, onClose }: SettingsDialogProps) {
+export function SettingsDialog({ variant, connection, section, view, modelKey, deviceId, providerId, sections, frame, onClose }: SettingsDialogProps) {
   const { rpc } = useRpc();
   const navigate = useNavigate();
   const scope = useSectionScope();
@@ -60,23 +64,31 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
       variant={variant}
       onClose={onClose}
     >
-      <SettingsDialogNav section={section} />
+      <SettingsDialogNav section={section} sections={sections} />
       <SectionDialogBody
+        actions={view ? undefined : frame?.actions}
         description={view ? undefined : current.description()}
         key={`${section}-${view ?? ''}`}
         title={view ? undefined : current.label()}
       >
-        <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-          <SettingsDialogSection
-            connection={connection}
-            deviceId={deviceId}
-            modelKey={modelKey}
-            providerId={providerId}
-            section={section}
-            view={view}
-            onBack={() => void navigate(scope.settings.section(section))}
-          />
-        </Suspense>
+        {frame?.notice}
+        <div
+          className={cn('flex flex-col gap-10', frame?.isLocked && 'opacity-60')}
+          inert={frame?.isLocked}
+          key={frame?.isLocked ? 'locked' : 'open'}
+        >
+          <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+            <SettingsDialogSection
+              connection={connection}
+              deviceId={deviceId}
+              modelKey={modelKey}
+              providerId={providerId}
+              section={section}
+              view={view}
+              onBack={() => void navigate(scope.settings.section(section))}
+            />
+          </Suspense>
+        </div>
       </SectionDialogBody>
     </SectionDialog>
   );
@@ -84,13 +96,15 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
 
 interface SettingsDialogNavProps {
   section: SettingsSection
+  sections: readonly SettingsSection[] | undefined
 }
 
-function SettingsDialogNav({ section }: SettingsDialogNavProps) {
+function SettingsDialogNav({ section, sections }: SettingsDialogNavProps) {
   const hydrated = useHydrated();
   const scope = useSectionScope();
 
   const items = SETTINGS_NAV.filter((item) => !(scope.isAdmin && SETTINGS_ADMIN_HIDDEN.includes(item.id))
+    && (!sections || sections.includes(item.id))
     && (item.id !== 'desktop' || (hydrated && Boolean(window.__electrobunSendToHost))));
 
   return (

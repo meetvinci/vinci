@@ -54,6 +54,13 @@ export const ownerRouter = baseRouter.use(async ({ context, next, signal }) => m
   })
   .exhaustive());
 
+export const localRouter = ownerRouter.use(async ({ context, next }) => match(context.isLocal)
+  .with(true, () => next())
+  .with(false, () => {
+    throw new Errors.FORBIDDEN({ internal: 'Served only on the owner socket' });
+  })
+  .exhaustive());
+
 export const authedRouter = ownerRouter.use(async ({ context, next }) => next({
   context: {
     device: match(context.device)

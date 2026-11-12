@@ -16,6 +16,9 @@ const hubData = 'hub';
 // Created once and never recreated by apply: recreating the hub drops every WebSocket, and the provisioner runs apply.
 const singletons = ['hub', 'provisioner'];
 const userId = /^[a-z\d][a-z\d-]{0,62}$/u;
+// The hidden template workspace (global settings and suggested bots): a daemon like a person's that no one logs into.
+// Apply always keeps it; no person may have its id.
+const templateId = 'template';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const namePattern = /^[^\p{Cc}]{1,100}$/u;
 const daemonUid = 1000;
@@ -25,6 +28,7 @@ const provisionerBodyLimit = 64 * 1024;
 const cloudflareApi = process.env.CLOUDFLARE_API_URL ?? 'https://api.cloudflare.com/client/v4';
 // Objects are found by exact names built from --name: the account may hold unrelated objects that share a prefix.
 const cloudflareNamePattern = /^orbs-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const domainPattern = /^(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+[a-z]{2,63}$/u;
 // Only the icon files skip cloudflared's own Access check; a segment cannot contain a slash, so no path climbs out.
 const cloudflareFaviconPath = '^/(?:img/favicon/[^/]+|favicon\\.ico)$';
 // The hub on the Compose `tunnel` network, and the host's sshd as cloudflared's container sees it.
@@ -41,6 +45,18 @@ interface CloudflareResponse<T> {
 interface CloudflareNamed {
   id: string;
   name: string;
+}
+
+interface CloudflarePolicy extends CloudflareNamed {
+  include?: Record<string, unknown>[];
+  exclude?: unknown[];
+  require?: unknown[];
+}
+
+// Who the allow policy lets through: everyone at these domains, and these other emails.
+interface AccessRule {
+  domains: string[];
+  emails: string[];
 }
 
 interface CloudflareApp extends CloudflareNamed {
@@ -193,10 +209,10 @@ function team(file = usersFile): Team {
   }
 
   const entries = Object.entries(list).map(([id, value]) => [id, readPerson(id, value)] as const);
-  const invalid = entries.filter(([id, person]) => !userId.test(id) || !isValidPerson(person));
+  const invalid = entries.filter(([id, person]) => !userId.test(id) || id === templateId || !isValidPerson(person));
 
   if (invalid.length > 0) {
-    fail(`users.yaml: each id must be lowercase letters, digits and dashes, each user an email, an optional name and enabled true or false: ${invalid.map(([id]) => id).join(', ')}`);
+    fail(`users.yaml: each id must be lowercase letters, digits and dashes (not ${templateId}, which the template workspace has), each user an email, an optional name and enabled true or false: ${invalid.map(([id]) => id).join(', ')}`);
   }
 
   if (new Set(entries.map(([, person]) => person.email)).size !== entries.length) {
@@ -235,7 +251,8 @@ function writeAtomic(file: string, content: string, mode: number) {
   renameSync(`${file}.tmp`, file);
 }
 
-// The per-person part of the stack: a daemon, its network shared only with the hub, and its volume.
+// The per-person part of the stack: a daemon, its network shared only with the hub, and its volume. The template
+// workspace gets the same, with the id `template`.
 function renderCompose(ids: string[]): string {
   const services = Object.fromEntries(ids.map((id) => [`daemon-${id}`, {
     extends: { file: 'daemon.yaml', service: 'daemon' },
@@ -259,9 +276,11 @@ function renderCompose(ids: string[]): string {
 }
 
 function renderUsers({ users }: Team, ids: string[]): string {
-  const entries = ids.map((id) => [users.get(id)?.email, { id, daemonUrl: `http://daemon-${id}:47191`, socketPath: `/ipc/${id}/rpc.sock` }]);
+  const daemon = (id: string) => ({ daemonUrl: `http://daemon-${id}:47191`, socketPath: `/ipc/${id}/rpc.sock` });
+  const entries = ids.map((id) => [users.get(id)?.email, { id, ...daemon(id) }]);
 
-  return `${JSON.stringify({ users: Object.fromEntries(entries) }, null, 2)}\n`;
+  // The template has no email: no login routes to it, only the admin panel through the hub.
+  return `${JSON.stringify({ users: Object.fromEntries(entries), template: daemon(templateId) }, null, 2)}\n`;
 }
 
 // The hub (uid 1000) owns its folder. Group root lets the provisioner, root without capabilities, replace users.json.
@@ -335,14 +354,12 @@ async function apply() {
 async function applyTeam(waitFor?: string[]) {
   const current = team();
   const ids = enabledIds(current);
+  const daemons = [templateId, ...ids];
 
-  writeFileSync('users.compose.yaml', renderCompose(ids));
+  writeFileSync('users.compose.yaml', renderCompose(daemons));
   hubFolder();
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
-
-  if (ids.length > 0) {
-    await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', ids);
-  }
+  await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
 
   const others = (await docker(['compose', 'config', '--services'])).split('\n').filter((service) => !singletons.includes(service));
 
@@ -355,11 +372,16 @@ async function applyTeam(waitFor?: string[]) {
     await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', ...waited]);
   }
 
-  await connectHub(ids);
-  console.log(`Applied ${ids.length} users: ${ids.join(', ')}`);
+  await connectHub(daemons);
+  console.log(`Applied ${ids.length} users: ${ids.join(', ')} (and the template workspace)`);
 }
 
+// A person in users.yaml, or the template workspace (always enabled), for backup and restore.
 function known(id: string | undefined): [string, Person] {
+  if (id === templateId) {
+    return [id, { name: 'Template', email: '', enabled: true }];
+  }
+
   const person = id === undefined ? undefined : team().users.get(id);
 
   if (id === undefined || person === undefined) {
@@ -417,12 +439,25 @@ async function restore() {
   console.log(`Restored ${id} from ${file}.`);
 }
 
+// A file in the hub's folder, owned by the hub's uid as the hub writes it.
+function writeHubFile(file: string, content: object) {
+  writeAtomic(file, `${JSON.stringify(content, null, 2)}\n`, 0o600);
+
+  if (process.getuid?.() === 0) {
+    chownSync(file, daemonUid, daemonUid);
+  }
+}
+
 // Deletes a removed person's volume, owner-socket folder and hub pin for good. Restarts the hub (it keeps pins in memory).
 async function purge() {
   const id = process.argv[3];
 
   if (!id || !userId.test(id)) {
     fail('Usage: bun deploy.ts purge <id>');
+  }
+
+  if (id === templateId) {
+    fail('The template workspace holds the global settings and suggested bots; it is never purged.');
   }
 
   if (team().users.has(id)) {
@@ -433,21 +468,25 @@ async function purge() {
   await tools('rm -rf "/ipc/$1"', [id]);
 
   const pinsFile = path.join(hubData, 'pins.json');
+  const globalFile = path.join(hubData, 'global.json');
 
   await docker(['compose', 'stop', 'hub']);
 
+  // The pin, and whether each settings section followed global, belong to that person only: a re-added id starts clean.
   if (existsSync(pinsFile)) {
     const { [id]: _removed, ...pins } = JSON.parse(readFileSync(pinsFile, 'utf8'));
 
-    writeAtomic(pinsFile, `${JSON.stringify(pins, null, 2)}\n`, 0o600);
+    writeHubFile(pinsFile, pins);
+  }
 
-    if (process.getuid?.() === 0) {
-      chownSync(pinsFile, daemonUid, daemonUid);
-    }
+  if (existsSync(globalFile)) {
+    const { users: { [id]: _removed, ...users } } = JSON.parse(readFileSync(globalFile, 'utf8'));
+
+    writeHubFile(globalFile, { users });
   }
 
   await docker(['compose', 'start', 'hub']);
-  console.log(`Purged ${id}: volume, owner-socket folder and hub pin deleted.`);
+  console.log(`Purged ${id}: volume, owner-socket folder, hub pin and global settings modes deleted.`);
 }
 
 async function cloudflareCall<T>(method: string, route: string, body?: unknown): Promise<CloudflareResponse<T>> {
@@ -513,6 +552,7 @@ function cloudflareOptions() {
       hostname: { type: 'string' },
       name: { type: 'string' },
       users: { type: 'string' },
+      domain: { type: 'string', multiple: true, default: [] },
       session: { type: 'string', default: '24h' },
       'ssh-hostname': { type: 'string' },
       'ssh-email': { type: 'string', multiple: true, default: [] },
@@ -526,7 +566,7 @@ function cloudflareOptions() {
 
   if (!['apply', 'emails', 'destroy'].includes(action)) {
     fail(
-      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name orbs-<team> [--users <users.yaml|->] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
+      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name orbs-<team> [--users <users.yaml|->] [--domain <domain>...] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
     );
   }
 
@@ -545,6 +585,8 @@ function cloudflareOptions() {
     }
   }
 
+  const domains = accessDomains(values.domain);
+
   return {
     action,
     zone,
@@ -552,6 +594,7 @@ function cloudflareOptions() {
     hostname,
     sshHostname,
     users: values.users,
+    domains,
     session: values.session,
     sshEmails: values['ssh-email'],
     envOut: values['env-out'],
@@ -574,17 +617,50 @@ type CloudflareOptions = ReturnType<typeof cloudflareOptions>;
 // users.yaml decides who may log in, as it decides who gets a daemon: enabled users and the admin panel's admins.
 function accessEmails(current: Team): string[] {
   const enabled = [...current.users.values()].filter((person) => person.enabled).map((person) => person.email);
-  const emails = [...new Set([...enabled, ...current.admins])].sort();
 
-  if (emails.length === 0) {
-    fail('users.yaml needs at least one enabled user or admin.');
-  }
-
-  return emails;
+  return [...new Set([...enabled, ...current.admins])].sort();
 }
 
 function cloudflareEmails(file: string | undefined): string[] {
   return accessEmails(team(file ?? fail('Pass --users with the path of users.yaml, or - to read it from stdin.')));
+}
+
+// `--domain` and CLOUDFLARE_ACCESS_DOMAINS: lowercase domains, each once.
+function accessDomains(values: string[]): string[] {
+  const domains = [...new Set(values.map((value) => value.trim().toLowerCase().replace(/^@/u, '')))].sort();
+  const invalid = domains.find((domain) => !domainPattern.test(domain));
+
+  if (invalid !== undefined) {
+    fail(`${invalid} is not a domain such as example.com.`);
+  }
+
+  return domains;
+}
+
+function accessCovers(domains: string[], email: string): boolean {
+  return domains.some((domain) => email.endsWith(`@${domain}`));
+}
+
+// With a domain rule, only the emails outside those domains (outside admins, for example) are listed one by one.
+function accessRule(domains: string[], emails: string[]): AccessRule {
+  return { domains, emails: emails.filter((email) => !accessCovers(domains, email)) };
+}
+
+function accessRuleValues(policy: CloudflarePolicy, kind: 'email' | 'email_domain', field: 'email' | 'domain'): string[] {
+  return (policy.include ?? []).flatMap((rule) => (kind in rule ? [String((rule[kind] as Record<string, unknown>)[field]).toLowerCase()] : [])).sort();
+}
+
+// The allow policy's rules, read back. Rules Orbs never writes (groups, everyone, excludes) make it unreadable.
+function accessRead(policy: CloudflarePolicy): AccessRule {
+  const include = policy.include ?? [];
+  const domains = accessRuleValues(policy, 'email_domain', 'domain');
+  const emails = accessRuleValues(policy, 'email', 'email');
+
+  if (domains.length + emails.length !== include.length || (policy.exclude?.length ?? 0) > 0 || (policy.require?.length ?? 0) > 0) {
+    fail(`The Access policy ${policy.name} has rules Orbs does not manage; run cloudflare apply to reset it.`);
+  }
+
+  return { domains, emails };
 }
 
 async function cloudflareContext(zone: string): Promise<CloudflareContext> {
@@ -594,12 +670,18 @@ async function cloudflareContext(zone: string): Promise<CloudflareContext> {
   return { account: found.account.id, zone: found.id };
 }
 
-function cloudflareAllowPolicy(name: string, emails: string[]) {
-  return { name, decision: 'allow', include: emails.map((email) => ({ email: { email } })) };
+function cloudflareAllowPolicy(name: string, { domains, emails }: AccessRule) {
+  const include = [...domains.map((domain) => ({ email_domain: { domain } })), ...emails.map((email) => ({ email: { email } }))];
+
+  if (include.length === 0) {
+    fail('Access would let nobody in: users.yaml needs an enabled user or an admin, or pass --domain.');
+  }
+
+  return { name, decision: 'allow', include };
 }
 
 // The desired Access policies and apps. Each app names its one policy; the IDs are filled in once the policies exist.
-function cloudflareAccessPlan(options: CloudflareOptions, emails: string[]) {
+function cloudflareAccessPlan(options: CloudflareOptions, rule: AccessRule) {
   const { names, hostname, sshHostname, session } = options;
 
   const app = (name: string, uris: string[], policy: string, extra: Record<string, unknown>) => ({
@@ -612,7 +694,7 @@ function cloudflareAccessPlan(options: CloudflareOptions, emails: string[]) {
     ...extra,
   });
 
-  const policies = [cloudflareAllowPolicy(names.allow, emails), { name: names.bypass, decision: 'bypass', include: [{ everyone: {} }] }];
+  const policies = [cloudflareAllowPolicy(names.allow, rule), { name: names.bypass, decision: 'bypass', include: [{ everyone: {} }] }];
 
   const apps = [
     app(names.app, [hostname], names.allow, {
@@ -631,7 +713,7 @@ function cloudflareAccessPlan(options: CloudflareOptions, emails: string[]) {
       fail('Pass --ssh-email for every admin allowed to use SSH.');
     }
 
-    policies.push(cloudflareAllowPolicy(names.sshAllow, sshEmails));
+    policies.push(cloudflareAllowPolicy(names.sshAllow, { domains: [], emails: sshEmails }));
     apps.push(app(names.sshApp, [sshHostname], names.sshAllow, { session_duration: session }));
   }
 
@@ -734,9 +816,9 @@ async function cloudflareRecord(context: CloudflareContext, existing: Cloudflare
 // before its DNS record exists, so it is never reachable unprotected.
 async function cloudflareApply(options: CloudflareOptions) {
   const { names, hostname, sshHostname } = options;
-  const emails = cloudflareEmails(options.users);
+  const rule = accessRule(options.domains, cloudflareEmails(options.users));
   const context = await cloudflareContext(options.zone);
-  const plan = cloudflareAccessPlan(options, emails);
+  const plan = cloudflareAccessPlan(options, rule);
   const hosts = sshHostname === undefined ? [hostname] : [hostname, sshHostname];
 
   const [apps, records, existingPolicies, organization] = await Promise.all([
@@ -793,8 +875,16 @@ async function cloudflareApply(options: CloudflareOptions) {
 
   await Promise.all(hosts.map((host) => cloudflareRecord(context, records, { ...record, name: host })));
 
-  // The zone and name let the provisioner update the allow policy, once a token is added to the server's .env.
-  const values = { ORBS_PUBLIC_HOST: hostname, ACCESS_TEAM_DOMAIN: `https://${organization.auth_domain}`, ACCESS_AUD: aud, CLOUDFLARE_ZONE: options.zone, CLOUDFLARE_NAME: options.name };
+  // The zone and name let the provisioner update the allow policy, once a token is added to the server's .env; the
+  // domains tell it which people the policy already lets in, with or without a token.
+  const values = {
+    ORBS_PUBLIC_HOST: hostname,
+    ACCESS_TEAM_DOMAIN: `https://${organization.auth_domain}`,
+    ACCESS_AUD: aud,
+    CLOUDFLARE_ZONE: options.zone,
+    CLOUDFLARE_NAME: options.name,
+    CLOUDFLARE_ACCESS_DOMAINS: options.domains.join(','),
+  };
 
   console.log(`\nTunnel ${tunnel.name}: ${tunnel.id}`);
   console.log(Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n'));
@@ -816,24 +906,31 @@ async function cloudflareApply(options: CloudflareOptions) {
   console.log(`Wrote these values and TUNNEL_TOKEN to ${options.envOut} (mode 600).`);
 }
 
-// Updates only the allow policy: by hand with `cloudflare emails`, and from the provisioner after each change.
-async function cloudflareAllow(zone: string, allow: string, emails: string[]) {
+async function cloudflareFindAllow(zone: string, allow: string): Promise<[CloudflareContext, CloudflarePolicy[], CloudflarePolicy]> {
   const context = await cloudflareContext(zone);
-  const policies = await cloudflareList<CloudflareNamed>(`/accounts/${context.account}/access/policies`);
+  const policies = await cloudflareList<CloudflarePolicy>(`/accounts/${context.account}/access/policies`);
+  const found = policies.find((policy) => policy.name === allow) ?? fail(`The Access policy ${allow} does not exist. Run apply first.`);
 
-  if (!policies.some((policy) => policy.name === allow)) {
-    fail(`The Access policy ${allow} does not exist. Run apply first.`);
-  }
+  return [context, policies, found];
+}
 
-  await cloudflarePolicy(context, policies, cloudflareAllowPolicy(allow, emails));
+// Updates only the allow policy: by hand with `cloudflare emails`, and from the provisioner after each change.
+// Without domains it keeps the policy's own domain rules, which only `apply` sets.
+async function cloudflareAllow(zone: string, allow: string, emails: string[], domains?: string[]): Promise<AccessRule> {
+  const [context, policies, found] = await cloudflareFindAllow(zone, allow);
+  const rule = accessRule(domains ?? accessRuleValues(found, 'email_domain', 'domain'), emails);
+
+  await cloudflarePolicy(context, policies, cloudflareAllowPolicy(allow, rule));
+
+  return rule;
 }
 
 // After a person is added to, disabled in or removed from users.yaml, or the admins changed.
 async function cloudflareSync(options: CloudflareOptions) {
-  const emails = cloudflareEmails(options.users);
+  const domains = options.domains.length > 0 ? options.domains : undefined;
+  const rule = await cloudflareAllow(options.zone, options.names.allow, cloudflareEmails(options.users), domains);
 
-  await cloudflareAllow(options.zone, options.names.allow, emails);
-  console.log(`Allowed: ${emails.join(', ')}`);
+  console.log(`Allowed: ${[...rule.domains.map((domain) => `anyone @${domain}`), ...rule.emails].join(', ')}`);
 }
 
 // Lists what it would delete: only objects with this run's exact names and hostnames. Deletes them only with --yes.
@@ -978,7 +1075,12 @@ function provisionerConfig() {
     fail('With CLOUDFLARE_API_TOKEN set, CLOUDFLARE_ZONE and CLOUDFLARE_NAME (orbs-<team>) must be set too.');
   }
 
-  return { tokenHash: digest(`Bearer ${token}`), access: cloudflareToken && zone && name ? { zone, allow: `${name}-allow` } : undefined };
+  return {
+    tokenHash: digest(`Bearer ${token}`),
+    access: cloudflareToken && zone && name ? { zone, allow: `${name}-allow` } : undefined,
+    // Written by `cloudflare apply --domain`; without a token, the only way to know whom the policy already lets in.
+    domains: accessDomains((process.env.CLOUDFLARE_ACCESS_DOMAINS ?? '').split(',').filter(Boolean)),
+  };
 }
 
 // The hub's only way to change the stack. It holds the Docker socket, so it answers a fixed set of requests, only with
@@ -995,14 +1097,19 @@ async function provisioner() {
     return run;
   };
 
-  // `manual`: no token on the server, or Cloudflare refused; the admin adds the email in Access by hand.
-  const syncAccess = async (current: Team): Promise<'synced' | 'manual'> => {
+  // `manual`: the policy needs a change Orbs could not make (no token on the server, or Cloudflare refused); the admin
+  // makes it by hand. Without a token, a change that only touches emails inside the domain rule needs nothing.
+  const syncAccess = async (previous: Team, next: Team): Promise<'synced' | 'manual'> => {
     if (config.access === undefined) {
-      return 'manual';
+      const before = new Set(accessEmails(previous));
+      const after = new Set(accessEmails(next));
+      const changed = [...before.symmetricDifference(after)].filter((email) => !accessCovers(config.domains, email));
+
+      return changed.length === 0 ? 'synced' : 'manual';
     }
 
     try {
-      await cloudflareAllow(config.access.zone, config.access.allow, accessEmails(current));
+      await cloudflareAllow(config.access.zone, config.access.allow, accessEmails(next));
 
       return 'synced';
     } catch (error) {
@@ -1038,7 +1145,7 @@ async function provisioner() {
       return reply(500, {
         error: errorMessage(error),
         rolledBack: isGranting,
-        access: await syncAccess(isGranting ? previous : next),
+        access: await syncAccess(previous, isGranting ? previous : next),
       });
     }
   };
@@ -1063,7 +1170,7 @@ async function provisioner() {
       id,
       ...person,
       state,
-      access: await syncAccess(next),
+      access: await syncAccess(previous, next),
     });
   }));
 
@@ -1077,17 +1184,34 @@ async function provisioner() {
 
     const next = { users, admins: previous.admins };
 
-    return await change(previous, next, id, false) ?? reply(200, { id, access: await syncAccess(next) });
+    return await change(previous, next, id, false) ?? reply(200, { id, access: await syncAccess(previous, next) });
   }));
 
   const putAdmins = (emails: string[]) => serial(() => locked(async () => {
-    const current = team();
+    const previous = team();
+    const next = { users: previous.users, admins: [...new Set(emails.map((email) => email.toLowerCase()))] };
 
-    current.admins = [...new Set(emails.map((email) => email.toLowerCase()))];
-    writeTeam(current);
+    writeTeam(next);
 
-    return reply(200, { emails: current.admins, access: await syncAccess(current) });
+    return reply(200, { emails: next.admins, access: await syncAccess(previous, next) });
   }));
+
+  // What the allow policy lets in, for the panel; needs only Access: Apps and Policies: Read. `emails: null` when that
+  // is unknown: no token, Cloudflare could not be read, or the policy has rules Orbs does not manage. The domains then
+  // come from the server's config.
+  const readAccess = async () => {
+    const unknown = { domains: config.domains, emails: null };
+
+    if (config.access === undefined) {
+      return unknown;
+    }
+
+    return cloudflareFindAllow(config.access.zone, config.access.allow).then(([, , found]) => accessRead(found)).catch((error: unknown) => {
+      console.error(`Reading the Access policy failed: ${errorMessage(error)}`);
+
+      return unknown;
+    });
+  };
 
   const route = async (request: Request, pathname: string): Promise<Response> => {
     if (!timingSafeEqual(digest(request.headers.get('authorization') ?? ''), config.tokenHash)) {
@@ -1104,6 +1228,10 @@ async function provisioner() {
       return reply(200, { users: await listUsers() });
     }
 
+    if (pathname === '/access' && request.method === 'GET') {
+      return reply(200, await readAccess());
+    }
+
     if (pathname === '/access/admins' && request.method === 'PUT') {
       const emails = (await readBody(request, ['emails']))?.emails;
 
@@ -1114,8 +1242,8 @@ async function provisioner() {
       return reply(404, { error: 'Not found.' });
     }
 
-    if (!userId.test(userPath)) {
-      return reply(400, { error: 'A user id is lowercase letters, digits and dashes.' });
+    if (!userId.test(userPath) || userPath === templateId) {
+      return reply(400, { error: `A user id is lowercase letters, digits and dashes, and never ${templateId}.` });
     }
 
     if (request.method === 'DELETE') {
@@ -1149,7 +1277,9 @@ async function provisioner() {
     },
   });
 
-  console.log(`Provisioner listening on ${server.port}; Access sync ${config.access === undefined ? 'off (manual)' : 'on'}.`);
+  const rule = config.domains.length === 0 ? '' : `; domain rule ${config.domains.map((domain) => `@${domain}`).join(', ')}`;
+
+  console.log(`Provisioner listening on ${server.port}; Access sync ${config.access === undefined ? 'off (manual)' : 'on'}${rule}.`);
 }
 
 const commands = { images, cloudflare, apply, backup, restore, purge, provisioner };

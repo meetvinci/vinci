@@ -13,6 +13,7 @@ export const secretRules = z.array(secretRule).max(100);
 
 export const secretSave = secretRule.extend({ value: z.string().min(1).max(16384) });
 export const secretRemove = secretRule.pick({ name: true });
+export const secretExport = z.array(secretSave).max(100);
 
 export const secretMode = z.enum(['proxy', 'varlock', 'env']);
 export const secretSettings = z.object({ mode: secretMode });
@@ -22,6 +23,7 @@ export const secretVoid = z.void();
 export type SecretRule = z.infer<typeof secretRule>;
 export type SecretSaveInput = z.infer<typeof secretSave>;
 export type SecretRemoveInput = z.infer<typeof secretRemove>;
+export type SecretExport = z.infer<typeof secretExport>;
 export type SecretMode = z.infer<typeof secretMode>;
 export type SecretSettings = z.infer<typeof secretSettings>;
 export type SecretConfigureInput = z.infer<typeof secretConfigure>;

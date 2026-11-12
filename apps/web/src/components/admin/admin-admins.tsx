@@ -9,6 +9,7 @@ import { Panel, PanelContent, PanelDescription, PanelRow, PanelTitle } from '@re
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useForm } from 'react-hook-form';
+import { AdminAccess, AdminAccessNotice } from '@/components/admin/admin-access';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { adminAddAdmin, adminAdminsQuery, adminMeQuery } from '@/services/admin/admin.client';
@@ -43,6 +44,7 @@ export function AdminAdmins() {
   return (
     <>
       <AdminPageHeader description={m.admin_admins_hint()} title={m.admin_admins_title()} />
+      <AdminAccessNotice domains={undefined} isUnknown={admins.some((item) => item.access === 'unknown')} />
       <Panel className="max-w-3xl">
         {admins.map((item) => (
           <PanelRow key={item.email}>
@@ -50,6 +52,7 @@ export function AdminAdmins() {
               <PanelTitle className="truncate">{item.email}</PanelTitle>
               {item.email === me.email ? <PanelDescription>{m.admin_admins_you()}</PanelDescription> : null}
             </PanelContent>
+            <AdminAccess access={item.access} />
             {isLast ? null : (
               <Button
                 asChild

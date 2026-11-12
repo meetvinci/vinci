@@ -20,7 +20,7 @@ You need:
 
   Nothing else is needed. The setup uses no Access service tokens.
 - **Bun, Docker and a checkout of this repository** on the computer you set up from. Images are built there, and the Cloudflare commands run there, not on the server. You don't need `bun install` for the install itself.
-- **The team's email addresses.** Only these people can log in.
+- **The team's email addresses.** Only these people get into Orbs. If they all have an address at your company's domain, Cloudflare can let in that whole domain (step 5), so adding someone later needs no Cloudflare change.
 - **A model API key** per person (Anthropic, OpenAI or another provider), unless people will add their own.
 
 Keep the API token and model keys in a password manager. Never paste them into a chat.
@@ -121,6 +121,11 @@ LIST
 
 ## 5. Create the Cloudflare objects
 
+First choose who Cloudflare Access lets request a login code:
+
+- **Everyone at your company's email domain** (recommended when every person has such an address): add `--domain example.com` (repeat it for a second domain). Adding or removing someone at that domain later never touches Cloudflare: Orbs itself decides who gets in, and anyone else at the domain sees a page saying they have no workspace and should ask an admin. Admins or users with other addresses are still listed one by one.
+- **A list of emails**: leave `--domain` out. Every person you add later must also be added in Cloudflare. Let the server do that with a small token (step 6), so adding someone in the admin panel is still one step.
+
 One command creates everything the team needs in Cloudflare. Run it on your computer, in the repository. Read the token from your password manager inside the same command, for example with 1Password's `op read`:
 
 ```sh
@@ -128,11 +133,12 @@ ssh root@<server> cat /opt/orbs/users.yaml | \
   CLOUDFLARE_API_TOKEN="$(op read 'op://<vault>/<item>/credential')" \
   bun scripts/deploy.ts cloudflare apply \
   --zone example.com --hostname acme.example.com --name orbs-acme \
-  --users - --env-out cloudflare.env
+  --users - --domain example.com --env-out cloudflare.env
 ```
 
 - `--name` must start with `orbs-`. Every object gets this exact name, or this name and a suffix. The script only ever changes or deletes objects with these names.
-- `--users -` reads the team list from step 4, piped from the server. Its emails are the people allowed to log in.
+- `--users -` reads the team list from step 4, piped from the server. Its emails are the people allowed to log in, apart from those inside `--domain`.
+- `--domain` sets the domain rule; leave it out for a list of emails. Run the command the same way every time: running it later without `--domain` turns the rule into a plain list of emails.
 - `--env-out` writes the values the server needs, including the secret tunnel token, to a file only you can read. Git ignores `cloudflare.env`.
 - `--session 24h` is the default login length. Longer sessions (for example `168h`, a week) mean fewer email codes on phones, but a lost or shared device stays logged in for that long. Removing someone from `users.yaml` still locks them out of Orbs within a second.
 - Optional SSH through the tunnel: add `--ssh-hostname acme-ssh.example.com --ssh-email <admin email>` (repeat `--ssh-email` for a second admin).
@@ -154,6 +160,7 @@ ACCESS_TEAM_DOMAIN=https://<your-team>.cloudflareaccess.com
 ACCESS_AUD=<64 hex characters>
 CLOUDFLARE_ZONE=example.com
 CLOUDFLARE_NAME=orbs-acme
+CLOUDFLARE_ACCESS_DOMAINS=example.com
 Wrote these values and TUNNEL_TOKEN to cloudflare.env (mode 600).
 ```
 
@@ -169,24 +176,37 @@ Running it again is safe: it prints `unchanged` for what is already right and fi
 
 **Give this to your agent:**
 
-> In my Orbs repository, run `ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare apply --zone <domain> --hostname <team>.<domain> --name orbs-<team> --users - --env-out cloudflare.env`, reading the token inside the same command. Don't print the token and don't save it anywhere. If it says the token is empty, ask me to unlock my password manager and run it again. Show me the output, with the emails hidden.
+> In my Orbs repository, run `ssh root@<server> cat /opt/orbs/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare apply --zone <domain> --hostname <team>.<domain> --name orbs-<team> --users - --env-out cloudflare.env`, with `--domain <company email domain>` added only if I chose to let in everyone at that domain (`<domain, or "a list of emails">`), reading the token inside the same command. Don't print the token and don't save it anywhere. If it says the token is empty, ask me to unlock my password manager and run it again. Show me the output, with the emails hidden.
 
 ## 6. Put the tunnel token on the server
 
 The tunnel connector, cloudflared, runs as a container next to the hub; the Compose file starts it. It needs only the values from `cloudflare.env`, in `/opt/orbs/.env`. This command merges them into that file, keeps its other lines, keeps it readable by root only, and then deletes the local copy:
 
 ```sh
-ssh root@<server> 'umask 077 && cd /opt/orbs && { grep -v -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|TUNNEL_TOKEN)=" .env 2>/dev/null || true; cat; } > .env.new && mv .env.new .env' < cloudflare.env && rm cloudflare.env
-ssh root@<server> 'stat -c "%a %U" /opt/orbs/.env; grep -c -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|TUNNEL_TOKEN)=." /opt/orbs/.env'
+ssh root@<server> 'umask 077 && cd /opt/orbs && { grep -v -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|CLOUDFLARE_ACCESS_DOMAINS|TUNNEL_TOKEN)=" .env 2>/dev/null || true; cat; } > .env.new && mv .env.new .env' < cloudflare.env && rm cloudflare.env
+ssh root@<server> 'stat -c "%a %U" /opt/orbs/.env; grep -c -E "^(ORBS_PUBLIC_HOST|ACCESS_TEAM_DOMAIN|ACCESS_AUD|CLOUDFLARE_ZONE|CLOUDFLARE_NAME|CLOUDFLARE_ACCESS_DOMAINS|TUNNEL_TOKEN)=." /opt/orbs/.env'
 ```
 
-Expected: `600 root` and `6`. `CLOUDFLARE_ZONE` and `CLOUDFLARE_NAME` are not secret; the admin panel needs them only if you later let the server update Cloudflare Access ([admin tasks](admin.md#let-the-server-update-cloudflare-access)).
+Expected: `600 root` and `7` with a domain rule, `6` without (the domains line is then empty). `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME` and `CLOUDFLARE_ACCESS_DOMAINS` are not secret.
 
 The token lets anyone run a connector for this tunnel. Treat it like a password.
 
+**With a list of emails (no `--domain`), also let the server update Cloudflare Access.** Create a second, small Cloudflare API token (My Profile › API Tokens › Create Token › Create Custom Token) with only these permissions, the account limited to yours and the zone to your domain:
+
+- Account › Access: Apps and Policies › Edit
+- Zone › Zone › Read
+
+Then put it on the server; the provisioner, which `apply` starts in step 7, picks it up:
+
+```sh
+ssh root@<server> 'cd /opt/orbs && sed -i "/^CLOUDFLARE_API_TOKEN=/d" .env && cat >> .env' < <(printf 'CLOUDFLARE_API_TOKEN=%s\n' "$(op read '<small token reference>')")
+```
+
+If 1Password is locked, this writes an empty token without an error; step 7 shows it (`Access sync off`). With the token, adding, switching off or removing someone in the admin panel also updates who may log in, and the panel shows for each person whether Cloudflare lets them in. With a domain rule the token is optional: it only lets the panel show that state, and Read instead of Edit is enough for that.
+
 **Give this to your agent:**
 
-> Merge `cloudflare.env` into `/opt/orbs/.env` on `root@<server>` with the merge command in step 6 of `docs/team-workspace/install.md`, then delete the local `cloudflare.env`. Confirm `stat -c "%a %U" /opt/orbs/.env` prints `600 root` and that the six Cloudflare lines have values. Don't print the file.
+> Merge `cloudflare.env` into `/opt/orbs/.env` on `root@<server>` with the merge command in step 6 of `docs/team-workspace/install.md`, then delete the local `cloudflare.env`. Confirm `stat -c "%a %U" /opt/orbs/.env` prints `600 root` and that the Cloudflare lines have values (`CLOUDFLARE_ACCESS_DOMAINS` is empty for a list of emails). If I chose a list of emails, also set `CLOUDFLARE_API_TOKEN` in `/opt/orbs/.env` to the small token at `<small token reference>` (Account › Access: Apps and Policies › Edit and Zone › Zone › Read only) with the command in step 6, reading it inside the command. Don't print the file or the token.
 
 ### Optional: SSH through the tunnel
 
@@ -229,7 +249,7 @@ Start everything:
 ssh root@<server> 'cd /opt/orbs && bun deploy.ts apply'
 ```
 
-This writes the per-person files from `users.yaml`, then starts the web app, cloudflared and one container per person, then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
+This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
 
 Check it:
 
@@ -237,7 +257,9 @@ Check it:
 ssh root@<server> 'cd /opt/orbs && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+
+Then check how the provisioner sees Cloudflare: `ssh root@<server> 'cd /opt/orbs && docker compose logs provisioner | grep listening | tail -1'`. It ends with `Access sync on` when step 6 put a token on the server (`off (manual)` without one), and lists `domain rule @example.com` when you chose a domain.
 
 If it differs:
 
@@ -248,7 +270,7 @@ If it differs:
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines.
+> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines. Report the provisioner's `listening` log line: it must say `Access sync on` if I chose a list of emails and gave a small token.
 
 ## 8. Check it works
 
@@ -268,15 +290,16 @@ ssh root@<server> 'ss -tlnp'
 ssh root@<server> 'cd /opt/orbs && ids=$(docker compose ps --format "{{.Service}}" | sed -n "s/^daemon-//p"); for a in $ids; do for b in $ids; do [ $a = $b ] && continue; ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" orbs-daemon-$b-1); printf "%s -> %s: " $a $b; docker exec orbs-daemon-$a-1 bun -e "fetch(\"http://$ip:47191/health\",{signal:AbortSignal.timeout(3000)}).then(()=>console.log(\"REACHABLE: not isolated\"),()=>console.log(\"blocked\"))" 2>/dev/null; done; printf "hub -> %s: " $a; docker exec orbs-hub-1 bun -e "fetch(\"http://daemon-$a:47191/health\").then(r=>console.log(r.status),e=>console.log(\"unreachable\"))" 2>/dev/null; done'
 ```
 
-Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. With only one person there is nothing to compare; it prints just the hub line.
+Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair.
 
 Then log in:
 
 1. Open `https://<team>.<domain>` in a private browser window. You should see the Cloudflare login.
 2. Log in with a team email and the code you get by email.
-3. Orbs opens for that person. The browser pairs itself; there is no PIN and no device name to type. On the first visit Orbs asks the person to set up a model provider unless the admin set a shared key.
-4. Try an email that is not on the list. Cloudflare should not send it a code.
-5. Log in as the first admin and open `https://<team>.<domain>/admin`. You should see **Users** with everyone from `users.yaml`, and **Admins** with your email. A person who is not an admin gets 403 there.
+3. Orbs opens for that person. The browser pairs itself; there is no PIN and no device name to type. Orbs shows no setup steps: the admin sets up keys and bots.
+4. Try an email that is not on the list. With a list of emails, Cloudflare should not send it a code. With a domain rule, an address at that domain gets a code and then a page saying it has no workspace and to ask an admin; an address at another domain gets no code.
+5. Log in as the first admin and open `https://<team>.<domain>/admin`. You should see **Users** with everyone from `users.yaml`, **Global settings**, and **Admins** with your email. A person who is not an admin gets 403 there. If you are an admin but not a user, opening `https://<team>.<domain>` takes you to `/admin`.
+6. Set up the team before people log in: in **Global settings**, add a model provider's API key under Models, set Chat, Tools, Secrets and Sources as you want everyone to start, and create the bots you want to offer under **Suggested bots**. Then give each person their bots (see [Global settings and suggested bots](admin.md#global-settings-and-suggested-bots)).
 
 **Give this to your agent:**
 
@@ -286,8 +309,8 @@ Then log in:
 
 Fill in the angle brackets and paste:
 
-> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 8 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and tell me the address to log in at and the admin panel address (`/admin`).
+> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 8 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. Cloudflare lets in `<everyone @<company domain>, or "a list of emails" plus the small server token at <op://…>>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and tell me the address to log in at and the admin panel address (`/admin`), and remind me to set Global settings and the suggested bots there before people log in.
 
 ## Next
 
-[Admin tasks](admin.md): add and remove people, model keys, backups and upgrades.
+[Admin tasks](admin.md): global settings and suggested bots, add and remove people, model keys, backups and upgrades.

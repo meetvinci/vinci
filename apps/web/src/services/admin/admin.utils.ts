@@ -1,12 +1,14 @@
 import { ORPCError } from '@orpc/client';
+import { adminRelayRefusal } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { m } from '@repo/i18n/client';
 import { linkOptions } from '@tanstack/react-router';
 import { match, P } from 'ts-pattern';
 import { ADMIN } from '@/services/admin/admin.constants';
-import type { AdminProblemParams, AdminQueriesStatus, AdminRequestParams } from '@/types/admin.types';
+import { SETTINGS_NAV } from '@/services/settings/settings.constants';
+import type * as AdminTypes from '@/types/admin.types';
 import type { SectionScope } from '@/types/section.types';
-import type { AdminUserState } from '@repo/contracts/universal';
+import type { AdminUserState, SettingsSection } from '@repo/contracts/universal';
 
 export function adminSectionScope(userId: string): SectionScope {
   return {
@@ -70,7 +72,33 @@ export function adminSectionScope(userId: string): SectionScope {
   };
 }
 
-export function adminProblem({ error, failed }: AdminProblemParams): string {
+export function adminRpcPrefix(userId: string): string {
+  return `admin-user:${userId}`;
+}
+
+export function adminIsSectionRefused(error: Error): boolean {
+  if (!(error instanceof ORPCError)) {
+    return false;
+  }
+
+  return adminRelayRefusal.safeParse(error.data).success;
+}
+
+export function adminBotCopyProblem({ copies, bots }: AdminTypes.AdminBotCopyProblemParams): string | null {
+  const failed = copies.filter((copy) => copy.botId === null).map((copy) => {
+    const name = bots.find((bot) => bot.id === copy.from)?.name ?? copy.from;
+
+    return copy.error ? `${name} (${copy.error})` : name;
+  });
+
+  return failed.length > 0 ? m.admin_bots_copy_partial({ bots: failed.join(', ') }) : null;
+}
+
+export function adminSectionLabel(section: SettingsSection): string {
+  return SETTINGS_NAV.find((item) => item.id === section)?.label() ?? section;
+}
+
+export function adminProblem({ error, failed }: AdminTypes.AdminProblemParams): string {
   return match(error)
     .with(P.instanceOf(ORPCError), (failure) => match(failure.code)
       .with('UNAUTHORIZED', () => m.admin_signed_out())
@@ -79,7 +107,7 @@ export function adminProblem({ error, failed }: AdminProblemParams): string {
     .otherwise(() => failed);
 }
 
-export async function adminRequest<T>({ path, schema, method = 'GET', body }: AdminRequestParams<T>): Promise<T> {
+export async function adminRequest<T>({ path, schema, method = 'GET', body }: AdminTypes.AdminRequestParams<T>): Promise<T> {
   const response = await fetch(`${ADMIN.apiPath}${path}`, {
     method,
     headers: method === 'GET' ? { accept: 'application/json' } : { accept: 'application/json', 'content-type': 'application/json' },
@@ -111,7 +139,7 @@ export function adminStateLabel(state: AdminUserState): { label: string; tone: '
     .exhaustive();
 }
 
-export function adminQueriesStatus(results: { isError: boolean; isPending: boolean }[]): AdminQueriesStatus {
+export function adminQueriesStatus(results: { isError: boolean; isPending: boolean }[]): AdminTypes.AdminQueriesStatus {
   return match(results)
     .when((all) => all.some((result) => result.isError), () => 'error' as const)
     .when((all) => all.some((result) => result.isPending), () => 'pending' as const)

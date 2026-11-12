@@ -6,6 +6,7 @@ import { userActionUpdate } from './user-action.update';
 import { userQueryFind } from './user-query.find';
 import { userQueryGet } from './user-query.get';
 import { userQueryList } from './user-query.list';
+import { userQueryTemplate } from './user-query.template';
 import { USER } from './user.constants';
 import type * as UserTypes from '../../types/user.types';
 
@@ -15,6 +16,7 @@ export async function makeUserService({ directory, ...services }: UserTypes.User
     path: join(directory, USER.file),
     state: {
       users: new Map(),
+      template: null,
       mtimeMs: undefined,
       checkedAt: 0,
       creating: Promise.resolve(),
@@ -28,11 +30,13 @@ export async function makeUserService({ directory, ...services }: UserTypes.User
       find: (input) => userQueryFind(deps, input),
       get: (input) => userQueryGet(deps, input),
       list: () => userQueryList(deps),
+      template: () => userQueryTemplate(deps),
     },
     actions: {
       create: (input) => userActionCreate(deps, input),
       update: (input) => userActionUpdate(deps, input),
       remove: (input) => userActionRemove(deps, input),
+      reload: () => userActionReload(deps),
     },
   };
 }

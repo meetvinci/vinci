@@ -2,6 +2,7 @@ import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useMatches, useNavigate, useParams } from '@tanstack/react-router';
+import { AdminBotCopy } from '@/components/admin/admin-bot-copy';
 import { AdminUserGate } from '@/components/admin/admin-user';
 import { BotDialog } from '@/components/bots/bot-dialog';
 import { adminQueriesStatus } from '@/services/admin/admin.utils';
@@ -28,10 +29,12 @@ function AdminUserBotsRoute() {
   const params = useParams({ strict: false });
   const view = botDialogView({ path: routeId?.slice(Route.id.length), params });
   const { rpc } = useRpc();
+  const { userId } = Route.useParams();
   const bots = useQuery(rpc.bots.list.queryOptions());
 
   return (
     <AdminUserGate status={adminQueriesStatus([bots])}>
+      <AdminBotCopy userId={userId} />
       {view ? (
         <BotDialog
           variant="page"

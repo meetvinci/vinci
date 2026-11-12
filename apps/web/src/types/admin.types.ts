@@ -14,11 +14,35 @@ export interface AdminRpcParams {
   userId: string
 }
 
+export interface AdminSectionModeParams extends UniversalTypes.AdminSectionModeInput {
+  userId: string
+  section: UniversalTypes.AdminSectionId
+}
+
+export interface AdminSectionParams {
+  userId: string
+  section: UniversalTypes.AdminSection
+}
+
+export interface AdminBotCopyParams extends UniversalTypes.AdminBotCopyInput {
+  userId: string
+}
+
 export interface AdminRequestParams<T> {
   path: string
   schema: z.ZodType<T>
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
-  body?: UniversalTypes.Admin | UniversalTypes.AdminUserCreate | Omit<UniversalTypes.AdminUserPatch, 'id'>
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  body?: UniversalTypes.Admin
+    | UniversalTypes.AdminUserCreate
+    | Omit<UniversalTypes.AdminUserPatch, 'id'>
+    | UniversalTypes.AdminSectionModeInput
+    | UniversalTypes.AdminGlobalSyncInput
+    | UniversalTypes.AdminBotCopyInput
+}
+
+export interface AdminBotCopyProblemParams {
+  copies: UniversalTypes.AdminBotCopy[]
+  bots: Pick<UniversalTypes.Bot, 'id' | 'name'>[]
 }
 
 export interface AdminProblemParams {

@@ -1,13 +1,11 @@
-import { GIF_PROVIDER_LABELS } from '@repo/client/client';
-import { useChatDefaults, useChatHideVerbose, useNotificationSettings } from '@repo/client/react';
-import { gifProvider, notificationPlatform } from '@repo/contracts/universal';
+import { useNotificationSettings } from '@repo/client/react';
+import { notificationPlatform } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { Button } from '@repo/ui/button';
 import { Label } from '@repo/ui/label';
 import { PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
-import { Switch } from '@repo/ui/switch';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { useSectionScope } from '@/hooks/use-section-scope';
@@ -45,43 +43,11 @@ function SettingsGeneralNotifications() {
 }
 
 export function SettingsGeneral() {
-  const verbose = useChatHideVerbose();
-  const defaults = useChatDefaults();
   const notify = useNotificationSettings();
-  const verboseId = useId();
   const scope = useSectionScope();
 
   return (
     <SettingsGroup title={m.settings_general()}>
-      <PanelRow>
-        <PanelContent>
-          <Label htmlFor={verboseId}>{m.settings_general_verbose()}</Label>
-        </PanelContent>
-        <Switch
-          checked={verbose.hideVerbose}
-          disabled={verbose.isPending}
-          id={verboseId}
-          onCheckedChange={verbose.setHideVerbose}
-        />
-      </PanelRow>
-      <PanelRow>
-        <PanelContent>
-          <PanelTitle>{m.settings_gifs()}</PanelTitle>
-          <PanelDescription>{m.settings_gifs_credit()}</PanelDescription>
-        </PanelContent>
-        <Select
-          disabled={defaults.isPending || !defaults.settings}
-          value={defaults.settings?.gifProvider ?? ''}
-          onValueChange={(value) => defaults.configure({ gifProvider: gifProvider.parse(value) })}
-        >
-          <SelectTrigger aria-label={m.settings_gifs()} className="w-auto">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {gifProvider.options.map((provider) => <SelectItem key={provider} value={provider}>{GIF_PROVIDER_LABELS[provider]()}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </PanelRow>
       {scope.isAdmin ? null : (
         <ClientOnly>
           <SettingsGeneralNotifications />

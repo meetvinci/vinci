@@ -26,6 +26,7 @@ import { sidebarSections } from './rpc.sidebar-sections';
 import { skills } from './rpc.skills';
 import { todos } from './rpc.todos';
 import { tools } from './rpc.tools';
+import { workspace } from './rpc.workspace';
 
 export const router = rpcRouter.router({
   server: rpcServer,
@@ -55,4 +56,5 @@ export const router = rpcRouter.router({
   instructions,
   mcp,
   models,
+  workspace,
 });
