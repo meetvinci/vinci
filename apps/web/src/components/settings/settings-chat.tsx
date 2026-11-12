@@ -10,7 +10,9 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { Switch } from '@repo/ui/switch';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useId } from 'react';
+import { SettingsManaged } from '@/components/settings/settings-managed';
 import { useSectionScope } from '@/hooks/use-section-scope';
+import { useTeam } from '@/hooks/use-team';
 
 const SETTINGS_ENTER_KEYS = [
   { device: 'desktop', label: m.settings_chat_enter_desktop },
@@ -20,17 +22,27 @@ const SETTINGS_ENTER_KEYS = [
 const SETTINGS_ENTER_ACTIONS = { send: m.settings_chat_enter_send, newline: m.settings_chat_enter_newline };
 
 export function SettingsChat() {
-  const { rpc } = useRpc();
-  const { preferences, save } = usePreferences();
-  const { data: settings } = useSuspenseQuery(rpc.conversation.settings.queryOptions());
-  const configure = useChatDefaults();
   const scope = useSectionScope();
-  const verbose = useChatHideVerbose();
-  const verboseId = useId();
+  const team = useTeam();
+
+  return (
+    <>
+      {scope.isAdmin ? null : <SettingsChatKeys />}
+      {team.isAdvanced ? (
+        <SettingsManaged section="chat">
+          <SettingsChatWorkspace />
+        </SettingsManaged>
+      ) : null}
+    </>
+  );
+}
+
+function SettingsChatKeys() {
+  const { preferences, save } = usePreferences();
 
   return (
     <SettingsGroup title={m.settings_chat()}>
-      {scope.isAdmin ? null : SETTINGS_ENTER_KEYS.map((row) => (
+      {SETTINGS_ENTER_KEYS.map((row) => (
         <PanelRow key={row.device}>
           <PanelContent>
             <PanelTitle>{row.label()}</PanelTitle>
@@ -48,6 +60,19 @@ export function SettingsChat() {
           </Select>
         </PanelRow>
       ))}
+    </SettingsGroup>
+  );
+}
+
+function SettingsChatWorkspace() {
+  const { rpc } = useRpc();
+  const { data: settings } = useSuspenseQuery(rpc.conversation.settings.queryOptions());
+  const configure = useChatDefaults();
+  const verbose = useChatHideVerbose();
+  const verboseId = useId();
+
+  return (
+    <SettingsGroup title={m.settings_chat_workspace()}>
       <PanelRow>
         <PanelContent>
           <PanelTitle>{m.rooms_send_mode()}</PanelTitle>

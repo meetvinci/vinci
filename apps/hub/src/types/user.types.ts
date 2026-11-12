@@ -11,7 +11,10 @@ const userDaemon = z.strictObject({
   socketPath: z.string().startsWith('/'),
 });
 
-const userEntry = userDaemon.extend({ id: userId.refine((id) => id !== adminTemplateId, { message: 'The id template is reserved for the template workspace' }) });
+const userEntry = userDaemon.extend({
+  id: userId.refine((id) => id !== adminTemplateId, { message: 'The id template is reserved for the template workspace' }),
+  advanced: z.literal(true).optional(),
+});
 
 export const userFile = z.strictObject({ users: z.record(z.email(), userEntry), template: userDaemon.optional() }).transform(({ users, template }, context) => {
   const entries = Object.entries(users).map(([email, entry]) => ({ ...entry, email: email.toLowerCase() }));
@@ -36,7 +39,11 @@ export const userCreateInput = z.strictObject({
   bots: z.array(z.uuid()).max(50).optional(),
 });
 
-export const userUpdateInput = z.strictObject({ name: userName.optional(), enabled: z.boolean().optional() });
+export const userUpdateInput = z.strictObject({
+  name: userName.optional(),
+  enabled: z.boolean().optional(),
+  advanced: z.boolean().optional(),
+});
 
 export type User = z.infer<typeof userEntry> & { email: string };
 

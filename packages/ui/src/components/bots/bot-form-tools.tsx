@@ -9,31 +9,34 @@ import type { BotForm } from '@repo/contracts/universal';
 
 interface BotFormToolsProps {
   busy: boolean
+  isPermissionVisible: boolean
 }
 
-export function BotFormTools({ busy }: BotFormToolsProps) {
+export function BotFormTools({ busy, isPermissionVisible }: BotFormToolsProps) {
   const form = useFormContext<BotForm>();
 
   return (
     <div className="flex flex-col gap-8">
-      <SettingsGroup isTitleVisible title={m.rooms_bot_permission()}>
-        <PanelRow className="block">
-          <FormField
-            control={form.control}
-            name="permission"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="sr-only">{m.rooms_bot_permission()}</FormLabel>
-                <BotPermissionSelect
-                  disabled={busy}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
-              </FormItem>
-            )}
-          />
-        </PanelRow>
-      </SettingsGroup>
+      {isPermissionVisible ? (
+        <SettingsGroup isTitleVisible title={m.rooms_bot_permission()}>
+          <PanelRow className="block">
+            <FormField
+              control={form.control}
+              name="permission"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="sr-only">{m.rooms_bot_permission()}</FormLabel>
+                  <BotPermissionSelect
+                    disabled={busy}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                </FormItem>
+              )}
+            />
+          </PanelRow>
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup isTitleVisible title={m.bots_shared()}>
         <BotFormInherit
           busy={busy}

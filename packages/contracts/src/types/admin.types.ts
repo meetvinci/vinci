@@ -18,6 +18,7 @@ export const adminUser = z.object({
   name: z.string(),
   email: adminEmail,
   enabled: z.boolean(),
+  advanced: z.boolean(),
   state: adminUserState,
 });
 
@@ -41,6 +42,7 @@ export const adminUserPatch = z.object({
   id: adminUserId,
   name: z.string().trim().min(1).max(80).optional(),
   enabled: z.boolean().optional(),
+  advanced: z.boolean().optional(),
 });
 
 export const adminSectionId = settingsSection.extract(['models', 'chat', 'tools', 'secrets', 'sources']);

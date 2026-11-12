@@ -123,6 +123,8 @@ import {
 import { skillCatalog, skillConfigure, skillDiscover, skillSettings } from '../types/skill.types';
 import { todo, todoCreate, todoList, todoRemoveResult, todoReorder, todoTarget, todoUpdate } from '../types/todo.types';
 import {
+  toolAlwaysAllowed,
+  toolAlwaysAllowedClear,
   toolAnswer,
   toolAnswerResult,
   toolApprovalList,
@@ -145,6 +147,7 @@ const ocBusy = ocFind.errors({ CONFLICT: errorSchemas.CONFLICT });
 const ocValidate = ocFind.errors({ VALIDATION_ERROR: errorSchemas.VALIDATION_ERROR });
 const ocWrite = ocValidate.errors({ CONFLICT: errorSchemas.CONFLICT });
 const ocAdmin = ocWrite.errors({ FORBIDDEN: errorSchemas.FORBIDDEN });
+const ocTeam = { TEAM_MANAGED: errorSchemas.TEAM_MANAGED };
 
 export const contract = {
   providers: {
@@ -169,7 +172,7 @@ export const contract = {
   },
   limits: {
     settings: ocAuth.output(limitSettings),
-    configure: ocAuth.input(limitConfigure).output(limitSettings),
+    configure: ocAuth.errors(ocTeam).input(limitConfigure).output(limitSettings),
   },
   mcpAuth: {
     start: ocAdmin.input(mcpAuthStart).output(mcpAuthStartResult),
@@ -194,7 +197,7 @@ export const contract = {
     save: ocAuth.input(secretSave).output(secretVoid),
     remove: ocAuth.input(secretRemove).output(secretVoid),
     settings: ocAuth.output(secretSettings),
-    configure: ocAuth.input(secretConfigure).output(secretSettings),
+    configure: ocAuth.errors(ocTeam).input(secretConfigure).output(secretSettings),
 
     export: ocAdmin.output(secretExport),
   },
@@ -303,7 +306,7 @@ export const contract = {
 
     connect: ocFind.input(mcpDiscover).output(mcpCatalog),
 
-    add: ocFind.input(mcpServerAdd).output(mcpCatalogServer),
+    add: ocFind.errors(ocTeam).input(mcpServerAdd).output(mcpCatalogServer),
 
     remove: ocFind.input(mcpServerRemove).output(bot),
 
@@ -321,11 +324,15 @@ export const contract = {
   tools: {
     settings: ocAuth.output(toolSettings),
 
-    configure: ocAuth.input(toolConfigure).output(toolSettings),
+    configure: ocAuth.errors(ocTeam).input(toolConfigure).output(toolSettings),
 
     pending: ocFind.input(toolPending).output(toolApprovalList),
 
     answer: ocFind.input(toolAnswer).output(toolAnswerResult),
+
+    alwaysAllowed: ocAuth.input(toolPending).output(toolAlwaysAllowed),
+
+    clearAlwaysAllowed: ocAuth.input(toolAlwaysAllowedClear).output(toolAlwaysAllowed),
 
     export: ocAdmin.output(toolExport),
   },
@@ -342,11 +349,12 @@ export const contract = {
         UNAUTHORIZED: errorSchemas.UNAUTHORIZED,
         CONFLICT: errorSchemas.CONFLICT,
         VALIDATION_ERROR: errorSchemas.VALIDATION_ERROR,
+        ...ocTeam,
       })
       .input(botCreate)
       .output(bot),
 
-    update: ocWrite.input(botUpdate).output(bot),
+    update: ocWrite.errors(ocTeam).input(botUpdate).output(bot),
 
     delete: ocFind.input(botGet).output(botDeleteResult),
 

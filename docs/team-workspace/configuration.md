@@ -31,6 +31,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `DAEMON_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. |
 | `DAEMON_PORT` | `47191` (set by the image) | Port inside the container. Never published to the internet. |
 | `DAEMON_PUBLIC_URLS` | `https://<team>.<domain>` (set by Compose) | The address people reach Orbs at, comma separated if more than one. The daemon tells apps only these addresses and accepts browser calls from them. Without it every browser call gets 403. |
+| `DAEMON_TEAM` | `true` (set by Compose) | Marks a team daemon: people's devices cannot change a bot's permission level, approval rules or timeout, how bots use secrets, rate limits, or add an MCP server that runs a command. The admin still can in the panel. Leave it out for a single-owner daemon. |
 | `DAEMON_ALLOWED_ORIGINS` | empty | Extra browser addresses allowed to call the daemon. Not needed when `DAEMON_PUBLIC_URLS` is set. |
 | `WEB_PUBLIC_URL` | `https://<team>.<domain>` (set by Compose) | The address pairing links open. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
@@ -79,13 +80,13 @@ It runs as root with every Linux capability dropped, a read-only system, no publ
 | File | Where | What it holds |
 | --- | --- | --- |
 | `.env` | `/opt/orbs/` | Every setting above. Secret. |
-| `users.yaml` | `/opt/orbs/` | The one list of people (user id, login email, optional name and enabled) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
+| `users.yaml` | `/opt/orbs/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
 | `compose.yaml`, `daemon.yaml` | `/opt/orbs/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the container every person gets. |
 | `cloudflared.compose.yaml` | `/opt/orbs/`, copied from `deploy/cloudflare/` | The tunnel connector. |
 | `deploy.ts` | `/opt/orbs/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/orbs/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
 | `users.compose.yaml` | `/opt/orbs/` | One container, network and volume per person, plus the same for the template workspace (`daemon-template`). Written by `apply`; do not edit. |
-| `hub/users.json` | `/opt/orbs/hub/`, `/data/` in the hub | Each enabled person's email, user id, daemon address (`http://daemon-<id>:47191`) and owner socket (`/ipc/<id>/rpc.sock`), and under `template` the template workspace's address and socket (no email). Written by `apply`; do not edit. |
+| `hub/users.json` | `/opt/orbs/hub/`, `/data/` in the hub | Each enabled person's email, user id, daemon address (`http://daemon-<id>:47191`), owner socket (`/ipc/<id>/rpc.sock`) and `advanced: true` for an advanced user, and under `template` the template workspace's address and socket (no email). Written by `apply`; do not edit. |
 | `hub/global.json` | `/opt/orbs/hub/`, `/data/` in the hub | For each person and settings section: follows global or overridden, and whether the last copy worked. Written by the hub; `purge` removes a person's entry. If it is unreadable or invalid, the panel refuses section changes until it is fixed (reads keep working). |
 | `hub/admins.json` | `/opt/orbs/hub/`, `/data/` in the hub | `{"admins": ["<email>", ...]}`: who may open the admin panel at `/admin`. An admin does not need to be a user. Written by the hub when admins change in the panel; seeded from `HUB_ADMIN_EMAILS` while empty. If it is unreadable or invalid nobody is an admin until it is fixed. |
 | `hub/pins.json` | `/opt/orbs/hub/`, `/data/` in the hub | The ID of each person's Orbs, saved the first time the hub reaches it. The hub refuses to forward if the ID changes. Written by the hub; `purge` removes a person's line. |

@@ -367,7 +367,7 @@ describe('server ID pinning', () => {
     const whoami = await (await hubTestGet('/hub/whoami', { 'cf-access-jwt-assertion': tokens.alice })).json();
 
     expect(pins).toEqual(fixture.serverIds);
-    expect(whoami).toEqual({
+    expect(whoami).toMatchObject({
       email: emails.alice,
       user: 'alice',
       serverId: fixture.serverIds.alice,

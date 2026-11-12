@@ -1,6 +1,7 @@
 import { settingsSection } from '@repo/contracts/universal';
 import { match, P } from 'ts-pattern';
-import type { SettingsDialogState, SettingsDialogStateParams } from '@/types/settings.types';
+import { SETTINGS_TEAM_ADVANCED, SETTINGS_TEAM_HIDDEN } from '@/services/settings/settings.constants';
+import type { SettingsDialogState, SettingsDialogStateParams, SettingsTeamVisibleParams } from '@/types/settings.types';
 
 export function settingsDialogState({ isTheme, tab, model, deviceId, providerId }: SettingsDialogStateParams): SettingsDialogState | null {
   return match({
@@ -17,4 +18,8 @@ export function settingsDialogState({ isTheme, tab, model, deviceId, providerId 
     .with({ providerId: P.string }, () => ({ section: 'models', view: undefined }))
     .with({ tab: { success: true } }, ({ tab: parsed }) => ({ section: parsed.data, view: undefined }))
     .otherwise(() => null);
+}
+
+export function settingsIsTeamVisible({ isTeam, isAdvanced, section }: SettingsTeamVisibleParams): boolean {
+  return !isTeam || !(SETTINGS_TEAM_HIDDEN.includes(section) || (!isAdvanced && SETTINGS_TEAM_ADVANCED.includes(section)));
 }

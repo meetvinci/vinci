@@ -142,8 +142,10 @@ describe('admin users', () => {
     const carol = await create('Carol Doe', 'carol@team.example');
     const second = await create('Alice', 'alice2@team.example');
     const duplicate = await create('Carol', 'carol@team.example');
+    const advanced = await hubAdminTestWrite(tokens.root, '/admin/api/users/carol-doe', { method: 'PATCH', body: { advanced: true } });
     const updated = await hubAdminTestWrite(tokens.root, '/admin/api/users/carol-doe', { method: 'PATCH', body: { enabled: false } });
     const put = fixture.provisioner.filter((call) => call.method === 'PUT' && call.url === '/users/carol-doe').at(-1);
+    const audit = await hubAdminTestRead(tokens.root, '/admin/api/audit?user=carol-doe');
     const removed = await hubAdminTestWrite(tokens.root, '/admin/api/users/carol-doe', { method: 'DELETE' });
 
     await hubAdminTestWrite(tokens.root, '/admin/api/users/alice-2', { method: 'DELETE' });
@@ -155,6 +157,7 @@ describe('admin users', () => {
           name: 'alice',
           email: emails.alice,
           enabled: true,
+          advanced: false,
           state: 'running',
           access: 'allowed',
         },
@@ -163,6 +166,7 @@ describe('admin users', () => {
           name: 'bob',
           email: emails.bob,
           enabled: true,
+          advanced: false,
           state: 'running',
           access: 'allowed',
         },
@@ -174,22 +178,32 @@ describe('admin users', () => {
       name: 'Carol Doe',
       email: 'carol@team.example',
       enabled: true,
+      advanced: false,
       state: 'running',
       access: 'synced',
       bots: [],
     });
     expect(second.json).toMatchObject({ id: 'alice-2' });
     expect(duplicate.status).toBe(409);
+    expect(advanced.json).toMatchObject({ id: 'carol-doe', advanced: true });
     expect(updated.json).toMatchObject({
       id: 'carol-doe',
       enabled: false,
+      advanced: true,
       access: 'synced',
     });
     expect(JSON.parse(put?.body ?? '')).toEqual({
       name: 'Carol Doe',
       email: 'carol@team.example',
       enabled: false,
+      advanced: true,
     });
+    expect(audit.json).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({
+      action: 'users/advanced',
+      detail: 'on',
+      userId: 'carol-doe',
+      status: 200,
+    })]) });
     expect(removed.json).toEqual({ access: 'synced' });
     expect(fixture.provisioner.some((call) => call.method === 'DELETE' && call.url === '/users/carol-doe')).toBe(true);
   });

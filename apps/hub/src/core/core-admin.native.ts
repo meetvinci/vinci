@@ -17,7 +17,7 @@ const RELAY_PATH = /^[A-Za-z\d]+(?:\/[A-Za-z\d]+)*$/u;
 const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/export$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
 const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions)|routines\/list|todos\/list)$/iu;
 const RELAY_UNAUDITED = /^conversation\/reactions$/iu;
-const RELAY_QUIET = /^[A-Za-z]+\/(?:list|get|catalog|settings|discover|shared|local|state|info|status|session)$/u;
+const RELAY_QUIET = /^(?:[A-Za-z]+\/(?:list|get|catalog|settings|discover|shared|local|state|info|status|session)|tools\/alwaysAllowed)$/u;
 const RELAY_READ_LIMIT = 64 * 1024;
 const AVATAR_FILE = /^(?:bots\/)?[\da-f-]{36}\.(?:png|webp)$/u;
 const RELAY_HEADERS = ['content-type', 'accept', SERVER_PROTOCOL.versionHeader];
@@ -194,10 +194,15 @@ function coreAdminUsers(
     .with({ method: 'PATCH', id: P.string }, async ({ id: user }) => {
       const input = await coreAdminBody(request, userUpdateInput);
 
-      change.action = match(input.enabled)
-        .with(true, () => 'users/enable')
-        .with(false, () => 'users/disable')
+      change.action = match(input)
+        .with({ enabled: true }, () => 'users/enable')
+        .with({ enabled: false }, () => 'users/disable')
+        .with({ advanced: P.boolean }, () => 'users/advanced')
         .otherwise(() => 'users/update');
+      change.detail = match(input.advanced)
+        .with(true, () => 'on')
+        .with(false, () => 'off')
+        .otherwise(() => null);
 
       return Response.json(await services.global.actions.update({
         ...input,

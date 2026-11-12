@@ -21,7 +21,7 @@ You need:
   Nothing else is needed. The setup uses no Access service tokens.
 - **Bun, Docker and a checkout of this repository** on the computer you set up from. Images are built there, and the Cloudflare commands run there, not on the server. You don't need `bun install` for the install itself.
 - **The team's email addresses.** Only these people get into Orbs. If they all have an address at your company's domain, Cloudflare can let in that whole domain (step 5), so adding someone later needs no Cloudflare change.
-- **A model API key** per person (Anthropic, OpenAI or another provider), unless people will add their own.
+- **A model API key** per person (Anthropic, OpenAI or another provider), unless you make people advanced users who add their own.
 
 Keep the API token and model keys in a password manager. Never paste them into a chat.
 
@@ -232,7 +232,7 @@ Set the image tag from step 3 and the model keys you want to share in `/opt/orbs
 ssh root@<server> "sed -i 's/^ORBS_TAG=.*/ORBS_TAG=$TAG/' /opt/orbs/.env"
 ```
 
-Write each model key the same way, for example `ANTHROPIC_API_KEY=`, reading it from your password manager inside the command. Leave a key empty to skip that provider. Without any key, people add their own in **Settings → Providers** on their first visit. Every setting is explained in the file and in [configuration](configuration.md).
+Write each model key the same way, for example `ANTHROPIC_API_KEY=`, reading it from your password manager inside the command. Leave a key empty to skip that provider. Without any key, set one per person in the admin panel (**Settings → Models**), or make them an advanced user so they can add their own. Every setting is explained in the file and in [configuration](configuration.md).
 
 Set the first admin of the admin panel (the same email as under `admins:` in `users.yaml`), and create the secret the hub uses to reach the provisioner, the service that adds and removes people for the admin panel. Nobody types this secret; it never leaves the server:
 

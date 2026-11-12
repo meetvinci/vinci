@@ -28,6 +28,7 @@ export interface CoreServicesParams {
   network: ServerNetworkService;
   linkResolver: LinkResolverService;
   appScheme: string;
+  isTeam: boolean;
   providers: ServerTypes.ProviderService;
   runtime: Omit<ServerTypes.RuntimeServiceParams, 'permissions' | 'collaboration' | 'gifs'>;
 }

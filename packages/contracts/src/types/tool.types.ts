@@ -41,6 +41,8 @@ export const toolApprovalList = z.array(toolApproval);
 
 export const toolAlwaysAllowed = z.array(z.string().min(1).max(200)).max(200);
 
+export const toolAlwaysAllowedClear = toolPending.extend({ toolName: z.string().min(1).max(200).optional() });
+
 export const toolAnswer = toolPending.extend({
   id: z.number().int().positive(),
   approved: z.boolean(),
@@ -60,6 +62,7 @@ export type ToolSettings = z.infer<typeof toolSettings>;
 export type ToolExport = z.infer<typeof toolExport>;
 export type ToolPendingInput = z.infer<typeof toolPending>;
 export type ToolApproval = z.infer<typeof toolApproval>;
+export type ToolAlwaysAllowedClearInput = z.infer<typeof toolAlwaysAllowedClear>;
 export type ToolAnswerInput = z.infer<typeof toolAnswer>;
 export type ToolSettingsForm = z.infer<typeof toolSettingsForm>;
 export type ToolApprovalRule = z.infer<typeof toolApprovalRules>[number];

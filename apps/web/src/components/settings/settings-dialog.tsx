@@ -14,18 +14,21 @@ import { SettingsSources } from '@repo/ui/settings/settings-sources';
 import { SettingsThemeCreate } from '@repo/ui/settings/settings-theme-create';
 import { Skeleton } from '@repo/ui/skeleton';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { ClientOnly, Link, useHydrated, useNavigate } from '@tanstack/react-router';
+import { ClientOnly, Link, Navigate, useHydrated, useNavigate } from '@tanstack/react-router';
 import { Suspense, useEffect } from 'react';
 import { match } from 'ts-pattern';
 import { SettingsChat } from '@/components/settings/settings-chat';
 import { SettingsDesktop } from '@/components/settings/settings-desktop';
 import { SettingsGeneral } from '@/components/settings/settings-general';
+import { SettingsManaged } from '@/components/settings/settings-managed';
 import { SettingsModelSwap } from '@/components/settings/settings-model-swap';
 import { SettingsModels } from '@/components/settings/settings-models';
 import { SettingsTools } from '@/components/settings/settings-tools';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
+import { useTeam } from '@/hooks/use-team';
 import { SETTINGS_ADMIN_AUTH_TYPES, SETTINGS_ADMIN_HIDDEN, SETTINGS_NAV } from '@/services/settings/settings.constants';
+import { settingsIsTeamVisible } from '@/services/settings/settings.utils';
 import type { SettingsSectionFrame } from '@/types/settings.types';
 import type { ConnectionInfo } from '@repo/client/client';
 import type { SettingsSection } from '@repo/contracts/universal';
@@ -47,6 +50,7 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
   const { rpc } = useRpc();
   const navigate = useNavigate();
   const scope = useSectionScope();
+  const team = useTeam();
 
   const current = SETTINGS_NAV.find((item) => item.id === section) ?? SETTINGS_NAV[0];
 
@@ -55,6 +59,10 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
     rpc.providers.logout.mutationKey(),
     rpc.bots.swapModels.mutationKey(),
   ]);
+
+  if (!settingsIsTeamVisible({ ...team, section })) {
+    return <Navigate {...scope.settings.section('general')} />;
+  }
 
   return (
     <SectionDialog
@@ -102,15 +110,17 @@ interface SettingsDialogNavProps {
 function SettingsDialogNav({ section, sections }: SettingsDialogNavProps) {
   const hydrated = useHydrated();
   const scope = useSectionScope();
+  const team = useTeam();
 
   const items = SETTINGS_NAV.filter((item) => !(scope.isAdmin && SETTINGS_ADMIN_HIDDEN.includes(item.id))
+    && settingsIsTeamVisible({ ...team, section: item.id })
     && (!sections || sections.includes(item.id))
     && (item.id !== 'desktop' || (hydrated && Boolean(window.__electrobunSendToHost))));
 
   return (
     <SectionDialogNav
       activeKey={section}
-      footer={scope.isAdmin ? undefined : (
+      footer={scope.isAdmin || team.isTeam ? undefined : (
         <>
           <Button
             asChild
@@ -174,6 +184,7 @@ interface SettingsDialogSectionProps {
 
 function SettingsDialogSection({ connection, section, view, modelKey, deviceId, providerId, onBack }: SettingsDialogSectionProps) {
   const scope = useSectionScope();
+  const team = useTeam();
 
   return match(section)
     .with('general', () => (view === 'theme' ? <ClientOnly><SettingsThemeCreate onBack={onBack} /></ClientOnly> : (
@@ -184,7 +195,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
     )))
     .with('chat', () => <SettingsChat />)
     .with('models', () => (view === 'swap' ? <SettingsDialogSwap modelKey={modelKey} onBack={onBack} /> : (
-      <>
+      <SettingsManaged section="models">
         <SettingsProviders
           authTypes={scope.isAdmin ? SETTINGS_ADMIN_AUTH_TYPES : providerAuthType.options}
           signOutId={providerId}
@@ -192,15 +203,15 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
           onSignOutClose={onBack}
         />
         <SettingsModels />
-      </>
+      </SettingsManaged>
     )))
-    .with('tools', () => <SettingsTools />)
-    .with('secrets', () => <SettingsSecrets />)
-    .with('sources', () => <SettingsSources />)
+    .with('tools', () => <SettingsManaged section="tools"><SettingsTools /></SettingsManaged>)
+    .with('secrets', () => <SettingsManaged section="secrets"><SettingsSecrets isModeVisible={!team.isTeam} /></SettingsManaged>)
+    .with('sources', () => <SettingsManaged section="sources"><SettingsSources /></SettingsManaged>)
     .with('server', () => <SettingsServer />)
     .with('devices', () => (
       <SettingsDevices
-        canPair={!scope.isAdmin}
+        canPair={!scope.isAdmin && !team.isTeam}
         currentDeviceId={connection?.deviceId ?? null}
         revokeId={deviceId}
         revokeLink={scope.settings.deviceRevoke}

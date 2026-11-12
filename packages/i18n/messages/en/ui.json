@@ -1,6 +1,7 @@
 {
   "ui_cancel": "Cancel",
   "ui_close": "Close",
+  "ui_team_managed": "Your admin manages this.",
   "ui_copy_failed": "Copy failed. Check your browser permissions.",
   "ui_show_more": "Show more",
   "ui_show_less": "Show less",

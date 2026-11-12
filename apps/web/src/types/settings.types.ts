@@ -26,3 +26,9 @@ export interface SettingsSectionFrame {
   notice: ReactNode
   isLocked: boolean
 }
+
+export interface SettingsTeamVisibleParams {
+  isTeam: boolean
+  isAdvanced: boolean
+  section: SettingsSection
+}

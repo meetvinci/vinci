@@ -29,10 +29,12 @@ interface BotMcpPanelProps {
   bot: Bot
   /** False in the admin panel: the provider's callback would reach the admin's own identity, not this daemon. */
   canSignIn: boolean
+  /** False for a team user who can't see Settings → Sources, so the empty state doesn't point there. */
+  isSourcesVisible: boolean
   removeLink: (server: string) => LinkOptions
 }
 
-export function BotMcpPanel({ bot, canSignIn, removeLink }: BotMcpPanelProps) {
+export function BotMcpPanel({ bot, canSignIn, isSourcesVisible, removeLink }: BotMcpPanelProps) {
   const mcp = useBotMcp({
     bot,
     login: () => {
@@ -54,7 +56,7 @@ export function BotMcpPanel({ bot, canSignIn, removeLink }: BotMcpPanelProps) {
   return (
     <SettingsGroup title={m.bots_mcp()}>
       {mcp.isEmpty ? (
-        <PanelRow><PanelDescription>{m.bots_mcp_empty()}</PanelDescription></PanelRow>
+        <PanelRow><PanelDescription>{isSourcesVisible ? m.bots_mcp_empty() : m.bots_mcp_empty_presets()}</PanelDescription></PanelRow>
       ) : null}
       {mcp.presets.length > 0 ? (
         <PanelRow>

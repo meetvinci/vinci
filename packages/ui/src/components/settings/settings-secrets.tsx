@@ -14,44 +14,50 @@ const SETTINGS_SECRETS_MODE = {
   env: m.settings_secrets_mode_env,
 } satisfies Record<SecretMode, () => string>;
 
-export function SettingsSecrets() {
+interface SettingsSecretsProps {
+  isModeVisible: boolean
+}
+
+export function SettingsSecrets({ isModeVisible }: SettingsSecretsProps) {
   const secrets = useSettingsSecrets();
 
   return (
     <SettingsGroup title={m.settings_secrets()}>
-      <PanelRow>
-        <PanelContent>
-          <PanelTitle>{m.settings_secrets_mode()}</PanelTitle>
-          <PanelDescription>
-            {m.settings_secrets_mode_hint()}
-            {secrets.varlockInstallUrl ? (
-              <>
-                {' '}
-                <a
-                  className="underline"
-                  href={secrets.varlockInstallUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                >{m.settings_secrets_varlock_install()}</a>
-              </>
-            ) : null}
-          </PanelDescription>
-        </PanelContent>
-        <Select
-          disabled={secrets.isPending || !secrets.mode}
-          value={secrets.mode ?? ''}
-          onValueChange={(value) => secrets.configure(secretMode.parse(value))}
-        >
-          <SelectTrigger aria-label={m.settings_secrets_mode()} className="w-auto">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {secretMode.options.map((mode) => (
-              <SelectItem key={mode} value={mode}>{SETTINGS_SECRETS_MODE[mode]()}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </PanelRow>
+      {isModeVisible ? (
+        <PanelRow>
+          <PanelContent>
+            <PanelTitle>{m.settings_secrets_mode()}</PanelTitle>
+            <PanelDescription>
+              {m.settings_secrets_mode_hint()}
+              {secrets.varlockInstallUrl ? (
+                <>
+                  {' '}
+                  <a
+                    className="underline"
+                    href={secrets.varlockInstallUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >{m.settings_secrets_varlock_install()}</a>
+                </>
+              ) : null}
+            </PanelDescription>
+          </PanelContent>
+          <Select
+            disabled={secrets.isPending || !secrets.mode}
+            value={secrets.mode ?? ''}
+            onValueChange={(value) => secrets.configure(secretMode.parse(value))}
+          >
+            <SelectTrigger aria-label={m.settings_secrets_mode()} className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {secretMode.options.map((mode) => (
+                <SelectItem key={mode} value={mode}>{SETTINGS_SECRETS_MODE[mode]()}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PanelRow>
+      ) : null}
       {secrets.secrets.length === 0 ? (
         <PanelRow>
           <PanelContent>

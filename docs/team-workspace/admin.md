@@ -41,7 +41,7 @@ The admin panel lives at `https://<team>.<domain>/admin`. Only the emails in `/o
 
 ## The user list
 
-`/opt/orbs/users.yaml` is the one list of people. Each person is a user id and their login email, either on one line or with a display name and whether they are enabled. `admins:` lists the admin panel's admins:
+`/opt/orbs/users.yaml` is the one list of people. Each person is a user id and their login email, either on one line or with a display name, whether they are enabled and whether they are an advanced user. `admins:` lists the admin panel's admins:
 
 ```yaml
 users:
@@ -50,6 +50,10 @@ users:
     name: Bob Example
     email: bob@example.com
     enabled: false
+  carol:
+    name: Carol Example
+    email: carol@example.com
+    advanced: true
 admins:
   - admin@example.com
 ```
@@ -57,6 +61,7 @@ admins:
 - The user id is short: lowercase letters, digits and dashes. It names the person's container and volume, so never reuse an id for someone else. `template` is taken: it is the template workspace (see [Global settings and suggested bots](#global-settings-and-suggested-bots)), and `apply` refuses a person with that id.
 - Each email appears once under `users:`. It must match the email the person logs in with at Cloudflare.
 - `name` is what the admin panel shows; it defaults to the id. `enabled` defaults to `true`. A disabled person cannot log in and has no container; their volume stays.
+- `advanced` defaults to `false` (and is left out of the file then). An advanced user sees more settings in their app; see [What people see](#what-people-see). It changes nothing their workspace allows.
 - Admins can log in at Cloudflare. An admin has no Orbs of their own unless they are also under `users:`.
 - The admin panel changes this file through the provisioner, which rewrites it in the long form and drops comments. Don't edit it by hand while someone is changing people in the admin panel.
 - After every edit, run `bun deploy.ts apply`. It writes the hub's `hub/users.json` and `users.compose.yaml` from this list and starts or stops containers to match. Never edit those two files by hand: the next `apply` overwrites them.
@@ -187,7 +192,7 @@ This restarts only the containers whose settings changed: every person's Orbs, n
 > [!WARNING]
 > Every person's bots can read these keys until the hardening phase. A bot that runs commands sees them in its environment. Use keys with a spending limit, and only with people you trust.
 
-A person can also add their own key in Orbs, **Settings → Providers**. Theirs wins over the shared one.
+An advanced user can also add their own key in Orbs, **Settings → Models** (see [What people see](#what-people-see)); you can do it for anyone in the panel. Theirs wins over the shared one.
 
 Do not use a Claude or ChatGPT subscription login for the team. The providers' terms do not allow one subscription to serve several people.
 
@@ -201,6 +206,7 @@ Open `https://<your team host>/admin` and log in at Cloudflare as usual. Only em
 
 - **Users** lists everyone with their workspace state. Add a user with a name and email; open one to manage them.
 - For one user, **Bots** and **Settings** show the same forms the user sees in their own app, saved straight to that user's workspace. **Devices** lists the browsers and phones they signed in with; revoking one signs it out.
+- **Advanced user** (a switch on the person's page) shows them the advanced settings in their own app; see [What people see](#what-people-see). Off for everyone until you turn it on, and recorded in **Activity** as `users/advanced` `on` or `off`.
 - **Turn off sign-in** stops the person from logging in. **Remove user** removes their login and stops their workspace; their data stays on the server (deleting it is `bun deploy.ts purge <id>` on the server).
 - **Global settings** edits the template workspace: the team's default settings and the suggested bots. Each person follows each section or overrides it; see [Global settings and suggested bots](#global-settings-and-suggested-bots).
 - **Admins** lists who can open the panel. Add or remove admins there; the last admin cannot be removed.
@@ -251,6 +257,24 @@ Every read is recorded with your email, the person, the bot and the conversation
 **Give this to your agent:**
 
 > On the Orbs team install at `https://<team host>`, I'm an admin. Open `/admin`, add user `<name>` with email `<email>`, then on their page create a bot called `<bot>` with model `<model>` and these instructions: `<text>`. If the panel says they can't sign in yet, run the `cloudflare emails` step from the "Add a person" section of `docs/team-workspace/admin.md` in my checkout. Confirm the bot appears in their Bots tab.
+
+## What people see
+
+The app a person opens is simpler than the one a single owner gets: it hides what most people never need. Hiding is not a permission; the panel always shows you everything, whatever a person sees.
+
+**Everyone sees:** appearance, the Enter key and notifications; sidebar sections, pin, hide and mute; artifacts and every chat action; approvals; answering a bot's questions, a secret included; routines and todos; resetting a chat; removing their own devices and stored secrets; creating and deleting bots; a bot's name, handle, avatar, instructions, *Also read the shared instructions*, skills, *Use shared plugins*, shared MCP servers on and off, adding MCP servers from the presets and removing them, MCP sign-in with their own account; and a bot's main and fallback model and reasoning, from the providers you configured. Each bot's **Tools** tab also lists its [always approved tools](#always-approved-tools), which they can remove.
+
+**Only an advanced user sees:** **Settings → Chat**'s workspace settings (new messages while a bot works, hiding tool calls and thinking, GIFs); **Settings → Models** (adding a provider key, subscription sign-in, sign-out, *Replace a model across bots*); the Jev key in **Settings → Tools**; **Settings → Sources**.
+
+**Nobody sees (you set these in the panel):** a bot's permission level; approval rules and the approval timeout; how bots use secrets; **Settings → Server**; the desktop app's connection settings; onboarding; *Create pairing PIN*; the avatar and chat lab links.
+
+New bots a person creates start at **Ask first**, the app's default.
+
+**Refused for everyone, advanced or not:** each person's Orbs itself refuses a few security settings from any of their devices, so these hold even in an old browser tab or the phone app: changing a bot's permission level, approval rules and the approval timeout, how bots use secrets, adding an MCP server that runs a command on the server (the presets are web addresses and work), and rate limits. They answer *Your admin manages this*. You change the first four in the panel; rate limits have no form yet. A bot can't add a command MCP server for them either.
+
+A settings section that follows global shows *Managed by your admin* above the values, which can't be changed there. An advanced user also gets **Change it for me**: that section becomes **Overridden** for them (you see it in the panel and in **Activity** as `sections/overridden`, by their email), they can edit it, and later global changes leave it alone until you use **Back to global**.
+
+The switch, and a section you switch back to global, reach the person's open app within about a minute, or when they load it again. Phone and desktop apps that don't load the web app still show everything (see the team workspace notes); the security refusals apply to them too.
 
 ## Global settings and suggested bots
 
@@ -343,6 +367,10 @@ Skill and instruction changes show up within about 30 seconds. Files must be own
 
 > On `root@<server>`, add the skill in `<local folder>` for all bots of Orbs user `<name>`: copy it to `/data/home/.agents/skills/<skill name>/` in their volume, owned by the container user. Don't restart anything. Confirm the skill appears in their bot's skill list within a minute.
 
+### Always approved tools
+
+When someone answers **Always approve** on a request, that bot stops asking for that tool. A bot's **Tools** tab lists those tools, in the app for the person and under **Users → person → Bots** in the panel for you. **Remove** puts one back to asking, **Remove all** (after a confirmation) all of them; the bot asks again the next time it wants to use one. A removal in the panel is a change in **Activity**, with the bot; opening the list writes nothing.
+
 ### Create a bot for someone
 
 Each person's Orbs has a private door: its owner socket, which only the server can reach. It accepts the same settings and bot changes as the app and the conversation viewer's reads, but nothing that sends chat messages, answers approvals or pairs a device. The admin panel uses it; use the panel when you can. Without the panel, call it from inside the person's container:
@@ -427,7 +455,7 @@ The first upgrade to a version with the admin panel needs three more things, onc
 
 **The first upgrade to a version with global settings changes nobody's settings.** People who were there before start with every section *overridden*: they keep their own keys, secrets, chat and tool settings and `~/.agents` files, and get nothing from Global settings. Before you switch a section of theirs to *global*, set that section in Global settings, and know that the switch replaces their values with the global ones: for Secrets it removes their own secrets, for Sources it replaces their `~/.agents` folder, for Models it signs out API keys the template doesn't have. The panel lists what each switch removes before you confirm. Back them up first. People you add in the panel after the upgrade follow every section.
 
-To roll back, copy the old version's deployment files into `/opt/orbs` again (from a checkout of that version), set the old tag, and run `docker compose up -d --wait` and then `bun deploy.ts apply`, as for an upgrade. Both steps matter: an older hub may refuse the newer `hub/users.json` and let nobody in (a rollback from global settings to the first admin panel version logged `unrecognized_keys` and *Users file … invalid: every request is refused*), and only the old `deploy.ts apply` writes the file it expects. Rolling back past global settings removes the template container and keeps its volume, so a later upgrade finds the global settings and suggested bots again. If the new version changed someone's data, restore their backup from before the upgrade.
+To roll back, copy the old version's deployment files into `/opt/orbs` again (from a checkout of that version), set the old tag, and run `docker compose up -d --wait` and then `bun deploy.ts apply`, as for an upgrade. Both steps matter: an older hub may refuse the newer `hub/users.json` and let nobody in (a rollback from global settings to the first admin panel version logged `unrecognized_keys` and *Users file … invalid: every request is refused*), and only the old `deploy.ts apply` writes the file it expects. Rolling back past global settings removes the template container and keeps its volume, so a later upgrade finds the global settings and suggested bots again. Rolling back past the **Advanced user** switch works the same way: until the old `apply` runs, the old hub refuses a `hub/users.json` that has `"advanced": true` for anyone (`unrecognized_keys`, *every request is refused*), and the old `apply` writes it without that key. The old `apply` also rewrites `users.yaml` without `advanced`, so after upgrading again everyone starts with the switch off: note who was advanced before you roll back and turn their switch on again in the panel. If the new version changed someone's data, restore their backup from before the upgrade.
 
 **Give this to your agent:**
 

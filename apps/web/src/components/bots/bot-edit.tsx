@@ -2,7 +2,6 @@ import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { useBotDelete, useBotUpdate, useChatReset, useRpc } from '@repo/client/react';
 import { botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
-import { BotMcpPanel } from '@repo/ui/bots/bot-mcp-panel';
 import { Button } from '@repo/ui/button';
 import { Form, FormErrors } from '@repo/ui/forms/form';
 import { PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
@@ -15,9 +14,11 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { match, P } from 'ts-pattern';
+import { BotAlwaysAllowed } from '@/components/bots/bot-always-allowed';
 import { BotDialogNav } from '@/components/bots/bot-dialog-nav';
 import { BotFormSection } from '@/components/bots/bot-form-section';
 import { BotFormSkills } from '@/components/bots/bot-form-skills';
+import { BotMcp } from '@/components/bots/bot-mcp';
 import { BotMcpRemove } from '@/components/bots/bot-mcp-remove';
 import { RoutinesEdit } from '@/components/routines/routines-edit';
 import { RoutinesList } from '@/components/routines/routines-list';
@@ -140,12 +141,22 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
       >
         <Form {...form}>
           {match(view)
-            .with({ kind: 'section', section: P.union('profile', 'instructions', 'model', 'tools') }, ({ section: formSection }) => (
+            .with({ kind: 'section', section: P.union('profile', 'instructions', 'model') }, ({ section: formSection }) => (
               <BotFormSection
                 busy={save.isPending}
                 section={formSection}
                 onSubmit={() => void submit()}
               />
+            ))
+            .with({ kind: 'section', section: 'tools' }, () => (
+              <div className="flex flex-col gap-8">
+                <BotFormSection
+                  busy={save.isPending}
+                  section="tools"
+                  onSubmit={() => void submit()}
+                />
+                <BotAlwaysAllowed bot={bot} />
+              </div>
             ))
             .with({ kind: 'section', section: 'skills' }, () => (
               <form onSubmit={submit}>
@@ -154,13 +165,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
                 </fieldset>
               </form>
             ))
-            .with({ kind: 'section', section: 'mcp' }, () => (
-              <BotMcpPanel
-                bot={bot}
-                canSignIn={!scope.isAdmin}
-                removeLink={(server) => scope.bots.mcpRemove(bot.id, server)}
-              />
-            ))
+            .with({ kind: 'section', section: 'mcp' }, () => <BotMcp bot={bot} />)
             .with({ kind: 'section', section: 'todos' }, () => <TodosList bot={bot} />)
             .with({ kind: 'section', section: 'routines' }, () => <RoutinesList bot={bot} />)
             .with({ kind: 'section', section: 'danger' }, () => <BotEditDanger bot={bot} isDeletable={bots.length > 1} />)

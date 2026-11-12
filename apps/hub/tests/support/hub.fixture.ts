@@ -80,6 +80,7 @@ export interface HubFixtureUser {
   id: string;
   daemonUrl: string;
   socketPath: string;
+  advanced?: true;
 }
 
 interface HubFixtureHubOptions {
@@ -202,6 +203,7 @@ function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
     name: z.string(),
     email: z.string(),
     enabled: z.boolean(),
+    advanced: z.boolean(),
   });
 
   const users = new Map(Object.entries(emails).map(([id, email]) => [id, {
@@ -209,6 +211,7 @@ function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
     name: id,
     email,
     enabled: true,
+    advanced: false,
     state: 'running',
   }]));
 

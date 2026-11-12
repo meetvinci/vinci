@@ -26,3 +26,7 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
 export const SETTINGS_ADMIN_AUTH_TYPES: readonly ProviderAuthType[] = ['api_key'];
 
 export const SETTINGS_ADMIN_HIDDEN: readonly SettingsSection[] = ['devices', 'desktop'];
+
+export const SETTINGS_TEAM_HIDDEN: readonly SettingsSection[] = ['server', 'desktop'];
+
+export const SETTINGS_TEAM_ADVANCED: readonly SettingsSection[] = ['models', 'tools', 'sources'];

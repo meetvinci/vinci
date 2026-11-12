@@ -11,10 +11,12 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsToolsRules } from '@repo/ui/settings/settings-tools-rules';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
+import { useTeam } from '@/hooks/use-team';
 
 export function SettingsTools() {
   const { rpc } = useRpc();
   const { data: settings } = useSuspenseQuery(rpc.tools.settings.queryOptions());
+  const team = useTeam();
 
   const form = useForm({
     resolver: standardSchemaResolver(toolSettingsForm),
@@ -30,43 +32,47 @@ export function SettingsTools() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(save.save)}>
+      <form onSubmit={form.handleSubmit(team.isTeam ? save.saveJev : save.save)}>
         <fieldset className="flex flex-col gap-4" disabled={save.isPending}>
-          <SettingsGroup title={m.settings_tools_rules()}>
-            <PanelRow className="items-start">
-              <div className="min-w-0 flex-1">
-                <SettingsToolsRules disabled={save.isPending} />
-              </div>
-            </PanelRow>
-          </SettingsGroup>
-          <SettingsGroup title={m.settings_tools_timeout()}>
-            <PanelRow>
-              <PanelContent>
-                <PanelTitle>{m.settings_tools_timeout()}</PanelTitle>
-                <PanelDescription>{m.settings_tools_timeout_hint()}</PanelDescription>
-              </PanelContent>
-              <Controller
-                control={form.control}
-                name="approvalTimeoutMinutes"
-                render={({ field }) => (
-                  <Select
-                    disabled={save.isPending}
-                    value={String(field.value)}
-                    onValueChange={(value) => field.onChange(Number(value))}
-                  >
-                    <SelectTrigger aria-label={m.settings_tools_timeout()} className="w-auto">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TOOL_APPROVAL.timeoutMinutes.map((minutes) => (
-                        <SelectItem key={minutes} value={String(minutes)}>{m.settings_tools_timeout_minutes({ count: minutes })}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </PanelRow>
-          </SettingsGroup>
+          {team.isTeam ? null : (
+            <>
+              <SettingsGroup title={m.settings_tools_rules()}>
+                <PanelRow className="items-start">
+                  <div className="min-w-0 flex-1">
+                    <SettingsToolsRules disabled={save.isPending} />
+                  </div>
+                </PanelRow>
+              </SettingsGroup>
+              <SettingsGroup title={m.settings_tools_timeout()}>
+                <PanelRow>
+                  <PanelContent>
+                    <PanelTitle>{m.settings_tools_timeout()}</PanelTitle>
+                    <PanelDescription>{m.settings_tools_timeout_hint()}</PanelDescription>
+                  </PanelContent>
+                  <Controller
+                    control={form.control}
+                    name="approvalTimeoutMinutes"
+                    render={({ field }) => (
+                      <Select
+                        disabled={save.isPending}
+                        value={String(field.value)}
+                        onValueChange={(value) => field.onChange(Number(value))}
+                      >
+                        <SelectTrigger aria-label={m.settings_tools_timeout()} className="w-auto">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TOOL_APPROVAL.timeoutMinutes.map((minutes) => (
+                            <SelectItem key={minutes} value={String(minutes)}>{m.settings_tools_timeout_minutes({ count: minutes })}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </PanelRow>
+              </SettingsGroup>
+            </>
+          )}
           <SettingsGroup title={m.settings_tools_jev()}>
             <PanelRow className="items-start">
               <div className="flex min-w-0 flex-1 flex-col gap-3">

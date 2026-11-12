@@ -10,6 +10,7 @@ import { workspaceFiles } from './workspace.types';
 
 export const BOT_FIELDS = {
   maxInstructions: 64_000,
+  defaultPermission: 'ask',
 } as const;
 
 export const botAvatarImage = z.object({ kind: z.literal('image'), src: z.string().regex(/^\/avatars\/[\da-f-]{36}\.webp$/) });
@@ -61,7 +62,7 @@ export const botCreate = botFields.extend({
   instructions: botFields.shape.instructions.default(''),
   fallbackModel: modelSelection.nullable().default(null),
   thinkingLevel: modelThinkingLevel.default('off'),
-  permission: botFields.shape.permission.default('ask'),
+  permission: botFields.shape.permission.default(BOT_FIELDS.defaultPermission),
   inherit: botInherit.default(['skills', 'mcp', 'plugins']),
   sharedSkills: botFields.shape.sharedSkills.default(null),
   sharedMcp: botFields.shape.sharedMcp.default(null),

@@ -13,7 +13,7 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
     }
 
     const id = userNewId(name, email, new Set([...users.map((user) => user.id), ...deps.daemons.queries.pinned(), ...USER.reservedIds]));
-    const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true } });
+    const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true, advanced: false } });
     const listed = (await deps.provisioner.queries.list()).find((user) => user.id === id);
 
     log.info({

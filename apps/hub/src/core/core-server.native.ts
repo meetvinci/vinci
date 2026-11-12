@@ -1,10 +1,11 @@
+import { adminSectionId, SERVER_PROTOCOL } from '@repo/contracts/universal';
 import { env } from '@repo/env/server';
 import { Errors, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { parse } from 'cookie-es';
 import { match, P } from 'ts-pattern';
 import { coreAdminApi } from './core-admin.native';
-import { coreAuditStatus } from './core-audit.native';
+import { coreAuditChange, coreAuditStatus } from './core-audit.native';
 import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from './core-pairing.native';
 import { coreRefusalPage, coreRefusalWanted } from './core-refusal.native';
 import { makeCoreRelay } from './core-relay.native';
@@ -171,6 +172,7 @@ function coreServerRoute(services: CoreTypes.CoreServices, context: CoreTypes.Co
   })
     .with({ method: 'GET', path: '/hub/whoami' }, () => coreServerWhoami(services, context))
     .with({ method: 'GET', path: '/hub/pair' }, () => corePairingRespond(services, context))
+    .with({ method: 'POST', path: P.string.regex(/^\/hub\/sections\/[a-z]+\/override$/u) }, ({ path }) => coreServerOverride(services, context, path.split('/')[3] ?? ''))
     .with({ path: P.string.startsWith('/hub/') }, () => new Response(null, { status: 404 }))
     .with({ isConnect: true }, async () => {
       const handoff = await corePairingConnect(services, context).catch((error: unknown) => {
@@ -197,7 +199,47 @@ async function coreServerWhoami(services: CoreTypes.CoreServices, { identity, us
     email: identity.email,
     user: user.id,
     serverId: daemon?.serverId ?? null,
+    isAdvanced: user.advanced === true,
+    sections: services.global.queries.sections({ id: user.id }).map(({ id, mode }) => ({ id, mode })),
   }, { headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function coreServerOverride(services: CoreTypes.CoreServices, context: CoreTypes.CoreContext, encoded: string): Promise<Response> {
+  const { request, publicUrl, user } = context;
+  const isJson = /^application\/json(?:;|$)/iu.test(request.headers.get('content-type') ?? '');
+
+  if (request.headers.get('origin') !== publicUrl.origin || !(isJson || request.headers.has(SERVER_PROTOCOL.versionHeader))) {
+    throw new Errors.FORBIDDEN({ internal: 'A section override without a same-origin Origin and a JSON or Orbs header' });
+  }
+
+  const section = adminSectionId.safeParse(encoded);
+
+  if (!section.success) {
+    return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (user.advanced !== true) {
+    throw new Errors.FORBIDDEN({ internal: `${user.id} is not an advanced user and cannot override ${section.data}` });
+  }
+
+  return coreAuditChange(services, context, {
+    action: 'sections/overridden',
+    detail: section.data,
+    userId: user.id,
+  }, async () => {
+    if (await services.global.queries.isBroken()) {
+      return Response.json({ error: 'global_state_unreadable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    const changed = await services.global.actions.mode({
+      id: user.id,
+      section: section.data,
+      mode: 'overridden',
+      by: context.identity.email,
+    });
+
+    return Response.json({ id: changed.id, mode: changed.mode }, { headers: { 'Cache-Control': 'no-store' } });
+  });
 }
 
 async function coreServerDaemon(

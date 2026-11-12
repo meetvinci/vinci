@@ -22,5 +22,6 @@ export function useSettingsTools({ onDone }: SettingsDoneParams) {
     isPending: save.isPending,
     problem: save.isError ? m.settings_save_error() : null,
     save: ({ jevApiKey, ...form }: ToolSettingsForm) => save.mutate({ ...form, jevApiKey: jevApiKey || undefined }),
+    saveJev: ({ jevApiKey }: Pick<ToolSettingsForm, 'jevApiKey'>) => save.mutate({ jevApiKey: jevApiKey || undefined }),
   };
 }

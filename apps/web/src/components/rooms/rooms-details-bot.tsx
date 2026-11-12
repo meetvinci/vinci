@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsProviderLogo } from '@repo/ui/settings/settings-provider-logo';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useTeam } from '@/hooks/use-team';
 import { rpc } from '@/services/rpc/rpc.client';
 import IconChevronRight from '~icons/lucide/chevron-right';
 import IconListOrdered from '~icons/lucide/list-ordered';
@@ -26,6 +27,7 @@ export function RoomsDetailsBot({ bot, chat }: RoomsDetailsBotProps) {
   const model = models.find((item) => item.provider === bot.modelProvider && item.id === bot.modelId);
   const settings = useChatSettings(bot.id);
   const update = useBotUpdate();
+  const team = useTeam();
 
   return (
     <RoomsDetailsSection title={m.bots_settings()}>
@@ -70,32 +72,34 @@ export function RoomsDetailsBot({ bot, chat }: RoomsDetailsBotProps) {
             </Select>
           </ItemActions>
         </Item>
-        <Item size="sm">
-          <ItemMedia>
-            <IconShieldCheck />
-          </ItemMedia>
-          <ItemContent className="min-w-0">
-            <ItemTitle>{m.rooms_bot_permission()}</ItemTitle>
-          </ItemContent>
-          <ItemActions>
-            <Select
-              disabled={update.isPending}
-              value={bot.permission}
-              onValueChange={(value) => update.mutate({ botId: bot.id, permission: botFields.shape.permission.parse(value) })}
-            >
-              <SelectTrigger
-                aria-label={m.rooms_bot_permission()}
-                className="-mr-2 h-6"
-                variant="ghost"
+        {team.isTeam ? null : (
+          <Item size="sm">
+            <ItemMedia>
+              <IconShieldCheck />
+            </ItemMedia>
+            <ItemContent className="min-w-0">
+              <ItemTitle>{m.rooms_bot_permission()}</ItemTitle>
+            </ItemContent>
+            <ItemActions>
+              <Select
+                disabled={update.isPending}
+                value={bot.permission}
+                onValueChange={(value) => update.mutate({ botId: bot.id, permission: botFields.shape.permission.parse(value) })}
               >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end">
-                {botFields.shape.permission.options.map((option) => <SelectItem key={option} value={option}>{BOT_PERMISSION_LABELS[option]()}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </ItemActions>
-        </Item>
+                <SelectTrigger
+                  aria-label={m.rooms_bot_permission()}
+                  className="-mr-2 h-6"
+                  variant="ghost"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {botFields.shape.permission.options.map((option) => <SelectItem key={option} value={option}>{BOT_PERMISSION_LABELS[option]()}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </ItemActions>
+          </Item>
+        )}
         <Item size="sm">
           <ItemMedia>
             <IconSettings2 />

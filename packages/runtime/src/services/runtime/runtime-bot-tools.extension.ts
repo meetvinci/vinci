@@ -1,6 +1,7 @@
 import { Type } from '@earendil-works/pi-ai';
 import { defineExtension, defineTool } from '@earendil-works/pi-durable';
 import { botCreate, mcpServerAdd, mcpServerRemove } from '@repo/contracts/universal';
+import { Errors } from '@repo/errors/universal';
 import * as m from '@repo/i18n/messages';
 import {
   botToolCreate,
@@ -94,6 +95,11 @@ export function runtimeBotToolsExtension(deps: RuntimeBotToolsDeps) {
     replay: 'unsafe',
     execute: async (params, api, context) => {
       const input = botToolMcpAdd.parse(params);
+
+      if (deps.isTeam && input.command !== undefined) {
+        throw new Errors.TEAM_MANAGED({ internal: 'Managed by the admin in a team install: bot_mcp_add with a command' });
+      }
+
       const { botId } = await runtimeToolTarget(api, context);
       return runtimeToolOutput(await deps.bots.actions.addMcp(mcpServerAdd.parse({ ...input, botId })));
     },

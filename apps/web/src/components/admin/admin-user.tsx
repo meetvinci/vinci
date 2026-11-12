@@ -4,12 +4,14 @@ import { Badge } from '@repo/ui/badge';
 import { Button } from '@repo/ui/button';
 import { ButtonLoading } from '@repo/ui/button-loading';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/empty';
+import { Label } from '@repo/ui/label';
 import { SettingsDevices } from '@repo/ui/settings/settings-devices';
 import { Skeleton } from '@repo/ui/skeleton';
 import { StatusDot } from '@repo/ui/status-dot';
+import { Switch } from '@repo/ui/switch';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useRouter } from '@tanstack/react-router';
-import { useTransition } from 'react';
+import { useId, useTransition } from 'react';
 import { match } from 'ts-pattern';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
@@ -51,6 +53,7 @@ export function AdminUser({ userId, children }: AdminUserProps) {
               {state.label}
             </span>
             {user.enabled ? null : <Badge variant="outline-secondary">{m.admin_user_login_off()}</Badge>}
+            {user.advanced ? <Badge variant="outline-secondary">{m.admin_user_advanced()}</Badge> : null}
           </span>
         )}
         title={(
@@ -113,6 +116,7 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
 
   return (
     <>
+      <AdminUserAdvanced user={user} />
       {toggle.isError ? <span className="text-xs text-destructive" role="alert">{adminProblem({ error: toggle.error, failed: m.admin_user_update_failed() })}</span> : null}
       <ButtonLoading
         loading={toggle.isPending}
@@ -143,6 +147,35 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
         </Link>
       </Button>
     </>
+  );
+}
+
+interface AdminUserAdvancedProps {
+  user: AdminUserData
+}
+
+function AdminUserAdvanced({ user }: AdminUserAdvancedProps) {
+  const id = useId();
+
+  const change = useMutation({
+    mutationFn: adminUpdateUser,
+    meta: {
+      success: user.advanced ? m.admin_user_advanced_turned_off() : m.admin_user_advanced_turned_on(),
+      error: m.admin_user_advanced_failed(),
+      invalidates: [adminUsersQuery().queryKey],
+    },
+  });
+
+  return (
+    <span className="flex items-center gap-2" title={m.admin_user_advanced_hint()}>
+      <Switch
+        checked={user.advanced}
+        disabled={change.isPending}
+        id={id}
+        onCheckedChange={(advanced) => change.mutate({ id: user.id, advanced })}
+      />
+      <Label htmlFor={id}>{m.admin_user_advanced()}</Label>
+    </span>
   );
 }
 

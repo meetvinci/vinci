@@ -170,5 +170,9 @@
   "settings_desktop_hint": "How the Mac app shares this server on your network.",
   "settings_chat_hint": "What the Enter key does, what happens when you write while a bot works, what the chat shows, and GIFs.",
   "settings_providers_actions": "Actions for {provider}",
-  "settings_models_actions": "Actions for {model}"
+  "settings_models_actions": "Actions for {model}",
+  "settings_managed": "Managed by your admin.",
+  "settings_managed_override": "Change it for me",
+  "settings_managed_override_failed": "Couldn't take over this section. Try again.",
+  "settings_chat_workspace": "Chat in this workspace"
 }

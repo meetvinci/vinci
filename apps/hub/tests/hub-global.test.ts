@@ -136,6 +136,45 @@ describe('global settings and the template workspace', () => {
     expect(invalid.status).toBe(404);
   });
 
+  it('lets an advanced person, and no one else, take over a section that follows global, and a sync leaves it alone', async ({ fixture, tokens }) => {
+    const { emails } = HUB_GLOBAL_FIXTURE;
+    const override = () => hubAdminTestWrite(tokens.bob, '/hub/sections/chat/override', { body: {} });
+
+    await relay(tokens.root, 'bob', 'conversation/configure', { whenBusy: 'reject' });
+    await hubAdminTestBack(tokens.root, 'bob', 'chat');
+
+    const normal = await override();
+    const before = await hubAdminTestRead(tokens.bob, '/hub/whoami');
+
+    await fixture.writeUsers({ ...fixture.users, [emails.bob]: { ...fixture.users[emails.bob], advanced: true } });
+
+    const advanced = await override();
+    const after = await hubAdminTestRead(tokens.bob, '/hub/whoami');
+    const own = await relay(tokens.root, 'bob', 'conversation/configure', { whenBusy: 'interrupt' });
+
+    await relay(tokens.root, 'template', 'conversation/configure', { whenBusy: 'steer' });
+    await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: { section: 'chat' } });
+
+    const kept = await relay(tokens.root, 'bob', 'conversation/settings');
+    const audit = await hubAdminTestRead(tokens.root, '/admin/api/audit?user=bob');
+
+    await fixture.writeUsers(fixture.users);
+
+    expect(normal.status).toBe(403);
+    expect(before.json).toMatchObject({ isAdvanced: false, sections: expect.arrayContaining([{ id: 'chat', mode: 'global' }]) });
+    expect(advanced.json).toEqual({ id: 'chat', mode: 'overridden' });
+    expect(after.json).toMatchObject({ isAdvanced: true, sections: expect.arrayContaining([{ id: 'chat', mode: 'overridden' }]) });
+    expect(own.status).toBe(200);
+    expect(JSON.stringify(kept.json)).toContain('"interrupt"');
+    expect(audit.json).toMatchObject({ entries: expect.arrayContaining([expect.objectContaining({
+      by: emails.bob,
+      action: 'sections/overridden',
+      detail: 'chat',
+      userId: 'bob',
+      status: 200,
+    })]) });
+  });
+
   it('copies template bots with their own files to a user as new bots', async ({ fixture, tokens }) => {
     const created = await relay(tokens.root, 'template', 'bots/create', {
       name: 'Suggested',

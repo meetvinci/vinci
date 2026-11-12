@@ -34,6 +34,7 @@ export type ErrorsClass<K extends string, S extends ErrorsDefinition> = new (
 export const errorSchemas = {
   UNAUTHORIZED: { message: 'You must be logged in', status: 401, reportable: false },
   FORBIDDEN: { message: 'Insufficient permissions', status: 403, reportable: false },
+  TEAM_MANAGED: { message: 'Your admin manages this', status: 403, reportable: false },
   CONFLICT: { message: 'Busy right now, try again shortly', status: 409, reportable: false },
   PROTOCOL_MISMATCH: {
     message: 'Client and server protocol versions do not match',

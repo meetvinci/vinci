@@ -1,5 +1,6 @@
 import { toolActionAllowAlways } from './tool-action.allow-always';
 import { toolActionAuthorize } from './tool-action.authorize';
+import { toolActionClearAlwaysAllowed } from './tool-action.clear-always-allowed';
 import { toolActionConfigure } from './tool-action.configure';
 import { toolQueryAlwaysAllowed } from './tool-query.always-allowed';
 import { toolQueryExport } from './tool-query.export';
@@ -7,7 +8,7 @@ import { toolQuerySettings } from './tool-query.settings';
 import { TOOL } from './tool.constants';
 import type { ToolAllowAlwaysParams, ToolAlwaysAllowedParams, ToolServiceDeps } from '../../types/tool.types';
 import type { Context } from '@earendil-works/chord/context';
-import type { ToolConfigureInput } from '@repo/contracts/universal';
+import type { ToolAlwaysAllowedClearInput, ToolConfigureInput } from '@repo/contracts/universal';
 import type { RuntimeToolCall } from '@repo/runtime/server';
 
 export function makeToolService(deps: ToolServiceDeps) {
@@ -17,6 +18,7 @@ export function makeToolService(deps: ToolServiceDeps) {
     actions: {
       configure: (params: ToolConfigureInput) => toolActionConfigure(deps, params),
       allowAlways: (params: ToolAllowAlwaysParams) => toolActionAllowAlways(deps, params),
+      clearAlwaysAllowed: (params: ToolAlwaysAllowedClearInput) => toolActionClearAlwaysAllowed(deps, params),
     },
     queries: {
       settings: () => toolQuerySettings(deps),

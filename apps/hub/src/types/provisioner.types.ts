@@ -8,6 +8,7 @@ const provisionerUser = z.object({
   name: z.string(),
   email: z.email().transform((email) => email.toLowerCase()),
   enabled: z.boolean(),
+  advanced: z.boolean().default(false),
   state: z.enum(['running', 'starting', 'stopped', 'unknown']),
 });
 

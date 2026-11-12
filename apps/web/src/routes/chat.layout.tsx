@@ -15,6 +15,7 @@ import { useRoomsNotify } from '@/hooks/use-rooms-notify';
 import { layoutSidebarsOpen } from '@/services/layout/layout.client';
 import { rpc } from '@/services/rpc/rpc.client';
 import { seoHead } from '@/services/seo/seo.utils';
+import { teamQuery } from '@/services/team/team.client';
 
 export const Route = createFileRoute('/_chat')({
   head: () => seoHead({ title: m.rooms_meta_title() }),
@@ -24,10 +25,14 @@ export const Route = createFileRoute('/_chat')({
       throw redirect({ to: '/connect' });
     }
 
-    const onboarding = await context.queryClient.ensureQueryData(rpc.onboarding.state.queryOptions());
+    const [onboarding, team] = await Promise.all([
+      context.queryClient.ensureQueryData(rpc.onboarding.state.queryOptions()),
+      context.queryClient.ensureQueryData(teamQuery()),
+    ]);
+
     const isOnboarding = location.pathname.startsWith('/onboarding/');
 
-    match({ isDone: onboarding.completedAt !== null, isOnboarding })
+    match({ isDone: onboarding.completedAt !== null || team !== null, isOnboarding })
       .with({ isDone: false, isOnboarding: false }, () => {
         throw redirect({ to: '/onboarding/$step', params: { step: 'welcome' } });
       })

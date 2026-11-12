@@ -196,5 +196,10 @@
   "admin_activity_sync": "Ran a global sync",
   "admin_activity_sync_section": "Ran a global sync of {section}",
   "admin_activity_bots_copy": "Copied suggested bots ({count})",
-  "admin_activity_change": "Made a change: {procedure}"
+  "admin_activity_change": "Made a change: {procedure}",
+  "admin_user_advanced": "Advanced user",
+  "admin_user_advanced_hint": "Shows this person the advanced settings in their app: chat preferences, model providers, the Jev key and sources. Permissions, approval rules and how bots use secrets stay with you.",
+  "admin_user_advanced_turned_on": "Advanced settings shown",
+  "admin_user_advanced_turned_off": "Advanced settings hidden",
+  "admin_user_advanced_failed": "Couldn't change the advanced setting. Try again."
 }

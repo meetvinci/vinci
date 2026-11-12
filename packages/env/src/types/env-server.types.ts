@@ -14,6 +14,7 @@ export const envServerSchema = {
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
     .pipe(z.array(z.url({ protocol: /^https?$/ }).refine((url) => new URL(url).pathname === '/', 'Use a bare origin without a path')))
     .transform((origins) => origins.map((origin) => new URL(origin).origin)),
+  DAEMON_TEAM: z.stringbool().default(false),
 
   WEB_HOST: z.string().trim().min(1).default('127.0.0.1'),
   WEB_PORT: z.coerce.number().int().min(1).max(65535).default(47190),

@@ -1,3 +1,5 @@
+import { ORPCError } from '@orpc/client';
+import { m } from '@repo/i18n/client';
 import { MutationCache } from '@tanstack/react-query';
 import type { QueryMutationCacheParams } from '../../types/query.types';
 
@@ -6,7 +8,9 @@ export function queryMutationCache({ notify, onError, errorMessage }: QueryMutat
     onError: (error, _variables, _result, mutation) => {
       onError?.(error);
 
-      const message = errorMessage?.(error) ?? mutation.meta?.error;
+      const message = errorMessage?.(error)
+        ?? (error instanceof ORPCError && error.code === 'TEAM_MANAGED' ? m.ui_team_managed() : undefined)
+        ?? mutation.meta?.error;
 
       if (message) {
         notify({ message, variant: 'error' });

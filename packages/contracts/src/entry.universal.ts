@@ -37,6 +37,7 @@ export * from './types/server.types';
 export * from './types/settings.types';
 export * from './types/sidebar-section.types';
 export * from './types/skill.types';
+export * from './types/team.types';
 export * from './types/theme.types';
 export * from './types/todo.types';
 export * from './types/tool-call.types';

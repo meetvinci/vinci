@@ -7,6 +7,7 @@ import { PanelRow } from '@repo/ui/panel';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { match } from 'ts-pattern';
 import { BotFormModel } from '@/components/bots/bot-form-model';
+import { useTeam } from '@/hooks/use-team';
 import type { BotFormSection as BotFormSectionId } from '@repo/contracts/universal';
 
 interface BotFormSectionProps {
@@ -16,6 +17,8 @@ interface BotFormSectionProps {
 }
 
 export function BotFormSection({ section, busy, onSubmit }: BotFormSectionProps) {
+  const team = useTeam();
+
   return (
     <form
       onSubmit={(event) => {
@@ -37,7 +40,7 @@ export function BotFormSection({ section, busy, onSubmit }: BotFormSectionProps)
           ))
           .with('instructions', () => <BotFormInstructions busy={busy} />)
           .with('model', () => <BotFormModel isGrouped busy={busy} />)
-          .with('tools', () => <BotFormTools busy={busy} />)
+          .with('tools', () => <BotFormTools busy={busy} isPermissionVisible={!team.isTeam} />)
           .exhaustive()}
       </fieldset>
     </form>

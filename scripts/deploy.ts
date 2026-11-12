@@ -91,6 +91,7 @@ interface Person {
   name: string;
   email: string;
   enabled: boolean;
+  advanced: boolean;
 }
 
 interface Team {
@@ -178,21 +179,23 @@ function isEmail(value: unknown): value is string {
 }
 
 function isValidPerson(person: Person): boolean {
-  return isEmail(person.email) && namePattern.test(person.name) && person.name.trim() === person.name && typeof person.enabled === 'boolean';
+  return isEmail(person.email) && namePattern.test(person.name) && person.name.trim() === person.name && typeof person.enabled === 'boolean'
+    && typeof person.advanced === 'boolean';
 }
 
-// An entry is an email (name = id, enabled) or { email, name?, enabled? }.
+// An entry is an email (name = id, enabled, not advanced) or { email, name?, enabled?, advanced? }. `advanced` only
+// shows that person the app's advanced settings; it changes nothing the daemon allows.
 function readPerson(id: string, value: unknown): Person {
   if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    const { email, name = id, enabled = true } = value as Record<string, unknown>;
+    const { email, name = id, enabled = true, advanced = false } = value as Record<string, unknown>;
 
-    return { name: String(name), email: String(email).toLowerCase(), enabled: enabled as boolean };
+    return { name: String(name), email: String(email).toLowerCase(), enabled: enabled as boolean, advanced: advanced as boolean };
   }
 
-  return { name: id, email: String(value).toLowerCase(), enabled: true };
+  return { name: id, email: String(value).toLowerCase(), enabled: true, advanced: false };
 }
 
-// users.yaml is the one list of people: `users: { <id>: <email> | { email, name, enabled } }`, and the admin panel's
+// users.yaml is the one list of people: `users: { <id>: <email> | { email, name, enabled, advanced } }`, and the admin panel's
 // `admins: [<email>]`, who may log in at Cloudflare too. `-` reads it from stdin, for example over ssh.
 function team(file = usersFile): Team {
   if (file !== '-' && !existsSync(file)) {
@@ -212,7 +215,7 @@ function team(file = usersFile): Team {
   const invalid = entries.filter(([id, person]) => !userId.test(id) || id === templateId || !isValidPerson(person));
 
   if (invalid.length > 0) {
-    fail(`users.yaml: each id must be lowercase letters, digits and dashes (not ${templateId}, which the template workspace has), each user an email, an optional name and enabled true or false: ${invalid.map(([id]) => id).join(', ')}`);
+    fail(`users.yaml: each id must be lowercase letters, digits and dashes (not ${templateId}, which the template workspace has), each user an email, an optional name, and enabled and advanced true or false: ${invalid.map(([id]) => id).join(', ')}`);
   }
 
   if (new Set(entries.map(([, person]) => person.email)).size !== entries.length) {
@@ -227,7 +230,8 @@ function team(file = usersFile): Team {
 }
 
 function writeTeam({ users, admins }: Team) {
-  const content = Bun.YAML.stringify({ users: Object.fromEntries(users), admins }, null, 2);
+  const people = [...users].map(([id, { advanced, ...person }]) => [id, advanced ? { ...person, advanced } : person]);
+  const content = Bun.YAML.stringify({ users: Object.fromEntries(people), admins }, null, 2);
 
   writeAtomic(usersFile, `# The team's people and the admin panel's admins. The provisioner rewrites this file; comments do not survive.\n${content}\n`, 0o600);
 }
@@ -277,7 +281,7 @@ function renderCompose(ids: string[]): string {
 
 function renderUsers({ users }: Team, ids: string[]): string {
   const daemon = (id: string) => ({ daemonUrl: `http://daemon-${id}:47191`, socketPath: `/ipc/${id}/rpc.sock` });
-  const entries = ids.map((id) => [users.get(id)?.email, { id, ...daemon(id) }]);
+  const entries = ids.map((id) => [users.get(id)?.email, { id, ...daemon(id), ...(users.get(id)?.advanced ? { advanced: true } : {}) }]);
 
   // The template has no email: no login routes to it, only the admin panel through the hub.
   return `${JSON.stringify({ users: Object.fromEntries(entries), template: daemon(templateId) }, null, 2)}\n`;
@@ -379,7 +383,7 @@ async function applyTeam(waitFor?: string[]) {
 // A person in users.yaml, or the template workspace (always enabled), for backup and restore.
 function known(id: string | undefined): [string, Person] {
   if (id === templateId) {
-    return [id, { name: 'Template', email: '', enabled: true }];
+    return [id, { name: 'Template', email: '', enabled: true, advanced: false }];
   }
 
   const person = id === undefined ? undefined : team().users.get(id);
@@ -1032,12 +1036,12 @@ async function readBody(request: Request, keys: string[]): Promise<Record<string
   return body as Record<string, unknown>;
 }
 
-function bodyPerson({ name, email, enabled }: Record<string, unknown>): Person | undefined {
-  if (typeof name !== 'string' || typeof email !== 'string' || typeof enabled !== 'boolean') {
+function bodyPerson({ name, email, enabled, advanced = false }: Record<string, unknown>): Person | undefined {
+  if (typeof name !== 'string' || typeof email !== 'string' || typeof enabled !== 'boolean' || typeof advanced !== 'boolean') {
     return undefined;
   }
 
-  const person = { name, email: email.toLowerCase(), enabled };
+  const person = { name, email: email.toLowerCase(), enabled, advanced };
 
   return isValidPerson(person) ? person : undefined;
 }
@@ -1250,10 +1254,10 @@ async function provisioner() {
       return deleteUser(userPath);
     }
 
-    const body = await readBody(request, ['name', 'email', 'enabled']);
+    const body = await readBody(request, ['name', 'email', 'enabled', 'advanced']);
     const person = body === undefined ? undefined : bodyPerson(body);
 
-    return person === undefined ? reply(400, { error: 'Send { name, email, enabled }.' }) : putUser(userPath, person);
+    return person === undefined ? reply(400, { error: 'Send { name, email, enabled, advanced? }.' }) : putUser(userPath, person);
   };
 
   const server = Bun.serve({

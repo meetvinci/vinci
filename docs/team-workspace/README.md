@@ -36,14 +36,14 @@ flowchart TB
 
 - sets up the server and Cloudflare once
 - adds and removes people
-- gives each person a model API key, or lets them add their own
+- gives each person a model API key, or makes them an advanced user so they can add their own
 - sets up bots, skills and tools for a person when asked
 - runs backups and upgrades
 
 **Each user**:
 
 - logs in with their email and uses their own bots
-- can add their own model API key in **Settings → Providers**
+- sees a simpler app: the admin sets the security settings, model providers and shared sources; an admin can make someone an **advanced user**, who also gets those settings (except the security ones). See [What people see](admin.md#what-people-see)
 - cannot see anyone else's bots or chats
 
 The admin does not log in as a user and cannot chat as them. Admins use the admin panel at `/admin` to add, disable and remove people and to set up their bots and settings through each person's private door, which refuses chat messages, approvals and pairing. Settings everyone shares and the bots offered to new people live in **Global settings**, a hidden workspace nobody logs into; each person follows each global section or has it overridden.
