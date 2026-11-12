@@ -1,3 +1,4 @@
+import { conversationTarget } from '@repo/contracts/universal';
 import { z } from 'zod';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
 import type { ProvisionerAccess } from './provisioner.types';
@@ -9,6 +10,20 @@ export const adminFile = z.strictObject({ admins: z.array(adminEmail) })
   .transform(({ admins }) => admins);
 
 export const adminInput = z.strictObject({ email: adminEmail });
+
+const adminReadJson = z.string().min(1).max(64 * 1024).transform((text, context) => {
+  try {
+    return z.json().parse(JSON.parse(text));
+  } catch {
+    context.addIssue({ code: 'custom', message: 'validation_invalid' });
+
+    return z.NEVER;
+  }
+});
+
+export const adminReadBody = adminReadJson.pipe(z.object({ json: conversationTarget }));
+
+export const adminListBody = z.union([z.literal(''), adminReadJson.pipe(z.object({ json: z.union([z.null(), z.strictObject({})]).optional() }))]);
 
 export interface AdminServiceParams {
   directory: string;

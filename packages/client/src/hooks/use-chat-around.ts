@@ -6,9 +6,9 @@ import { useRpc } from './use-rpc';
 import type { ChatAroundParams } from '../types/chat.types';
 import type * as UniversalTypes from '@repo/contracts/universal';
 
-export function useChatAround({ bot, bots, view, entryId }: ChatAroundParams) {
+export function useChatAround({ bot, bots, conversationId, interactionsRevision, entryId }: ChatAroundParams) {
   const { rpc } = useRpc();
-  const target = { botId: bot.id, conversationId: view.conversationId, limit: CHAT.aroundPageSize };
+  const target = { botId: bot.id, conversationId, limit: CHAT.aroundPageSize };
 
   const older = useInfiniteQuery(rpc.conversation.history.infiniteOptions({
     input: (cursor: UniversalTypes.ConversationView['historyCursor']) => ({ ...target, throughEntryId: entryId, cursor }),
@@ -39,9 +39,9 @@ export function useChatAround({ bot, bots, view, entryId }: ChatAroundParams) {
     newer: { isEnabled: newer.hasNextPage, isLoading: newer.isFetchingNextPage, onLoad: () => void newer.fetchNextPage() },
     reactions: useChatReactions({
       botId: bot.id,
-      conversationId: view.conversationId,
+      conversationId,
       entryIds: chatEntryIds(messages),
-      revision: view.interactionsRevision,
+      revision: interactionsRevision,
     }),
   };
 }

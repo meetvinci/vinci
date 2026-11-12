@@ -95,3 +95,7 @@ export type AdminBotCopy = z.infer<typeof adminBotCopy>;
 export type AdminGlobalSyncInput = z.infer<typeof adminGlobalSyncInput>;
 export type AdminSectionModeInput = z.infer<typeof adminSectionModeInput>;
 export type AdminBotCopyInput = z.infer<typeof adminBotCopyInput>;
+
+export const adminConversationSearch = z.object({
+  message: z.number().int().positive().optional().catch(undefined),
+});

@@ -1,4 +1,5 @@
 import { toolPeers, toolRunning } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { EventLabel, EventLine, EventList, EventName } from '@repo/ui/ai/event';
 import { BotAvatar } from '@repo/ui/bots/bot-avatar';
@@ -7,10 +8,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useSidebar } from '@repo/ui/sidebar';
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { match } from 'ts-pattern';
+import { RoomsHistoryPane } from '@/components/rooms/rooms-history-pane';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import { roomsPairLink } from '@/services/rooms/rooms.client';
-import { rpc } from '@/services/rpc/rpc.client';
 import IconAlarmClock from '~icons/lucide/alarm-clock';
 import IconAlarmClockCheck from '~icons/lucide/alarm-clock-check';
 import IconAlarmClockOff from '~icons/lucide/alarm-clock-off';
@@ -74,11 +76,16 @@ function RoomsChatEventsPanelLink({ handle, panel, children }: RoomsChatEventsPa
 interface RoomsChatEventsPeersProps {
   parts: DynamicToolUIPart[]
   sender: Bot | undefined
+  senderId: string
 }
 
-function RoomsChatEventsPeers({ parts, sender }: RoomsChatEventsPeersProps) {
+function RoomsChatEventsPeers({ parts, sender, senderId }: RoomsChatEventsPeersProps) {
+  const { rpc } = useRpc();
+  const { isAdmin } = useSectionScope();
+  const [opened, setOpened] = useState<{ peer: Bot, conversationId: number }>();
   const { data: bots } = useSuspenseQuery(rpc.bots.list.queryOptions());
   const peers = toolPeers(parts, bots);
+  const canOpen = isAdmin || sender !== undefined;
 
   const stack = peers.slice(0, 3).map(({ peer }) => (
     <BotAvatar
@@ -88,6 +95,28 @@ function RoomsChatEventsPeers({ parts, sender }: RoomsChatEventsPeersProps) {
       size={16}
     />
   ));
+
+  const peerLink = (peer: Bot, conversationId: number, children: ReactNode) => (sender
+    ? (
+      <Link
+        {...roomsPairLink({
+          sender,
+          peer,
+          conversationId,
+        })}
+      >
+        {children}
+      </Link>
+    )
+    : (
+      <button
+        className="min-w-0"
+        type="button"
+        onClick={() => setOpened({ peer, conversationId })}
+      >
+        {children}
+      </button>
+    ));
 
   return (
     <RoomsChatEventsLine label={parts.length > 1 ? m.rooms_pair_messages({ count: parts.length }) : m.rooms_pair_messaged()}>
@@ -99,18 +128,14 @@ function RoomsChatEventsPeers({ parts, sender }: RoomsChatEventsPeersProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center">
-            {peers.map(({ peer, conversationId }) => (sender && conversationId !== undefined ? (
+            {peers.map(({ peer, conversationId }) => (canOpen && conversationId !== undefined ? (
               <DropdownMenuItem asChild key={peer.id}>
-                <Link
-                  {...roomsPairLink({
-                    sender,
-                    peer,
-                    conversationId,
-                  })}
-                >
-                  <BotAvatar bot={peer} size={16} />
-                  {peer.name}
-                </Link>
+                {peerLink(peer, conversationId, (
+                  <>
+                    <BotAvatar bot={peer} size={16} />
+                    {peer.name}
+                  </>
+                ))}
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem disabled key={peer.id}>
@@ -121,7 +146,7 @@ function RoomsChatEventsPeers({ parts, sender }: RoomsChatEventsPeersProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       ) : peers.map(({ peer, conversationId }, index) => {
-        const isLinked = sender !== undefined && conversationId !== undefined;
+        const isLinked = canOpen && conversationId !== undefined;
 
         const name = <BotMention animate={!isLinked && parts.some(toolRunning)} bot={peer} />;
 
@@ -129,20 +154,20 @@ function RoomsChatEventsPeers({ parts, sender }: RoomsChatEventsPeersProps) {
           <Fragment key={peer.id}>
             {index > 0 && index === peers.length - 1 ? <EventLabel>{m.rooms_pair_and()}</EventLabel> : null}
             {index > 0 && index < peers.length - 1 ? <EventLabel className="-ml-1.5">,</EventLabel> : null}
-            {isLinked ? (
-              <Link
-                {...roomsPairLink({
-                  sender,
-                  peer,
-                  conversationId,
-                })}
-              >
-                {name}
-              </Link>
-            ) : <span>{name}</span>}
+            {isLinked ? peerLink(peer, conversationId, name) : <span>{name}</span>}
           </Fragment>
         );
       })}
+      {opened ? (
+        <RoomsHistoryPane
+          askerId={senderId}
+          bot={opened.peer}
+          botId={opened.peer.id}
+          conversationId={opened.conversationId}
+          name={opened.peer.name}
+          onOpenChange={() => setOpened(undefined)}
+        />
+      ) : null}
     </RoomsChatEventsLine>
   );
 }
@@ -154,7 +179,15 @@ interface RoomsChatEventsRoutineProps {
 }
 
 function RoomsChatEventsRoutine({ event, senderId, sender }: RoomsChatEventsRoutineProps) {
-  const routines = useQuery({ ...rpc.routines.list.queryOptions({ input: { botId: senderId } }), staleTime: 0 });
+  const { rpc } = useRpc();
+  const { isAdmin } = useSectionScope();
+
+  const routines = useQuery({
+    ...rpc.routines.list.queryOptions({ input: { botId: senderId } }),
+    staleTime: 0,
+    enabled: !isAdmin,
+  });
+
   const isRemoved = event.action === 'remove';
   const isDeleted = !isRemoved && routines.isSuccess && routines.isFetchedAfterMount && !routines.data.some((routine) => routine.id === event.routine.id);
 
@@ -183,7 +216,15 @@ interface RoomsChatEventsTodoProps {
 }
 
 function RoomsChatEventsTodo({ event, senderId, sender }: RoomsChatEventsTodoProps) {
-  const todos = useQuery({ ...rpc.todos.list.queryOptions({ input: { botId: senderId } }), staleTime: 0 });
+  const { rpc } = useRpc();
+  const { isAdmin } = useSectionScope();
+
+  const todos = useQuery({
+    ...rpc.todos.list.queryOptions({ input: { botId: senderId } }),
+    staleTime: 0,
+    enabled: !isAdmin,
+  });
+
   const isRemoved = event.action === 'remove';
   const isDeleted = !isRemoved && todos.isSuccess && todos.isFetchedAfterMount && !todos.data.some((todo) => todo.id === event.todo.id);
 
@@ -210,6 +251,8 @@ interface RoomsChatEventsBotProps {
 }
 
 function RoomsChatEventsBot({ event }: RoomsChatEventsBotProps) {
+  const { rpc } = useRpc();
+  const { isAdmin } = useSectionScope();
   const bots = useQuery({ ...rpc.bots.list.queryOptions(), staleTime: 0 });
   const bot = bots.data?.find((item) => item.id === event.botId);
   const isDeleted = bots.isSuccess && bots.isFetchedAfterMount && !bot;
@@ -230,7 +273,7 @@ function RoomsChatEventsBot({ event }: RoomsChatEventsBotProps) {
 
   return (
     <RoomsChatEventsLine isDeleted={isDeleted} label={label}>
-      {bot ? <Link params={{ handle: bot.handle }} to="/rooms/direct/$handle">{chip}</Link> : chip}
+      {bot && !isAdmin ? <Link params={{ handle: bot.handle }} to="/rooms/direct/$handle">{chip}</Link> : chip}
     </RoomsChatEventsLine>
   );
 }
@@ -241,8 +284,10 @@ interface RoomsChatEventsProps {
 }
 
 export function RoomsChatEvents({ events, senderId }: RoomsChatEventsProps) {
+  const { rpc } = useRpc();
+  const { isAdmin } = useSectionScope();
   const { data: bots } = useSuspenseQuery(rpc.bots.list.queryOptions());
-  const sender = bots.find((item) => item.id === senderId);
+  const sender = isAdmin ? undefined : bots.find((item) => item.id === senderId);
 
   return (
     <EventList>
@@ -252,6 +297,7 @@ export function RoomsChatEvents({ events, senderId }: RoomsChatEventsProps) {
             key={peers.key}
             parts={peers.parts}
             sender={sender}
+            senderId={senderId}
           />
         ))
         .with({ kind: 'routine' }, (routine) => (

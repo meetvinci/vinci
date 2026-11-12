@@ -41,6 +41,7 @@ export function RoomsChatTranscriptItem({
           <RoomsChatReply
             bot={bot}
             botId={bot.id}
+            canReact={!isReadOnly}
             groups={groups}
             hasActions={!isLive && !isReadOnly}
             isCollapsible={isCollapsible}

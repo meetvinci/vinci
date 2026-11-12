@@ -4,6 +4,7 @@ import { Button } from '@repo/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@repo/ui/hover-card';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import { roomsLink } from '@/services/rooms/rooms.client';
 import IconMessageCircle from '~icons/lucide/message-circle';
 import type { Bot } from '@repo/contracts/universal';
@@ -16,6 +17,7 @@ interface RoomsMentionCardProps {
 
 export function RoomsMentionCard({ bot, children }: RoomsMentionCardProps) {
   const [open, setOpen] = useState(false);
+  const { isAdmin } = useSectionScope();
   const openOnTap = () => setOpen(true);
 
   return (
@@ -46,17 +48,19 @@ export function RoomsMentionCard({ bot, children }: RoomsMentionCardProps) {
             <span className="truncate text-xs text-muted-foreground">@{bot.handle}</span>
           </div>
         </div>
-        <Button
-          asChild
-          className="w-full"
-          size="xs"
-          variant="outline"
-        >
-          <Link {...roomsLink(bot)}>
-            <IconMessageCircle />
-            {m.rooms_mention_direct()}
-          </Link>
-        </Button>
+        {isAdmin ? null : (
+          <Button
+            asChild
+            className="w-full"
+            size="xs"
+            variant="outline"
+          >
+            <Link {...roomsLink(bot)}>
+              <IconMessageCircle />
+              {m.rooms_mention_direct()}
+            </Link>
+          </Button>
+        )}
       </HoverCardContent>
     </HoverCard>
   );

@@ -53,7 +53,8 @@ function ResponseLinkPreview({ rpc, href, host, favicon }: ResponseLinkPreviewPr
 
 export function ResponseLink({ node: _node, href = '', className, children, ...props }: ComponentProps<'a'> & ExtraProps) {
   const { origin } = useRouter();
-  const rpc = use(rpcContext)?.rpc;
+  const rpcs = use(rpcContext);
+  const rpc = rpcs?.hasLinkPreviews === false ? undefined : rpcs?.rpc;
   const path = linkInternalPath(href, origin);
   const favicon = linkFaviconUrl(href);
   const host = linkHost(href);
@@ -79,7 +80,7 @@ export function ResponseLink({ node: _node, href = '', className, children, ...p
     </a>
   );
 
-  // Artifact embeds render without a daemon connection, so they show the favicon without a preview.
+  // Artifact embeds render without a daemon connection, and the admin panel asks for no previews, so they show the favicon only.
   if (!favicon || !host || !rpc) {
     return anchor;
   }

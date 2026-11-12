@@ -23,7 +23,8 @@ export function ChatAround({ bot, bots, view, entryId, composerInset, renderMess
   const around = useChatAround({
     bot,
     bots,
-    view,
+    conversationId: view.conversationId,
+    interactionsRevision: view.interactionsRevision,
     entryId,
   });
 

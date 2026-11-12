@@ -22,6 +22,7 @@ const itemVariants = cva({
     'group/item relative flex w-full cursor-pointer flex-wrap items-center rounded-lg border border-transparent text-sm transition-colors duration-100 outline-none group-data-[variant=outline]/item-group:rounded-sm hover:bg-accent',
     'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
     'has-[[data-slot=item-link]:focus-visible]:border-ring has-[[data-slot=item-link]:focus-visible]:ring-[3px] has-[[data-slot=item-link]:focus-visible]:ring-ring/50',
+    'has-[[data-slot=item-link][aria-current=page]]:bg-accent',
   ],
   variants: {
     variant: {

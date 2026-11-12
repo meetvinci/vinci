@@ -6,6 +6,7 @@ import { MessageScroller, MessageScrollerButton, MessageScrollerViewport } from 
 import { RoomsChatHistory } from '@repo/ui/rooms/rooms-chat-history';
 import { RoomsChatUnread } from '@repo/ui/rooms/rooms-chat-unread';
 import { RoomsChatTranscriptItem } from '@/components/rooms/rooms-chat-transcript-item';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import type { ChatMessage, RoomsHistoryLoader, RoomsUnread } from '@repo/client/client';
 import type { Bot, ConversationReaction } from '@repo/contracts/universal';
 import type { MessageScrollerRow } from '@repo/ui/message-scroller';
@@ -40,6 +41,7 @@ export function RoomsChatTranscript({
   composerHeight = 0,
   onReply,
 }: RoomsChatTranscriptProps) {
+  const { isAdmin } = useSectionScope();
   const now = new Date();
   const focusedId = focusedEntryId === undefined ? undefined : messages.find((message) => message.metadata?.entryIds.includes(focusedEntryId))?.id;
   const firstUnreadId = unread ? messages.find((message) => message.role !== 'user' && (message.metadata?.entryId ?? 0) > unread.throughEntryId)?.id : undefined;
@@ -52,7 +54,7 @@ export function RoomsChatTranscript({
           {unread && message.id === firstUnreadId ? <RoomsChatUnread seen={unread.isSeen} onSeen={unread.onSeen} /> : null}
           <RoomsChatTranscriptItem
             bot={bot}
-            groups={isReadOnly ? [] : roomsReactionGroups({ reaction: reactions.get(message.metadata?.entryId ?? 0), bots })}
+            groups={isReadOnly && !isAdmin ? [] : roomsReactionGroups({ reaction: reactions.get(message.metadata?.entryId ?? 0), bots })}
             isCollapsible={index < messages.length - 1}
             isFocused={message.id === focusedId}
             isLive={message.id === CHAT.liveMessageId}

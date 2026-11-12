@@ -42,6 +42,7 @@ import { Route as settingsSettingsDotthemesDotcreateRouteImport } from "./../rou
 import { Route as adminAdminDotadminsDotemailDotremoveRouteImport } from "./../routes/admin/admin.admins.$email.remove";
 import { Route as adminAdminDotusersDotuserIdDotindexRouteImport } from "./../routes/admin/admin.users.$userId.index";
 import { Route as adminAdminDotusersDotuserIdDotbotsRouteImport } from "./../routes/admin/admin.users.$userId.bots";
+import { Route as adminAdminDotusersDotuserIdDotconversationsRouteImport } from "./../routes/admin/admin.users.$userId.conversations";
 import { Route as adminAdminDotusersDotuserIdDotdevicesRouteImport } from "./../routes/admin/admin.users.$userId.devices";
 import { Route as adminAdminDotusersDotuserIdDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.remove";
 import { Route as adminAdminDotusersDotuserIdDotsettingsRouteImport } from "./../routes/admin/admin.users.$userId.settings";
@@ -58,6 +59,7 @@ import { Route as settingsSettingsDotprovidersDotproviderIdDotlogoutRouteImport 
 import { Route as adminAdminDotusersDotuserIdDotbotsDotindexRouteImport } from "./../routes/admin/admin.users.$userId.bots.index";
 import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId";
 import { Route as adminAdminDotusersDotuserIdDotbotsDotcreateRouteImport } from "./../routes/admin/admin.users.$userId.bots.create";
+import { Route as adminAdminDotusersDotuserIdDotconversationsDotbotIdRouteImport } from "./../routes/admin/admin.users.$userId.conversations.$botId";
 import { Route as adminAdminDotusersDotuserIdDotsettingsDotindexRouteImport } from "./../routes/admin/admin.users.$userId.settings.index";
 import { Route as adminAdminDotusersDotuserIdDotsettingsDottabRouteImport } from "./../routes/admin/admin.users.$userId.settings.$tab";
 import { Route as botsBotsDotbotIdDotmcpDotserverDotremoveRouteImport } from "./../routes/bots/bots.$botId.mcp.$server.remove";
@@ -257,6 +259,12 @@ const adminAdminDotusersDotuserIdDotbotsRoute =
     path: "/bots",
     getParentRoute: () => adminAdminDotusersDotuserIdRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotconversationsRoute =
+  adminAdminDotusersDotuserIdDotconversationsRouteImport.update({
+    id: "/conversations",
+    path: "/conversations",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
 const adminAdminDotusersDotuserIdDotdevicesRoute =
   adminAdminDotusersDotuserIdDotdevicesRouteImport.update({
     id: "/devices",
@@ -352,6 +360,12 @@ const adminAdminDotusersDotuserIdDotbotsDotcreateRoute =
     id: "/create",
     path: "/create",
     getParentRoute: () => adminAdminDotusersDotuserIdDotbotsRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute =
+  adminAdminDotusersDotuserIdDotconversationsDotbotIdRouteImport.update({
+    id: "/$botId",
+    path: "/$botId",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotconversationsRoute,
   } as any);
 const adminAdminDotusersDotuserIdDotsettingsDotindexRoute =
   adminAdminDotusersDotuserIdDotsettingsDotindexRouteImport.update({
@@ -505,6 +519,7 @@ export interface FileRoutesByFullPath {
   "/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
   "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
   "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
@@ -522,6 +537,7 @@ export interface FileRoutesByFullPath {
   "/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren;
   "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/conversations/$botId": typeof adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute;
   "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
   "/admin/users/$userId/bots/": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
   "/admin/users/$userId/settings/": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
@@ -567,6 +583,7 @@ export interface FileRoutesByTo {
   "/settings/models/$model": typeof settingsSettingsDotmodelsDotmodelRoute;
   "/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
   "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
+  "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
@@ -582,6 +599,7 @@ export interface FileRoutesByTo {
   "/settings/devices/$deviceId/revoke": typeof settingsSettingsDotdevicesDotdeviceIdDotrevokeRoute;
   "/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/conversations/$botId": typeof adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute;
   "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
   "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
@@ -636,6 +654,7 @@ export interface FileRoutesById {
   "/_chat/settings/themes/create": typeof settingsSettingsDotthemesDotcreateRoute;
   "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
   "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
@@ -653,6 +672,7 @@ export interface FileRoutesById {
   "/_chat/settings/providers/$providerId/logout": typeof settingsSettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRouteWithChildren;
   "/admin/users/$userId/bots/create": typeof adminAdminDotusersDotuserIdDotbotsDotcreateRoute;
+  "/admin/users/$userId/conversations/$botId": typeof adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute;
   "/admin/users/$userId/settings/$tab": typeof adminAdminDotusersDotuserIdDotsettingsDottabRoute;
   "/admin/users/$userId/bots/": typeof adminAdminDotusersDotuserIdDotbotsDotindexRoute;
   "/admin/users/$userId/settings/": typeof adminAdminDotusersDotuserIdDotsettingsDotindexRoute;
@@ -707,6 +727,7 @@ export interface FileRouteTypes {
     | "/settings/themes/create"
     | "/admin/admins/$email/remove"
     | "/admin/users/$userId/bots"
+    | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
@@ -724,6 +745,7 @@ export interface FileRouteTypes {
     | "/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/$botId"
     | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/conversations/$botId"
     | "/admin/users/$userId/settings/$tab"
     | "/admin/users/$userId/bots/"
     | "/admin/users/$userId/settings/"
@@ -769,6 +791,7 @@ export interface FileRouteTypes {
     | "/settings/models/$model"
     | "/settings/themes/create"
     | "/admin/admins/$email/remove"
+    | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/status"
@@ -784,6 +807,7 @@ export interface FileRouteTypes {
     | "/settings/devices/$deviceId/revoke"
     | "/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/conversations/$botId"
     | "/admin/users/$userId/settings/$tab"
     | "/admin/users/$userId/bots"
     | "/admin/users/$userId/settings"
@@ -837,6 +861,7 @@ export interface FileRouteTypes {
     | "/_chat/settings/themes/create"
     | "/admin/admins/$email/remove"
     | "/admin/users/$userId/bots"
+    | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
@@ -854,6 +879,7 @@ export interface FileRouteTypes {
     | "/_chat/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/$botId"
     | "/admin/users/$userId/bots/create"
+    | "/admin/users/$userId/conversations/$botId"
     | "/admin/users/$userId/settings/$tab"
     | "/admin/users/$userId/bots/"
     | "/admin/users/$userId/settings/"
@@ -1119,6 +1145,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsRouteImport;
       parentRoute: typeof adminAdminDotusersDotuserIdRoute;
     };
+    "/admin/users/$userId/conversations": {
+      id: "/admin/users/$userId/conversations";
+      path: "/conversations";
+      fullPath: "/admin/users/$userId/conversations";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotconversationsRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
     "/admin/users/$userId/devices": {
       id: "/admin/users/$userId/devices";
       path: "/devices";
@@ -1230,6 +1263,13 @@ declare module "@tanstack/react-router" {
       fullPath: "/admin/users/$userId/bots/create";
       preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotcreateRouteImport;
       parentRoute: typeof adminAdminDotusersDotuserIdDotbotsRoute;
+    };
+    "/admin/users/$userId/conversations/$botId": {
+      id: "/admin/users/$userId/conversations/$botId";
+      path: "/$botId";
+      fullPath: "/admin/users/$userId/conversations/$botId";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotconversationsDotbotIdRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotconversationsRoute;
     };
     "/admin/users/$userId/settings/": {
       id: "/admin/users/$userId/settings/";
@@ -1626,6 +1666,21 @@ const adminAdminDotusersDotuserIdDotbotsRouteWithChildren =
     adminAdminDotusersDotuserIdDotbotsRouteChildren,
   );
 
+interface adminAdminDotusersDotuserIdDotconversationsRouteChildren {
+  adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute: typeof adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute;
+}
+
+const adminAdminDotusersDotuserIdDotconversationsRouteChildren: adminAdminDotusersDotuserIdDotconversationsRouteChildren =
+  {
+    adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute:
+      adminAdminDotusersDotuserIdDotconversationsDotbotIdRoute,
+  };
+
+const adminAdminDotusersDotuserIdDotconversationsRouteWithChildren =
+  adminAdminDotusersDotuserIdDotconversationsRoute._addFileChildren(
+    adminAdminDotusersDotuserIdDotconversationsRouteChildren,
+  );
+
 interface adminAdminDotusersDotuserIdDotdevicesRouteChildren {
   adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute: typeof adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute;
 }
@@ -1667,6 +1722,7 @@ const adminAdminDotusersDotuserIdDotsettingsRouteWithChildren =
 
 interface adminAdminDotusersDotuserIdRouteChildren {
   adminAdminDotusersDotuserIdDotbotsRoute: typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
+  adminAdminDotusersDotuserIdDotconversationsRoute: typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   adminAdminDotusersDotuserIdDotdevicesRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
   adminAdminDotusersDotuserIdDotremoveRoute: typeof adminAdminDotusersDotuserIdDotremoveRoute;
   adminAdminDotusersDotuserIdDotsettingsRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
@@ -1678,6 +1734,8 @@ const adminAdminDotusersDotuserIdRouteChildren: adminAdminDotusersDotuserIdRoute
   {
     adminAdminDotusersDotuserIdDotbotsRoute:
       adminAdminDotusersDotuserIdDotbotsRouteWithChildren,
+    adminAdminDotusersDotuserIdDotconversationsRoute:
+      adminAdminDotusersDotuserIdDotconversationsRouteWithChildren,
     adminAdminDotusersDotuserIdDotdevicesRoute:
       adminAdminDotusersDotuserIdDotdevicesRouteWithChildren,
     adminAdminDotusersDotuserIdDotremoveRoute:

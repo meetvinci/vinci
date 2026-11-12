@@ -206,7 +206,9 @@ Open `https://<your team host>/admin` and log in at Cloudflare as usual. Only em
 - With a domain rule, a notice above the users says that anyone at that domain can request a login code and only the people listed get in.
 - When the panel says *<email> can't sign in yet* (or *Remove <email> from Cloudflare Access*), the server could not change the policy: add or remove that email in the Cloudflare dashboard (Zero Trust › Access controls › Policies › `orbs-<team>-allow`), or run the `cloudflare emails` step from [Add a person](#add-a-person) on your computer.
 
-The panel never pairs a device and never acts as the user in a chat. It cannot send messages, answer approvals or read conversations.
+The panel never pairs a device and never acts as the user in a chat. It can read a person's conversations (see [Reading a person's conversations](#reading-a-persons-conversations)) but cannot send messages, answer approvals or questions, react, stop, clear or change anything in a chat.
+
+- **Conversations** shows a person's chat with each of their bots, read only: search (press Enter), older messages as you scroll up, and **Refresh** for anything new. Details below.
 
 - A bot's **Routines** and **Todos** belong to the user. The panel shows them but cannot add, change, run or delete them.
 - Provider sign-ins with a Claude or ChatGPT account are left out: they would put the admin's own account in someone else's workspace. Enter an API key instead.
@@ -214,6 +216,39 @@ The panel never pairs a device and never acts as the user in a chat. It cannot s
 - The app has no form to add a secret (a bot asks for one in chat), so neither does the panel. Secrets the user added show in **Settings → Secrets**.
 
 A user whose workspace is stopped or starting shows *Can't reach this user's workspace*; use **Try again** once it runs.
+
+### Reading a person's conversations
+
+An admin can read every conversation a person has with their bots, read only, in the person's **Conversations** tab. It goes through the same private door as the forms; the admin never pairs a device or uses the person's own address.
+
+**What you can read**
+
+- One chat per bot. Hidden and muted chats are listed too.
+- The messages, photos (click to enlarge) and files (click to download), tool calls with the approval asked and its answer, answers to the bot's questions, and silent turns, as they happened. Scroll up for older messages.
+- A subagent run: click its card to read what it did. A private conversation between two of the person's bots: click the bot's name in *Messaged …* to read it.
+- Search: type and press Enter. It searches every chat of that person; a hit opens the chat at that message. Like the app's search, it looks at recent messages first, so an old match may need a more recent word.
+
+**What leaves no trace**
+
+Reading changes nothing the person sees: nothing is marked read, unread counts, order, pins, hidden and muted flags stay as they were, and no bot runs or notifies anyone. The panel reads when you open a chat, scroll up or press **Refresh**, never in the background.
+
+**The audit log**
+
+Every read is written to the hub log with your email, the person, the bot and the conversation, never the content: one line when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, and one when the person's Bots tab reads their routines or todos.
+
+```sh
+docker compose logs hub | grep -A7 'hub-audit'   # who read whose conversations, routines or todos
+```
+
+**What the panel does not show (known gaps)**
+
+- An artifact shows only its title: running its page in the panel would run the person's code with your access.
+- An approval or question still waiting shows as an unfinished tool step, without its card. You can never answer it.
+- A reply still being written appears after **Refresh**.
+- Links show without a preview.
+- **Cleared history is gone.** When the person clears a chat, its messages, files, subagent runs and private conversations are replaced by an empty chat; only the routines, todos and the latest version of each artifact carry over. You then see the same as the person.
+- The template workspace has no conversations with anyone.
+- There is no export.
 
 **Give this to your agent:**
 
@@ -366,6 +401,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 docker compose ps                        # every container and its health
 docker stats --no-stream                 # memory and CPU per container
 docker compose logs hub --since 1h       # the hub: logins refused, users loaded, pairing
+docker compose logs hub | grep -A7 'hub-audit'   # who read whose conversations, routines or todos
 docker compose logs daemon-<id> -f       # one person's Orbs, live
 ```
 

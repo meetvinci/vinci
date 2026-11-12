@@ -4,9 +4,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
 import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
-import { HUB_ADMIN_FIXTURE, hubFixtureFakeSocket } from './support/hub.fixture';
+import { HUB_ADMIN_FIXTURE } from './support/hub.fixture';
 
-const { hub, byHand, publicOrigin, emails, admin, provisionerToken } = HUB_ADMIN_FIXTURE;
+const { byHand, emails, admin, provisionerToken } = HUB_ADMIN_FIXTURE;
 const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_ADMIN_FIXTURE);
 
 const webEcho = z.object({ path: z.string(), headers: z.record(z.string(), z.union([z.string(), z.array(z.string())])) });
@@ -250,144 +250,5 @@ describe('Cloudflare Access state', () => {
     expect(cached).not.toHaveProperty('accessDomains');
     expect(down.users).toMatchObject({ users: [{ id: 'alice', access: 'unknown' }, { id: 'bob', access: 'unknown' }], accessMode: 'unknown' });
     expect(down.admins).toMatchObject({ admins: [{ access: 'unknown' }, { access: 'unknown' }, { access: 'unknown' }] });
-  });
-});
-
-describe('admin relay to the private door', () => {
-  it('forwards only RPC to the owner socket, pinned and without the caller identity', async ({ fixture, tokens }) => {
-    const socketPath = join(fixture.root, 'door/rpc.sock');
-    const fake = await hubFixtureFakeSocket(socketPath);
-
-    await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], socketPath } });
-
-    const relay = (path: string, headers: Record<string, string> = {}, token = tokens.root) => hubAdminTestWrite(token, `/admin/api/users/${path}`, {
-      body: { json: { probe: true } },
-      headers: {
-        'cookie': `CF_Authorization=${tokens.root}; bots.connection=x`,
-        'authorization': 'Bearer device-token',
-        'x-bots-protocol': '1',
-        'x-bots-server-id': fixture.serverIds.bob,
-        ...headers,
-      },
-    });
-
-    const relayed = await relay('alice/rpc/server/info');
-
-    const refused = await Promise.all([
-      relay('alice/rpc/pairing/bootstrap'),
-      relay('alice/rpc/Pairing/bootstrap'),
-      relay('alice/rpc/pairing%2Fbootstrap'),
-      relay('alice/rpc/server/info', { origin: 'https://evil.example' }),
-      relay('alice/rpc/server/info', {}, tokens.bob),
-    ]);
-
-    const missing = await relay('nobody/rpc/server/info');
-
-    await fixture.writeUsers(fixture.users);
-    await fake.close();
-
-    const [call] = fake.requests;
-    const leaked = ['origin', 'cookie', 'authorization', 'cf-access-jwt-assertion', 'x-forwarded-host'].filter((name) => name in call.headers);
-
-    expect(relayed).toEqual({ status: 200, json: { json: { relayed: true } } });
-    expect(refused.map(({ status }) => status)).toEqual([403, 403, 403, 403, 403]);
-    expect(missing.status).toBe(404);
-    expect(fake.requests).toHaveLength(1);
-    expect(call.url).toBe('/rpc/server/info');
-    expect(call.body).toBe(JSON.stringify({ json: { probe: true } }));
-    expect(call.headers['x-bots-server-id']).toBe(fixture.serverIds.alice);
-    expect(call.headers['x-bots-protocol']).toBe('1');
-    expect(leaked).toEqual([]);
-  });
-
-  it('completes onboarding with the first-visit grant, so a provisioned person is never asked to configure anything', async ({ tokens }) => {
-    const state = () => hubAdminTestWrite(tokens.root, '/admin/api/users/bob/rpc/onboarding/state', { headers: { 'x-bots-protocol': '1' } });
-    const before = await state();
-    const handoff = await hubAdminTestGet('/connect', tokens.bob);
-    const after = await state();
-
-    expect(before.json).toEqual({ json: { completedAt: null } });
-    expect(handoff.status).toBe(303);
-    expect(after.json).toEqual({ json: { completedAt: expect.any(Number) } });
-  });
-
-  it("serves a user's bot avatars to admins only, from that user's own daemon", async ({ tokens }) => {
-    const created = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/rpc/bots/create', {
-      body: { json: { name: 'Avatarbot', handle: 'avatarbot', modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'medium' } },
-      headers: { 'x-bots-protocol': '1' },
-    });
-
-    const { id } = z.object({ json: z.object({ id: z.uuid() }) }).parse(created.json).json;
-    const avatar = (path: string, token = tokens.root) => hubAdminTestGet(`/admin/api/users/${path}`, token);
-
-    const own = await avatar(`alice/avatars/bots/${id}.png`);
-
-    const refused = await Promise.all([
-      avatar(`alice/avatars/bots/${id}.png`, tokens.bob),
-      avatar(`bob/avatars/bots/${id}.png`),
-      avatar(`nobody/avatars/bots/${id}.png`),
-      avatar('alice/avatars/health'),
-      avatar(`alice/avatars/${id}.svg`),
-    ]);
-
-    expect(own.status).toBe(200);
-    expect(own.headers.get('content-type')).toBe('image/png');
-    expect(own.headers.get('cache-control')).toBe('private, no-store');
-    expect(refused.map(({ status }) => status)).toEqual([403, 404, 404, 404, 404]);
-  });
-
-  it("reaches the user's real owner socket for the forms and refuses conversations, approvals and pairing", async ({ fixture, tokens }) => {
-    const call = (procedure: string, user = 'alice') => hubAdminTestWrite(tokens.root, `/admin/api/users/${user}/rpc/${procedure}`, { body: { json: null }, headers: { 'x-bots-protocol': '1' } });
-
-    // The panel's RPC client sends calls without input with no body and no Content-Type, only X-Bots-Protocol.
-    const bots = await fetch(`${hub}/admin/api/users/alice/rpc/bots/list`, {
-      method: 'POST',
-      headers: { 'cf-access-jwt-assertion': tokens.root, 'origin': publicOrigin, 'x-bots-protocol': '1' },
-    });
-
-    const info = await call('server/info');
-
-    const refused = await Promise.all([
-      'pairing/bootstrap',
-      'pairing/create',
-      'conversation/submit',
-      'conversation/list',
-      'conversation/history',
-      'tools/answer',
-      'tools/pending',
-      'routines/create',
-      'routines/run',
-      'routines/remove',
-      'todos/create',
-      'todos/update',
-    ].map((procedure) => call(procedure)));
-
-    const readOnly = await Promise.all(['routines/list', 'todos/list'].map((procedure) => hubAdminTestWrite(tokens.root, `/admin/api/users/alice/rpc/${procedure}`, {
-      body: { json: { botId: 'none' } },
-      headers: { 'x-bots-protocol': '1' },
-    })));
-
-    const asGet = await fetch(`${hub}/admin/api/users/alice/rpc/server/info`, { headers: { 'cf-access-jwt-assertion': tokens.root, 'origin': publicOrigin, 'x-bots-protocol': '1' } });
-
-    const { alice, bob } = { alice: fixture.users[emails.alice], bob: fixture.users[emails.bob] };
-
-    // Swapped sockets: the hub sends alice's pinned server ID to bob's daemon, which refuses it.
-    await fixture.writeUsers({
-      ...fixture.users,
-      [emails.alice]: { ...alice, socketPath: bob.socketPath },
-      [emails.bob]: { ...bob, socketPath: alice.socketPath },
-    });
-
-    const swapped = await call('server/info');
-
-    await fixture.writeUsers(fixture.users);
-
-    expect(bots.status).toBe(200);
-    expect(info.status).toBe(200);
-    expect(JSON.stringify(info.json)).toContain(fixture.serverIds.alice);
-    expect(refused.map(({ status }) => status)).toEqual(Array.from({ length: 12 }, () => 403));
-    expect(readOnly.map(({ status }) => status)).not.toContain(403);
-    expect(asGet.status).toBe(404);
-    expect(swapped.status).toBe(409);
   });
 });

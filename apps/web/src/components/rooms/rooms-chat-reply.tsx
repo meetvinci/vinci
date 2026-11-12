@@ -7,23 +7,24 @@ import type { ComponentProps } from 'react';
 
 interface RoomsChatReplyProps extends Omit<ComponentProps<typeof RoomsChatMessage>, 'reacting' | 'onReact'> {
   groups: RoomsReactionGroup[]
+  canReact: boolean
 }
 
-export function RoomsChatReply({ groups, ...props }: RoomsChatReplyProps) {
+export function RoomsChatReply({ groups, canReact, ...props }: RoomsChatReplyProps) {
   const entryId = props.message.metadata?.entryId ?? 0;
   const toggle = useChatReaction(props.botId);
 
-  const react = (emoji: string) => toggle.react({
+  const react = canReact && entryId > 0 ? (emoji: string) => toggle.react({
     entryId,
     emoji,
     groups,
-  });
+  }) : undefined;
 
   const badges = groups.length > 0 ? (
     <RoomsChatReactions
       disabled={toggle.isPending}
       groups={groups}
-      onToggle={entryId > 0 ? react : undefined}
+      onToggle={react}
     />
   ) : undefined;
 
@@ -33,7 +34,7 @@ export function RoomsChatReply({ groups, ...props }: RoomsChatReplyProps) {
         {...props}
         reacting={toggle.isPending}
         reactions={badges}
-        onReact={entryId > 0 ? react : undefined}
+        onReact={react}
       />
       {toggle.isError ? <p className="px-1 pb-1 text-xxs text-destructive" role="alert">{m.rooms_reaction_failed()}</p> : null}
     </>

@@ -1,8 +1,8 @@
 import { botSkillName, mentionTarget } from '@repo/client/client';
+import { useRpc } from '@repo/client/react';
 import { BotMention } from '@repo/ui/bots/bot-mention';
 import { Mention } from '@repo/ui/mention';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { rpc } from '@/services/rpc/rpc.client';
 import IconBox from '~icons/lucide/box';
 import IconQuote from '~icons/lucide/quote';
 import IconSquareSlash from '~icons/lucide/square-slash';
@@ -13,6 +13,7 @@ interface RoomsMentionProps {
 }
 
 export function RoomsMention({ href, label }: RoomsMentionProps) {
+  const { rpc } = useRpc();
   const { data: bots } = useSuspenseQuery(rpc.bots.list.queryOptions());
   const target = mentionTarget({ href });
 

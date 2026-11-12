@@ -63,6 +63,7 @@ export function AdminUser({ userId, children }: AdminUserProps) {
       <nav aria-label={m.admin_user_sections()} className="flex gap-1 border-b">
         <AdminUserTab params={{ userId }} to="/admin/users/$userId/bots">{m.bots_title()}</AdminUserTab>
         <AdminUserTab params={{ userId }} to="/admin/users/$userId/settings">{m.settings_title()}</AdminUserTab>
+        <AdminUserTab params={{ userId }} to="/admin/users/$userId/conversations">{m.admin_conversations_title()}</AdminUserTab>
         <AdminUserTab params={{ userId }} to="/admin/users/$userId/devices">{m.settings_devices()}</AdminUserTab>
       </nav>
       {children}
@@ -71,7 +72,7 @@ export function AdminUser({ userId, children }: AdminUserProps) {
 }
 
 interface AdminUserTabProps {
-  to: '/admin/users/$userId/bots' | '/admin/users/$userId/settings' | '/admin/users/$userId/devices' | '/admin/users/$userId/status'
+  to: '/admin/users/$userId/bots' | '/admin/users/$userId/settings' | '/admin/users/$userId/conversations' | '/admin/users/$userId/devices' | '/admin/users/$userId/status'
   params: { userId: string }
   children: ReactNode
 }

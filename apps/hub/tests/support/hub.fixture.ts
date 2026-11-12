@@ -48,6 +48,8 @@ export const HUB_ADMIN_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_AD
 
 export const HUB_GLOBAL_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_GLOBAL_PORT ?? 48630));
 
+export const HUB_RELAY_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_RELAY_PORT ?? 48650));
+
 export type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
 
 interface HubFixtureAccess {
@@ -261,7 +263,7 @@ function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
 function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtureHubOptions): ChildProcess {
   return spawn('bun', ['src/entry.native.ts'], {
     cwd: join(ROOT, 'apps/hub'),
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     env: hubFixtureEnv({
       HUB_HOST: '127.0.0.1',
       HUB_PORT: String(port),
@@ -371,7 +373,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     hubFixtureHub(config, {
       port: config.ports.hub,
       data: hubData,
-      extra: { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken },
+      extra: { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken, LOG_LEVEL: 'info' },
     }),
     hubFixtureHub(config, {
       port: config.ports.byHand,
@@ -379,6 +381,14 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
       extra: {},
     }),
   ];
+
+  const logs: string[] = [];
+
+  hubs.forEach((child, index) => [child.stdout, child.stderr].forEach((stream) => stream?.on('data', (chunk: Buffer) => {
+    if (index === 0) {
+      logs.push(chunk.toString());
+    }
+  })));
 
   await hubFixtureWait('hub', `${config.hub}/hub/health`);
   await hubFixtureWait('by-hand hub', `${config.byHand}/hub/health`);
@@ -441,6 +451,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     serverIds,
     provisioner: provisioner.calls,
     access: provisioner.access,
+    logs,
     mint,
     writeUsers,
     stop,

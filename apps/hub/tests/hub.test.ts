@@ -406,7 +406,7 @@ describe('owner socket', () => {
   it('serves only allowlisted procedures to the owner without a device', async ({ fixture }) => {
     const owner = (path: string, headers = {}) => hubFixtureOwner(fixture.users[emails.alice].socketPath, path, headers);
     const allowed = ['server/info', 'bots/list', 'tools/settings'].map((path) => owner(path));
-    const refused = ['conversation/submit', 'conversation/list', 'tools/answer', 'pairing/redeem'].map((path) => owner(path)).concat(owner('bots/list', { origin: publicOrigin }));
+    const refused = ['conversation/submit', 'conversation/markRead', 'tools/answer', 'pairing/redeem'].map((path) => owner(path)).concat(owner('bots/list', { origin: publicOrigin }));
 
     expect(await Promise.all(allowed)).toEqual([200, 200, 200]);
     expect(await Promise.all(refused)).toEqual([403, 403, 403, 403, 403]);

@@ -1,22 +1,34 @@
-import { adminSectionId, adminTemplateId, SERVER_PROTOCOL } from '@repo/contracts/universal';
+import { adminSectionId, adminTemplateId, attachmentGet, SERVER_PROTOCOL } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
 import { provisionerAccessMode, provisionerAccessOf } from '../services/provisioner/provisioner.utils';
-import { adminInput } from '../types/admin.types';
+import { adminInput, adminListBody, adminReadBody } from '../types/admin.types';
 import { globalBotsInput, globalModeInput, globalSyncInput } from '../types/global.types';
 import { userCreateInput, userUpdateInput } from '../types/user.types';
 import type * as CoreTypes from '../types/core.types';
+import type { UserDaemon } from '../types/user.types';
 import type { z } from 'zod';
 
 const API_PREFIX = '/admin/api/';
 const RELAY_PATH = /^[A-Za-z\d]+(?:\/[A-Za-z\d]+)*$/u;
-const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/export$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$)/iu;
+const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/export$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
+const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions)|routines\/list|todos\/list)$/iu;
+const RELAY_UNAUDITED = /^conversation\/reactions$/iu;
+const RELAY_READ_LIMIT = 64 * 1024;
 const AVATAR_FILE = /^(?:bots\/)?[\da-f-]{36}\.(?:png|webp)$/u;
 const RELAY_HEADERS = ['content-type', 'accept', SERVER_PROTOCOL.versionHeader];
 const RELAY_REPLY_HEADERS = ['content-type', 'content-disposition'];
 const AVATAR_REPLY_HEADERS = ['content-type'];
+const FILE_REPLY_HEADERS = ['content-type', 'content-disposition', 'content-range', 'accept-ranges'];
+const FILE_INLINE = /^(?:image\/(?:png|jpeg|webp|gif)|video\/[\w.+-]+|audio\/[\w.+-]+)(?:;|$)/iu;
 const NO_STORE = { 'Cache-Control': 'no-store' };
+
+const FILE_POLICY = {
+  'Cache-Control': 'private, no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "sandbox; default-src 'none'",
+};
 
 export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreTypes.CoreAdminContext): Promise<Response> {
   const { request, url, identity } = context;
@@ -67,6 +79,18 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
       }, { headers: NO_STORE });
     })
     .with({ method: 'GET', segments: ['users', P.string, 'avatars', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminAvatar(services, { id, file: rest.join('/') }))
+    .with({ method: 'GET', segments: ['users', P.string, 'files', P.string, P.string] }, ({ segments: [, id, , botId, attachmentId] }) => coreAdminFile(services, context, {
+      id,
+      botId,
+      attachmentId,
+      isPoster: false,
+    }))
+    .with({ method: 'GET', segments: ['users', P.string, 'files', P.string, P.string, 'poster'] }, ({ segments: [, id, , botId, attachmentId] }) => coreAdminFile(services, context, {
+      id,
+      botId,
+      attachmentId,
+      isPoster: true,
+    }))
     .with({ method: 'POST', segments: ['users', P.string, 'rpc', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminRelay(services, context, { id, procedure: rest.join('/') }))
     .with({ method: 'GET', segments: ['global'] }, async () => Response.json(await services.global.queries.global(), { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['global', 'status'] }, async () => Response.json({ users: await services.global.queries.status() }, { headers: NO_STORE }))
@@ -170,26 +194,31 @@ async function coreAdminRelay(
     .with(P.string, (value) => headers.set(name, value))
     .otherwise(() => undefined));
 
-  const relayed = new Request(new URL(`/rpc/${procedure}${url.search}`, url), {
+  const read = RELAY_READS.test(procedure) ? await coreAdminRead(request, procedure) : null;
+
+  const response = await coreAdminDoor(services, user, new Request(new URL(`/rpc/${procedure}${read ? '' : url.search}`, url), {
     method: request.method,
     headers,
-    body: request.body,
+    body: read?.body ?? request.body,
     signal: request.signal,
-  });
+  }));
 
-  const response = await services.daemons.actions.door({ user, request: relayed }).catch((error: unknown) => {
-    services.daemons.actions.forget({ user });
-    throw new Errors.SERVER_UNREACHABLE({ internal: `The private door of ${user.id} failed the request`, cause: error });
-  });
-
-  log.info({
-    tag: 'hub',
-    message: 'Admin call relayed to a private door',
-    by: identity.email,
-    user: user.id,
-    procedure,
-    status: response.status,
-  });
+  match(read)
+    .with({ isAudited: true }, ({ target }) => coreAdminAudit({
+      by: identity.email,
+      user: user.id,
+      procedure,
+      status: response.status,
+      target,
+    }))
+    .otherwise(() => log.info({
+      tag: 'hub',
+      message: 'Admin call relayed to a private door',
+      by: identity.email,
+      user: user.id,
+      procedure,
+      status: response.status,
+    }));
 
   if (user.id === adminTemplateId && response.ok) {
     services.global.actions.changed({ procedure, by: identity.email });
@@ -239,6 +268,109 @@ async function coreAdminAvatar(services: CoreTypes.CoreServices, { id, file }: C
     .otherwise(() => undefined));
 
   return new Response(response.body, { status: response.status, headers });
+}
+
+async function coreAdminFile(
+  services: CoreTypes.CoreServices,
+  { request, identity }: CoreTypes.CoreAdminContext,
+  { id, isPoster, ...target }: CoreTypes.CoreAdminFile,
+): Promise<Response> {
+  if (request.headers.get('sec-fetch-site') === 'cross-site') {
+    throw new Errors.FORBIDDEN({ internal: 'The admin file route refuses cross-site requests' });
+  }
+
+  const input = attachmentGet.safeParse(target);
+  const user = input.success ? await coreAdminTarget(services, id) : null;
+
+  if (!input.success || !user) {
+    return new Response(null, { status: 404, headers: NO_STORE });
+  }
+
+  const procedure = isPoster ? 'attachments/poster' : 'attachments/download';
+  const headers = new Headers({ 'content-type': 'application/json', [SERVER_PROTOCOL.versionHeader]: String(SERVER_PROTOCOL.version) });
+
+  const range = request.headers.get('range');
+
+  match(range)
+    .with(P.string, (value) => headers.set('range', value))
+    .otherwise(() => undefined);
+
+  const response = await coreAdminDoor(services, user, new Request(new URL(`/rpc/${procedure}`, request.url), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ json: input.data }),
+    signal: request.signal,
+  }));
+
+  if (range === null || range.startsWith('bytes=0-')) {
+    coreAdminAudit({
+      by: identity.email,
+      user: user.id,
+      procedure,
+      status: response.status,
+      target: input.data,
+    });
+  }
+
+  if (!response.ok) {
+    await response.body?.cancel();
+    return new Response(null, { status: response.status, headers: NO_STORE });
+  }
+
+  const replyHeaders = new Headers(FILE_POLICY);
+
+  FILE_REPLY_HEADERS.forEach((name) => match(response.headers.get(name))
+    .with(P.string, (value) => replyHeaders.set(name, value))
+    .otherwise(() => undefined));
+
+  match({ type: replyHeaders.get('content-type') ?? '', disposition: replyHeaders.get('content-disposition') })
+    .with({ type: P.when((type) => FILE_INLINE.test(type)) }, () => undefined)
+    .with({ disposition: P.string }, ({ disposition }) => replyHeaders.set('content-disposition', disposition.replace(/^\s*inline/iu, 'attachment')))
+    .otherwise(() => replyHeaders.set('content-disposition', 'attachment'));
+
+  return match(response.headers.get('content-range'))
+    .with(P.nullish, () => new Response(response.body, { status: 200, headers: replyHeaders }))
+    .with(P.string.startsWith('bytes */'), async () => {
+      await response.body?.cancel();
+      replyHeaders.delete('content-type');
+
+      return new Response(null, { status: 416, headers: replyHeaders });
+    })
+    .otherwise(() => new Response(response.body, { status: 206, headers: replyHeaders }));
+}
+
+function coreAdminDoor(services: CoreTypes.CoreServices, user: UserDaemon, request: Request): Promise<Response> {
+  return services.daemons.actions.door({ user, request }).catch((error: unknown) => {
+    services.daemons.actions.forget({ user });
+    throw new Errors.SERVER_UNREACHABLE({ internal: `The private door of ${user.id} failed the request`, cause: error });
+  });
+}
+
+function coreAdminAudit({ by, user, procedure, status, target }: CoreTypes.CoreAdminAudit): void {
+  log.info({
+    tag: 'hub-audit',
+    message: /^(?:routines|todos)\//u.test(procedure) ? 'Admin read routines or todos' : 'Admin read a conversation',
+    by,
+    user,
+    bot: target?.botId ?? null,
+    conversation: target?.conversationId ?? null,
+    procedure,
+    status,
+  });
+}
+
+async function coreAdminRead(request: Request, procedure: string): Promise<CoreTypes.CoreAdminRead> {
+  const isJson = /^application\/json(?:;|$)/iu.test(request.headers.get('content-type') ?? '');
+  const length = Number(request.headers.get('content-length') ?? Number.POSITIVE_INFINITY);
+  const body = isJson && length <= RELAY_READ_LIMIT ? await request.text() : '';
+  const isList = /^conversation\/list$/iu.test(procedure);
+  const target = isList ? null : adminReadBody.safeParse(body).data?.json;
+
+  if (isList ? !adminListBody.safeParse(body).success : !target) {
+    throw new Errors.VALIDATION_ERROR({ fields: { body: { message: 'validation_invalid' } }, internal: `The admin relay reads only a JSON target for /rpc/${procedure}` });
+  }
+
+  return { body, isAudited: !RELAY_UNAUDITED.test(procedure), target: target ?? null };
 }
 
 function coreAdminIsSameSite({ request, publicUrl }: CoreTypes.CoreAdminContext): boolean {

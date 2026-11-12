@@ -1,9 +1,9 @@
 import { match } from 'ts-pattern';
-import { authedRouter } from './rpc.procedures';
+import { authedRouter, ownerRouter } from './rpc.procedures';
 
 export const attachments = {
   upload: authedRouter.attachments.upload.handler(({ context, input }) => context.attachments.actions.upload(input)),
-  download: authedRouter.attachments.download.handler(async ({ context, input }) => {
+  download: ownerRouter.attachments.download.handler(async ({ context, input }) => {
     const { file, range, size } = await context.attachments.queries.download({ ...input, range: context.reqHeaders?.get('range') ?? undefined });
     context.resHeaders?.set('accept-ranges', 'bytes');
 
@@ -15,7 +15,7 @@ export const attachments = {
 
     return file;
   }),
-  poster: authedRouter.attachments.poster.handler(({ context, input }) => context.attachments.queries.poster(input)),
+  poster: ownerRouter.attachments.poster.handler(({ context, input }) => context.attachments.queries.poster(input)),
   list: authedRouter.attachments.list.handler(({ context, input }) => context.attachments.queries.list(input)),
   remove: authedRouter.attachments.remove.handler(({ context, input }) => context.attachments.actions.remove(input)),
 };

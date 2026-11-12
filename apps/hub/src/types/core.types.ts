@@ -6,6 +6,7 @@ import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
 import type { GlobalService } from './global.types';
 import type { User, UserService } from './user.types';
+import type { ConversationTarget } from '@repo/contracts/universal';
 
 export interface CoreServices {
   access: AccessService;
@@ -43,6 +44,27 @@ export interface CoreAdminRelay {
 export interface CoreAdminAvatar {
   id: string;
   file: string;
+}
+
+export interface CoreAdminFile {
+  id: string;
+  botId: string;
+  attachmentId: string;
+  isPoster: boolean;
+}
+
+export interface CoreAdminRead {
+  body: string;
+  isAudited: boolean;
+  target: ConversationTarget | null;
+}
+
+export interface CoreAdminAudit {
+  by: string;
+  user: string;
+  procedure: string;
+  status: number;
+  target: ConversationTarget | null;
 }
 
 export interface CoreContext extends CoreAdminContext {

@@ -5,4 +5,6 @@ export interface RpcContextValue {
   client: Client;
   rpc: ReturnType<typeof createRouterUtils<Client>>;
   avatarSrc?: (src: string) => string;
+  fileSrc?: (path: string) => string;
+  hasLinkPreviews?: boolean;
 }

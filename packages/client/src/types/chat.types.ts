@@ -198,7 +198,8 @@ export interface ChatViewerParams {
 export interface ChatAroundParams {
   bot: UniversalTypes.Bot;
   bots: UniversalTypes.Bot[];
-  view: UniversalTypes.ConversationView;
+  conversationId: number;
+  interactionsRevision: number;
   entryId: number;
 }
 

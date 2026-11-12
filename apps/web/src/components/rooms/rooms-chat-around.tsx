@@ -18,7 +18,8 @@ export function RoomsChatAround({ bot, bots, view, entryId, composerHeight, onLa
   const around = useChatAround({
     bot,
     bots,
-    view,
+    conversationId: view.conversationId,
+    interactionsRevision: view.interactionsRevision,
     entryId,
   });
 

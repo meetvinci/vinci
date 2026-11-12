@@ -1,5 +1,5 @@
 import { createRouterUtils } from '@orpc/tanstack-query';
-import { makeHttpClient } from '@repo/client/client';
+import { CHAT, makeHttpClient } from '@repo/client/client';
 import { queryMutationCache } from '@repo/client/react';
 import { adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
@@ -185,5 +185,7 @@ export function adminRpc({ userId }: AdminRpcParams): RpcContextValue {
     client,
     rpc: createRouterUtils(client, { prefix: adminRpcPrefix(userId) }),
     avatarSrc: (src) => (src.startsWith(AVATAR.pathPrefix) ? `${user}${src}` : src),
+    fileSrc: (path) => (path.startsWith(`${CHAT.filesPath}/`) ? `${user}${path}` : path),
+    hasLinkPreviews: false,
   };
 }
