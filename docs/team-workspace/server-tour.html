@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbs Server Tour</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+<style>
+html { color-scheme: light; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+/* Layout: an operator's field guide. One reading column with a level rail beside it on wide screens;
+   every claim sits next to the terminal session that proves it. */
+:root {
+  --bg: #f2f5f4; --surface: #ffffff; --fg: #17211f; --muted: #51605c; --line: #cfd8d5;
+  --accent: #0a6468; --accent-soft: #dcecea;
+  --term-bg: #14201f; --term-fg: #d6e2df; --term-cmd: #7fd6cf; --term-dim: #8fa3a0;
+  --ok: #17603a; --ok-bg: #dff0e5; --warn: #7a4a00; --warn-bg: #f6e8cc; --no: #8c2424; --no-bg: #f6dedd;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1716; --surface: #17211f; --fg: #e3ebe9; --muted: #9fb0ac; --line: #2c3a37;
+  --accent: #6fd0c8; --accent-soft: #1c302e;
+  --term-bg: #0a1110; --term-fg: #d6e2df; --term-cmd: #7fd6cf; --term-dim: #8fa3a0;
+  --ok: #8fdcae; --ok-bg: #173324; --warn: #f0c878; --warn-bg: #3a2c10; --no: #f2a3a0; --no-bg: #3b1b1a;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1716; --surface: #17211f; --fg: #e3ebe9; --muted: #9fb0ac; --line: #2c3a37;
+  --accent: #6fd0c8; --accent-soft: #1c302e;
+  --term-bg: #0a1110; --term-fg: #d6e2df; --term-cmd: #7fd6cf; --term-dim: #8fa3a0;
+  --ok: #8fdcae; --ok-bg: #173324; --warn: #f0c878; --warn-bg: #3a2c10; --no: #f2a3a0; --no-bg: #3b1b1a;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 96px; }
+.page { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 56px; }
+.rail { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.rail a { color: var(--muted); text-decoration: none; padding: 7px 10px; border-radius: 6px; display: flex; gap: 10px; }
+.rail a:hover, .rail a:focus-visible { color: var(--fg); background: var(--accent-soft); outline: none; }
+.rail a span { font-family: var(--mono); color: var(--accent); }
+main { min-width: 0; display: flex; flex-direction: column; gap: 64px; max-width: 800px; }
+header { display: flex; flex-direction: column; gap: 16px; }
+.kicker { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(38px, 6vw, 60px); line-height: 1.02; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.lede { font-size: 19px; color: var(--muted); margin: 0; max-width: 62ch; }
+section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 24px; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.1; margin: 0; display: flex; gap: 14px; align-items: baseline; text-wrap: balance; }
+h2 .n { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--accent); flex: none; }
+h3 { font-family: var(--body); font-weight: 600; font-size: 17px; margin: 10px 0 0; }
+p { margin: 0; max-width: 68ch; }
+p.note { color: var(--muted); font-size: 15px; }
+code { font-family: var(--mono); font-size: 0.88em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.term { background: var(--term-bg); color: var(--term-fg); border-radius: 8px; overflow: hidden; }
+.term .bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 6px 8px 6px 14px; font-family: var(--mono); font-size: 12px; color: var(--term-dim); border-bottom: 1px solid #263432; }
+.term pre { margin: 0; padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; font-variant-numeric: tabular-nums; }
+.term .c { color: var(--term-cmd); }
+.term .d { color: var(--term-dim); }
+.copy { font: inherit; color: var(--term-fg); background: transparent; border: 1px solid #3a4b48; border-radius: 5px; padding: 3px 9px; cursor: pointer; }
+.copy:hover, .copy:focus-visible { border-color: var(--term-cmd); color: var(--term-cmd); outline: none; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; font-size: 12.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { min-width: 150px; }
+.tag { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.tag.ok { color: var(--ok); background: var(--ok-bg); } .tag.warn { color: var(--warn); background: var(--warn-bg); } .tag.no { color: var(--no); background: var(--no-bg); }
+.path { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; font-size: 14px; }
+.hop { flex: 1 1 120px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hop b { font-weight: 600; } .hop small { color: var(--muted); font-size: 12.5px; line-height: 1.35; }
+.hop.key { border-color: var(--accent); }
+.arrow { align-self: center; color: var(--accent); font-family: var(--mono); }
+.dont { display: flex; flex-direction: column; gap: 14px; padding: 0; margin: 0; list-style: none; }
+.dont li { border-left: 3px solid var(--no); padding-left: 16px; display: flex; flex-direction: column; gap: 8px; }
+.findings { display: flex; flex-direction: column; gap: 12px; padding-left: 20px; margin: 0; }
+footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 20px; }
+@media (max-width: 860px) { .page { grid-template-columns: minmax(0, 1fr); gap: 28px; } .rail { position: static; flex-direction: row; flex-wrap: wrap; } .arrow { display: none; } }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+</head>
+<body>
+<div class="page">
+<nav class="rail" aria-label="Levels">
+  <a href="#server"><span>1</span>The server</a>
+  <a href="#containers"><span>2</span>The containers</a>
+  <a href="#workspace"><span>3</span>One workspace</a>
+  <a href="#bot"><span>4</span>A bot by hand</a>
+  <a href="#change"><span>5</span>Changing a bot</a>
+  <a href="#travel"><span>6</span>A request's path</a>
+  <a href="#cheat"><span>+</span>Cheat sheet</a>
+  <a href="#found"><span>!</span>Found on the way</a>
+</nav>
+
+<main>
+<header>
+  <div class="kicker">Test server [REDACTED] · read 12 Nov 2026, 11:09 UTC</div>
+  <h1>What runs on the Orbs team server, and how to change a bot by hand</h1>
+  <p class="lede">Six levels, from the machine down to one line of a bot's instructions. Every terminal block is real output from the test install. Emails are shown as &lt;email&gt; and secrets are masked.</p>
+  <div class="term"><div class="bar"><span>your Mac</span><button class="copy" type="button">Copy</button></div><pre><span class="c">ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@[REDACTED]
+cd /opt/orbs</span></pre></div>
+  <p class="note">Every server command below runs as root in <code>/opt/orbs</code>. SSH is allowed only from your current IP address.</p>
+</header>
+
+<section id="server">
+  <h2><span class="n">1</span>The server</h2>
+  <p>The server is an Ubuntu 24.04 machine with Docker. Everything Orbs-related runs in containers. Bun is installed on the host only to run <code>deploy.ts</code>, the script that applies changes, backs up and restores.</p>
+  <p>Nothing Orbs-related listens on a public address. The Cloudflare connector dials out, so the tunnel is the only way in. The two <code>172.17.0.1</code> lines are test-only stand-ins for a model provider, reachable only from containers on this machine.</p>
+  <div class="term"><div class="bar"><span>what listens</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ss -ltnH | awk '{print $4}'</span>
+127.0.0.54:53       <span class="d"># local DNS resolver</span>
+172.17.0.1:48291    <span class="d"># tour-capture (test only)</span>
+172.17.0.1:48290    <span class="d"># test-mock-model (test only)</span>
+127.0.0.53%lo:53    <span class="d"># local DNS resolver</span>
+0.0.0.0:22          <span class="d"># sshd</span>
+[::]:22</pre></div>
+  <h3>The files in /opt/orbs</h3>
+  <div class="tablewrap"><table>
+    <tr><th>File</th><th>What it is for</th><th>Who writes it</th></tr>
+    <tr><td><code>users.yaml</code></td><td>The one list of people and admins.</td><td>You, or the admin panel through the provisioner</td></tr>
+    <tr><td><code>.env</code></td><td>Settings and secrets: hostname, Cloudflare values, image tag, shared model keys. Never print it.</td><td>You, at install</td></tr>
+    <tr><td><code>compose.yaml</code></td><td>The hub, the web app and the provisioner.</td><td>Shipped</td></tr>
+    <tr><td><code>daemon.yaml</code></td><td>The template every person's daemon follows: read-only, no privileges, 512 MiB.</td><td>Shipped</td></tr>
+    <tr><td><code>cloudflared.compose.yaml</code></td><td>The tunnel connector. Its routes live in Cloudflare; this file holds only the token reference.</td><td>Shipped</td></tr>
+    <tr><td><code>users.compose.yaml</code></td><td>One daemon, network and volume per person.</td><td>Generated by <code>apply</code>. Never by hand</td></tr>
+    <tr><td><code>hub/users.json</code></td><td>Email to daemon address and private-door path.</td><td>Generated by <code>apply</code>. Never by hand</td></tr>
+    <tr><td><code>hub/admins.json</code></td><td>Who may open <code>/admin</code>.</td><td>The hub</td></tr>
+    <tr><td><code>hub/pins.json</code></td><td>Which daemon belongs to which person, fixed on first contact.</td><td>The hub</td></tr>
+  </table></div>
+  <div class="term"><div class="bar"><span>the list of people</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ cat users.yaml</span>
+users:
+  owner:
+    name: Owner
+    email: &lt;email&gt;
+    enabled: true
+  second:
+    name: Second
+    email: &lt;email&gt;
+    enabled: true
+  tourdemo:
+    name: Tour Demo
+    email: &lt;email&gt;
+    enabled: true
+admins:
+  - &lt;email&gt;</pre></div>
+  <p class="note"><code>tourdemo</code> is a demo person created for this tour, so the editing examples never touch a real workspace.</p>
+</section>
+
+<section id="containers">
+  <h2><span class="n">2</span>The containers</h2>
+  <p>Each person gets one daemon: their own Orbs, with their bots, database and files. Around the daemons sit four shared containers.</p>
+  <div class="term"><div class="bar"><span>what runs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}"</span>
+SERVICE           IMAGE                              STATUS
+cloudflared       cloudflare/cloudflared:2026.10.7   Up 10 hours (healthy)
+daemon-owner      orbs-daemon:7c0f545                Up 10 hours (healthy)
+daemon-second     orbs-daemon:7c0f545                Up 10 hours (healthy)
+daemon-tourdemo   orbs-daemon:7c0f545                Up About an hour (healthy)
+hub               orbs-hub:7c0f545                   Up 10 hours (healthy)
+provisioner       orbs-provisioner:7c0f545           Up 10 hours (healthy)
+web               orbs-web:7c0f545                   Up 10 hours (healthy)</pre></div>
+  <div class="tablewrap"><table>
+    <tr><th>Container</th><th>Role</th></tr>
+    <tr><td><code>daemon-&lt;id&gt;</code></td><td>One person's Orbs: bots, database, files. Reachable only on that person's own network.</td></tr>
+    <tr><td><code>hub</code></td><td>The front door. Checks the Cloudflare login, sends each person to their own daemon, and relays the admin panel to the private doors.</td></tr>
+    <tr><td><code>web</code></td><td>The shared web app, including the admin panel pages. Talks only to the hub.</td></tr>
+    <tr><td><code>provisioner</code></td><td>Creates and removes people's containers for the admin panel. The only container that can control Docker; it answers only the hub.</td></tr>
+    <tr><td><code>cloudflared</code></td><td>The tunnel connector. Outbound only.</td></tr>
+  </table></div>
+  <h3>Who can talk to whom</h3>
+  <p>The hub is the only container on every network. Each daemon sits alone with the hub on its own <code>user-&lt;id&gt;</code> network, so daemons cannot reach each other. The <code>web</code> and <code>provisioner</code> networks are internal: no internet.</p>
+  <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^orbs_); do printf "%-20s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
+orbs_egress          internal=false orbs-provisioner-1
+orbs_provisioner     internal=true  orbs-provisioner-1 orbs-hub-1
+orbs_tunnel          internal=false orbs-hub-1 orbs-cloudflared-1
+orbs_user-owner      internal=false orbs-hub-1 orbs-daemon-owner-1
+orbs_user-second     internal=false orbs-daemon-second-1 orbs-hub-1
+orbs_user-tourdemo   internal=false orbs-daemon-tourdemo-1 orbs-hub-1
+orbs_web             internal=true  orbs-hub-1 orbs-web-1</pre></div>
+  <div class="term"><div class="bar"><span>memory and CPU, idle</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"</span>
+NAME                     MEM USAGE / LIMIT     CPU %
+orbs-daemon-owner-1      138.3MiB / 512MiB     0.27%
+orbs-daemon-tourdemo-1   126.5MiB / 512MiB     0.20%
+orbs-daemon-second-1     103.4MiB / 512MiB     0.24%
+orbs-web-1               103.3MiB / 256MiB     0.10%
+orbs-provisioner-1       65.82MiB / 256MiB     0.07%
+orbs-cloudflared-1       37.58MiB / 256MiB     0.39%
+orbs-hub-1               19.02MiB / 256MiB     0.26%
+test-mock-model          3.871MiB / 64MiB      0.00%
+tour-capture             3.543MiB / 3.725GiB   0.00%</pre></div>
+  <p>Each daemon is locked down. This is one line per container:</p>
+  <div class="term"><div class="bar"><span>hardening of one daemon</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker inspect orbs-daemon-second-1 --format "readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} user={{.Config.User}} memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}}"</span>
+readonly=true capdrop=[ALL] user=1000:1000 memory=536870912 pids=256 ports={}</pre></div>
+  <h3>Logs</h3>
+  <p>The hub logs logins, pairing and every admin action with the admin's email. It does not log each ordinary request.</p>
+  <div class="term"><div class="bar"><span>hub log, trimmed</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose logs hub --since 24h | grep -E "message:|by:|user:|procedure:|users:" | tail -9</span>
+hub-1  |   ├─ message: Admin call relayed to a private door
+hub-1  |   ├─ by: &lt;email&gt;
+hub-1  |   ├─ user: owner
+hub-1  |   └─ procedure: providers/list
+hub-1  |   ├─ message: Pairing grant issued through the hub
+hub-1  |   └─ user: second
+hub-1  |   ├─ message: Users loaded
+hub-1  |   └─ users: 3</pre></div>
+  <p class="note">For one person's daemon: <code>docker compose logs daemon-second -f</code>. A daemon with no paired device prints a pairing PIN at start, so never paste daemon logs anywhere public.</p>
+</section>
+
+<section id="workspace">
+  <h2><span class="n">3</span>One person's workspace</h2>
+  <p>Everything that belongs to a person lives in one Docker volume, <code>orbs_data-&lt;id&gt;</code>, mounted at <code>/data</code> inside their daemon.</p>
+  <div class="term"><div class="bar"><span>volumes</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker volume ls --format "{{.Name}}" | grep orbs_</span>
+orbs_data-owner
+orbs_data-second
+orbs_data-tourdemo
+orbs_ipc</pre></div>
+  <p>The safe way to look inside is a throwaway container with the volume mounted read-only and no network. It cannot change anything, and it disappears when the command ends.</p>
+  <div class="term"><div class="bar"><span>the workspace of "second"</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ TAG=$(sed -n 's/^ORBS_TAG=//p' .env)
+$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
+    --entrypoint sh orbs-daemon:$TAG -c 'find /data -maxdepth 4 | sort'</span>
+/data
+/data/agents
+/data/agents/af735362-ce91-412c-a39d-51da35ee8273
+/data/data
+/data/data/app.sqlite
+/data/data/app.sqlite-shm
+/data/data/app.sqlite-wal
+/data/data/bots
+/data/data/bots/af735362-ce91-412c-a39d-51da35ee8273
+/data/data/bots/af735362-ce91-412c-a39d-51da35ee8273/runtime.sql
+/data/data/bots/af735362-ce91-412c-a39d-51da35ee8273/telemetry.sql
+/data/data/credentials.key
+/data/data/daemon.lock
+/data/data/ipc
+/data/home
+/data/pi
+/data/pi/auth.json
+/data/pi/models-store.json
+/data/pi/models.json</pre></div>
+  <div class="tablewrap"><table>
+    <tr><th>Path</th><th>What it holds</th></tr>
+    <tr><td><code>agents/&lt;botId&gt;/</code></td><td>The bot's working folder: its instructions file, its own skills, its own MCP list, uploaded attachments.</td></tr>
+    <tr><td><code>data/app.sqlite</code></td><td>The app database: bots, paired devices, settings, encrypted secrets.</td></tr>
+    <tr><td><code>data/credentials.key</code></td><td>The key that decrypts the secrets. Treat as a secret.</td></tr>
+    <tr><td><code>data/daemon.lock</code></td><td>The lock the daemon holds while it runs.</td></tr>
+    <tr><td><code>data/bots/&lt;botId&gt;/runtime.sql</code></td><td>That bot's conversations, routines, todos and pending approvals.</td></tr>
+    <tr><td><code>data/bots/&lt;botId&gt;/telemetry.sql</code></td><td>Model and tool timings, kept 14 days.</td></tr>
+    <tr><td><code>data/ipc/rpc.sock</code></td><td>The private door. It lives in the shared <code>orbs_ipc</code> volume, which is why the folder looks empty here.</td></tr>
+    <tr><td><code>pi/models.json</code>, <code>pi/auth.json</code></td><td>Model provider settings and logins.</td></tr>
+    <tr><td><code>home/</code></td><td>The person's shared files that all their bots can inherit: <code>~/.agents/skills/</code>, <code>~/.agents/mcp.json</code>.</td></tr>
+  </table></div>
+  <p>On this test server <code>pi/models.json</code> is why the app shows Anthropic as "Connected": it points that provider at the mock model with a fake key.</p>
+  <div class="term"><div class="bar"><span>provider settings, key masked</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
+    --entrypoint cat orbs-daemon:$TAG /data/pi/models.json | sed -E 's/("apiKey" *: *")[^"]*/\1***/'</span>
+{"providers":{"anthropic":{"baseUrl":"http://172.17.0.1:48290","apiKey":"***"}}}</pre></div>
+</section>
+
+<section id="bot">
+  <h2><span class="n">4</span>A bot by hand</h2>
+  <p>Everything the bot form shows lives in exactly one place. Part is rows in the database, part is plain files in the bot's folder. That split decides what you can edit by hand.</p>
+  <div class="term"><div class="bar"><span>the row behind the bot form</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro --entrypoint bun orbs-daemon:$TAG -e \
+  'const { Database } = require("bun:sqlite"); console.log(new Database("/data/data/app.sqlite", { readonly: true }).query("select name, handle, model_provider, model_id, thinking_level, permission from bot").all())'</span>
+[
+  {
+    name: "Mock Researcher",
+    handle: "mock-researcher",
+    model_provider: "anthropic",
+    model_id: "claude-haiku-5-5",
+    thinking_level: "low",
+    permission: "ask",
+  }
+]</pre></div>
+  <div class="tablewrap"><table>
+    <tr><th>What</th><th>Where it lives</th><th>By hand?</th></tr>
+    <tr><td>Instructions file</td><td><code>agents/&lt;botId&gt;/AGENTS.md</code></td><td><span class="tag ok">Yes, while running</span><br>Used on the next message.</td></tr>
+    <tr><td>Skills</td><td><code>agents/&lt;botId&gt;/.pi/skills/&lt;name&gt;/SKILL.md</code></td><td><span class="tag ok">Yes, while running</span><br>Picked up within 30 seconds.</td></tr>
+    <tr><td>MCP servers</td><td><code>agents/&lt;botId&gt;/.agents/mcp.json</code></td><td><span class="tag ok">Yes, while running</span><br>Used on the next message.</td></tr>
+    <tr><td>Provider settings</td><td><code>pi/models.json</code></td><td><span class="tag warn">Needs a restart</span><br>Of that person's daemon only.</td></tr>
+    <tr><td>Name, avatar, model, fallback, approval mode, the form's instructions box</td><td>The <code>bot</code> row in <code>data/app.sqlite</code></td><td><span class="tag no">Not by hand</span><br>Use the private door.</td></tr>
+    <tr><td>Secrets</td><td>Encrypted rows in <code>data/app.sqlite</code></td><td><span class="tag no">Not by hand</span><br>Use the private door.</td></tr>
+    <tr><td>Provider logins and keys</td><td><code>pi/auth.json</code></td><td><span class="tag no">Not by hand</span><br>Use the app or the private door.</td></tr>
+    <tr><td>Conversations, routines, todos</td><td><code>data/bots/&lt;botId&gt;/runtime.sql</code></td><td><span class="tag no">Never write</span><br>Reading is fine.</td></tr>
+  </table></div>
+  <p class="note">Each "yes" and "needs a restart" was proven on the demo person by making the change and watching the bot use it. The <code>auth.json</code> row was not tried by hand.</p>
+  <h3>Secrets are not readable</h3>
+  <p>A secret saved through the app or the door is stored encrypted. The database holds only ciphertext; the name and the allowed hosts are visible, the value is not.</p>
+  <div class="term"><div class="bar"><span>the demo secret, as stored</span></div><pre><span class="c">$ ... select key, length(value) as cipher_chars, length(iv) as iv_chars from credentials ...</span>
+[ { key: "secrets.TOUR_DEMO", cipher_chars: 60, iv_chars: 16 } ]</pre></div>
+</section>
+
+<section id="change">
+  <h2><span class="n">5</span>Three ways to change a bot without the app</h2>
+  <p>All examples act on the demo person <code>tourdemo</code> and its bot <code>tour-bot</code>. Its model is a small test stub that answers with the marker words it received, which shows exactly what reached the model.</p>
+
+  <h3>Edit a file</h3>
+  <p>Write as user 1000, the user the daemon runs as, so the daemon can still read the file. The daemon reads the instructions file before every message, so the change applies at once.</p>
+  <div class="term"><div class="bar"><span>change the instructions file, then chat</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-tourdemo:/data --entrypoint sh orbs-daemon:$TAG -c \
+  'printf "# Tour instructions\n\nAlways greet with MARKER_EDIT_102041.\n" &gt; /data/agents/&lt;botId&gt;/AGENTS.md'</span>
+<span class="d">you&gt;</span> hello after editing AGENTS.md
+<span class="d">tour-bot&gt;</span> capture via claude-haiku-5-5 ... MARKER_EDIT_102041</pre></div>
+  <p>A skill takes up to 30 seconds, because the daemon caches each bot's skill list for that long. An MCP server added to <code>.agents/mcp.json</code> is started on the next message:</p>
+  <div class="term"><div class="bar"><span>an MCP server added by hand, then used by the bot</span></div><pre><span class="c">$ cat /data/agents/&lt;botId&gt;/.agents/mcp.json</span>
+{"mcpServers":{"tour":{"command":"bun","args":["/data/agents/&lt;botId&gt;/.agents/tour-mcp.js"]}}}
+<span class="d">you&gt;</span> CALLTOOL: what time is it on the server?
+<span class="d">tour-bot&gt;</span> the MCP tool answered: "2026-11-12T10:21:18.488Z"</pre></div>
+
+  <h3>Call the private door</h3>
+  <p>The private door is a socket file inside each person's workspace. It accepts the same requests the app makes for settings and bots, and refuses chat, approvals and pairing. The admin panel uses this same door through the hub.</p>
+  <div class="term"><div class="bar"><span>list a person's bots</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose exec -T daemon-tourdemo bun -e 'const r = await fetch("http://localhost/rpc/bots/list", { method: "POST", unix: "/data/data/ipc/rpc.sock", headers: { "content-type": "application/json", "x-bots-protocol": "1" }, body: JSON.stringify({ json: {} }) }); console.log(r.status, await r.text())'</span>
+200 {"json":[{"avatar":null,"name":"Tour Bot","handle":"tour-bot","modelProvider":"anthropic","modelId":"claude-haiku-5-5","thinkingLevel":"low","permission":"full",...}]}</pre></div>
+  <p>To change a bot, call <code>bots/update</code> with only the fields you want changed. The daemon checks the values, saves them and reconfigures the bot, so the next reply uses them.</p>
+  <div class="term"><div class="bar"><span>change model and instructions through the door</span></div><pre><span class="c">$ door tourdemo bots/update '{"botId":"&lt;botId&gt;","instructions":"You are the tour demo bot. MARKER_DOOR_102121","modelId":"claude-sonnet-5-5"}'</span>
+200 {"json":{...,"instructions":"You are the tour demo bot. MARKER_DOOR_102121","modelId":"claude-sonnet-5-5",...}}
+<span class="d">you&gt;</span> hello after the door change
+<span class="d">tour-bot&gt;</span> capture via claude-sonnet-5-5 ... MARKER_DOOR_102121</pre></div>
+  <p class="note"><code>door</code> is the command above wrapped as a small shell function; the tour script defines it.</p>
+  <p>The door refuses anything that would act as the person:</p>
+  <div class="term"><div class="bar"><span>refused on the private door</span></div><pre>conversation/history   403 FORBIDDEN
+conversation/submit    403 FORBIDDEN
+pairing/create         403 FORBIDDEN
+routines/create        403 FORBIDDEN</pre></div>
+
+  <h3>What not to do</h3>
+  <ul class="dont">
+    <li><p><b>Do not edit <code>app.sqlite</code> while the daemon runs.</b> A hand edit skips the daemon's checks. One invalid value made the person's whole bot list fail until the row was put back:</p>
+    <div class="term"><div class="bar"><span>tried on the demo person, then reverted</span></div><pre><span class="c">$ sql "update bot set permission = 'banana' where handle = 'tour-bot'"
+$ door tourdemo bots/list</span>
+500 {"json":{"code":"INTERNAL_SERVER_ERROR","message":"Output validation failed"}}
+<span class="c">$ sql "update bot set permission = 'full' where handle = 'tour-bot'"
+$ door tourdemo bots/list</span>
+200 {"json":[{"avatar":null,"name":"Tour Bot",...</pre></div></li>
+    <li><p><b>Do not write to <code>runtime.sql</code>.</b> The daemon recovers conversations, approvals, routines and todos from it on every start. A hand edit breaks that recovery for the bot.</p></li>
+    <li><p><b>Do not delete <code>daemon.lock</code>.</b> It does not stop the daemon. It only lets a second process open the same files and corrupt them.</p></li>
+    <li><p><b>Do not edit <code>users.compose.yaml</code> or <code>hub/users.json</code>.</b> They are regenerated. Edit <code>users.yaml</code>, then run <code>bun deploy.ts apply</code>.</p></li>
+  </ul>
+  <p>When something cannot be changed through the door, take a backup first with <code>bun deploy.ts backup &lt;id&gt;</code> and edit only while that person's daemon is stopped.</p>
+</section>
+
+<section id="travel">
+  <h2><span class="n">6</span>How a request travels</h2>
+  <p>A person opening the app:</p>
+  <div class="path" role="img" aria-label="Browser, then Cloudflare Access, then the tunnel connector, then the hub, then that person's daemon">
+    <div class="hop"><b>Browser</b><small>the team hostname</small></div><span class="arrow">→</span>
+    <div class="hop"><b>Cloudflare Access</b><small>emailed code; signs the person's email</small></div><span class="arrow">→</span>
+    <div class="hop"><b>cloudflared</b><small>outbound tunnel on the server</small></div><span class="arrow">→</span>
+    <div class="hop key"><b>hub</b><small>checks the signature, looks up the email</small></div><span class="arrow">→</span>
+    <div class="hop"><b>daemon-&lt;id&gt;</b><small>that person's Orbs only</small></div>
+  </div>
+  <p>The hub sends the app's data paths (<code>/rpc</code>, <code>/files</code>, <code>/avatars</code> and a few more) to the person's daemon and every other path to the shared web app. Without a valid Cloudflare signature it answers 401:</p>
+  <div class="term"><div class="bar"><span>asking the hub directly, with no login</span></div><pre><span class="c">$ docker run --rm --network orbs_tunnel --entrypoint bun orbs-hub:$TAG -e 'for (const p of ["/rpc", "/admin", "/hub/health", "/favicon.ico"]) { const r = await fetch("http://hub:47192" + p, { redirect: "manual" }); console.log(p.padEnd(14), r.status) }'</span>
+/rpc           401
+/admin         401
+/hub/health    200
+/favicon.ico   200</pre></div>
+  <p>An admin changing a person's bot from the panel:</p>
+  <div class="path" role="img" aria-label="Admin panel, then the hub, then the private door of that person's daemon">
+    <div class="hop"><b>Admin panel</b><small>/admin, in the web app</small></div><span class="arrow">→</span>
+    <div class="hop key"><b>hub</b><small>is this email in admins.json? logs who did what</small></div><span class="arrow">→</span>
+    <div class="hop"><b>private door</b><small>the socket of that person's daemon</small></div>
+  </div>
+  <p>The admin never becomes a device of the person. The hub relays one request at a time over the socket and writes a log line for each.</p>
+</section>
+
+<section id="cheat">
+  <h2><span class="n">+</span>Cheat sheet</h2>
+  <div class="term"><div class="bar"><span>on the server, in /opt/orbs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">docker compose ps</span>                              <span class="d"># containers and health</span>
+<span class="c">docker stats --no-stream</span>                       <span class="d"># memory and CPU</span>
+<span class="c">docker compose logs hub --since 1h</span>             <span class="d"># logins, pairing, admin actions</span>
+<span class="c">docker compose logs daemon-&lt;id&gt; -f</span>             <span class="d"># one person's Orbs, live</span>
+<span class="c">docker volume ls | grep orbs_data-</span>             <span class="d"># one volume per person</span>
+<span class="c">TAG=$(sed -n 's/^ORBS_TAG=//p' .env)</span>           <span class="d"># the image tag, without printing .env</span>
+
+<span class="d"># look inside a workspace, read-only</span>
+<span class="c">docker run --rm --network none --user 1000:1000 -v orbs_data-&lt;id&gt;:/data:ro --entrypoint sh orbs-daemon:$TAG -c 'find /data'</span>
+
+<span class="d"># edit a file in a workspace as the daemon's user</span>
+<span class="c">docker run --rm -it --network none --user 1000:1000 -v orbs_data-&lt;id&gt;:/data --entrypoint sh orbs-daemon:$TAG</span>
+
+<span class="d"># the private door: bots/list, bots/update, bots/catalog, secrets/list, routines/list</span>
+<span class="c">docker compose exec -T daemon-&lt;id&gt; bun -e 'const r = await fetch("http://localhost/rpc/bots/list", { method: "POST", unix: "/data/data/ipc/rpc.sock", headers: { "content-type": "application/json", "x-bots-protocol": "1" }, body: JSON.stringify({ json: {} }) }); console.log(r.status, await r.text())'</span>
+
+<span class="c">docker compose restart daemon-&lt;id&gt;</span>             <span class="d"># after changing pi/models.json</span>
+<span class="c">bun deploy.ts apply</span>                            <span class="d"># after editing users.yaml</span>
+<span class="c">bun deploy.ts backup &lt;id&gt;</span>                      <span class="d"># before any risky change</span></pre></div>
+</section>
+
+<section id="found">
+  <h2><span class="n">!</span>Found on the way</h2>
+  <ul class="findings">
+    <li><b>A pairing PIN in the logs.</b> A daemon that starts with no paired device prints a working PIN in its container log for five minutes. Reading it needs server access and using it needs that person's Cloudflare login, so the risk is low, but a team install never needs it.</li>
+    <li><b>A possible gap with MCP tools.</b> After the bot discovered an MCP tool, later requests still did not carry that tool's description, though calling it worked. Seen only with the test stub; it needs a check with a real model.</li>
+    <li><b>One unexplained refusal.</b> When the second person logged in, their daemon refused one pairing call half a second after the hub issued the grant. The login worked. Not yet investigated.</li>
+    <li><b>Log noise.</b> Each daemon warns about a missing shared skills folder on every message for people who have none.</li>
+  </ul>
+  <footer>Outputs from the "what runs", "memory", "what listens", "networks", "people", "volumes", workspace listing and bot row blocks were read at 11:09 UTC on 12 November 2026. The editing demonstrations and the remaining blocks were run on the demo person earlier the same morning. Test-only items on this server: the demo person <code>tourdemo</code>, the containers <code>test-mock-model</code> and <code>tour-capture</code>, and each person's <code>pi/models.json</code>.</footer>
+</section>
+</main>
+</div>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var pre = button.closest('.term').querySelector('pre');
+    var commands = Array.prototype.map.call(pre.querySelectorAll('.c'), function (el) { return el.textContent.replace(/^\$ /gm, ''); }).join('\n');
+    var done = function () { button.textContent = 'Copied'; setTimeout(function () { button.textContent = 'Copy'; }, 1500); };
+    var fallback = function () { var range = document.createRange(); range.selectNodeContents(pre); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(commands).then(done, fallback); } else { fallback(); }
+  });
+});
+</script>
+</body>
+</html>
