@@ -1,15 +1,15 @@
 import { m } from '@repo/i18n/client';
 import { Alert, AlertDescription, AlertTitle } from '@repo/ui/alert';
-import { ConfirmationDialog } from '@repo/ui/alert-dialog';
 import { Badge } from '@repo/ui/badge';
 import { Button } from '@repo/ui/button';
 import { ButtonLoading } from '@repo/ui/button-loading';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { match } from 'ts-pattern';
+import { AdminSectionBack } from '@/components/admin/admin-section-back';
 import { useAdminSectionMode } from '@/hooks/use-admin-section-mode';
 import { ADMIN } from '@/services/admin/admin.constants';
-import { adminProblem, adminSectionLabel } from '@/services/admin/admin.utils';
+import { adminProblem } from '@/services/admin/admin.utils';
 import IconTriangleAlert from '~icons/lucide/triangle-alert';
 import IconSpinner from '~icons/svg-spinners/90-ring-with-bg';
 import type { AdminSection } from '@repo/contracts/universal';
@@ -22,7 +22,6 @@ interface AdminSectionActionsProps {
 export function AdminSectionActions({ userId, section }: AdminSectionActionsProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const change = useAdminSectionMode({ userId, section });
-  const label = adminSectionLabel(section.id);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -34,7 +33,7 @@ export function AdminSectionActions({ userId, section }: AdminSectionActionsProp
           loading={change.isPending}
           size="sm"
           variant="outline"
-          onClick={() => change.mutate('overridden')}
+          onClick={() => change.mutate({ mode: 'overridden' })}
         >
           {m.admin_section_override()}
         </ButtonLoading>
@@ -51,17 +50,11 @@ export function AdminSectionActions({ userId, section }: AdminSectionActionsProp
         <span className="text-xs text-destructive" role="alert">{adminProblem({ error: change.error, failed: m.admin_section_override_failed() })}</span>
       ) : null}
       {isConfirming ? (
-        <ConfirmationDialog
-          confirmLabel={m.admin_section_back()}
-          error={change.isError ? adminProblem({ error: change.error, failed: m.admin_section_back_failed() }) : null}
-          pending={change.isPending}
-          title={m.admin_section_back_title({ section: label })}
-          variant="destructive"
-          onConfirm={() => change.mutate('global', { onSuccess: () => setIsConfirming(false) })}
+        <AdminSectionBack
+          section={section}
+          userId={userId}
           onOpenChange={setIsConfirming}
-        >
-          {m.admin_section_back_description({ section: label })}
-        </ConfirmationDialog>
+        />
       ) : null}
     </div>
   );
@@ -86,7 +79,7 @@ export function AdminSectionNotice({ userId, section }: AdminSectionNoticeProps)
             loading={retry.isPending}
             size="xs"
             variant="outline"
-            onClick={() => retry.mutate('global')}
+            onClick={() => retry.mutate({ mode: 'global' })}
           >
             {m.layout_retry()}
           </ButtonLoading>

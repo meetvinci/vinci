@@ -8,7 +8,7 @@ import { ADMIN } from '@/services/admin/admin.constants';
 import { SETTINGS_NAV } from '@/services/settings/settings.constants';
 import type * as AdminTypes from '@/types/admin.types';
 import type { SectionScope } from '@/types/section.types';
-import type { AdminAuditEntry, AdminUserState, SettingsSection } from '@repo/contracts/universal';
+import type * as UniversalTypes from '@repo/contracts/universal';
 
 export function adminSectionScope(userId: string): SectionScope {
   return {
@@ -94,8 +94,44 @@ export function adminBotCopyProblem({ copies, bots }: AdminTypes.AdminBotCopyPro
   return failed.length > 0 ? m.admin_bots_copy_partial({ bots: failed.join(', ') }) : null;
 }
 
-export function adminSectionLabel(section: SettingsSection): string {
+export function adminSectionLabel(section: UniversalTypes.SettingsSection): string {
   return SETTINGS_NAV.find((item) => item.id === section)?.label() ?? section;
+}
+
+export function adminIsPreviewStale(error: Error | null): boolean {
+  return error instanceof ORPCError && error.code === 'CONFLICT';
+}
+
+export function adminPreviewKind(kind: UniversalTypes.AdminPreviewKind): string {
+  return match(kind)
+    .with('provider', () => m.admin_preview_kind_provider())
+    .with('chatSetting', () => m.admin_preview_kind_chat_setting())
+    .with('toolSetting', () => m.admin_preview_kind_tool_setting())
+    .with('secret', () => m.admin_preview_kind_secret())
+    .with('secretSetting', () => m.admin_preview_kind_secret_setting())
+    .with('skill', () => m.admin_preview_kind_skill())
+    .with('instruction', () => m.admin_preview_kind_instruction())
+    .with('plugin', () => m.admin_preview_kind_plugin())
+    .with('mcpServer', () => m.admin_preview_kind_mcp_server())
+    .with('file', () => m.admin_preview_kind_file())
+    .with('sourceSetting', () => m.admin_preview_kind_source_setting())
+    .exhaustive();
+}
+
+export function adminPreviewName({ kind, name }: UniversalTypes.AdminPreviewItem): string | null {
+  return match({ kind, name })
+    .with({ kind: 'chatSetting', name: 'whenBusy' }, () => m.admin_preview_setting_when_busy())
+    .with({ kind: 'chatSetting', name: 'hideVerbose' }, () => m.admin_preview_setting_hide_verbose())
+    .with({ kind: 'chatSetting', name: 'gifProvider' }, () => m.admin_preview_setting_gif_provider())
+    .with({ kind: 'toolSetting', name: 'approvalRules' }, () => m.admin_preview_setting_approval_rules())
+    .with({ kind: 'toolSetting', name: 'approvalTimeoutMinutes' }, () => m.admin_preview_setting_approval_timeout())
+    .with({ kind: 'toolSetting', name: 'jevApiKey' }, () => m.admin_preview_setting_jev_key())
+    .with({ kind: 'secretSetting', name: 'mode' }, () => m.admin_preview_setting_secret_mode())
+    .with({ kind: 'sourceSetting', name: 'skills' }, () => m.admin_preview_setting_skills())
+    .with({ kind: 'sourceSetting', name: 'instructions' }, () => m.admin_preview_setting_instructions())
+    .with({ kind: 'sourceSetting', name: 'plugins' }, () => m.admin_preview_setting_plugins())
+    .with({ kind: 'sourceSetting', name: 'mcp' }, () => m.admin_preview_setting_mcp())
+    .otherwise(() => null);
 }
 
 export function adminProblem({ error, failed }: AdminTypes.AdminProblemParams): string {
@@ -130,7 +166,7 @@ export async function adminRequest<T>({ path, schema, method = 'GET', body }: Ad
   return schema.parse(text === '' ? {} : JSON.parse(text));
 }
 
-export function adminStateLabel(state: AdminUserState): { label: string; tone: 'success' | 'warning' | 'default' } {
+export function adminStateLabel(state: UniversalTypes.AdminUserState): { label: string; tone: 'success' | 'warning' | 'default' } {
   return match(state)
     .with('running', () => ({ label: m.admin_state_running(), tone: 'success' as const }))
     .with('starting', () => ({ label: m.admin_state_starting(), tone: 'warning' as const }))
@@ -162,7 +198,7 @@ function adminAuditSection(detail: string | null): string {
   return section.success ? adminSectionLabel(section.data) : detail ?? '';
 }
 
-export function adminAuditSentence({ action, detail }: AdminAuditEntry): string {
+export function adminAuditSentence({ action, detail }: UniversalTypes.AdminAuditEntry): string {
   return match(action)
     .with('conversation/list', () => m.admin_activity_read_list())
     .with('conversation/history', () => m.admin_activity_read_history())

@@ -1,14 +1,14 @@
 import { createRouterUtils } from '@orpc/tanstack-query';
 import { CHAT, makeHttpClient } from '@repo/client/client';
 import { queryMutationCache } from '@repo/client/react';
-import { adminAuditPage, adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
+import { adminAuditPage, adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminSectionPreview, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { log } from '@repo/logger/client';
 import { toasty } from '@repo/ui/sonner';
 import { infiniteQueryOptions, isCancelledError, QueryClient, queryOptions } from '@tanstack/react-query';
 import { ADMIN } from '@/services/admin/admin.constants';
 import { adminAuditPath, adminIsSectionRefused, adminRequest, adminRpcPrefix } from '@/services/admin/admin.utils';
-import type { AdminBotCopyParams, AdminRpcParams, AdminSectionModeParams } from '@/types/admin.types';
+import type * as AdminTypes from '@/types/admin.types';
 import type { RpcContextValue } from '@repo/client/react';
 import type * as UniversalTypes from '@repo/contracts/universal';
 
@@ -87,7 +87,7 @@ export function adminAuditQuery(filter: UniversalTypes.AdminAuditFilter) {
   });
 }
 
-export function adminUserSectionsQuery({ userId }: AdminRpcParams) {
+export function adminUserSectionsQuery({ userId }: AdminTypes.AdminRpcParams) {
   return queryOptions({
     queryKey: ['admin', 'sections', 'user', userId],
     queryFn: async ({ client, queryKey }) => {
@@ -112,12 +112,21 @@ export function adminGlobalStatusQuery() {
   });
 }
 
-export function adminSetSectionMode({ userId, section, mode }: AdminSectionModeParams) {
+export function adminSectionPreviewQuery({ userId, section }: AdminTypes.AdminSectionPreviewParams) {
+  return queryOptions({
+    queryKey: ['admin', 'preview', userId, section],
+    queryFn: () => adminRequest({ path: `/users/${encodeURIComponent(userId)}/sections/${section}/preview`, schema: adminSectionPreview }),
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+export function adminSetSectionMode({ userId, section, mode, marker }: AdminTypes.AdminSectionModeParams) {
   return adminRequest({
     path: `/users/${encodeURIComponent(userId)}/sections/${section}`,
     schema: adminChangeResult,
     method: 'PUT',
-    body: { mode },
+    body: { mode, marker },
   });
 }
 
@@ -130,7 +139,7 @@ export function adminGlobalSync(input: UniversalTypes.AdminGlobalSyncInput) {
   });
 }
 
-export function adminCopyBots({ userId, bots }: AdminBotCopyParams) {
+export function adminCopyBots({ userId, bots }: AdminTypes.AdminBotCopyParams) {
   return adminRequest({
     path: `/users/${encodeURIComponent(userId)}/bots/copy`,
     schema: adminBotCopyResult,
@@ -186,7 +195,7 @@ export function adminRemoveUser({ id }: Pick<UniversalTypes.AdminUserPatch, 'id'
   });
 }
 
-export function adminRpc({ userId }: AdminRpcParams): RpcContextValue {
+export function adminRpc({ userId }: AdminTypes.AdminRpcParams): RpcContextValue {
   const user = `${ADMIN.apiPath}/users/${encodeURIComponent(userId)}`;
   const client = makeHttpClient(() => ({ url: `${user}/rpc` }));
 

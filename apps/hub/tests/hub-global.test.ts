@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
@@ -26,6 +26,13 @@ describe('global settings and the template workspace', () => {
     await sleep(250);
 
     return hubAdminTestUntil(check, deadline);
+  }
+
+  async function hubAdminTestBack(token: string, user: string, section: string) {
+    const { json } = await hubAdminTestRead(token, `/admin/api/users/${user}/sections/${section}/preview`);
+    const { marker } = z.object({ marker: z.string() }).parse(json);
+
+    return hubAdminTestWrite(token, `/admin/api/users/${user}/sections/${section}`, { method: 'PUT', body: { mode: 'global', marker } });
   }
 
   it('keeps the template out of the user list and every login, and relays to it for admins only', async ({ tokens }) => {
@@ -78,7 +85,10 @@ describe('global settings and the template workspace', () => {
       value: 'team-secret',
     });
 
-    const chat = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/chat', { method: 'PUT', body: { mode: 'global' } });
+    const blind = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/chat', { method: 'PUT', body: { mode: 'global' } });
+    const unswitched = await hubAdminTestRead(tokens.root, '/admin/api/users/alice/sections');
+    const chat = await hubAdminTestBack(tokens.root, 'alice', 'chat');
+    const again = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/chat', { method: 'PUT', body: { mode: 'global' } });
     const copied = await relay(tokens.root, 'alice', 'conversation/settings');
     const refused = await relay(tokens.root, 'alice', 'conversation/configure', { whenBusy: 'interrupt' });
 
@@ -94,8 +104,8 @@ describe('global settings and the template workspace', () => {
     const followed = await hubAdminTestUntil(async () => JSON.stringify((await relay(tokens.root, 'alice', 'conversation/settings')).json).includes('"followUp"'));
     const bob = await relay(tokens.root, 'bob', 'conversation/settings');
 
-    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/secrets', { method: 'PUT', body: { mode: 'global' } });
-    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/models', { method: 'PUT', body: { mode: 'global' } });
+    await hubAdminTestBack(tokens.root, 'alice', 'secrets');
+    await hubAdminTestBack(tokens.root, 'alice', 'models');
 
     const secrets = await relay(tokens.root, 'alice', 'secrets/list');
     const auth = JSON.parse(await readFile(join(fixture.root, 'alice/pi/auth.json'), 'utf8'));
@@ -106,7 +116,10 @@ describe('global settings and the template workspace', () => {
     const sync = await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: {} });
     const invalid = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/devices', { method: 'PUT', body: { mode: 'global' } });
 
+    expect(blind.status).toBe(422);
+    expect(unswitched.json).toMatchObject({ sections: [{}, { id: 'chat', mode: 'overridden' }, {}, {}, {}] });
     expect(chat.json).toEqual({ sections: [{ id: 'chat', mode: 'global', sync: 'in-sync' }] });
+    expect(again.json).toEqual({ sections: [{ id: 'chat', mode: 'global', sync: 'in-sync' }] });
     expect(JSON.stringify(copied.json)).toContain('"steer"');
     expect(refused).toEqual({ status: 409, json: { code: 'SECTION_FOLLOWS_GLOBAL', section: 'chat' } });
     expect(passes.map(({ status }) => status)).toEqual([200, 200]);
@@ -176,5 +189,124 @@ describe('global settings and the template workspace', () => {
     ]);
     expect(read.status).toBe(200);
     expect(reserved.status).toBe(403);
+  });
+
+  it('previews switching back to global by name only, changes nothing, and refuses a stale preview', async ({ fixture, tokens }) => {
+    const preview = async (section: string, token = tokens.root) => hubAdminTestRead(token, `/admin/api/users/bob/sections/${section}/preview`);
+
+    const item = z.object({
+      kind: z.string(),
+      name: z.string(),
+      change: z.string(),
+    });
+
+    const items = z.object({ marker: z.string(), items: z.array(item) });
+    const bobHome = join(fixture.root, 'bob');
+    const authPath = join(bobHome, 'pi/auth.json');
+    const auth = z.record(z.string(), z.object({ type: z.string(), key: z.string() })).parse(JSON.parse(await readFile(authPath, 'utf8')));
+
+    await mkdir(join(fixture.root, 'template/.agents/skills/team'), { recursive: true });
+    await writeFile(join(fixture.root, 'template/.agents/skills/team/SKILL.md'), '---\nname: team\ndescription: Team skill\n---\nTeam');
+    await mkdir(join(bobHome, '.agents/skills/team'), { recursive: true });
+    await mkdir(join(bobHome, '.agents/skills/mine'), { recursive: true });
+    await writeFile(join(bobHome, '.agents/skills/team/SKILL.md'), '---\nname: team\ndescription: Team skill\n---\nBob edit');
+    await writeFile(join(bobHome, '.agents/skills/mine/SKILL.md'), '---\nname: mine\ndescription: Own skill\n---\nMine');
+    await writeFile(join(bobHome, '.agents/mcp.json'), JSON.stringify({ mcpServers: { bobserver: { command: 'echo', args: ['dummy-mcp-arg-value'] } } }));
+    await writeFile(authPath, JSON.stringify({ ...auth, openai: { type: 'api_key', key: 'dummy-openai-key-value' } }), { mode: 0o600 });
+    await relay(tokens.root, 'bob', 'secrets/save', {
+      name: 'BOB_ONLY',
+      hosts: ['api.example.com'],
+      value: 'dummy-bob-only-value',
+    });
+    await relay(tokens.root, 'bob', 'secrets/save', {
+      name: 'TEAM_KEY',
+      hosts: ['api.example.com'],
+      value: 'dummy-bob-team-value',
+    });
+    await relay(tokens.root, 'bob', 'tools/configure', { approvalTimeoutMinutes: 3 });
+
+    const files = async () => Promise.all(['pi/auth.json', '.agents/mcp.json', '.agents/skills/mine/SKILL.md', '.agents/skills/team/SKILL.md'].map(async (path) => readFile(join(bobHome, path), 'utf8')));
+    const reads = async () => Promise.all(['secrets/list', 'conversation/settings', 'tools/settings', 'skills/settings'].map(async (procedure) => JSON.stringify((await relay(tokens.root, 'bob', procedure)).json)));
+
+    const before = {
+      files: await files(),
+      reads: await reads(),
+      audit: await hubAdminTestRead(tokens.root, '/admin/api/audit'),
+    };
+
+    const sections = ['models', 'chat', 'tools', 'secrets', 'sources'] as const;
+    const previews = await Promise.all(sections.map(async (section) => preview(section)));
+
+    const after = {
+      files: await files(),
+      reads: await reads(),
+      audit: await hubAdminTestRead(tokens.root, '/admin/api/audit'),
+    };
+
+    const named = Object.fromEntries(previews.map(({ json }, index) => [sections[index], items.parse(json).items.filter(({ change }) => change !== 'added')]));
+
+    const refused = await Promise.all([
+      preview('secrets', tokens.bob),
+      preview('secrets', tokens.eve),
+      hubAdminTestRead(tokens.root, '/admin/api/users/template/sections/secrets/preview'),
+      hubAdminTestRead(tokens.root, '/admin/api/users/bob/sections/devices/preview'),
+    ]);
+
+    expect(previews.map(({ status }) => status)).toEqual([200, 200, 200, 200, 200]);
+    expect(named).toEqual({
+      models: [{ kind: 'provider', name: 'anthropic', change: 'changed' }, { kind: 'provider', name: 'openai', change: 'removed' }],
+      chat: [{ kind: 'chatSetting', name: 'whenBusy', change: 'changed' }],
+      tools: [{ kind: 'toolSetting', name: 'approvalTimeoutMinutes', change: 'changed' }],
+      secrets: [{ kind: 'secret', name: 'BOB_ONLY', change: 'removed' }, { kind: 'secret', name: 'TEAM_KEY', change: 'changed' }],
+      sources: [
+        { kind: 'skill', name: 'mine', change: 'removed' },
+        { kind: 'skill', name: 'team', change: 'changed' },
+        { kind: 'mcpServer', name: 'bobserver', change: 'removed' },
+      ],
+    });
+    expect(JSON.stringify(previews)).not.toMatch(/dummy-|team-secret|hub-test-/u);
+    expect(after.files).toEqual(before.files);
+    expect(after.reads).toEqual(before.reads);
+    expect(after.audit).toEqual(before.audit);
+    expect(refused.map(({ status }) => status)).toEqual([403, 403, 404, 404]);
+
+    const stale = items.parse((await preview('secrets')).json).marker;
+
+    await relay(tokens.root, 'bob', 'secrets/save', {
+      name: 'BOB_LATE',
+      hosts: ['api.example.com'],
+      value: 'dummy-bob-late-value',
+    });
+
+    const refusedSwitch = await hubAdminTestWrite(tokens.root, '/admin/api/users/bob/sections/secrets', {
+      method: 'PUT',
+      body: { mode: 'global', marker: stale },
+    });
+
+    const stillOwn = await hubAdminTestRead(tokens.root, '/admin/api/users/bob/sections');
+    const fresh = items.parse((await preview('secrets')).json);
+
+    expect(refusedSwitch.status).toBe(409);
+    expect(stillOwn.json).toMatchObject({ sections: [{}, {}, {}, { id: 'secrets', mode: 'overridden' }, {}] });
+    expect(fresh.items.map(({ name }) => name)).toContain('BOB_LATE');
+
+    const marker = async (section: string) => items.parse((await preview(section)).json).marker;
+    const markers = Object.fromEntries(await Promise.all(sections.map(async (section) => [section, await marker(section)] as const)));
+
+    const switched = await Promise.all(sections.map(async (section) => hubAdminTestWrite(tokens.root, `/admin/api/users/bob/sections/${section}`, {
+      method: 'PUT',
+      body: { mode: 'global', marker: markers[section] },
+    })));
+
+    const emptied = await Promise.all(sections.map(async (section) => items.parse((await preview(section)).json).items));
+    const secrets = await relay(tokens.root, 'bob', 'secrets/list');
+    const mcp = await readFile(join(bobHome, '.agents/mcp.json'), 'utf8').catch(() => '');
+    const stored = await readFile(authPath, 'utf8');
+
+    expect(switched.map(({ json }) => json)).toEqual(sections.map((id) => ({ sections: [{ id, mode: 'global', sync: 'in-sync' }] })));
+    expect(emptied).toEqual(sections.map(() => []));
+    expect(JSON.stringify(secrets.json)).not.toMatch(/BOB_ONLY|BOB_LATE/u);
+    expect(mcp).not.toContain('bobserver');
+    expect(stored).not.toContain('openai');
   });
 });

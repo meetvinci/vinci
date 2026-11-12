@@ -19,6 +19,11 @@ export interface AdminSectionModeParams extends UniversalTypes.AdminSectionModeI
   section: UniversalTypes.AdminSectionId
 }
 
+export interface AdminSectionPreviewParams {
+  userId: string
+  section: UniversalTypes.AdminSectionId
+}
+
 export interface AdminSectionParams {
   userId: string
   section: UniversalTypes.AdminSection

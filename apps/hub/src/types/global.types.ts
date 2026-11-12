@@ -1,4 +1,4 @@
-import { adminSectionId, adminSectionMode, adminSectionSync } from '@repo/contracts/universal';
+import { adminSectionId, adminSectionMarker, adminSectionMode, adminSectionSync } from '@repo/contracts/universal';
 import { z } from 'zod';
 import { userId } from './user.types';
 import type { DaemonService } from './daemon.types';
@@ -14,7 +14,7 @@ const globalSectionState = z.strictObject({
 
 export const globalFile = z.strictObject({ users: z.record(userId, z.partialRecord(adminSectionId, globalSectionState)) });
 
-export const globalModeInput = z.strictObject({ mode: adminSectionMode });
+export const globalModeInput = z.strictObject({ mode: adminSectionMode, marker: adminSectionMarker.optional() });
 
 export const globalSyncInput = z.strictObject({ section: adminSectionId.optional() });
 
@@ -44,6 +44,7 @@ export interface GlobalState {
   queues: Map<string, Promise<void>>;
   running: Map<UniversalTypes.AdminSectionId, Promise<void>>;
   dirty: Set<UniversalTypes.AdminSectionId>;
+  previewKey: Uint8Array;
 }
 
 export interface GlobalUserParams {
@@ -56,6 +57,7 @@ export interface GlobalByParams extends GlobalUserParams {
 
 export interface GlobalApplyParams extends GlobalByParams {
   sections: UniversalTypes.AdminSectionId[];
+  marker?: string;
 }
 
 export type GlobalChange = (file: GlobalFile) => GlobalFile;
@@ -75,7 +77,36 @@ export interface GlobalGuardParams extends GlobalUserParams {
 export interface GlobalModeParams extends GlobalUserParams {
   section: UniversalTypes.AdminSectionId;
   mode: UniversalTypes.AdminSectionMode;
+  marker?: string;
   by: string;
+}
+
+export interface GlobalPreviewParams extends GlobalUserParams {
+  section: UniversalTypes.AdminSectionId;
+}
+
+export const globalMcpFile = z.string().transform((text, context) => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    context.addIssue({ code: 'custom', message: 'validation_invalid' });
+
+    return z.NEVER;
+  }
+}).pipe(z.looseObject({ mcpServers: z.record(z.string(), z.json()) }));
+
+export type GlobalPreviewGroups = Partial<Record<'keys' | 'oauth' | 'settings' | 'secrets' | 'files', Record<string, string>>>;
+
+export interface GlobalPreviewPart {
+  kind: UniversalTypes.AdminPreviewKind;
+  name: string;
+  value: string;
+}
+
+export interface GlobalPreviewDiff {
+  kind: UniversalTypes.AdminPreviewKind;
+  person: Record<string, string>;
+  template: Record<string, string>;
 }
 
 export interface GlobalSyncParams {
@@ -119,6 +150,7 @@ export interface GlobalService {
     sections: (params: GlobalUserParams) => UniversalTypes.AdminSection[];
     status: () => Promise<GlobalStatusUser[]>;
     guard: (params: GlobalGuardParams) => UniversalTypes.AdminSectionId | null;
+    preview: (params: GlobalPreviewParams) => Promise<UniversalTypes.AdminSectionPreview>;
     section: (params: Pick<GlobalGuardParams, 'procedure'>) => UniversalTypes.AdminSectionId | null;
   };
   actions: {

@@ -164,21 +164,25 @@ interface ConfirmationDialogProps extends Omit<ComponentProps<typeof AlertDialog
   variant?: ComponentProps<typeof AlertDialogAction>['variant']
   confirmText?: string
   error?: string | null
+  details?: ReactNode
+  canConfirm?: boolean
+  size?: 'sm' | 'md'
   children: ReactNode
 }
 
 function ConfirmationDialog(props: ConfirmationDialogProps) {
-  const { title, confirmLabel, pending, onConfirm, onOpenChange, variant, confirmText, error, children, ...rootProps } = props;
+  const { title, confirmLabel, pending, onConfirm, onOpenChange, variant, confirmText, error, details, canConfirm = true, size = 'sm', children, ...rootProps } = props;
   const [typed, setTyped] = useState('');
   const isConfirmed = confirmText === undefined || (confirmText !== '' && typed.trim() === confirmText);
 
   return (
     <AlertDialog open onOpenChange={(open) => !pending && onOpenChange(open)} {...rootProps}>
-      <AlertDialogContent size="sm">
+      <AlertDialogContent size={size}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{children}</AlertDialogDescription>
         </AlertDialogHeader>
+        {details}
         {confirmText ? (
           <Input
             aria-label={m.ui_confirm_type_name({ name: confirmText })}
@@ -194,7 +198,7 @@ function ConfirmationDialog(props: ConfirmationDialogProps) {
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{m.ui_cancel()}</AlertDialogCancel>
           <AlertDialogAction
-            disabled={pending || !isConfirmed}
+            disabled={pending || !isConfirmed || !canConfirm}
             variant={variant}
             onClick={(event) => {
               event.preventDefault();

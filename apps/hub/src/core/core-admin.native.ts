@@ -123,7 +123,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
         return new Response(null, { status: 404, headers: NO_STORE });
       }
 
-      const { mode } = await coreAdminBody(request, globalModeInput);
+      const { mode, marker } = await coreAdminBody(request, globalModeInput);
 
       change.action = `sections/${mode}`;
       change.detail = section.data;
@@ -132,9 +132,17 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
         id,
         section: section.data,
         mode,
+        marker,
         by,
       })] }, { headers: NO_STORE });
     })))
+    .with({ method: 'GET', segments: ['users', P.string, 'sections', P.string, 'preview'] }, async ({ segments: [, id, , encoded] }) => {
+      const section = adminSectionId.safeParse(encoded);
+
+      return section.success && id !== adminTemplateId && await coreAdminPerson(services, id)
+        ? Response.json(await services.global.queries.preview({ id, section: section.data }), { headers: NO_STORE })
+        : new Response(null, { status: 404, headers: NO_STORE });
+    })
     .with({ method: 'POST', segments: ['users', P.string, 'bots', 'copy'] }, ({ segments: [, id] }) => coreAuditChange(services, context, { action: 'bots/copy', userId: id }, async (change) => {
       const { bots } = await coreAdminBody(request, globalBotsInput);
 

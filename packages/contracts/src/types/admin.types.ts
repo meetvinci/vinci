@@ -61,7 +61,37 @@ export const adminSection = z.object({
 });
 
 export const adminUserSections = z.object({ sections: z.array(adminSection) });
-export const adminSectionModeInput = z.object({ mode: adminSectionMode });
+export const adminSectionMarker = z.string().regex(/^[\w-]{43}$/u);
+export const adminSectionModeInput = z.object({ mode: adminSectionMode, marker: adminSectionMarker.optional() });
+
+export const adminPreviewKind = z.enum([
+  'provider',
+  'chatSetting',
+  'toolSetting',
+  'secret',
+  'secretSetting',
+  'skill',
+  'instruction',
+  'plugin',
+  'mcpServer',
+  'file',
+  'sourceSetting',
+]);
+
+export const adminPreviewChange = z.enum(['removed', 'changed', 'added']);
+
+export const adminPreviewItem = z.object({
+  kind: adminPreviewKind,
+  name: z.string(),
+  change: adminPreviewChange,
+});
+
+export const adminSectionPreview = z.object({
+  section: adminSectionId,
+  marker: adminSectionMarker,
+  items: z.array(adminPreviewItem),
+});
+
 export const adminGlobalSyncInput = z.object({ section: adminSectionId.optional() });
 export const adminGlobalStatus = z.object({ users: z.array(adminUserSections.extend({ id: adminUserId })) });
 export const adminBotCopyInput = z.object({ bots: z.array(z.uuid()).min(1).max(50) });
@@ -116,6 +146,10 @@ export type AdminGlobalStatus = z.infer<typeof adminGlobalStatus>;
 export type AdminBotCopy = z.infer<typeof adminBotCopy>;
 export type AdminGlobalSyncInput = z.infer<typeof adminGlobalSyncInput>;
 export type AdminSectionModeInput = z.infer<typeof adminSectionModeInput>;
+export type AdminPreviewKind = z.infer<typeof adminPreviewKind>;
+export type AdminPreviewChange = z.infer<typeof adminPreviewChange>;
+export type AdminPreviewItem = z.infer<typeof adminPreviewItem>;
+export type AdminSectionPreview = z.infer<typeof adminSectionPreview>;
 export type AdminBotCopyInput = z.infer<typeof adminBotCopyInput>;
 export type AdminAuditEntry = z.infer<typeof adminAuditEntry>;
 export type AdminAuditPage = z.infer<typeof adminAuditPage>;
