@@ -45,21 +45,43 @@ Follow `docs/team-workspace/install.md` steps 1 to 8 in order. Stop at the first
 | 2. Docker | server version 26 or newer, `docker compose version` works, service `enabled` |
 | 3. Images and files | `amd64` for all four images locally; four `Loaded image:` lines; `/opt/orbs` mode 700 with the four files; `.env` mode 600; `bun --version` on the server |
 | 4. `users.yaml` | one `<id>: <email>` per person under `users:`; the first admin under `admins:` |
-| 5. Cloudflare | `created` or `unchanged` for the tunnel, policies, apps, routes and DNS; the three values printed; `cloudflare.env` written (git ignores it) |
+| 5. Cloudflare | `created` or `unchanged` for the tunnel, policies, apps, routes and DNS; the five values printed (`ORBS_PUBLIC_HOST`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`); `cloudflare.env` written (git ignores it) |
 | 6. Tunnel token | `600 root` and `6` from the step's check; local `cloudflare.env` deleted |
 | 7. Start | `HUB_ADMIN_EMAILS` set and `1` from the `PROVISIONER_TOKEN` check; `Applied <n> users`; every container `(healthy)`, the provisioner included; `Registered tunnel connection` in the cloudflared log |
-| 8. Check | `/rpc` 302 to `<team>.cloudflareaccess.com`, `/favicon.ico` and `/img/favicon/site.webmanifest` 200; `ss -tlnp` shows only sshd and 127.0.0.53/54; isolation check all `blocked`, hub lines `200`; `hub/admins.json` lists the first admin and the hub log has `Admins seeded from HUB_ADMIN_EMAILS` and no `Admins file` error |
+| 8. Check | `/rpc` and `/admin` 302 to `<team>.cloudflareaccess.com`, `/favicon.ico` and `/img/favicon/site.webmanifest` 200; `ss -tlnp` shows only sshd and 127.0.0.53/54; isolation check all `blocked`, hub lines `200`; `hub/admins.json` lists the first admin and the hub log has `Admins seeded from HUB_ADMIN_EMAILS` and no `Admins file` error |
 
 You cannot pass Cloudflare Access yourself: it emails a one-time code to the person. Finish by telling the human the address, which emails can log in, and that the first admin opens the admin panel at `https://<team>.<domain>/admin` (where they add people and set up their bots). On the first visit each person sees the model-provider step of onboarding unless shared keys are set.
 
-Deeper checks, when asked to verify an install:
+Deeper checks, when asked to verify an install. Only the daemon image has a shell: `docker exec <container> sh` fails on the hub, web, provisioner and cloudflared, so run checks with `docker exec <container> bun -e '…'` (not cloudflared). In `fetch` errors, code `23` is a timeout (packets dropped), `ETIMEOUT` means the name did not resolve, and `FailedToOpenSocket` means no route; all count as blocked.
 
-- **The hub trusts only Cloudflare.** From a throwaway container on the `orbs_tunnel` network, requests to `http://hub:47192/rpc` with a self-made JWT (any algorithm, any key, the real `ACCESS_AUD` and a real email) must get 401, as must no JWT; `/favicon.ico` 200; `/img/favicon/` 401. Remove the container by name afterwards.
+- **The hub trusts only Cloudflare.** From a throwaway container on the `orbs_tunnel` network, requests to `http://hub:47192/rpc`, `/`, `/admin`, `/admin/api/me` and `/hub/pair` with a self-made JWT (any algorithm, any key, the real `ACCESS_AUD` and a real email) must get 401, as must no JWT; `/favicon.ico` 200; `/img/favicon/` 401. A quick forged token (HS256), with nothing printed but status codes. It reads only the three values it needs from `.env`; never source the whole file into your shell (risk 52 in the reference):
+
+  ```sh
+  cd /opt/orbs && get() { sed -n "s/^$1=//p" .env; } && docker run --rm --name orbs-jwt-probe --network orbs_tunnel -e AUD="$(get ACCESS_AUD)" -e ISS="$(get ACCESS_TEAM_DOMAIN)" -e EMAIL=<a user email> --entrypoint bun "orbs-hub:$(get ORBS_TAG)" -e 'const b=(s)=>Buffer.from(s).toString("base64url");const t=Math.floor(Date.now()/1000);const h=b(JSON.stringify({alg:"HS256",typ:"JWT"}))+"."+b(JSON.stringify({aud:[process.env.AUD],iss:process.env.ISS,email:process.env.EMAIL,iat:t,exp:t+600}));const k=await crypto.subtle.importKey("raw",new TextEncoder().encode("x"),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const j=h+"."+Buffer.from(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode(h))).toString("base64url");for(const p of ["/rpc","/","/admin","/admin/api/me","/hub/pair"])for(const x of [null,j]){const r=await fetch("http://hub:47192"+p,{headers:x?{"cf-access-jwt-assertion":x}:{},redirect:"manual"});console.log(p,x?"forged":"none",r.status)}'
+  ```
 - **Hardening.** `docker inspect` each container: `ReadonlyRootfs` true, `CapDrop [ALL]`, `no-new-privileges`, no `PortBindings`, daemons `User 1000:1000` with memory, CPU and PID limits; each daemon's only network is its `orbs_user-<id>`; its ipc mount has `Subpath <id>`; no Docker socket inside. Only the provisioner has the socket: `User 0:0`, no `CapAdd`, networks `orbs_provisioner` (hub and provisioner only, internal) and `orbs_egress` (provisioner only).
 - **The provisioner is reachable only from the hub.** From each daemon and from the web container, `fetch` to `http://provisioner:47193/health` and to the provisioner's IP on both its networks must fail; from the hub, `http://provisioner:47193/health` answers 401 without the token. Linux only (OrbStack lets a daemon reach other bridges).
-- **Reboot.** `systemctl reboot`; within a minute every container is healthy again, the hub is still on every `orbs_user-<id>` network, and the step 8 curls answer as before.
-- **Resources.** `docker stats --no-stream`: an idle daemon about 105-110 MiB, web 35-55, cloudflared 15-35, hub about 12 (x86, November 2026). With the admin panel in use (arm64, local): daemons 110-131, web about 131, hub about 43, provisioner about 12.
-- **Admin panel.** The admin panel's hub rules are covered by `apps/hub` tests; on the server, check only that `/admin/api/me` without a JWT is 401 from inside the tunnel network and that a self-made JWT gets 401 there too. The human proves the panel by logging in as the first admin.
+
+  ```sh
+  cd /opt/orbs && P1=$(docker inspect orbs-provisioner-1 -f '{{(index .NetworkSettings.Networks "orbs_provisioner").IPAddress}}') && P2=$(docker inspect orbs-provisioner-1 -f '{{(index .NetworkSettings.Networks "orbs_egress").IPAddress}}') && for c in $(docker compose ps --format '{{.Name}}' | grep -E 'daemon-|web|hub'); do for u in provisioner $P1 $P2; do printf '%s -> %s: ' $c $u; docker exec $c bun -e "fetch('http://$u:47193/health',{signal:AbortSignal.timeout(3000)}).then(r=>console.log('REACHED',r.status),e=>console.log('blocked',e.code||e.name))"; done; done
+  ```
+
+  Expected: every daemon and web line `blocked`; the hub `REACHED 401` for `provisioner` and the first IP, `blocked` for the egress IP.
+- **The provisioner works without the panel.** You cannot pass Access, so prove the panel's user changes by calling the provisioner from inside the hub with the hub's own token (never print it). Use a throwaway id and an email nobody uses, then `bun deploy.ts purge <id>` (it restarts the hub for a few seconds):
+
+  ```sh
+  prov() { docker exec -e M="$1" -e P="$2" -e B="$3" orbs-hub-1 bun -e 'const r=await fetch("http://provisioner:47193"+process.env.P,{method:process.env.M,headers:{authorization:"Bearer "+process.env.PROVISIONER_TOKEN,"content-type":"application/json"},body:process.env.B||undefined});console.log(r.status,await r.text())'; }
+  prov PUT /users/probe '{"name":"Probe","email":"probe@example.com","enabled":true}'   # 200, state running
+  prov PUT /users/probe '{"name":"Probe","email":"probe@example.com","enabled":false}'  # 200, state stopped, volume kept
+  prov DELETE /users/probe                                                              # 200
+  ```
+
+  Each answer carries `access`: `manual` without a server token. Nobody else's container restarts: compare `docker inspect -f '{{.Id}} {{.State.StartedAt}}'` of the hub and the other daemons before and after.
+- **Owner socket refusals.** `admin.md`, "Create a bot for someone", with the paths `conversation/submit`, `conversation/list`, `conversation/history`, `conversation/answerQuestion`, `tools/answer` and `pairing/create` and body `{"json":{}}`: each must answer 403 `FORBIDDEN`. `bots/list` answers 200.
+- **Testing without model keys.** Run a mock model only as a separate, clearly named container (not in `/opt/orbs`, not in the Compose project), never on an `orbs_user-<id>` network (risk 39 in the reference). One that works: the host network, bound to the docker0 gateway `172.17.0.1`, which every daemon reaches and nothing outside does. Point each person's `/data/pi/models.json` at it (`{"providers":{"anthropic":{"baseUrl":"http://172.17.0.1:<port>","apiKey":"<test key>"}}}`, written as uid 1000 with `docker compose exec`, then restart that daemon). Tell the human what is test-only and how to remove it.
+- **Reboot.** `systemctl reboot`; within a minute every container is healthy again (about 40 s on the test server), the hub is still on every `orbs_user-<id>` network, and the step 8 curls answer as before.
+- **Resources.** `docker stats --no-stream`, idle on the x86 test server with the admin panel version (November 2026): a daemon 106-136 MiB, web 66-69, cloudflared about 38, hub 14-21, provisioner 14 (about 65 after it ran a few changes); the host about 810 MiB used in all with two people. With the admin panel in use (arm64, local): daemons 110-131, web about 131, hub about 43.
+- **Admin panel.** The admin panel's hub rules are covered by `apps/hub` tests; on the server, the forged-JWT check above covers `/admin` and `/admin/api/me`, and from outside both must 302 to the Cloudflare login. The human proves the panel by logging in as the first admin.
 
 ## Add a person
 

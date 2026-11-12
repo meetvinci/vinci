@@ -105,7 +105,7 @@ Containers are locked down: no root, read-only system files. `apt`, `npm -g` and
 
 ## Memory runs low
 
-Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's Orbs used about 105 MB, the web app 35-55 MB, cloudflared 15-35 MB and the hub 12 MB; the system and Docker about 470 MB. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 6 people on 4 GB, so that everyone can reach their limit at once, and about 14 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
+Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's Orbs used 105-135 MB, the web app 65-70 MB, cloudflared about 38 MB, the hub 14-21 MB and the provisioner 14-65 MB; the system and Docker about 470 MB. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 6 people on 4 GB, so that everyone can reach their limit at once, and about 14 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
 
 > On `root@<server>`, show memory use per Orbs container with `docker stats --no-stream` and the server's free memory with `free -h`. Suggest whether the server needs more memory.
 

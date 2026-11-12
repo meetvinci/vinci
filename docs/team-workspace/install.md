@@ -25,7 +25,15 @@ You need:
 
 Keep the API token and model keys in a password manager. Never paste them into a chat.
 
-The examples write `ssh root@<server>`. If you reach the server with a key file or other options, use them in every `ssh` and `scp` command, for example `ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@<server>`.
+The examples write `ssh root@<server>`. If you reach the server with a key file or other options, put them in `~/.ssh/config` under a `Host` entry and use that name for `<server>` in every `ssh` and `scp` command. Don't keep the options in a shell variable: zsh passes `$SSH` as one word and the command fails with `no such file or directory`.
+
+```text
+Host orbs-server
+  HostName 203.0.113.10
+  User root
+  IdentityFile ~/.ssh/id_ed25519
+  IdentitiesOnly yes
+```
 
 ## 1. Check the server
 
@@ -95,6 +103,8 @@ Expected: a Bun version such as `1.4.2`.
 
 Under `admins:`, list the email of the first admin of the admin panel. An admin can log in at Cloudflare but gets no Orbs of their own unless they are also under `users:`. Later admins are added in the admin panel.
 
+To show a name in the admin panel instead of the id, use the long form for that person (`name:` and `email:` on their own lines, see [the user list](admin.md#the-user-list)). You can also list only yourself now and add everyone else later in the admin panel.
+
 ```sh
 ssh root@<server> 'cat > /opt/orbs/users.yaml' <<'LIST'
 users:
@@ -142,6 +152,8 @@ Tunnel orbs-acme: <tunnel id>
 ORBS_PUBLIC_HOST=acme.example.com
 ACCESS_TEAM_DOMAIN=https://<your-team>.cloudflareaccess.com
 ACCESS_AUD=<64 hex characters>
+CLOUDFLARE_ZONE=example.com
+CLOUDFLARE_NAME=orbs-acme
 Wrote these values and TUNNEL_TOKEN to cloudflare.env (mode 600).
 ```
 
@@ -232,6 +244,7 @@ If it differs:
 - `pull access denied for orbs-daemon`: the tag in `.env` is not loaded on the server. Check `docker images` and step 3.
 - `set ACCESS_AUD in .env` or a similar message: step 6 did not merge the Cloudflare values. `set PROVISIONER_TOKEN in .env` or `set HUB_ADMIN_EMAILS in .env`: the two commands above did not run.
 - cloudflared unhealthy or no `Registered tunnel connection` line: check `docker compose logs cloudflared` for a token error, and run step 5 and 6 again.
+- The hub log warns `The provisioner did not take the admin list yet; trying again` a few times: normal on the first start, while `apply` still holds its lock. It stops once `docker compose logs provisioner` shows `PUT /access/admins 200`. If it goes on for more than a minute, read the provisioner log.
 
 **Give this to your agent:**
 
@@ -243,6 +256,7 @@ From any computer, without logging in:
 
 ```sh
 curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/rpc          # 302: the Cloudflare login
+curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/admin        # 302: the admin panel needs the login too
 curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/favicon.ico  # 200: no login needed
 curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/img/favicon/site.webmanifest  # 200: the home-screen app manifest
 ```
@@ -266,7 +280,7 @@ Then log in:
 
 **Give this to your agent:**
 
-> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the three `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
+> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
 
 ## The whole install in one prompt
 
