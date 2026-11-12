@@ -237,8 +237,10 @@ Reading changes nothing the person sees: nothing is marked read, unread counts, 
 Every read is written to the hub log with your email, the person, the bot and the conversation, never the content: one line when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, and one when the person's Bots tab reads their routines or todos.
 
 ```sh
-docker compose logs hub | grep -A7 'hub-audit'   # who read whose conversations, routines or todos
+docker compose logs hub | grep -B1 -A7 'hub-audit'   # who read whose conversations, routines or todos, with the time
 ```
+
+The log is the hub container's own Docker log. It survives restarts and reboots, but not a new hub container: every upgrade recreates the hub and its earlier lines are gone. To keep the record, save it before each upgrade (see [Upgrades](#upgrades)).
 
 **What the panel does not show (known gaps)**
 
@@ -284,7 +286,7 @@ What global settings cannot carry:
 - Sign-ins to MCP servers that use OAuth: like provider sign-ins, each person signs in for themselves.
 - Links inside `~/.agents`: a symlinked file or folder is skipped, never followed.
 
-The template workspace is a full Orbs: about 130 MiB of memory idle, like a person's; plan it as one more person. Back it up like a person: `bun deploy.ts backup template`. It can't be purged.
+The template workspace is a full Orbs: 90-130 MiB of memory idle, like a person's; plan it as one more person. Back it up like a person: `bun deploy.ts backup template`. It can't be purged.
 
 ### In the panel
 
@@ -322,7 +324,7 @@ Skill and instruction changes show up within about 30 seconds. Files must be own
 
 ### Create a bot for someone
 
-Each person's Orbs has a private door: its owner socket, which only the server can reach. It accepts the same settings and bot changes as the app, but nothing that reads or sends chat messages, answers approvals or pairs a device. The admin panel uses it; use the panel when you can. Without the panel, call it from inside the person's container:
+Each person's Orbs has a private door: its owner socket, which only the server can reach. It accepts the same settings and bot changes as the app and the conversation viewer's reads, but nothing that sends chat messages, answers approvals or pairs a device. The admin panel uses it; use the panel when you can. Without the panel, call it from inside the person's container:
 
 ```sh
 docker compose exec daemon-<id> bun -e 'const r = await fetch("http://localhost/rpc/bots/create", { method: "POST", unix: "/data/data/ipc/rpc.sock", headers: { "content-type": "application/json", "x-bots-protocol": "1" }, body: JSON.stringify({ json: { name: "Helper", handle: "helper", modelProvider: "anthropic", modelId: "claude-sonnet-4-5", thinkingLevel: "low" } }) }); console.log(r.status, await r.text())'
@@ -362,13 +364,17 @@ This replaces everything in that person's volume. It first takes a fresh backup 
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts backup <id>` for every user id in `users.yaml`, one after the other, then copy the new files in `/opt/orbs/backups/` to `<backup location>` without changing their permissions. Report the file names and sizes.
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts backup <id>` for every user id in `users.yaml` and for `template`, one after the other, then copy the new files in `/opt/orbs/backups/` to `<backup location>` without changing their permissions. Report the file names and sizes.
 
 ## Upgrades
 
 New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
-1. Back up everyone (above). A new version can change the database; the old version may not read it again.
+1. Back up everyone (above), the template workspace too (`bun deploy.ts backup template`). A new version can change the database; the old version may not read it again. If you keep the [audit log](#reading-a-persons-conversations), save the hub's log as well, because step 2 replaces the hub container and its log with it:
+
+   ```sh
+   docker compose logs --no-color hub > backups/hub-$(date -u +%Y%m%dT%H%M%SZ).log && chmod 600 backups/hub-*.log
+   ```
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
 
    ```sh
@@ -393,7 +399,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user with `bun deploy.ts backup <id>`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user and the template with `bun deploy.ts backup <id>`, save the hub's log to `backups/` (mode 600) as the Upgrades section shows, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 
@@ -401,7 +407,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 docker compose ps                        # every container and its health
 docker stats --no-stream                 # memory and CPU per container
 docker compose logs hub --since 1h       # the hub: logins refused, users loaded, pairing
-docker compose logs hub | grep -A7 'hub-audit'   # who read whose conversations, routines or todos
+docker compose logs hub | grep -B1 -A7 'hub-audit'   # who read whose conversations, routines or todos
 docker compose logs daemon-<id> -f       # one person's Orbs, live
 ```
 
