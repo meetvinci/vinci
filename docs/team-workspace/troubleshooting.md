@@ -72,6 +72,14 @@ The copy to that person did not work, usually because their Orbs was restarting.
 
 > On `root@<server>`, in `/opt/orbs`, the admin panel's global settings fail. Show me `docker compose logs hub --since 1h | grep -i global`, check that `hub/global.json` is valid JSON of the form `{"users": {"<id>": {"<section>": {"mode": ..., "sync": ...}}}}`, and check `docker compose ps daemon-template` is healthy. Don't edit the file without asking me.
 
+## Reading a conversation or file in the admin panel fails with 503
+
+The hub could not record the read in its audit trail, `/opt/orbs/hub/audit.sqlite`, so it refused the read. `docker compose logs hub` says `The audit trail could not record a read; the read is refused` with the cause. Usually the disk is full, or the file or the `hub` folder is no longer writable by uid 1000 (for example after a copy as root). If the log says `Audit trail … cannot be opened` instead, the file is damaged: everyone can still use Orbs, but the panel refuses reads until it opens. Stop the hub, move the file aside (`mv hub/audit.sqlite backups/`), and start the hub, which creates a new one; keep the old file as the record. Free space, or `chown 1000:1000 hub/audit.sqlite` and run `bun deploy.ts apply` as root to put the folder right. Changes made in the panel meanwhile still happened; the log has a `The audit trail could not record a change` line for each.
+
+**Give this to your agent:**
+
+> On `root@<server>`, in `/opt/orbs`, the admin panel refuses to show conversations with 503. Show me the last `audit trail` lines of `docker compose logs hub`, `df -h /opt/orbs` and `ls -ln hub`. If `hub/audit.sqlite` is not owned by uid 1000 or the folder is not `1000:0` mode 770, fix that (`chown 1000:1000 hub/audit.sqlite`, `bun deploy.ts apply`). Don't delete or edit the file.
+
 ## Bots never answer, with no error
 
 A person's `/data/pi` folder is owned by root, so Orbs cannot write its model settings. This happens when a file is mounted into `/data/pi` and the folder did not exist yet.

@@ -76,6 +76,28 @@ export const adminBotCopyResult = z.object({ bots: z.array(adminBotCopy) });
 export const adminUserCreateResult = adminUser.extend(adminChangeResult.shape).extend({ bots: z.array(adminBotCopy).optional() });
 export const adminSectionConflict = z.object({ code: z.literal('SECTION_FOLLOWS_GLOBAL'), section: adminSectionId });
 export const adminRelayRefusal = z.object({ status: z.literal(409), body: adminSectionConflict });
+export const adminAuditKind = z.enum(['read', 'change']);
+
+export const adminAuditEntry = z.object({
+  id: z.number().int(),
+  createdAt: z.number().int(),
+  by: z.string(),
+  kind: adminAuditKind,
+  action: z.string(),
+  detail: z.string().nullable(),
+  userId: z.string().nullable(),
+  botId: z.string().nullable(),
+  conversationId: z.number().int().nullable(),
+  status: z.number().int(),
+});
+
+export const adminAuditPage = z.object({ entries: z.array(adminAuditEntry), next: z.number().int().nullable() });
+
+export const adminAuditFilter = z.object({
+  by: adminEmail.optional().catch(undefined),
+  user: adminUserId.optional().catch(undefined),
+  kind: adminAuditKind.optional().catch(undefined),
+});
 
 export type Admin = z.infer<typeof admin>;
 export type AdminAccess = z.infer<typeof adminAccess>;
@@ -95,6 +117,9 @@ export type AdminBotCopy = z.infer<typeof adminBotCopy>;
 export type AdminGlobalSyncInput = z.infer<typeof adminGlobalSyncInput>;
 export type AdminSectionModeInput = z.infer<typeof adminSectionModeInput>;
 export type AdminBotCopyInput = z.infer<typeof adminBotCopyInput>;
+export type AdminAuditEntry = z.infer<typeof adminAuditEntry>;
+export type AdminAuditPage = z.infer<typeof adminAuditPage>;
+export type AdminAuditFilter = z.infer<typeof adminAuditFilter>;
 
 export const adminConversationSearch = z.object({
   message: z.number().int().positive().optional().catch(undefined),

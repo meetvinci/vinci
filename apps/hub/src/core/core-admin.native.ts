@@ -3,9 +3,11 @@ import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
 import { provisionerAccessMode, provisionerAccessOf } from '../services/provisioner/provisioner.utils';
-import { adminInput, adminListBody, adminReadBody } from '../types/admin.types';
+import { adminInput, adminListBody, adminReadBody, adminWriteBody } from '../types/admin.types';
+import { auditListInput } from '../types/audit.types';
 import { globalBotsInput, globalModeInput, globalSyncInput } from '../types/global.types';
 import { userCreateInput, userUpdateInput } from '../types/user.types';
+import { coreAuditChange, coreAuditRecord } from './core-audit.native';
 import type * as CoreTypes from '../types/core.types';
 import type { UserDaemon } from '../types/user.types';
 import type { z } from 'zod';
@@ -15,6 +17,7 @@ const RELAY_PATH = /^[A-Za-z\d]+(?:\/[A-Za-z\d]+)*$/u;
 const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/export$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
 const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions)|routines\/list|todos\/list)$/iu;
 const RELAY_UNAUDITED = /^conversation\/reactions$/iu;
+const RELAY_QUIET = /^[A-Za-z]+\/(?:list|get|catalog|settings|discover|shared|local|state|info|status|session)$/u;
 const RELAY_READ_LIMIT = 64 * 1024;
 const AVATAR_FILE = /^(?:bots\/)?[\da-f-]{36}\.(?:png|webp)$/u;
 const RELAY_HEADERS = ['content-type', 'accept', SERVER_PROTOCOL.versionHeader];
@@ -42,6 +45,11 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
 
   return match({ method: request.method, segments })
     .with({ method: 'GET', segments: ['me'] }, async () => Response.json({ email: by }, { headers: NO_STORE }))
+    .with({ method: 'GET', segments: ['audit'] }, async () => {
+      const input = coreAdminValid(auditListInput.safeParse(Object.fromEntries(url.searchParams)));
+
+      return Response.json(services.audit.queries.list(input), { headers: NO_STORE });
+    })
     .with({ method: 'GET', segments: ['admins'] }, async () => {
       const [admins, rule] = await Promise.all([
         services.admins.queries.list(),
@@ -50,16 +58,20 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
 
       return Response.json({ admins: admins.map((email) => ({ email, access: provisionerAccessOf({ rule, email }) })) }, { headers: NO_STORE });
     })
-    .with({ method: 'POST', segments: ['admins'] }, async () => {
+    .with({ method: 'POST', segments: ['admins'] }, () => coreAuditChange(services, context, { action: 'admins/add' }, async (change) => {
       const { email } = await coreAdminBody(request, adminInput);
 
+      change.detail = email;
+
       return Response.json({ email, access: await services.admins.actions.add({ email, by }) }, { headers: NO_STORE });
-    })
-    .with({ method: 'DELETE', segments: ['admins', P.string] }, async ({ segments: [, encoded] }) => {
+    }))
+    .with({ method: 'DELETE', segments: ['admins', P.string] }, ({ segments: [, encoded] }) => coreAuditChange(services, context, { action: 'admins/remove' }, async (change) => {
       const { email } = coreAdminValid(adminInput.safeParse({ email: coreAdminDecode(encoded) }));
 
+      change.detail = email;
+
       return Response.json({ access: await services.admins.actions.remove({ email, by }) }, { headers: NO_STORE });
-    })
+    }))
     .with({ method: 'GET', segments: ['users'] }, async () => {
       const [users, rule] = await Promise.all([
         services.users.queries.list(),
@@ -91,18 +103,20 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
       attachmentId,
       isPoster: true,
     }))
-    .with({ method: 'POST', segments: ['users', P.string, 'rpc', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminRelay(services, context, { id, procedure: rest.join('/') }))
+    .with({ method: 'POST', segments: ['users', P.string, 'rpc', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminRpc(services, context, { id, procedure: rest.join('/') }))
     .with({ method: 'GET', segments: ['global'] }, async () => Response.json(await services.global.queries.global(), { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['global', 'status'] }, async () => Response.json({ users: await services.global.queries.status() }, { headers: NO_STORE }))
-    .with({ method: 'POST', segments: ['global', 'sync'] }, () => coreAdminGlobal(services, async () => {
+    .with({ method: 'POST', segments: ['global', 'sync'] }, () => coreAuditChange(services, context, { action: 'global/sync' }, (change) => coreAdminGlobal(services, async () => {
       const { section } = await coreAdminBody(request, globalSyncInput);
 
+      change.detail = section ?? null;
+
       return Response.json({ users: await services.global.actions.sync({ section, by }) }, { headers: NO_STORE });
-    }))
+    })))
     .with({ method: 'GET', segments: ['users', P.string, 'sections'] }, async ({ segments: [, id] }) => match(await coreAdminPerson(services, id))
       .with(true, () => Response.json({ sections: services.global.queries.sections({ id }) }, { headers: NO_STORE }))
       .otherwise(() => new Response(null, { status: 404, headers: NO_STORE })))
-    .with({ method: 'PUT', segments: ['users', P.string, 'sections', P.string] }, ({ segments: [, id, , encoded] }) => coreAdminGlobal(services, async () => {
+    .with({ method: 'PUT', segments: ['users', P.string, 'sections', P.string] }, ({ segments: [, id, , encoded] }) => coreAuditChange(services, context, { action: 'sections/mode', userId: id }, (change) => coreAdminGlobal(services, async () => {
       const section = adminSectionId.safeParse(encoded);
 
       if (!section.success) {
@@ -111,27 +125,42 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
 
       const { mode } = await coreAdminBody(request, globalModeInput);
 
+      change.action = `sections/${mode}`;
+      change.detail = section.data;
+
       return Response.json({ sections: [await services.global.actions.mode({
         id,
         section: section.data,
         mode,
         by,
       })] }, { headers: NO_STORE });
-    }))
-    .with({ method: 'POST', segments: ['users', P.string, 'bots', 'copy'] }, async ({ segments: [, id] }) => {
+    })))
+    .with({ method: 'POST', segments: ['users', P.string, 'bots', 'copy'] }, ({ segments: [, id] }) => coreAuditChange(services, context, { action: 'bots/copy', userId: id }, async (change) => {
       const { bots } = await coreAdminBody(request, globalBotsInput);
+
+      change.detail = String(bots.length);
 
       return Response.json({ bots: await services.global.actions.bots({
         id,
         bots,
         by,
       }) }, { headers: NO_STORE });
-    })
-    .with({ method: P.union('POST', 'PATCH', 'DELETE'), segments: P.union(['users'], ['users', P.string]) }, () => coreAdminUsers(services, context, segments[1]))
+    }))
+    .with({ method: P.union('POST', 'PATCH', 'DELETE'), segments: P.union(['users'], ['users', P.string]) }, ({ method }) => coreAuditChange(services, context, {
+      action: match(method)
+        .with('POST', () => 'users/create')
+        .with('PATCH', () => 'users/update')
+        .otherwise(() => 'users/remove'),
+      userId: segments[1] ?? null,
+    }, (change) => coreAdminUsers(services, context, { id: segments[1], change })))
     .otherwise(async () => new Response(null, { status: 404, headers: NO_STORE }));
 }
 
-function coreAdminUsers(services: CoreTypes.CoreServices, { request, identity }: CoreTypes.CoreAdminContext, id: string | undefined): Promise<Response> {
+function coreAdminUsers(
+  services: CoreTypes.CoreServices,
+  { request, identity }: CoreTypes.CoreAdminContext,
+  { id, change }: CoreTypes.CoreAdminUsers,
+): Promise<Response> {
   const by = identity.email;
 
   if (!services.provisioner.queries.isConfigured()) {
@@ -146,10 +175,21 @@ function coreAdminUsers(services: CoreTypes.CoreServices, { request, identity }:
     .with({ method: 'POST', id: P.nullish }, () => coreAdminGlobal(services, async () => {
       const input = await coreAdminBody(request, userCreateInput);
 
-      return Response.json(await services.global.actions.create({ ...input, by }), { headers: NO_STORE });
+      change.detail = input.email;
+
+      const created = await services.global.actions.create({ ...input, by });
+
+      change.userId = created.id;
+
+      return Response.json(created, { headers: NO_STORE });
     }))
     .with({ method: 'PATCH', id: P.string }, async ({ id: user }) => {
       const input = await coreAdminBody(request, userUpdateInput);
+
+      change.action = match(input.enabled)
+        .with(true, () => 'users/enable')
+        .with(false, () => 'users/disable')
+        .otherwise(() => 'users/update');
 
       return Response.json(await services.global.actions.update({
         ...input,
@@ -161,10 +201,26 @@ function coreAdminUsers(services: CoreTypes.CoreServices, { request, identity }:
     .otherwise(async () => new Response(null, { status: 404, headers: NO_STORE }));
 }
 
+function coreAdminRpc(services: CoreTypes.CoreServices, context: CoreTypes.CoreAdminContext, { id, procedure }: Omit<CoreTypes.CoreAdminRelay, 'change'>): Promise<Response> {
+  if (RELAY_READS.test(procedure) || RELAY_QUIET.test(procedure)) {
+    return coreAdminRelay(services, context, {
+      id,
+      procedure,
+      change: null,
+    });
+  }
+
+  return coreAuditChange(services, context, { action: procedure, userId: id }, (change) => coreAdminRelay(services, context, {
+    id,
+    procedure,
+    change,
+  }));
+}
+
 async function coreAdminRelay(
   services: CoreTypes.CoreServices,
   { request, url, identity }: CoreTypes.CoreAdminContext,
-  { id, procedure }: CoreTypes.CoreAdminRelay,
+  { id, procedure, change }: CoreTypes.CoreAdminRelay,
 ): Promise<Response> {
   if (!RELAY_PATH.test(procedure) || RELAY_REFUSED.test(procedure)) {
     throw new Errors.FORBIDDEN({ internal: `The admin relay refuses /rpc/${procedure}` });
@@ -199,26 +255,34 @@ async function coreAdminRelay(
   const response = await coreAdminDoor(services, user, new Request(new URL(`/rpc/${procedure}${read ? '' : url.search}`, url), {
     method: request.method,
     headers,
-    body: read?.body ?? request.body,
+    body: read?.body ?? (change ? await coreAdminWrite(request, change) : request.body),
     signal: request.signal,
   }));
 
-  match(read)
-    .with({ isAudited: true }, ({ target }) => coreAdminAudit({
-      by: identity.email,
-      user: user.id,
-      procedure,
-      status: response.status,
-      target,
-    }))
-    .otherwise(() => log.info({
+  if (read?.isAudited && !coreAuditRecord(services, {
+    by: identity.email,
+    kind: 'read',
+    action: procedure,
+    userId: user.id,
+    botId: read.target?.botId ?? null,
+    conversationId: read.target?.conversationId ?? null,
+    status: response.status,
+  })) {
+    await response.body?.cancel();
+
+    return Response.json({ error: 'audit_unavailable' }, { status: 503, headers: NO_STORE });
+  }
+
+  if (!read && !change) {
+    log.info({
       tag: 'hub',
       message: 'Admin call relayed to a private door',
       by: identity.email,
       user: user.id,
       procedure,
       status: response.status,
-    }));
+    });
+  }
 
   if (user.id === adminTemplateId && response.ok) {
     services.global.actions.changed({ procedure, by: identity.email });
@@ -289,9 +353,7 @@ async function coreAdminFile(
   const procedure = isPoster ? 'attachments/poster' : 'attachments/download';
   const headers = new Headers({ 'content-type': 'application/json', [SERVER_PROTOCOL.versionHeader]: String(SERVER_PROTOCOL.version) });
 
-  const range = request.headers.get('range');
-
-  match(range)
+  match(request.headers.get('range'))
     .with(P.string, (value) => headers.set('range', value))
     .otherwise(() => undefined);
 
@@ -302,14 +364,19 @@ async function coreAdminFile(
     signal: request.signal,
   }));
 
-  if (range === null || range.startsWith('bytes=0-')) {
-    coreAdminAudit({
-      by: identity.email,
-      user: user.id,
-      procedure,
-      status: response.status,
-      target: input.data,
-    });
+  const served = response.headers.get('content-range');
+
+  if ((served === null || served.startsWith('bytes 0-')) && !coreAuditRecord(services, {
+    by: identity.email,
+    kind: 'read',
+    action: procedure,
+    userId: user.id,
+    botId: input.data.botId,
+    status: response.status,
+  })) {
+    await response.body?.cancel();
+
+    return new Response(null, { status: 503, headers: NO_STORE });
   }
 
   if (!response.ok) {
@@ -346,17 +413,19 @@ function coreAdminDoor(services: CoreTypes.CoreServices, user: UserDaemon, reque
   });
 }
 
-function coreAdminAudit({ by, user, procedure, status, target }: CoreTypes.CoreAdminAudit): void {
-  log.info({
-    tag: 'hub-audit',
-    message: /^(?:routines|todos)\//u.test(procedure) ? 'Admin read routines or todos' : 'Admin read a conversation',
-    by,
-    user,
-    bot: target?.botId ?? null,
-    conversation: target?.conversationId ?? null,
-    procedure,
-    status,
-  });
+async function coreAdminWrite(request: Request, change: CoreTypes.CoreAdminChange): Promise<BodyInit | null> {
+  const isJson = /^application\/json(?:;|$)/iu.test(request.headers.get('content-type') ?? '');
+  const length = Number(request.headers.get('content-length') ?? Number.POSITIVE_INFINITY);
+
+  if (!isJson || length > RELAY_READ_LIMIT) {
+    return request.body;
+  }
+
+  const body = await request.text();
+
+  change.botId = adminWriteBody.safeParse(body).data?.json.botId ?? null;
+
+  return body;
 }
 
 async function coreAdminRead(request: Request, procedure: string): Promise<CoreTypes.CoreAdminRead> {

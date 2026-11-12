@@ -259,6 +259,8 @@ ssh root@<server> 'cd /opt/orbs && docker compose ps --format "{{.Name}} {{.Stat
 
 Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
+The hub creates `hub/audit.sqlite` on its first start: the admin panel's [audit trail](admin.md#activity). `ssh root@<server> 'ls -l /opt/orbs/hub/audit.sqlite'` shows it owned by uid 1000 with mode `-rw-------`.
+
 Then check how the provisioner sees Cloudflare: `ssh root@<server> 'cd /opt/orbs && docker compose logs provisioner | grep listening | tail -1'`. It ends with `Access sync on` when step 6 put a token on the server (`off (manual)` without one), and lists `domain rule @example.com` when you chose a domain.
 
 If it differs:

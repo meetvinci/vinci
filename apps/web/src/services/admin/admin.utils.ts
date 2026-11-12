@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/client';
-import { adminRelayRefusal } from '@repo/contracts/universal';
+import { adminRelayRefusal, adminSectionId } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { m } from '@repo/i18n/client';
 import { linkOptions } from '@tanstack/react-router';
@@ -8,7 +8,7 @@ import { ADMIN } from '@/services/admin/admin.constants';
 import { SETTINGS_NAV } from '@/services/settings/settings.constants';
 import type * as AdminTypes from '@/types/admin.types';
 import type { SectionScope } from '@/types/section.types';
-import type { AdminUserState, SettingsSection } from '@repo/contracts/universal';
+import type { AdminAuditEntry, AdminUserState, SettingsSection } from '@repo/contracts/universal';
 
 export function adminSectionScope(userId: string): SectionScope {
   return {
@@ -144,4 +144,43 @@ export function adminQueriesStatus(results: { isError: boolean; isPending: boole
     .when((all) => all.some((result) => result.isError), () => 'error' as const)
     .when((all) => all.some((result) => result.isPending), () => 'pending' as const)
     .otherwise(() => 'success' as const);
+}
+
+export function adminAuditPath({ filter, cursor }: AdminTypes.AdminAuditPathParams): string {
+  const search = new URLSearchParams();
+
+  Object.entries({ ...filter, cursor: cursor > 0 ? String(cursor) : undefined }).forEach(([name, value]) => match(value)
+    .with(P.string, (text) => search.set(name, text))
+    .otherwise(() => undefined));
+
+  return search.size > 0 ? `/audit?${search.toString()}` : '/audit';
+}
+
+function adminAuditSection(detail: string | null): string {
+  const section = adminSectionId.safeParse(detail);
+
+  return section.success ? adminSectionLabel(section.data) : detail ?? '';
+}
+
+export function adminAuditSentence({ action, detail }: AdminAuditEntry): string {
+  return match(action)
+    .with('conversation/list', () => m.admin_activity_read_list())
+    .with('conversation/history', () => m.admin_activity_read_history())
+    .with('conversation/search', () => m.admin_activity_read_search())
+    .with('routines/list', () => m.admin_activity_read_routines())
+    .with('todos/list', () => m.admin_activity_read_todos())
+    .with('attachments/download', () => m.admin_activity_read_file())
+    .with('attachments/poster', () => m.admin_activity_read_poster())
+    .with('users/create', () => m.admin_activity_user_create({ email: detail ?? '' }))
+    .with('users/update', () => m.admin_activity_user_update())
+    .with('users/enable', () => m.admin_activity_user_enable())
+    .with('users/disable', () => m.admin_activity_user_disable())
+    .with('users/remove', () => m.admin_activity_user_remove())
+    .with('admins/add', () => m.admin_activity_admin_add({ email: detail ?? '' }))
+    .with('admins/remove', () => m.admin_activity_admin_remove({ email: detail ?? '' }))
+    .with('sections/global', () => m.admin_activity_section_global({ section: adminAuditSection(detail) }))
+    .with('sections/overridden', () => m.admin_activity_section_overridden({ section: adminAuditSection(detail) }))
+    .with('global/sync', () => (detail ? m.admin_activity_sync_section({ section: adminAuditSection(detail) }) : m.admin_activity_sync()))
+    .with('bots/copy', () => m.admin_activity_bots_copy({ count: detail ?? '' }))
+    .otherwise((procedure) => m.admin_activity_change({ procedure }));
 }

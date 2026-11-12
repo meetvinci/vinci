@@ -23,6 +23,8 @@ const adminReadJson = z.string().min(1).max(64 * 1024).transform((text, context)
 
 export const adminReadBody = adminReadJson.pipe(z.object({ json: conversationTarget }));
 
+export const adminWriteBody = adminReadJson.pipe(z.object({ json: z.object({ botId: z.uuid() }) }));
+
 export const adminListBody = z.union([z.literal(''), adminReadJson.pipe(z.object({ json: z.union([z.null(), z.strictObject({})]).optional() }))]);
 
 export interface AdminServiceParams {

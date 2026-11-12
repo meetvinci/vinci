@@ -52,7 +52,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required. |
 | `HUB_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. Outside the image the default is `127.0.0.1`. |
 | `HUB_PORT` | `47192` (set by the image) | The port cloudflared connects to. Internal only. |
-| `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json`, `admins.json` and `pins.json`. Compose mounts the server folder `/opt/orbs/hub` there. |
+| `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json`, `admins.json`, `pins.json`, `global.json` and `audit.sqlite`. Compose mounts the server folder `/opt/orbs/hub` there. |
 | `HUB_WEB_URL` | `http://web:47190` (set by Compose) | Where the hub sends everything that is not for a daemon. Not the same as the web app's `WEB_HUB_URL`. |
 | `HUB_PUBLIC_URL` | `https://<team>.<domain>` (set by Compose) | The team address, so the web app knows it is served over HTTPS at that name. Required. |
 | `HUB_ADMIN_EMAILS` | the first admin's email, from `.env` (set by Compose) | Comma-separated emails written to `admins.json` when it is empty, so the first admin can open `/admin`. Ignored once the file lists anyone. Required. |
@@ -89,7 +89,9 @@ It runs as root with every Linux capability dropped, a read-only system, no publ
 | `hub/global.json` | `/opt/orbs/hub/`, `/data/` in the hub | For each person and settings section: follows global or overridden, and whether the last copy worked. Written by the hub; `purge` removes a person's entry. If it is unreadable or invalid, the panel refuses section changes until it is fixed (reads keep working). |
 | `hub/admins.json` | `/opt/orbs/hub/`, `/data/` in the hub | `{"admins": ["<email>", ...]}`: who may open the admin panel at `/admin`. An admin does not need to be a user. Written by the hub when admins change in the panel; seeded from `HUB_ADMIN_EMAILS` while empty. If it is unreadable or invalid nobody is an admin until it is fixed. |
 | `hub/pins.json` | `/opt/orbs/hub/`, `/data/` in the hub | The ID of each person's Orbs, saved the first time the hub reaches it. The hub refuses to forward if the ID changes. Written by the hub; `purge` removes a person's line. |
+| `hub/audit.sqlite` | `/opt/orbs/hub/`, `/data/` in the hub | The admin panel's audit trail: one row per admin read or change, never content or values. Written by the hub only; kept by upgrades, `apply`, rollbacks and `purge`. See [Activity](admin.md#activity). |
 | `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume. Secret. |
+| `backups/hub-<time>.tar.gz` | `/opt/orbs/backups/` | The hub's folder, audit trail included. Secret. |
 | `models.json` | `/data/pi/` in each person's volume | Model provider settings, such as a different address for a provider. Read only at start. |
 | `auth.json` | `/data/pi/` in each person's volume | Keys and logins the person adds in Settings. Plain text. |
 | `data/credentials.key` | `/data/` in each person's volume | Encryption key for secrets the person's bots saved. |

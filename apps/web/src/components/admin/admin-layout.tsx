@@ -39,6 +39,7 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
               {m.admin_global_title()}
             </AdminLayoutNavLink>
             <AdminLayoutNavLink isCurrent={pathname.startsWith('/admin/admins')} to="/admin/admins">{m.admin_admins_title()}</AdminLayoutNavLink>
+            <AdminLayoutNavLink isCurrent={pathname.startsWith('/admin/activity')} to="/admin/activity">{m.admin_activity_title()}</AdminLayoutNavLink>
           </nav>
           <p className="ml-auto truncate text-sm text-muted-foreground">{m.admin_signed_in_as({ email })}</p>
         </header>
@@ -52,7 +53,7 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
 }
 
 interface AdminLayoutNavLinkProps {
-  to: '/admin/users' | '/admin/admins' | '/admin/users/$userId/settings'
+  to: '/admin/users' | '/admin/admins' | '/admin/activity' | '/admin/users/$userId/settings'
   params?: { userId: string }
   isCurrent: boolean
   children: ReactNode

@@ -50,6 +50,8 @@ export const HUB_GLOBAL_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_G
 
 export const HUB_RELAY_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_RELAY_PORT ?? 48650));
 
+export const HUB_AUDIT_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_AUDIT_PORT ?? 48670));
+
 export type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
 
 interface HubFixtureAccess {

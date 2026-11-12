@@ -30,7 +30,7 @@ The admin panel lives at `https://<team>.<domain>/admin`. Only the emails in `/o
 - In the panel, admins add and remove other admins. The last admin cannot be removed.
 - Each admin must also be allowed by Cloudflare Access. When the server has a Cloudflare token, the panel updates Access itself; otherwise it says so, and you add the email with the `cloudflare emails` command below.
 - The panel changes a person's settings and bots through that person's owner socket. It never pairs as a device and cannot send messages or answer questions as them.
-- Every change made in the panel is in the hub log with the admin's email: `docker compose logs hub | grep Admin`.
+- Every change made in the panel is recorded with the admin's email: see [Activity](#activity).
 
 > [!WARNING]
 > Admins are fully trusted. Through a bot's MCP servers, plugins and skills an admin can run code inside any person's Orbs, so they can technically read that person's data. The panel only offers no way to chat or answer as someone. Make someone an admin only if you would give them the server.
@@ -125,6 +125,8 @@ In the admin panel: delete them. Their login goes, their container stops and is 
    ```
 
    This deletes their volume, their owner-socket folder and the hub's saved ID for them. It restarts the hub, which takes a few seconds; everyone's open chats reconnect on their own. It refuses while the id is still in `users.yaml`.
+
+   It keeps the [audit trail](#activity) rows about them: those are a record of what admins did, not the person's data.
 
 **Give this to your agent:**
 
@@ -232,15 +234,9 @@ An admin can read every conversation a person has with their bots, read only, in
 
 Reading changes nothing the person sees: nothing is marked read, unread counts, order, pins, hidden and muted flags stay as they were, and no bot runs or notifies anyone. The panel reads when you open a chat, scroll up or press **Refresh**, never in the background.
 
-**The audit log**
+**The audit trail**
 
-Every read is written to the hub log with your email, the person, the bot and the conversation, never the content: one line when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, and one when the person's Bots tab reads their routines or todos.
-
-```sh
-docker compose logs hub | grep -B1 -A7 'hub-audit'   # who read whose conversations, routines or todos, with the time
-```
-
-The log is the hub container's own Docker log. It survives restarts and reboots, but not a new hub container: every upgrade recreates the hub and its earlier lines are gone. To keep the record, save it before each upgrade (see [Upgrades](#upgrades)).
+Every read is recorded with your email, the person, the bot and the conversation, never the content: one row when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, and one when the person's Bots tab reads their routines or todos. See them under [Activity](#activity). If the hub cannot record a read, it refuses the read: the panel shows the chat or file as failed, and nothing is shown unrecorded.
 
 **What the panel does not show (known gaps)**
 
@@ -304,6 +300,25 @@ The template workspace is a full Orbs: 90-130 MiB of memory idle, like a person'
 
 > On the Orbs team install at `https://<team host>`, I'm an admin. Open `/admin`, go to **Global settings → Settings → Tools** and set the approval timeout to `<minutes>`. Then open **Sync status** and confirm no person shows *Sync failed*; for any that does, open them, read the error and use **Try again**. Finally open user `<name>`, confirm their Tools section says Global and shows the new timeout.
 
+## Activity
+
+**Activity** in the admin panel lists what admins read and changed, newest first: when, which admin, what happened, whose workspace (or *Global settings*), and the bot and conversation when there is one. Filter by admin, person and kind (reads or changes); click an admin or a person in a row to filter by them; **Load more** shows older rows. A person's page has an **Activity** button that opens the list for that person. Nobody can edit or delete a row in the panel, and reading the list is not itself recorded.
+
+What is recorded, one row each, never content or values:
+
+- Reads: a conversation list, history or search, a person's routines or todos, a file opened.
+- Changes: a person added, renamed, their sign-in turned on or off, or removed; an admin added or removed; a settings section switched to global or overridden; a global sync; suggested bots copied; and every save in a person's or the template's settings and bot forms, recorded as the form's action (for example `secrets/save`) and the bot it names. What was typed into the form, an API key or a secret value included, is never stored. A refused attempt is recorded too, with its status.
+
+The rows live in `hub/audit.sqlite`, next to `admins.json`. Restarts, upgrades, `apply` and rollbacks keep it (an older hub leaves the file alone, and what admins do while it runs is only in its log), and the [hub folder backup](#backups) includes it. If the hub cannot write a row, a read is refused, and a change still happens and the hub logs `The audit trail could not record a change; the change stands` (refusing a change that was already made would only make you make it again). The hub also writes each row to its log as a `hub-audit` line, as before; that copy goes with the hub container.
+
+A row takes about 120 bytes: 10,000 rows, a busy month for a small team, are about 1.2 MB, so a year stays well under 20 MB. Nothing is pruned. To remove old rows by hand, stop the hub, delete them, and start it again:
+
+```sh
+docker compose stop hub
+bun -e 'const { Database } = require("bun:sqlite"); const db = new Database("hub/audit.sqlite"); console.log(db.run("DELETE FROM audit WHERE created_at < ?", [Date.parse("2026-01-01")]).changes, "rows removed"); db.run("VACUUM")'
+docker compose start hub
+```
+
 ## Set up bots, skills and tools for a person
 
 Users can do all of this themselves in the app, and an admin can do it for them in the [admin panel](#the-admin-panel). For files the forms do not cover, edit their volume:
@@ -354,6 +369,12 @@ scp -p root@<server>:/opt/orbs/backups/<id>-<time>.tar.gz <safe folder>/
 
 Backups stay on the server until you delete them by name (`rm /opt/orbs/backups/<file>`).
 
+The hub's own folder holds the admin list, the pins, the global settings modes and the [audit trail](#activity). Back it up as well, ideally while nobody is using the admin panel:
+
+```sh
+tar -czf backups/hub-$(date -u +%Y%m%dT%H%M%SZ).tar.gz hub && chmod 600 backups/hub-*.tar.gz
+```
+
 To put a backup back:
 
 ```sh
@@ -370,11 +391,7 @@ This replaces everything in that person's volume. It first takes a fresh backup 
 
 New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
-1. Back up everyone (above), the template workspace too (`bun deploy.ts backup template`). A new version can change the database; the old version may not read it again. If you keep the [audit log](#reading-a-persons-conversations), save the hub's log as well, because step 2 replaces the hub container and its log with it:
-
-   ```sh
-   docker compose logs --no-color hub > backups/hub-$(date -u +%Y%m%dT%H%M%SZ).log && chmod 600 backups/hub-*.log
-   ```
+1. Back up everyone (above), the template workspace too (`bun deploy.ts backup template`), and the hub's folder (above). A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it.
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
 
    ```sh
@@ -399,7 +416,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user and the template with `bun deploy.ts backup <id>`, save the hub's log to `backups/` (mode 600) as the Upgrades section shows, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user and the template with `bun deploy.ts backup <id>`, and the hub's folder as the Backups section shows, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 
@@ -407,7 +424,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 docker compose ps                        # every container and its health
 docker stats --no-stream                 # memory and CPU per container
 docker compose logs hub --since 1h       # the hub: logins refused, users loaded, pairing
-docker compose logs hub | grep -B1 -A7 'hub-audit'   # who read whose conversations, routines or todos
+docker compose logs hub | grep -B1 -A9 'hub-audit'   # admin reads and changes since the hub container started
 docker compose logs daemon-<id> -f       # one person's Orbs, live
 ```
 

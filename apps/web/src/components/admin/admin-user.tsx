@@ -16,6 +16,7 @@ import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminProblem, adminQueriesStatus, adminStateLabel } from '@/services/admin/admin.utils';
+import IconActivity from '~icons/lucide/activity';
 import IconChevronRight from '~icons/lucide/chevron-right';
 import IconTrash from '~icons/lucide/trash-2';
 import type { AdminQueriesStatus } from '@/types/admin.types';
@@ -121,6 +122,16 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
       >
         {user.enabled ? m.admin_user_login_turn_off() : m.admin_user_login_turn_on()}
       </ButtonLoading>
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+      >
+        <Link search={{ user: user.id }} to="/admin/activity">
+          <IconActivity />
+          {m.admin_activity_for_person()}
+        </Link>
+      </Button>
       <Button
         asChild
         size="sm"

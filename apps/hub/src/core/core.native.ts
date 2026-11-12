@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { match, P } from 'ts-pattern';
 import { makeAccessService } from '../services/access/access.service';
 import { makeAdminService } from '../services/admin/admin.service';
+import { makeAuditService } from '../services/audit/audit.service';
 import { makeDaemonService } from '../services/daemon/daemon.service';
 import { makeGlobalService } from '../services/global/global.service';
 import { makePairingService } from '../services/pairing/pairing.service';
@@ -63,6 +64,7 @@ export async function coreNativeRun(): Promise<void> {
       provisioner,
     }),
     provisioner,
+    audit: makeAuditService({ directory }),
   };
 
   const stopped = new Promise<void>((done) => {
@@ -85,5 +87,6 @@ export async function coreNativeRun(): Promise<void> {
 
   await stopped;
   await server.stop(true);
+  services.audit.actions.close();
   log.info({ tag: 'hub', message: 'Hub stopped' });
 }

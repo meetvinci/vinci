@@ -53,6 +53,7 @@ export const routes = rootRoute('root.tsx', [
   ]),
   route('/admin', 'admin/admin.tsx', [
     index('admin/admin.index.tsx'),
+    route('/activity', 'admin/admin.activity.tsx'),
     route('/admins', 'admin/admin.admins.tsx', [
       route('/$email/remove', 'admin/admin.admins.$email.remove.tsx'),
     ]),

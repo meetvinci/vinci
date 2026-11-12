@@ -1,13 +1,13 @@
 import { createRouterUtils } from '@orpc/tanstack-query';
 import { CHAT, makeHttpClient } from '@repo/client/client';
 import { queryMutationCache } from '@repo/client/react';
-import { adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
+import { adminAuditPage, adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { log } from '@repo/logger/client';
 import { toasty } from '@repo/ui/sonner';
-import { isCancelledError, QueryClient, queryOptions } from '@tanstack/react-query';
+import { infiniteQueryOptions, isCancelledError, QueryClient, queryOptions } from '@tanstack/react-query';
 import { ADMIN } from '@/services/admin/admin.constants';
-import { adminIsSectionRefused, adminRequest, adminRpcPrefix } from '@/services/admin/admin.utils';
+import { adminAuditPath, adminIsSectionRefused, adminRequest, adminRpcPrefix } from '@/services/admin/admin.utils';
 import type { AdminBotCopyParams, AdminRpcParams, AdminSectionModeParams } from '@/types/admin.types';
 import type { RpcContextValue } from '@repo/client/react';
 import type * as UniversalTypes from '@repo/contracts/universal';
@@ -75,6 +75,15 @@ export function adminGlobalQuery() {
     queryKey: ['admin', 'global'],
     queryFn: () => adminRequest({ path: '/global', schema: adminGlobal }),
     refetchInterval: (query) => (query.state.data?.state === 'starting' ? ADMIN.usersRefreshMs : false),
+  });
+}
+
+export function adminAuditQuery(filter: UniversalTypes.AdminAuditFilter) {
+  return infiniteQueryOptions({
+    queryKey: ['admin', 'audit', filter],
+    queryFn: ({ pageParam }) => adminRequest({ path: adminAuditPath({ filter, cursor: pageParam }), schema: adminAuditPage }),
+    initialPageParam: 0,
+    getNextPageParam: (page) => page.next ?? undefined,
   });
 }
 

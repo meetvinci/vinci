@@ -17,6 +17,7 @@ import { Route as artifactsArtifactsRouteImport } from "./../routes/artifacts/ar
 import { Route as botsBotsRouteImport } from "./../routes/bots/bots";
 import { Route as settingsSettingsRouteImport } from "./../routes/settings/settings";
 import { Route as adminAdminDotindexRouteImport } from "./../routes/admin/admin.index";
+import { Route as adminAdminDotactivityRouteImport } from "./../routes/admin/admin.activity";
 import { Route as adminAdminDotadminsRouteImport } from "./../routes/admin/admin.admins";
 import { Route as adminAdminDotusersRouteImport } from "./../routes/admin/admin.users";
 import { Route as labLabDotavatarsRouteImport } from "./../routes/lab/lab.avatars";
@@ -117,6 +118,11 @@ const settingsSettingsRoute = settingsSettingsRouteImport.update({
 const adminAdminDotindexRoute = adminAdminDotindexRouteImport.update({
   id: "/",
   path: "/",
+  getParentRoute: () => adminAdminRoute,
+} as any);
+const adminAdminDotactivityRoute = adminAdminDotactivityRouteImport.update({
+  id: "/activity",
+  path: "/activity",
   getParentRoute: () => adminAdminRoute,
 } as any);
 const adminAdminDotadminsRoute = adminAdminDotadminsRouteImport.update({
@@ -495,6 +501,7 @@ export interface FileRoutesByFullPath {
   "/artifacts": typeof artifactsArtifactsRouteWithChildren;
   "/bots": typeof botsBotsRouteWithChildren;
   "/settings": typeof settingsSettingsRouteWithChildren;
+  "/admin/activity": typeof adminAdminDotactivityRoute;
   "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
   "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
@@ -562,6 +569,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/connect": typeof connectConnectRoute;
+  "/admin/activity": typeof adminAdminDotactivityRoute;
   "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
   "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
@@ -630,6 +638,7 @@ export interface FileRoutesById {
   "/_chat/artifacts": typeof artifactsArtifactsRouteWithChildren;
   "/_chat/bots": typeof botsBotsRouteWithChildren;
   "/_chat/settings": typeof settingsSettingsRouteWithChildren;
+  "/admin/activity": typeof adminAdminDotactivityRoute;
   "/admin/admins": typeof adminAdminDotadminsRouteWithChildren;
   "/admin/users": typeof adminAdminDotusersRouteWithChildren;
   "/lab/avatars": typeof labLabDotavatarsRoute;
@@ -703,6 +712,7 @@ export interface FileRouteTypes {
     | "/artifacts"
     | "/bots"
     | "/settings"
+    | "/admin/activity"
     | "/admin/admins"
     | "/admin/users"
     | "/lab/avatars"
@@ -770,6 +780,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/connect"
+    | "/admin/activity"
     | "/admin/admins"
     | "/admin/users"
     | "/lab/avatars"
@@ -837,6 +848,7 @@ export interface FileRouteTypes {
     | "/_chat/artifacts"
     | "/_chat/bots"
     | "/_chat/settings"
+    | "/admin/activity"
     | "/admin/admins"
     | "/admin/users"
     | "/lab/avatars"
@@ -968,6 +980,13 @@ declare module "@tanstack/react-router" {
       path: "/";
       fullPath: "/admin/";
       preLoaderRoute: typeof adminAdminDotindexRouteImport;
+      parentRoute: typeof adminAdminRoute;
+    };
+    "/admin/activity": {
+      id: "/admin/activity";
+      path: "/activity";
+      fullPath: "/admin/activity";
+      preLoaderRoute: typeof adminAdminDotactivityRouteImport;
       parentRoute: typeof adminAdminRoute;
     };
     "/admin/admins": {
@@ -1754,6 +1773,7 @@ const adminAdminDotusersDotuserIdRouteWithChildren =
   );
 
 interface adminAdminRouteChildren {
+  adminAdminDotactivityRoute: typeof adminAdminDotactivityRoute;
   adminAdminDotadminsRoute: typeof adminAdminDotadminsRouteWithChildren;
   adminAdminDotusersRoute: typeof adminAdminDotusersRouteWithChildren;
   adminAdminDotindexRoute: typeof adminAdminDotindexRoute;
@@ -1761,6 +1781,7 @@ interface adminAdminRouteChildren {
 }
 
 const adminAdminRouteChildren: adminAdminRouteChildren = {
+  adminAdminDotactivityRoute: adminAdminDotactivityRoute,
   adminAdminDotadminsRoute: adminAdminDotadminsRouteWithChildren,
   adminAdminDotusersRoute: adminAdminDotusersRouteWithChildren,
   adminAdminDotindexRoute: adminAdminDotindexRoute,

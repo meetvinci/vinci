@@ -220,6 +220,7 @@ describe('conversation viewer through the relay', () => {
     const ranged = await file(`alice/files/${botId}/${attachment.id}`, tokens.root, { range: 'bytes=0-5' });
     const later = await file(`alice/files/${botId}/${attachment.id}`, tokens.root, { range: 'bytes=2-5' });
     const crossSite = await file(`alice/files/${botId}/${attachment.id}`, tokens.root, { 'sec-fetch-site': 'cross-site' });
+    const whole = await Promise.all(['x', 'bytes=-1000', 'bytes=00-'].map(async (range) => (await file(`alice/files/${botId}/${attachment.id}`, tokens.root, { range })).text()));
 
     const tricks = await Promise.all([
       file(`alice/files/${botId}/${attachment.id}`, tokens.bob),
@@ -260,8 +261,9 @@ describe('conversation viewer through the relay', () => {
     expect(after).toBe(before);
     expect(audits.filter((line) => line.includes(botId) && line.includes('conversation/history'))).toHaveLength(3);
     expect(audits.filter((line) => line.includes('conversation/list'))).not.toHaveLength(0);
-    // Reads: the whole file, a range from byte 0, and the two misses (bob, an unknown id). A later range and a cross-site request write no line.
-    expect(audits.filter((line) => line.includes('attachments/download'))).toHaveLength(4);
+    // Reads: the whole file, a range from byte 0, three odd ranges that still serve from byte 0, and the two misses (bob, an unknown id). A later range and a cross-site request write no line.
+    expect(whole).toEqual(['viewer attachment body', 'viewer attachment body', 'viewer attachment body']);
+    expect(audits.filter((line) => line.includes('attachments/download'))).toHaveLength(7);
     expect(audits.filter((line) => line.includes('conversation/reactions'))).toHaveLength(0);
     expect(logs).not.toContain('VIEWER-MESSAGE-TEXT');
     expect(logs).not.toContain('VIEWER-QUERY-TEXT');

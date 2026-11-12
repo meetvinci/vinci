@@ -174,8 +174,8 @@ apps/daemon/src/
 apps/hub/
 ├── src/entry.native.ts                 the hub entry
 ├── src/core/core.native.ts             startup composition, signals and shutdown
-├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, refusal page
-├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner, global
+├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page
+├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner, global, audit
 ├── src/types/<domain>.types.ts         hub schemas, deps and service types
 ├── tests/<app>[-<part>].test.ts         Vitest end-to-end tests against real throwaway processes
 └── tests/support/<app>.fixture.ts      the processes, servers and helpers those tests start
@@ -279,7 +279,7 @@ packages/
 | Location | Owns |
 | --- | --- |
 | `apps/daemon` | Entry, startup composition, listener and transport, signals, shutdown. |
-| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning, the first-visit pairing hand-off, the admin list and admin API, relaying admin calls to owner sockets, and copying global settings sections and suggested bots from the template workspace's owner socket to each user's. No product logic. |
+| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning, the first-visit pairing hand-off, the admin list and admin API, relaying admin calls to owner sockets, the admin audit trail, and copying global settings sections and suggested bots from the template workspace's owner socket to each user's. No product logic. |
 | `apps/web`, `apps/desktop`, `apps/mobile` | UI, server connections, device credential storage. Web uses TanStack Start SSR and query hydration; SSR calls the daemon through the shared client, the browser through the `/rpc` proxy with WebSockets for live updates. Web credentials live in a cookie and reach the daemon as Bearer headers. |
 | `packages/server` | Product services: bots, pairing, settings, credentials, permissions, skill, instruction, plugin and MCP selection and discovery; RPC handlers. |
 | `packages/runtime` | Pi integration: Harness, conversations, tools, hooks, approvals, tasks, watches, recovery, skill, instruction and plugin loading, MCP clients. |
@@ -341,6 +341,7 @@ export type SkillService = ReturnType<typeof makeSkillService>;
 - A team installation runs one daemon per user behind the hub. Identity comes from Cloudflare Access at the hub, which routes by the verified email, never by a client-chosen address.
 - Pairing stores token hashes and atomically consumes grants with device creation. Issuing a grant requires an authenticated device or trusted local transport. CLI pairing uses the owner-only daemon socket before or after initial setup; public transport cannot acquire local authority. The daemon prints a startup pairing link while no device exists.
 - App persistence uses `node:sqlite` and Kysely. SQL identifiers are snake_case; `CamelCasePlugin` maps TypeScript camelCase. Migrations preserve existing data.
+- The hub's audit trail is one append-only `bun:sqlite` table in `HUB_DATA_DIR/audit.sqlite`, opened directly, without Kysely or migrations.
 - Generic non-secret key/value data belongs to the shared `settings` service and table, with domain keys such as `skills.directories`, `mcp.paths` and `tools.approvalRules`.
 - Domain settings RPCs return settings objects, not individual flags. Writes are partial: omission preserves, `[]` clears lists, nullable fields use `null` to clear. Return updated settings.
 - Application secrets use the shared encrypted `credentials` service and table. AES-GCM uses a fresh IV and authenticates the credential name. The native encryption key stays outside the database. No secret-read RPC or secret values in catalogs or errors.

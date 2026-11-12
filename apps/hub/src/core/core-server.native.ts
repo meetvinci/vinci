@@ -4,6 +4,7 @@ import { log } from '@repo/logger/server';
 import { parse } from 'cookie-es';
 import { match, P } from 'ts-pattern';
 import { coreAdminApi } from './core-admin.native';
+import { coreAuditStatus } from './core-audit.native';
 import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from './core-pairing.native';
 import { coreRefusalPage, coreRefusalWanted } from './core-refusal.native';
 import { makeCoreRelay } from './core-relay.native';
@@ -106,14 +107,7 @@ async function coreServerHandle(
       .when(isAppError, (appError) => appError)
       .otherwise(() => null);
 
-    const status = match(failure?.code)
-      .with('UNAUTHORIZED', () => 401)
-      .with('FORBIDDEN', () => 403)
-      .with('NOT_FOUND', () => 404)
-      .with('CONFLICT', () => 409)
-      .with('VALIDATION_ERROR', () => 422)
-      .with('RATE_LIMITED', () => 429)
-      .otherwise(() => 502);
+    const status = coreAuditStatus(failure?.code);
 
     const fields = {
       tag: 'hub',

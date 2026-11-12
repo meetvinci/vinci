@@ -51,3 +51,8 @@ export interface AdminProblemParams {
 }
 
 export type AdminQueriesStatus = 'pending' | 'error' | 'success';
+
+export interface AdminAuditPathParams {
+  filter: UniversalTypes.AdminAuditFilter
+  cursor: number
+}

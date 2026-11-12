@@ -1,4 +1,5 @@
 import type { AccessService } from '../services/access/access.service';
+import type { AuditService } from '../services/audit/audit.service';
 import type { PairingService } from '../services/pairing/pairing.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
 import type { AccessIdentity } from './access.types';
@@ -16,6 +17,7 @@ export interface CoreServices {
   pairing: PairingService;
   admins: AdminService;
   provisioner: ProvisionerService;
+  audit: AuditService;
 }
 
 export interface CoreIncoming {
@@ -36,9 +38,22 @@ export interface CoreRefusal {
   reason: 'no-user' | 'not-admin';
 }
 
+export interface CoreAdminChange {
+  action: string;
+  detail?: string | null;
+  userId?: string | null;
+  botId?: string | null;
+}
+
 export interface CoreAdminRelay {
   id: string;
   procedure: string;
+  change: CoreAdminChange | null;
+}
+
+export interface CoreAdminUsers {
+  id: string | undefined;
+  change: CoreAdminChange;
 }
 
 export interface CoreAdminAvatar {
@@ -56,14 +71,6 @@ export interface CoreAdminFile {
 export interface CoreAdminRead {
   body: string;
   isAudited: boolean;
-  target: ConversationTarget | null;
-}
-
-export interface CoreAdminAudit {
-  by: string;
-  user: string;
-  procedure: string;
-  status: number;
   target: ConversationTarget | null;
 }
 
