@@ -99,7 +99,7 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 <header>
   <div class="kicker">Test server [REDACTED] · read 12 Nov 2026, 11:09 UTC</div>
   <h1>What runs on the Orbs team server, and how to change a bot by hand</h1>
-  <p class="lede">Six levels, from the machine down to one line of a bot's instructions. Every terminal block is real output from the test install. Emails are shown as &lt;email&gt; and secrets are masked.</p>
+  <p class="lede">Six levels, from the machine down to one line of a bot's instructions. Every terminal block is real output from the test install with the first admin panel version (<code>7c0f545</code>). Emails are shown as &lt;email&gt; and secrets are masked. Since the global settings upgrade the server also runs <code>orbs-daemon-template-1</code>, and the demo person <code>tourdemo</code> and the <code>tour-capture</code> container are gone; to try the editing examples, add a throwaway person in the admin panel and use its id.</p>
   <div class="term"><div class="bar"><span>your Mac</span><button class="copy" type="button">Copy</button></div><pre><span class="c">ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@[REDACTED]
 cd /opt/orbs</span></pre></div>
   <p class="note">Every server command below runs as root in <code>/opt/orbs</code>. SSH is allowed only from your current IP address.</p>
@@ -203,7 +203,7 @@ hub-1  |   ├─ message: Pairing grant issued through the hub
 hub-1  |   └─ user: second
 hub-1  |   ├─ message: Users loaded
 hub-1  |   └─ users: 3</pre></div>
-  <p class="note">For one person's daemon: <code>docker compose logs daemon-second -f</code>. A daemon with no paired device prints a pairing PIN at start, so never paste daemon logs anywhere public.</p>
+  <p class="note">For one person's daemon: <code>docker compose logs daemon-second -f</code>. Since global settings, team daemons print no pairing PIN at start (only an <code>orbs pair</code> hint); older versions did, so never paste their logs anywhere public.</p>
 </section>
 
 <section id="workspace">

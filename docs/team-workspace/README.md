@@ -50,7 +50,7 @@ The admin does not log in as a user and cannot chat as them. Admins use the admi
 
 ## What you need
 
-- A Linux server: Ubuntu 24.04, x86, with Docker. 4 GB of memory fits up to 6 people; 8 GB fits about 14.
+- A Linux server: Ubuntu 24.04, x86, with Docker. 4 GB of memory fits up to 5 people; 8 GB fits about 13 (the global settings take one more person's share).
 - A domain on Cloudflare and a Cloudflare account.
 - An API key from a model provider (for example Anthropic or OpenAI) for each person, or one each person brings.
 

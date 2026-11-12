@@ -61,7 +61,7 @@ admins:
 - The admin panel changes this file through the provisioner, which rewrites it in the long form and drops comments. Don't edit it by hand while someone is changing people in the admin panel.
 - After every edit, run `bun deploy.ts apply`. It writes the hub's `hub/users.json` and `users.compose.yaml` from this list and starts or stops containers to match. Never edit those two files by hand: the next `apply` overwrites them.
 - `apply` never restarts the hub or the other people's containers, so nobody else is logged out.
-- The hub reads the new list on the next request that reaches it, at most once a second. Its log line `Users loaded` with the new count therefore appears only after someone uses Orbs; to check right after `apply`, count the users in `hub/users.json` instead: `grep -c daemonUrl hub/users.json`.
+- The hub reads the new list on the next request that reaches it, at most once a second. Its log line `Users loaded` with the new count therefore appears only after someone uses Orbs; to check right after `apply`, count the users in `hub/users.json` instead: `grep -c '"id"' hub/users.json`. It counts people only; the template workspace's entry has no id.
 - If the list has a mistake, `apply` stops before changing anything and says what is wrong.
 
 ## Add a person
@@ -90,7 +90,7 @@ Model keys come from the server's `.env` (see [Set model API keys](#set-model-ap
 
 **Give this to your agent:**
 
-> On `root@<server>`, add `<email>` as Orbs user `<id>`: add the line `  <id>: <email>` under `users:` in `/opt/orbs/users.yaml`, and run `bun deploy.ts apply` in `/opt/orbs`. Confirm `docker compose ps` shows `orbs-daemon-<id>-1` healthy and `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people in `users.yaml`. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>` so they can log in, unless their email ends in one of the domains in `CLOUDFLARE_ACCESS_DOMAINS` in `/opt/orbs/.env`. If it says the token is empty, ask me to unlock my password manager.
+> On `root@<server>`, add `<email>` as Orbs user `<id>`: add the line `  <id>: <email>` under `users:` in `/opt/orbs/users.yaml`, and run `bun deploy.ts apply` in `/opt/orbs`. Confirm `docker compose ps` shows `orbs-daemon-<id>-1` healthy and `grep -c '"id"' /opt/orbs/hub/users.json` equals the number of enabled people in `users.yaml`. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>` so they can log in, unless their email ends in one of the domains in `CLOUDFLARE_ACCESS_DOMAINS` in `/opt/orbs/.env`. If it says the token is empty, ask me to unlock my password manager.
 
 ## Disable a person
 
@@ -106,7 +106,7 @@ In the admin panel, switch them off. By hand, set `enabled: false` in their entr
 
 In the admin panel: delete them. Their login goes, their container stops and is removed, their volume stays. By hand:
 
-1. Delete their line from `users.yaml`, then run:
+1. Delete their entry from `users.yaml` (their one line, or in the long form their id line and the lines under it), then run:
 
    ```sh
    bun deploy.ts apply
@@ -128,7 +128,7 @@ In the admin panel: delete them. Their login goes, their container stops and is 
 
 **Give this to your agent:**
 
-> On `root@<server>`, remove Orbs user `<id>` (`<email>`): delete their line from `/opt/orbs/users.yaml`, run `bun deploy.ts apply` in `/opt/orbs`, and confirm their container is gone and `grep -c daemonUrl /opt/orbs/hub/users.json` equals the number of people left. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>`. Keep their volume.
+> On `root@<server>`, remove Orbs user `<id>` (`<email>`): delete their entry from `/opt/orbs/users.yaml` (one line, or their id and the indented lines under it), run `bun deploy.ts apply` in `/opt/orbs`, and confirm their container is gone and `grep -c '"id"' /opt/orbs/hub/users.json` equals the number of people left. Then, in my Orbs checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/orbs/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name orbs-<team>`. Keep their volume.
 
 ## The admin panel's provisioner
 
@@ -242,7 +242,7 @@ Suggested bots: tick them in *Add user*, or copy one later from the person's pag
 What global settings cannot carry:
 
 - Sign-ins with a Claude or ChatGPT account (OAuth). They are bound to one Orbs and stay where they are; only API keys are copied. A person who follows Models keeps their own sign-ins.
-- `models.json` (a provider's address or custom models). Edit it per person as before.
+- `models.json` (a provider's address or custom models). A person added in the panel gets none. If your provider needs one (a gateway, a proxy, a local model), write it into each new person's `/data/pi/models.json` as uid 1000 and restart their container, as before.
 - Files outside `~/.agents` in the template, and `node_modules` or `.git` folders inside it: a plugin that needs its dependencies must have them installed for each person. A shared folder path pointing elsewhere is copied as a path; the files there are not. After you change template files by hand, run *Sync now* for Sources: editing files does not trigger a copy.
 - Anything of a person's own bots. A global save never changes a bot's settings, skills or files.
 - Notification and device settings, the theme and the Enter key: they belong to one person or one browser.
@@ -340,15 +340,25 @@ New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-
    docker compose up -d --wait
    ```
 
-   Every Orbs container restarts, which takes about 10 seconds; cloudflared stays up. Open chats reconnect on their own. Routines that were due during the restart run once when Orbs is back. `docker compose ps` should show the new tag on the hub, the provisioner, web and every daemon.
+   Every Orbs container restarts, which takes about 10 seconds; cloudflared stays up. Open chats reconnect on their own. Routines that were due during the restart run once when Orbs is back.
+3. Then run:
 
-The first upgrade to a version with the admin panel needs three more things, once: add `admins:` with your email to `users.yaml`, and `HUB_ADMIN_EMAILS` and `PROVISIONER_TOKEN` to `.env` (the two commands in [install, step 7](install.md#7-start-orbs)); after `docker compose up -d --wait`, run `bun deploy.ts apply` once. It lets the provisioner write the hub's user list (the `hub` folder becomes group root, mode 770); until then every change in the admin panel fails.
+   ```sh
+   bun deploy.ts apply
+   ```
 
-To roll back, set the old tag again and run the same command. If the new version changed someone's data, restore their backup from before the upgrade.
+   It writes the per-person files again from `users.yaml` with the new `deploy.ts`, starts anything the new version adds, and restarts nobody (about 4 seconds). Skipping it can leave a new version half installed: an upgrade to the version with global settings otherwise runs no template workspace, the hub logs `template: false`, and **Global settings** in the panel cannot work.
+4. Check: `docker compose ps` shows the new tag on the hub, the provisioner, web, `orbs-daemon-template-1` and every person's daemon, all healthy.
+
+The first upgrade to a version with the admin panel needs three more things, once, before step 2: add `admins:` with your email to `users.yaml`, and `HUB_ADMIN_EMAILS` and `PROVISIONER_TOKEN` to `.env` (the two commands in [install, step 7](install.md#7-start-orbs)). The `apply` in step 3 then lets the provisioner write the hub's user list (the `hub` folder becomes group root, mode 770); without it every change in the admin panel fails.
+
+**The first upgrade to a version with global settings changes nobody's settings.** People who were there before start with every section *overridden*: they keep their own keys, secrets, chat and tool settings and `~/.agents` files, and get nothing from Global settings. Before you switch a section of theirs to *global*, set that section in Global settings, and know that the switch replaces their values with the global ones: for Secrets it removes their own secrets, for Sources it replaces their `~/.agents` folder, for Models it signs out API keys the template doesn't have. Back them up first. People you add in the panel after the upgrade follow every section.
+
+To roll back, copy the old version's deployment files into `/opt/orbs` again (from a checkout of that version), set the old tag, and run `docker compose up -d --wait` and then `bun deploy.ts apply`, as for an upgrade. Both steps matter: an older hub may refuse the newer `hub/users.json` and let nobody in (a rollback from global settings to the first admin panel version logged `unrecognized_keys` and *Users file … invalid: every request is refused*), and only the old `deploy.ts apply` writes the file it expects. Rolling back past global settings removes the template container and keeps its volume, so a later upgrade finds the global settings and suggested bots again. If the new version changed someone's data, restore their backup from before the upgrade.
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, back up every user with `bun deploy.ts backup <id>`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, and confirm every container is healthy and the hub log shows no error. If anything fails, set the previous tag back and run the same command.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user with `bun deploy.ts backup <id>`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 

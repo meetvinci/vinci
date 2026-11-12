@@ -19,7 +19,7 @@ They passed the Cloudflare login, but Orbs has no user with that email. With a d
 
 ## Nobody can get in, and the hub log says the users file is invalid
 
-`/opt/orbs/hub/users.json` is missing or was edited by hand, so the hub lets nobody in. `bun deploy.ts apply` writes it from `users.yaml` and checks the list first.
+`/opt/orbs/hub/users.json` is missing or was edited by hand, so the hub lets nobody in. `bun deploy.ts apply` writes it from `users.yaml` and checks the list first. After a rollback the log says `unrecognized_keys`: the older hub does not know a newer file. Copy that version's deployment files into `/opt/orbs` and run its `bun deploy.ts apply` ([Upgrades](admin.md#upgrades)).
 
 > On `root@<server>`, in `/opt/orbs`, read the hub's latest log error about `users.json`, then run `bun deploy.ts apply` and confirm `docker compose logs hub --since 5m` shows the users loaded. Don't edit `hub/users.json` by hand.
 
@@ -49,6 +49,12 @@ The panel asks the provisioner, which runs `bun deploy.ts apply`. Its log names 
 - The panel says to add the email in Cloudflare Access by hand: there is no `CLOUDFLARE_API_TOKEN` on the server, or Cloudflare refused it (the log says `Access sync failed`). Run `cloudflare emails` from your computer ([admin tasks](admin.md#add-a-person), step 2) or [let the server do it](admin.md#let-the-server-update-cloudflare-access).
 
 > On `root@<server>`, in `/opt/orbs`, the admin panel failed to change people. Report the errors in `docker compose logs provisioner --since 15m` and `stat -c "%u:%g %a" hub`, without printing secrets. If it does not print `1000:0 770`, run `bun deploy.ts apply` and confirm it ends with `Applied <n> users`. Change nothing else.
+
+## Global settings don't open, or there is no `orbs-daemon-template-1`
+
+The template workspace holds the global settings and the suggested bots. `bun deploy.ts apply` starts it; `docker compose up` alone does not, because only `apply` writes it into `users.compose.yaml`. This happens after an upgrade that skipped `apply`: the hub log's `Users loaded` line then says `template: false`.
+
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts apply` and confirm it ends with `(and the template workspace)`, that `docker compose ps daemon-template` is healthy, and that the next `Users loaded` line in `docker compose logs hub` says `template: true`. Change nothing else.
 
 ## The admin panel says a setting follows global (409)
 
@@ -127,7 +133,7 @@ Containers are locked down: no root, read-only system files. `apt`, `npm -g` and
 
 ## Memory runs low
 
-Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's Orbs used 105-135 MB, the web app 65-70 MB, cloudflared about 38 MB, the hub 14-21 MB and the provisioner 14-65 MB; the system and Docker about 470 MB. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 6 people on 4 GB, so that everyone can reach their limit at once, and about 14 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
+Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's Orbs used 90-135 MB, the template workspace (global settings) about 106 MB, the web app 47-70 MB, cloudflared about 38 MB, the hub 14-21 MB and the provisioner 6-65 MB; the system and Docker about 470 MB. Count the template workspace as one more person. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 5 people on 4 GB, so that everyone and the template workspace can reach their limit at once, and about 13 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
 
 > On `root@<server>`, show memory use per Orbs container with `docker stats --no-stream` and the server's free memory with `free -h`. Suggest whether the server needs more memory.
 

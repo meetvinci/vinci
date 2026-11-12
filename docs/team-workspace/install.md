@@ -9,7 +9,7 @@ An agent can also do the whole install at once: see [the whole install in one pr
 You need:
 
 - **A server.** Ubuntu 24.04 on x86 (amd64), with root SSH access. It must run Docker Engine directly on Linux (step 2). Keeping each person's Orbs away from the others relies on Docker Engine's own network rules; OrbStack and other Mac or Windows Docker apps do not enforce them, so never run a team there.
-  - Memory: 4 GB for up to 6 people, 8 GB for up to about 14. A "4 GB" server shows about 3.7 GiB in `free -h`; that is enough.
+  - Memory: 4 GB for up to 5 people, 8 GB for up to about 13. The server also runs one workspace for the global settings, sized like a person. A "4 GB" server shows about 3.7 GiB in `free -h`; that is enough.
   - Disk: at least 40 GB.
   - The CPU must support AVX2. Most current servers do.
 - **A domain on Cloudflare**, for example `example.com`. The team gets one name under it, for example `acme.example.com`.
