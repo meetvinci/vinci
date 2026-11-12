@@ -311,6 +311,12 @@ What is recorded, one row each, never content or values:
 
 The rows live in `hub/audit.sqlite`, next to `admins.json`. Restarts, upgrades, `apply` and rollbacks keep it (an older hub leaves the file alone, and what admins do while it runs is only in its log), and the [hub folder backup](#backups) includes it. If the hub cannot write a row, a read is refused, and a change still happens and the hub logs `The audit trail could not record a change; the change stands` (refusing a change that was already made would only make you make it again). The hub also writes each row to its log as a `hub-audit` line, as before; that copy goes with the hub container.
 
+To read the newest rows on the server without the panel (read only, safe while the hub runs; times in UTC):
+
+```sh
+bun -e 'const { Database } = require("bun:sqlite"); const db = new Database("hub/audit.sqlite", { readonly: true }); console.table(db.query("SELECT id, created_at, admin, kind, action, detail, user_id, status FROM audit ORDER BY id DESC LIMIT 20").all().map((row) => ({ ...row, created_at: new Date(row.created_at).toISOString() })))'
+```
+
 A row takes about 120 bytes: 10,000 rows, a busy month for a small team, are about 1.2 MB, so a year stays well under 20 MB. Nothing is pruned. To remove old rows by hand, stop the hub, delete them, and start it again:
 
 ```sh
@@ -383,9 +389,18 @@ bun deploy.ts restore <id> backups/<id>-<time>.tar.gz
 
 This replaces everything in that person's volume. It first takes a fresh backup of what is there, and prints its name. Expected: `Saved the current data of <id> to backups/…` and `Restored <id> from …`, and their container healthy again.
 
+To put the hub's folder back, stop the hub, unpack the backup over `hub` as root (it keeps the owners and modes the hub needs), start the hub, and run `apply` so `hub/users.json` matches `users.yaml` again. The admin list and the section modes go back to the backup's, and rows added to the audit trail since that backup are lost, so first copy the current `hub/audit.sqlite` to `backups/` if you want to keep them:
+
+```sh
+docker compose stop hub
+tar -xzf backups/hub-<time>.tar.gz
+docker compose start hub
+bun deploy.ts apply
+```
+
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts backup <id>` for every user id in `users.yaml` and for `template`, one after the other, then copy the new files in `/opt/orbs/backups/` to `<backup location>` without changing their permissions. Report the file names and sizes.
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts backup <id>` for every user id in `users.yaml` and for `template`, one after the other, and back up the hub's folder with the `tar` command in the Backups section of `docs/team-workspace/admin.md`, then copy the new files in `/opt/orbs/backups/` to `<backup location>` without changing their permissions. Report the file names and sizes.
 
 ## Upgrades
 
@@ -406,7 +421,7 @@ New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-
    ```
 
    It writes the per-person files again from `users.yaml` with the new `deploy.ts`, starts anything the new version adds, and restarts nobody (about 4 seconds). Skipping it can leave a new version half installed: an upgrade to the version with global settings otherwise runs no template workspace, the hub logs `template: false`, and **Global settings** in the panel cannot work.
-4. Check: `docker compose ps` shows the new tag on the hub, the provisioner, web, `orbs-daemon-template-1` and every person's daemon, all healthy.
+4. Check: `docker compose ps` shows the new tag on the hub, the provisioner, web, `orbs-daemon-template-1` and every person's daemon, all healthy. From the version with the [audit trail](#activity) on, `ls -ln hub/audit.sqlite` shows the file owned by `1000 1000` with mode `-rw-------`: the hub creates it on its first start. The hub log may show `The provisioner did not take the admin list yet; trying again` once, because the provisioner restarts at the same moment; it is harmless when no error line follows.
 
 The first upgrade to a version with the admin panel needs three more things, once, before step 2: add `admins:` with your email to `users.yaml`, and `HUB_ADMIN_EMAILS` and `PROVISIONER_TOKEN` to `.env` (the two commands in [install, step 7](install.md#7-start-orbs)). The `apply` in step 3 then lets the provisioner write the hub's user list (the `hub` folder becomes group root, mode 770); without it every change in the admin panel fails.
 
@@ -424,7 +439,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 docker compose ps                        # every container and its health
 docker stats --no-stream                 # memory and CPU per container
 docker compose logs hub --since 1h       # the hub: logins refused, users loaded, pairing
-docker compose logs hub | grep -B1 -A9 'hub-audit'   # admin reads and changes since the hub container started
+docker compose logs hub | grep -B1 -A9 'hub-audit'   # admin reads and changes since the hub container started; the full trail is in Activity
 docker compose logs daemon-<id> -f       # one person's Orbs, live
 ```
 
