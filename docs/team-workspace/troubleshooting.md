@@ -60,6 +60,14 @@ The template workspace holds the global settings and the suggested bots. `bun de
 
 The person follows the global value for that section, so the panel does not change it for them. Change it under Global settings for everyone, or switch that section to *overridden* for this person first. The hub answers `409` with `SECTION_FOLLOWS_GLOBAL` and the section's name.
 
+## *Back to global* shows no list, or the switch is refused
+
+Before switching a person's section back to global, the panel asks the hub what the switch would remove, replace or add (`GET /admin/api/users/<id>/sections/<section>/preview`), and the switch carries that answer's marker.
+
+- No list and no confirm button: the person's Orbs or the template workspace did not answer. Check `docker compose ps daemon-<id> daemon-template`; a turned-off person has no running Orbs, so turn them on first.
+- The list reloads instead of switching (`409`): something changed in that section, for the person or in Global settings, after the list was shown, or the hub restarted. Read the new list and confirm again.
+- `422` from a script calling the API: a switch of an overridden section needs the `marker` of a fresh preview. A section that already follows global takes `{ "mode": "global" }` alone and copies again.
+
 ## Global settings show *failed* for someone
 
 The copy to that person did not work, usually because their Orbs was restarting. The reason is next to it in `/admin/api/global/status`. Once their container is healthy (`docker compose ps daemon-<id>`), run *Sync now*. A person who is turned off shows *pending* and catches up when turned on.
