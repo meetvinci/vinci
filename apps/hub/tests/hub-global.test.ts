@@ -11,6 +11,20 @@ import { HUB_GLOBAL_FIXTURE } from './support/hub.fixture';
 const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_GLOBAL_FIXTURE);
 
 describe('global settings and the template workspace', () => {
+  const previewItem = z.object({
+    kind: z.string(),
+    name: z.string(),
+    change: z.string(),
+  });
+
+  const secret = (name: string, value: string) => ({ name, hosts: ['api.example.com'], value });
+
+  const previewItems = z.object({
+    marker: z.string(),
+    items: z.array(previewItem),
+    isPartial: z.boolean(),
+  });
+
   const relay = (token: string, user: string, procedure: string, input?: object) => hubAdminTestWrite(token, `/admin/api/users/${user}/rpc/${procedure}`, {
     body: { json: input ?? null },
     headers: { 'x-bots-protocol': '1' },
@@ -81,11 +95,7 @@ describe('global settings and the template workspace', () => {
 
   it('copies a section when a user follows it, refuses writes with 409 and copies template saves to followers only', async ({ fixture, tokens }) => {
     await relay(tokens.root, 'template', 'conversation/configure', { whenBusy: 'steer' });
-    await relay(tokens.root, 'template', 'secrets/save', {
-      name: 'TEAM_KEY',
-      hosts: ['api.example.com'],
-      value: 'team-secret',
-    });
+    await relay(tokens.root, 'template', 'secrets/save', secret('TEAM_KEY', 'team-secret'));
 
     const blind = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/chat', { method: 'PUT', body: { mode: 'global' } });
     const unswitched = await hubAdminTestRead(tokens.root, '/admin/api/users/alice/sections');
@@ -236,7 +246,6 @@ describe('global settings and the template workspace', () => {
 
   it("keeps a person's own secrets through a sync and Back to global, and lets them remove only their own", async ({ fixture, tokens }) => {
     const { hub, publicOrigin } = HUB_GLOBAL_FIXTURE;
-    const secret = (name: string, value: string) => ({ name, hosts: ['api.example.com'], value });
     const secretList = z.object({ json: z.array(z.object({ name: z.string(), isGlobal: z.boolean().optional() })) });
     const listed = async () => Object.fromEntries(secretList.parse((await relay(tokens.root, 'alice', 'secrets/list')).json).json.map(({ name, isGlobal }) => [name, isGlobal === true]));
 
@@ -332,13 +341,6 @@ describe('global settings and the template workspace', () => {
   it('previews switching back to global by name only, changes nothing, and refuses a stale preview', async ({ fixture, tokens }) => {
     const preview = async (section: string, token = tokens.root) => hubAdminTestRead(token, `/admin/api/users/bob/sections/${section}/preview`);
 
-    const item = z.object({
-      kind: z.string(),
-      name: z.string(),
-      change: z.string(),
-    });
-
-    const items = z.object({ marker: z.string(), items: z.array(item) });
     const bobHome = join(fixture.root, 'bob');
     const authPath = join(bobHome, 'pi/auth.json');
     const auth = z.record(z.string(), z.object({ type: z.string(), key: z.string() })).parse(JSON.parse(await readFile(authPath, 'utf8')));
@@ -351,16 +353,13 @@ describe('global settings and the template workspace', () => {
     await writeFile(join(bobHome, '.agents/skills/mine/SKILL.md'), '---\nname: mine\ndescription: Own skill\n---\nMine');
     await writeFile(join(bobHome, '.agents/mcp.json'), JSON.stringify({ mcpServers: { bobserver: { command: 'echo', args: ['dummy-mcp-arg-value'] } } }));
     await writeFile(authPath, JSON.stringify({ ...auth, openai: { type: 'api_key', key: 'dummy-openai-key-value' } }), { mode: 0o600 });
-    await relay(tokens.root, 'bob', 'secrets/save', {
-      name: 'BOB_ONLY',
-      hosts: ['api.example.com'],
-      value: 'dummy-bob-only-value',
-    });
-    await relay(tokens.root, 'bob', 'secrets/save', {
-      name: 'TEAM_KEY',
-      hosts: ['api.example.com'],
-      value: 'dummy-bob-team-value',
-    });
+
+    const templateAuthPath = join(fixture.root, 'template/pi/auth.json');
+    const templateAuth = z.record(z.string(), z.json()).parse(JSON.parse(await readFile(templateAuthPath, 'utf8')));
+
+    await writeFile(templateAuthPath, JSON.stringify({ ...templateAuth, mistral: { type: 'api_key', key: 'dummy-template-mistral-value' } }), { mode: 0o600 });
+    await relay(tokens.root, 'bob', 'secrets/save', secret('BOB_ONLY', 'dummy-bob-only-value'));
+    await relay(tokens.root, 'bob', 'secrets/save', secret('TEAM_KEY', 'dummy-bob-team-value'));
     await relay(tokens.root, 'bob', 'tools/configure', { approvalTimeoutMinutes: 3 });
 
     const files = async () => Promise.all(['pi/auth.json', '.agents/mcp.json', '.agents/skills/mine/SKILL.md', '.agents/skills/team/SKILL.md'].map(async (path) => readFile(join(bobHome, path), 'utf8')));
@@ -381,7 +380,7 @@ describe('global settings and the template workspace', () => {
       audit: await hubAdminTestRead(tokens.root, '/admin/api/audit'),
     };
 
-    const named = Object.fromEntries(previews.map(({ json }, index) => [sections[index], items.parse(json).items.filter(({ change }) => change !== 'added')]));
+    const named = Object.fromEntries(previews.map(({ json }, index) => [sections[index], previewItems.parse(json).items.filter(({ change }) => change !== 'added')]));
 
     const refused = await Promise.all([
       preview('secrets', tokens.bob),
@@ -392,7 +391,12 @@ describe('global settings and the template workspace', () => {
 
     expect(previews.map(({ status }) => status)).toEqual([200, 200, 200, 200, 200]);
     expect(named).toEqual({
-      models: [{ kind: 'provider', name: 'anthropic', change: 'changed' }, { kind: 'provider', name: 'openai', change: 'removed' }],
+      models: [
+        { kind: 'provider', name: 'anthropic', change: 'changed' },
+        { kind: 'provider', name: 'mistral', change: 'replaced' },
+        { kind: 'provider', name: 'openai', change: 'removed' },
+        { kind: 'provider', name: 'xai', change: 'removed' },
+      ],
       chat: [{ kind: 'chatSetting', name: 'whenBusy', change: 'changed' }],
       tools: [{ kind: 'toolSetting', name: 'approvalTimeoutMinutes', change: 'changed' }],
       secrets: [{ kind: 'secret', name: 'TEAM_KEY', change: 'replaced' }],
@@ -408,13 +412,9 @@ describe('global settings and the template workspace', () => {
     expect(after.audit).toEqual(before.audit);
     expect(refused.map(({ status }) => status)).toEqual([403, 403, 404, 404]);
 
-    const stale = items.parse((await preview('secrets')).json).marker;
+    const stale = previewItems.parse((await preview('secrets')).json).marker;
 
-    await relay(tokens.root, 'bob', 'secrets/save', {
-      name: 'BOB_LATE',
-      hosts: ['api.example.com'],
-      value: 'dummy-bob-late-value',
-    });
+    await relay(tokens.root, 'bob', 'secrets/save', secret('BOB_LATE', 'dummy-bob-late-value'));
 
     const refusedSwitch = await hubAdminTestWrite(tokens.root, '/admin/api/users/bob/sections/secrets', {
       method: 'PUT',
@@ -422,14 +422,14 @@ describe('global settings and the template workspace', () => {
     });
 
     const stillOwn = await hubAdminTestRead(tokens.root, '/admin/api/users/bob/sections');
-    const fresh = items.parse((await preview('secrets')).json);
+    const fresh = previewItems.parse((await preview('secrets')).json);
 
     expect(refusedSwitch.status).toBe(409);
     expect(stillOwn.json).toMatchObject({ sections: [{}, {}, {}, { id: 'secrets', mode: 'overridden' }, {}] });
     expect(fresh.marker).not.toBe(stale);
     expect(fresh.items.map(({ name }) => name)).not.toContain('BOB_LATE');
 
-    const marker = async (section: string) => items.parse((await preview(section)).json).marker;
+    const marker = async (section: string) => previewItems.parse((await preview(section)).json).marker;
     const markers = Object.fromEntries(await Promise.all(sections.map(async (section) => [section, await marker(section)] as const)));
 
     const switched = await Promise.all(sections.map(async (section) => hubAdminTestWrite(tokens.root, `/admin/api/users/bob/sections/${section}`, {
@@ -437,7 +437,7 @@ describe('global settings and the template workspace', () => {
       body: { mode: 'global', marker: markers[section] },
     })));
 
-    const emptied = await Promise.all(sections.map(async (section) => items.parse((await preview(section)).json).items));
+    const emptied = await Promise.all(sections.map(async (section) => previewItems.parse((await preview(section)).json).items));
     const secrets = await relay(tokens.root, 'bob', 'secrets/list');
     const mcp = await readFile(join(bobHome, '.agents/mcp.json'), 'utf8').catch(() => '');
     const stored = await readFile(authPath, 'utf8');
@@ -451,5 +451,51 @@ describe('global settings and the template workspace', () => {
     ]) });
     expect(mcp).not.toContain('bobserver');
     expect(stored).not.toContain('openai');
+    expect(stored).not.toContain('xai');
+    expect(stored).toContain('mistral');
+  });
+
+  it('degrades the preview for a too-large ~/.agents and lists global secrets with no stored value', async ({ fixture, tokens }) => {
+    const preview = async (section: string) => previewItems.parse((await hubAdminTestRead(tokens.root, `/admin/api/users/alice/sections/${section}/preview`)).json);
+
+    const aliceHome = join(fixture.root, 'alice');
+
+    await relay(tokens.root, 'template', 'secrets/save', secret('TEAM_EMPTY_KEPT', 'dummy-team-kept-value'));
+    await relay(tokens.root, 'template', 'secrets/save', secret('TEAM_EMPTY_GONE', 'dummy-team-gone-value'));
+    await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: { section: 'secrets' } });
+    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/secrets', { method: 'PUT', body: { mode: 'overridden' } });
+    await relay(tokens.root, 'alice', 'credentials/set', { key: 'secrets.TEAM_EMPTY_KEPT', value: null });
+    await relay(tokens.root, 'alice', 'credentials/set', { key: 'secrets.TEAM_EMPTY_GONE', value: null });
+    await relay(tokens.root, 'template', 'secrets/remove', { name: 'TEAM_EMPTY_GONE' });
+
+    const secrets = (await preview('secrets')).items.filter(({ name }) => name.startsWith('TEAM_EMPTY_'));
+
+    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/sources', { method: 'PUT', body: { mode: 'overridden' } });
+    await mkdir(join(aliceHome, '.agents/skills/big'), { recursive: true });
+    await writeFile(join(aliceHome, '.agents/skills/big/data.bin'), Buffer.alloc(7 * 1024 * 1024, 1));
+    await relay(tokens.root, 'alice', 'skills/configure', { directories: ['~/elsewhere'] });
+
+    const sources = await preview('sources');
+    const again = await preview('sources');
+
+    const switched = await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/sources', {
+      method: 'PUT',
+      body: { mode: 'global', marker: sources.marker },
+    });
+
+    const big = await readFile(join(aliceHome, '.agents/skills/big/data.bin')).then(() => true, () => false);
+    const after = await preview('sources');
+
+    expect(secrets).toEqual([
+      { kind: 'secret', name: 'TEAM_EMPTY_GONE', change: 'removed' },
+      { kind: 'secret', name: 'TEAM_EMPTY_KEPT', change: 'changed' },
+    ]);
+    expect(sources.isPartial).toBe(true);
+    expect(sources.items.map(({ kind }) => kind)).not.toContain('skill');
+    expect(sources.items.filter(({ kind }) => kind === 'sourceSetting').map(({ name, change }) => `${name}:${change}`)).toContain('skills:changed');
+    expect(again.marker).toBe(sources.marker);
+    expect(switched.json).toEqual({ sections: [{ id: 'sources', mode: 'global', sync: 'in-sync' }] });
+    expect(big).toBe(false);
+    expect(after).toMatchObject({ isPartial: false, items: [] });
   });
 });

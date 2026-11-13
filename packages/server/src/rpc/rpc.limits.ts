@@ -1,9 +1,9 @@
 import { rpcTeamRefuse } from './rpc-team.utils';
-import { authedRouter } from './rpc.procedures';
+import { ownerRouter } from './rpc.procedures';
 
 export const limits = {
-  settings: authedRouter.limits.settings.handler(async ({ context }) => context.limits.queries.settings()),
-  configure: authedRouter.limits.configure.handler(async ({ context, input }) => {
+  settings: ownerRouter.limits.settings.handler(async ({ context }) => context.limits.queries.settings()),
+  configure: ownerRouter.limits.configure.handler(async ({ context, input }) => {
     await rpcTeamRefuse({
       context,
       path: 'limits.configure',

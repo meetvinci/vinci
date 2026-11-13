@@ -23,7 +23,8 @@ export function AdminSectionBack({ userId, section, onOpenChange }: AdminSection
   const change = useAdminSectionMode({ userId, section });
   const label = adminSectionLabel(section.id);
   const items = preview.data?.items ?? [];
-  const isNothingLost = preview.isSuccess && items.every((item) => item.change === 'added');
+  const isPartial = preview.data?.isPartial === true;
+  const isNothingLost = preview.isSuccess && !isPartial && items.every((item) => item.change === 'added');
   const isReady = preview.isSuccess && !preview.isFetching;
 
   const groups = ADMIN.previewChanges
@@ -62,6 +63,13 @@ export function AdminSectionBack({ userId, section, onOpenChange }: AdminSection
     ))
     .with('success', () => (
       <div className="grid max-h-80 gap-3 overflow-y-auto text-sm">
+        {isPartial ? (
+          <Alert>
+            <IconTriangleAlert />
+            <AlertTitle>{m.admin_section_back_too_large_title()}</AlertTitle>
+            <AlertDescription>{m.admin_section_back_too_large()}</AlertDescription>
+          </Alert>
+        ) : null}
         {isNothingLost ? <p>{m.admin_section_back_nothing({ section: label })}</p> : null}
         {groups.map((group) => (
           <section className="grid gap-1" key={group.kind}>
@@ -69,7 +77,7 @@ export function AdminSectionBack({ userId, section, onOpenChange }: AdminSection
               {match(group.kind)
                 .with('removed', () => m.admin_section_back_removed())
                 .with('changed', () => m.admin_section_back_changed())
-                .with('replaced', () => m.admin_section_back_replaced())
+                .with('replaced', () => (section.id === 'models' ? m.admin_section_back_replaced_models() : m.admin_section_back_replaced()))
                 .with('added', () => m.admin_section_back_added())
                 .exhaustive()}
             </h3>

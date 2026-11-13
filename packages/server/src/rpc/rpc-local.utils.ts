@@ -9,6 +9,7 @@ const RPC_LOCAL_ALLOWLIST = {
   conversation: { settings: true, configure: true, list: true, history: true, search: true, reactions: true },
   attachments: { download: true, poster: true },
   notifications: { settings: true, configure: true },
+  limits: { settings: true, configure: true },
   providers: { list: true, login: true, complete: true, session: true, cancel: true, logout: true, export: true, import: true },
   models: { list: true },
   plugins: { discover: true, settings: true, configure: true },

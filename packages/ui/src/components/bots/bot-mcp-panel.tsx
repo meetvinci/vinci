@@ -29,14 +29,17 @@ interface BotMcpPanelProps {
   bot: Bot
   /** False in the admin panel: the provider's callback would reach the admin's own identity, not this daemon. */
   canSignIn: boolean
+  /** False in the admin panel: viewing the tab must not start the bot's MCP servers (and log a change). */
+  canStart: boolean
   /** False for a team user who can't see Settings → Sources, so the empty state doesn't point there. */
   isSourcesVisible: boolean
   removeLink: (server: string) => LinkOptions
 }
 
-export function BotMcpPanel({ bot, canSignIn, isSourcesVisible, removeLink }: BotMcpPanelProps) {
+export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, removeLink }: BotMcpPanelProps) {
   const mcp = useBotMcp({
     bot,
+    canStart,
     login: () => {
       const isDesktop = document.documentElement.dataset.shell === 'desktop';
 

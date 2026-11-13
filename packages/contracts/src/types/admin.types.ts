@@ -93,6 +93,7 @@ export const adminSectionPreview = z.object({
   section: adminSectionId,
   marker: adminSectionMarker,
   items: z.array(adminPreviewItem),
+  isPartial: z.boolean(),
 });
 
 export const adminGlobalSyncInput = z.object({ section: adminSectionId.optional() });

@@ -14,6 +14,7 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router';
 import { useId, useTransition } from 'react';
 import { match } from 'ts-pattern';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
+import { AdminUserLimits } from '@/components/admin/admin-user-limits';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
@@ -205,6 +206,7 @@ export function AdminUserDevices({ userId, revokeId }: AdminUserDevicesProps) {
             replace: true,
           })}
         />
+        <AdminUserLimits />
       </div>
     </AdminUserGate>
   );

@@ -108,6 +108,7 @@ export interface BotMcpRemoveParams {
 export interface BotMcpParams {
   bot: UniversalTypes.Bot;
   login: () => BotMcpLogin;
+  canStart: boolean;
 }
 
 export interface BotMcpRow {

@@ -7,7 +7,7 @@ import { hubAdminTestKit } from './support/hub-admin.fixture';
 import { HUB_RELAY_FIXTURE, hubFixtureFakeSocket } from './support/hub.fixture';
 
 const { hub, publicOrigin, emails } = HUB_RELAY_FIXTURE;
-const { it, get: hubAdminTestGet, write: hubAdminTestWrite } = hubAdminTestKit(HUB_RELAY_FIXTURE);
+const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_RELAY_FIXTURE);
 
 describe('admin relay to the private door', () => {
   it('forwards only RPC to the owner socket, pinned and without the caller identity', async ({ fixture, tokens }) => {
@@ -147,6 +147,74 @@ describe('admin relay to the private door', () => {
     expect(fixture.logs.slice(before).join('').match(/Admin read routines or todos/gu)).toHaveLength(2);
     expect(asGet.status).toBe(404);
     expect(swapped.status).toBe(409);
+  });
+
+  it("reads and changes a person's rate limits within bounds, audited as a change, while their devices stay refused", async ({ tokens }) => {
+    const limits = (procedure: string, input: object | null) => hubAdminTestWrite(tokens.root, `/admin/api/users/bob/rpc/limits/${procedure}`, { body: { json: input }, headers: { 'x-bots-protocol': '1' } });
+    const before = await limits('settings', null);
+    const changed = await limits('configure', { device: { maxRequests: 1200, windowMs: 60_000 }, rpcInFlight: 40 });
+
+    const outOfBounds = await Promise.all([
+      { device: { maxRequests: 5 } },
+      { redeem: { maxRequests: 500 } },
+      { public: { windowMs: 10 } },
+      { public: { maxRequests: 60, windowMs: 3_600_000 } },
+      { redeem: { maxRequests: 100, windowMs: 1000 } },
+      { device: { maxRequests: 600.5 } },
+      { rpcInFlight: 1 },
+      { watchInFlight: 5000 },
+    ].map(async (input) => limits('configure', input)));
+
+    const after = await limits('settings', null);
+    const handoff = await hubAdminTestGet('/connect', tokens.bob);
+    const { pin } = authPairCode.parse(new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code'));
+
+    const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
+      method: 'POST',
+      headers: { 'cf-access-jwt-assertion': tokens.bob, 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
+      body: JSON.stringify({ json: { pin, name: 'bob limits test' } }),
+    });
+
+    const device = z.object({ json: authRedeemResult }).parse(await redeemed.json()).json;
+
+    const person = makeHttpClient(() => ({
+      url: `${hub}/rpc`,
+      serverId: device.serverId,
+      token: () => device.token,
+      fetch: (url, init) => {
+        const headers = new Headers(init.headers);
+
+        headers.set('cf-access-jwt-assertion', tokens.bob);
+        headers.set('origin', publicOrigin);
+
+        return fetch(url, { ...init, headers });
+      },
+    }));
+
+    const own = await person.limits.settings();
+
+    await expect(person.limits.configure({ rpcInFlight: 100 })).rejects.toMatchObject({ code: 'TEAM_MANAGED' });
+
+    const audit = await hubAdminTestRead(tokens.root, '/admin/api/audit?user=bob');
+
+    const auditRow = z.object({
+      kind: z.string(),
+      action: z.string(),
+      status: z.number(),
+    });
+
+    const rows = z.object({ entries: z.array(auditRow) }).parse(audit.json).entries;
+
+    expect(before.status).toBe(200);
+    expect(before.json).toMatchObject({ json: { device: { maxRequests: 600 }, rpcInFlight: 32 } });
+    expect(changed.status).toBe(200);
+    expect(outOfBounds.map(({ status }) => status)).toEqual(outOfBounds.map(() => 400));
+    expect(after.json).toMatchObject({ json: { device: { maxRequests: 1200, windowMs: 60_000 }, rpcInFlight: 40, watchInFlight: 64 } });
+    expect(own).toMatchObject({ device: { maxRequests: 1200 }, rpcInFlight: 40 });
+    expect(rows.filter(({ action }) => action.startsWith('limits/'))).toEqual([
+      ...outOfBounds.map(() => ({ kind: 'change', action: 'limits/configure', status: 400 })),
+      { kind: 'change', action: 'limits/configure', status: 200 },
+    ].map((row) => expect.objectContaining(row)));
   });
 });
 

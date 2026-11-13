@@ -61,3 +61,11 @@ export interface AdminAuditPathParams {
   filter: UniversalTypes.AdminAuditFilter
   cursor: number
 }
+
+export interface AdminLimitValues {
+  device: number
+  public: number
+  redeem: number
+  rpcInFlight: number
+  watchInFlight: number
+}

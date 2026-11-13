@@ -95,7 +95,9 @@ export const globalMcpFile = z.string().transform((text, context) => {
   }
 }).pipe(z.looseObject({ mcpServers: z.record(z.string(), z.json()) }));
 
-export type GlobalPreviewGroups = Partial<Record<'keys' | 'oauth' | 'settings' | 'secrets' | 'own' | 'files', Record<string, string>>>;
+export type GlobalPreviewGroup = 'keys' | 'oauth' | 'modelsJson' | 'settings' | 'secrets' | 'own' | 'files';
+
+export type GlobalPreviewGroups = Partial<Record<GlobalPreviewGroup, Record<string, string>>> & { isTooLarge?: true };
 
 export interface GlobalPreviewPart {
   kind: UniversalTypes.AdminPreviewKind;

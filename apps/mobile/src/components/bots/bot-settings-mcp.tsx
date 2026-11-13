@@ -30,6 +30,7 @@ export function BotSettingsMcp({ bot, session }: BotSettingsMcpProps) {
 
   const mcp = useBotMcp({
     bot,
+    canStart: true,
     login: () => {
       const returnUrl = Linking.createURL('mcp/done');
 

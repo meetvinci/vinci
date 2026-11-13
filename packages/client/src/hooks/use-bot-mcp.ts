@@ -9,7 +9,7 @@ import { useRpc } from './use-rpc';
 import type { BotMcpParams, BotMcpRow } from '../types/bot.types';
 import type { SettingsProviderStatus } from '../types/settings.types';
 
-export function useBotMcp({ bot, login: target }: BotMcpParams) {
+export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
   const botId = bot.id;
   const { rpc } = useRpc();
   const queryClient = useQueryClient();
@@ -64,8 +64,10 @@ export function useBotMcp({ bot, login: target }: BotMcpParams) {
   const { mutate: prepareServers } = prepare;
 
   useEffect(() => {
-    prepareServers({ botId });
-  }, [botId, prepareServers]);
+    if (canStart) {
+      prepareServers({ botId });
+    }
+  }, [botId, canStart, prepareServers]);
   const isDone = login.data !== undefined && login.data.status !== 'pending';
   const pending = isDone ? null : started;
 

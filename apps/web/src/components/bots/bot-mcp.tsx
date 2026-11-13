@@ -16,6 +16,7 @@ export function BotMcp({ bot }: BotMcpProps) {
     <BotMcpPanel
       bot={bot}
       canSignIn={!scope.isAdmin}
+      canStart={!scope.isAdmin}
       isSourcesVisible={settingsIsTeamVisible({ ...team, section: 'sources' })}
       removeLink={(server) => scope.bots.mcpRemove(bot.id, server)}
     />

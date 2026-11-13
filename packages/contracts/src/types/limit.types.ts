@@ -13,12 +13,32 @@ export const limitSettings = z.object({
   watchInFlight: z.number().int().min(1).max(10_000),
 });
 
+export const LIMIT_BOUNDS = {
+  requests: { min: 60, max: 100_000 },
+  redeem: { min: 1, max: 100 },
+  windowMs: 60_000,
+  inFlight: { min: 4, max: 1000 },
+} as const;
+
+const limitWindowMs = z.literal(LIMIT_BOUNDS.windowMs);
+const limitInFlight = z.number().int().min(LIMIT_BOUNDS.inFlight.min).max(LIMIT_BOUNDS.inFlight.max);
+
+const limitRequestsInput = z.object({
+  maxRequests: z.number().int().min(LIMIT_BOUNDS.requests.min).max(LIMIT_BOUNDS.requests.max),
+  windowMs: limitWindowMs,
+}).partial();
+
+const limitRedeemInput = z.object({
+  maxRequests: z.number().int().min(LIMIT_BOUNDS.redeem.min).max(LIMIT_BOUNDS.redeem.max),
+  windowMs: limitWindowMs,
+}).partial();
+
 export const limitConfigure = z.object({
-  public: limitWindow.partial(),
-  redeem: limitWindow.partial(),
-  device: limitWindow.partial(),
-  rpcInFlight: limitSettings.shape.rpcInFlight,
-  watchInFlight: limitSettings.shape.watchInFlight,
+  public: limitRequestsInput,
+  redeem: limitRedeemInput,
+  device: limitRequestsInput,
+  rpcInFlight: limitInFlight,
+  watchInFlight: limitInFlight,
 }).partial();
 
 export type LimitWindow = z.infer<typeof limitWindow>;

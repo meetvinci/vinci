@@ -177,9 +177,14 @@ async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'a
   const data = join(root, name);
   const pi = join(data, 'pi');
 
+  // Bob also has a hand-edited models.json key and a stored entry with an empty key, read once at start (gotchas 12 and 120).
+  const extra = match(name)
+    .with('bob', () => ({ providers: { mistral: { apiKey: 'dummy-bob-models-json-key' } }, auth: { xai: { type: 'api_key', key: '' } } }))
+    .otherwise(() => ({ providers: {}, auth: {} }));
+
   await mkdir(pi, { recursive: true });
-  await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${config.ports.model}` } } }));
-  await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: `hub-test-${name}` } }), { mode: 0o600 });
+  await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${config.ports.model}` }, ...extra.providers } }));
+  await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: `hub-test-${name}` }, ...extra.auth }), { mode: 0o600 });
 
   return spawn('bun', ['src/entry.native.ts'], {
     cwd: join(ROOT, 'apps/daemon'),
