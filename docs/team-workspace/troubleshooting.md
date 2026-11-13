@@ -157,7 +157,7 @@ Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's 
 
 Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades and backups in `/opt/orbs/backups/`.
 
-- Fix: remove old Orbs image tags by name, `docker rmi orbs-daemon:<old tag> orbs-web:<old tag> orbs-hub:<old tag>`, and old backups by file name. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
+- Fix: remove old Orbs image tags by name, `docker rmi orbs-daemon:<old tag> orbs-web:<old tag> orbs-hub:<old tag> orbs-provisioner:<old tag>`, and old backups by file name. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
 
 > On `root@<server>`, show `docker system df`, `docker images` and `ls -la /opt/orbs/backups`. Suggest which old `orbs-*` tags (not the `ORBS_TAG` in `/opt/orbs/.env`) and which backups can go, and remove only the ones I confirm, by name. Never use a prune command.
 

@@ -412,9 +412,11 @@ async function backupVolume(id: string, person: Person): Promise<string> {
   return file;
 }
 
+// Starts the same container again: during an upgrade the new deployment files are in place before the new tag is set,
+// and recreating here would run the old image under the new daemon.yaml.
 async function startDaemon(id: string, person: Person) {
   if (person.enabled) {
-    await docker(['compose', 'up', '--detach', '--wait', `daemon-${id}`]);
+    await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', `daemon-${id}`]);
   }
 }
 
