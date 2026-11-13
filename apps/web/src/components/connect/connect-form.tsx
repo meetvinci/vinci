@@ -1,23 +1,26 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { authPairEntry, connectionPairForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
+import { Button } from '@repo/ui/button';
 import { ButtonLoading } from '@repo/ui/button-loading';
 import { Form } from '@repo/ui/forms/form';
 import { FormInput } from '@repo/ui/forms/form-input';
 import { FormOTP } from '@repo/ui/forms/form-otp';
 import { toasty } from '@repo/ui/sonner';
-import { useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { useLoaderData, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
-import { useEffect, useEffectEvent, useRef } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { match, P } from 'ts-pattern';
 import { connectionPair, connectionRead } from '@/services/connection/connection.client';
 import { connectionCodeFromLink, connectionDeviceName } from '@/services/connection/connection.utils';
+import IconSpinner from '~icons/svg-spinners/90-ring-with-bg';
 import type { AuthPairEntry, ConnectionPairForm } from '@repo/contracts/universal';
 
 export function ConnectForm() {
   const router = useRouter();
   const search = useSearch({ from: '/connect' });
+  const team = useLoaderData({ from: '/connect' });
   const navigate = useNavigate({ from: '/connect' });
 
   const form = useForm({
@@ -28,6 +31,7 @@ export function ConnectForm() {
     },
   });
 
+  const [isTeamFailed, setIsTeamFailed] = useState(() => team !== null && !authPairEntry.safeParse(search.code ?? '').success);
   const linkedTarget = useRef<AuthPairEntry['target']>(null);
   const isConfirmPending = useRef(false);
   const isRedeeming = useRef(false);
@@ -37,7 +41,7 @@ export function ConnectForm() {
     const entry = authPairEntry.safeParse(code ?? '');
 
     const isAutoSubmit = document.documentElement.dataset.shell === 'desktop'
-      || (entry.success && entry.data.target?.addresses.every((address) => address.url === location.origin) === true);
+      || (entry.success && (team !== null || entry.data.target?.addresses.every((address) => address.url === location.origin) === true));
 
     isConfirmPending.current = entry.success && !isAutoSubmit;
 
@@ -107,10 +111,23 @@ export function ConnectForm() {
           location.assign('/rooms');
         } catch {
           isRedeeming.current = false;
-          toasty(m.connect_failed(), '🔴', { id: 'connect' });
+          match(team)
+            .with(null, () => toasty(m.connect_failed(), '🔴', { id: 'connect' }))
+            .otherwise(() => setIsTeamFailed(true));
         }
       })
       .exhaustive();
+  }
+
+  if (team !== null) {
+    return isTeamFailed
+      ? (
+        <div className="mx-auto grid w-full max-w-68 gap-4 text-center">
+          <p className="text-sm text-muted-foreground">{m.connect_team_failed()}</p>
+          <Button className="w-full" onClick={() => location.assign('/connect')}>{m.connect_team_retry()}</Button>
+        </div>
+      )
+      : <IconSpinner aria-hidden className="mx-auto size-5 animate-spin text-muted-foreground" />;
   }
 
   return (

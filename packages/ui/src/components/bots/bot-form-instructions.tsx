@@ -10,9 +10,10 @@ import type { BotForm } from '@repo/contracts/universal';
 
 interface BotFormInstructionsProps {
   busy: boolean
+  isSourcesVisible?: boolean
 }
 
-export function BotFormInstructions({ busy }: BotFormInstructionsProps) {
+export function BotFormInstructions({ busy, isSourcesVisible = true }: BotFormInstructionsProps) {
   const form = useFormContext<BotForm>();
 
   return (
@@ -42,7 +43,7 @@ export function BotFormInstructions({ busy }: BotFormInstructionsProps) {
       <SettingsGroup isTitleVisible title={m.bots_shared()}>
         <BotFormInherit
           busy={busy}
-          description={m.bots_instructions_shared_hint()}
+          description={isSourcesVisible ? m.bots_instructions_shared_hint() : m.bots_instructions_shared_hint_admin()}
           label={m.bots_instructions_shared()}
           resource="agentsFile"
         />

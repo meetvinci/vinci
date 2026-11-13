@@ -13,7 +13,11 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { useTeam } from '@/hooks/use-team';
 
-export function SettingsTools() {
+interface SettingsToolsProps {
+  isReadOnly: boolean
+}
+
+export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
   const { rpc } = useRpc();
   const { data: settings } = useSuspenseQuery(rpc.tools.settings.queryOptions());
   const team = useTeam();
@@ -30,8 +34,19 @@ export function SettingsTools() {
 
   const save = useSettingsTools({ onDone: () => form.reset({ ...form.getValues(), jevApiKey: '' }) });
 
+  const jevStatus = (
+    <SettingsGroup title={m.settings_tools_jev()}>
+      <PanelRow>
+        <PanelContent>
+          <PanelTitle>{m.settings_tools_jev()}</PanelTitle>
+          <PanelDescription>{settings.isJevConfigured ? m.settings_tools_jev_set() : m.settings_tools_jev_unset()}</PanelDescription>
+        </PanelContent>
+      </PanelRow>
+    </SettingsGroup>
+  );
+
   if (team.isTeam && team.followsGlobal('tools')) {
-    return null;
+    return jevStatus;
   }
 
   return (
@@ -77,20 +92,22 @@ export function SettingsTools() {
               </SettingsGroup>
             </>
           )}
-          <SettingsGroup title={m.settings_tools_jev()}>
-            <PanelRow className="items-start">
-              <div className="flex min-w-0 flex-1 flex-col gap-3">
-                <h3 className="text-sm font-medium">{m.settings_tools_jev()}</h3>
-                <FormInput
-                  aria-label={m.settings_tools_jev()}
-                  autoComplete="off"
-                  name="jevApiKey"
-                  placeholder={settings.isJevConfigured ? m.settings_secret_saved() : m.settings_tools_jev_placeholder()}
-                  type="password"
-                />
-              </div>
-            </PanelRow>
-          </SettingsGroup>
+          {isReadOnly ? jevStatus : (
+            <SettingsGroup title={m.settings_tools_jev()}>
+              <PanelRow className="items-start">
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                  <h3 className="text-sm font-medium">{m.settings_tools_jev()}</h3>
+                  <FormInput
+                    aria-label={m.settings_tools_jev()}
+                    autoComplete="off"
+                    name="jevApiKey"
+                    placeholder={settings.isJevConfigured ? m.settings_secret_saved() : m.settings_tools_jev_placeholder()}
+                    type="password"
+                  />
+                </div>
+              </PanelRow>
+            </SettingsGroup>
+          )}
           <div className="flex items-center justify-end gap-2">
             <FormErrors className="mr-auto" error={save.problem} />
             <ButtonLoading

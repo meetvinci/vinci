@@ -27,7 +27,7 @@ import { SettingsTools } from '@/components/settings/settings-tools';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { useTeam } from '@/hooks/use-team';
-import { SETTINGS_ADMIN_AUTH_TYPES, SETTINGS_ADMIN_HIDDEN, SETTINGS_NAV } from '@/services/settings/settings.constants';
+import { SETTINGS_ADMIN_AUTH_TYPES, SETTINGS_ADMIN_HIDDEN, SETTINGS_NAV, SETTINGS_READ_ONLY_CLASS } from '@/services/settings/settings.constants';
 import { settingsIsTeamVisible } from '@/services/settings/settings.utils';
 import type { SettingsSectionFrame } from '@/types/settings.types';
 import type { ConnectionInfo } from '@repo/client/client';
@@ -65,6 +65,7 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
   }
 
   const isInert = frame?.isLocked === true && section !== 'secrets';
+  const description = current.id === 'chat' && team.isTeam && !team.isAdvanced ? m.settings_chat_hint_basic() : current.description();
 
   return (
     <SectionDialog
@@ -77,13 +78,13 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
       <SettingsDialogNav section={section} sections={sections} />
       <SectionDialogBody
         actions={view ? undefined : frame?.actions}
-        description={view ? undefined : current.description()}
+        description={view ? undefined : description}
         key={`${section}-${view ?? ''}`}
         title={view ? undefined : current.label()}
       >
         {frame?.notice}
         <div
-          className={cn('flex flex-col gap-10', isInert && 'opacity-60')}
+          className={cn('flex flex-col gap-10', isInert && SETTINGS_READ_ONLY_CLASS)}
           inert={isInert}
           key={frame?.isLocked ? 'locked' : 'open'}
         >
@@ -209,7 +210,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
         <SettingsModels />
       </SettingsManaged>
     )))
-    .with('tools', () => <SettingsManaged section="tools"><SettingsTools /></SettingsManaged>)
+    .with('tools', () => <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged>)
     .with('secrets', () => (
       <SettingsSecrets
         canRemoveGlobal={scope.isAdmin ? !isLocked : false}

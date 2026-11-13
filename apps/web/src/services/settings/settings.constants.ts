@@ -23,6 +23,8 @@ export const SETTINGS_NAV: SettingsNavItem[] = [
   { id: 'desktop', label: m.settings_desktop, description: m.settings_desktop_hint, icon: IconMonitor },
 ];
 
+export const SETTINGS_READ_ONLY_CLASS = 'opacity-60 [&_[data-slot=settings-draft]]:hidden [&_button:not([role])]:hidden';
+
 export const SETTINGS_ADMIN_AUTH_TYPES: readonly ProviderAuthType[] = ['api_key'];
 
 export const SETTINGS_ADMIN_HIDDEN: readonly SettingsSection[] = ['devices', 'desktop'];

@@ -26,6 +26,7 @@ export type ToolBlock =
   | { kind: 'tools'; index: number; parts: DynamicToolUIPart[] }
   | { kind: 'events'; index: number; events: ToolEvent[] }
   | { kind: 'failure'; index: number; text: string }
+  | { kind: 'expired'; index: number; part: DynamicToolUIPart }
   | { kind: 'artifact'; index: number; artifact: UniversalTypes.ToolCallArtifact }
   | { kind: 'gif'; index: number; gif: UniversalTypes.GifToolDetails }
   | { kind: 'subagent'; index: number; part: DynamicToolUIPart; subagent: ToolSubagent };

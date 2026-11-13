@@ -103,6 +103,7 @@ export function AdminGlobalStatus() {
         <Panel>
           {status.data.map((item) => (
             <AdminGlobalStatusRow
+              isSignInOff={users.find((user) => user.id === item.id)?.enabled === false}
               key={item.id}
               name={users.find((user) => user.id === item.id)?.name ?? item.id}
               sections={item.sections}
@@ -118,10 +119,11 @@ export function AdminGlobalStatus() {
 interface AdminGlobalStatusRowProps {
   userId: string
   name: string
+  isSignInOff: boolean
   sections: AdminSection[]
 }
 
-function AdminGlobalStatusRow({ userId, name, sections }: AdminGlobalStatusRowProps) {
+function AdminGlobalStatusRow({ userId, name, isSignInOff, sections }: AdminGlobalStatusRowProps) {
   const overridden = sections.filter((section) => section.mode === 'overridden').map((section) => adminSectionLabel(section.id));
   const failed = sections.filter((section) => section.sync === 'failed');
   const isPending = sections.some((section) => section.sync === 'pending');
@@ -133,6 +135,7 @@ function AdminGlobalStatusRow({ userId, name, sections }: AdminGlobalStatusRowPr
         <PanelDescription>
           {overridden.length > 0 ? m.admin_global_status_overridden({ sections: overridden.join(', ') }) : m.admin_global_status_follows()}
         </PanelDescription>
+        {isPending && isSignInOff ? <PanelDescription>{m.admin_global_status_waiting_hint()}</PanelDescription> : null}
         {failed.map((section) => (
           <p className="text-xs break-all text-destructive" key={section.id}>
             {m.admin_global_status_error({ section: adminSectionLabel(section.id), error: section.error ?? m.admin_section_failed() })}
@@ -140,7 +143,8 @@ function AdminGlobalStatusRow({ userId, name, sections }: AdminGlobalStatusRowPr
         ))}
       </PanelContent>
       <div className="flex items-center gap-2">
-        {isPending ? <Badge variant="warning">{m.admin_global_status_pending()}</Badge> : null}
+        {isPending && !isSignInOff ? <Badge variant="warning">{m.admin_global_status_pending()}</Badge> : null}
+        {isPending && isSignInOff ? <Badge variant="outline-secondary">{m.admin_global_status_waiting()}</Badge> : null}
         {failed.length > 0 ? <Badge variant="destructive">{m.admin_global_status_failed_badge()}</Badge> : null}
       </div>
       <Button

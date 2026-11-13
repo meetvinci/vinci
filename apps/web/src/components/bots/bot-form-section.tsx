@@ -8,6 +8,7 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { match } from 'ts-pattern';
 import { BotFormModel } from '@/components/bots/bot-form-model';
 import { useTeam } from '@/hooks/use-team';
+import { settingsIsTeamVisible } from '@/services/settings/settings.utils';
 import type { BotFormSection as BotFormSectionId } from '@repo/contracts/universal';
 
 interface BotFormSectionProps {
@@ -38,7 +39,7 @@ export function BotFormSection({ section, busy, onSubmit }: BotFormSectionProps)
               </SettingsGroup>
             </div>
           ))
-          .with('instructions', () => <BotFormInstructions busy={busy} />)
+          .with('instructions', () => <BotFormInstructions busy={busy} isSourcesVisible={settingsIsTeamVisible({ ...team, section: 'sources' })} />)
           .with('model', () => <BotFormModel isGrouped busy={busy} />)
           .with('tools', () => <BotFormTools busy={busy} isPermissionVisible={!team.isTeam} />)
           .exhaustive()}

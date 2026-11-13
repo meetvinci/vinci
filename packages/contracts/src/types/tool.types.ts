@@ -8,6 +8,7 @@ export const toolApprovalRules = z.array(z.object({
 export const TOOL_APPROVAL = {
   timeoutMinutes: [1, 2, 3, 5, 10],
   defaultTimeoutMinutes: 5,
+  expiredResult: 'Nobody answered the approval request in time, so the tool did not run.',
 } as const;
 
 export const toolApprovalTimeout = z.number().int().min(1).max(10);

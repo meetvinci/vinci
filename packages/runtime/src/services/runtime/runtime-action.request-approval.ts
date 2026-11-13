@@ -1,14 +1,14 @@
 import { copyJson } from '@earendil-works/chord';
 import { awaitWithContext } from '@earendil-works/chord/context';
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { runtimeToolApproval } from './runtime.constants';
-import type { RuntimeApprovalRequest, RuntimeServiceDeps } from '../../types/runtime.types';
+import type { RuntimeApproval, RuntimeApprovalRequest, RuntimeServiceDeps } from '../../types/runtime.types';
 import type { JsonObject } from '@earendil-works/pi-durable';
 
 export async function runtimeActionRequestApproval(
   { harness }: Pick<RuntimeServiceDeps, 'harness'>,
   { call, taskId, timeoutMs, context }: RuntimeApprovalRequest,
-): Promise<boolean> {
+): Promise<Exclude<RuntimeApproval['status'], 'pending'>> {
   // SAFETY: tool call arguments are a JSON object, and copyJson keeps that object shape.
   const input = copyJson(call.arguments, { omitUndefinedProperties: true }) as JsonObject;
 
@@ -38,7 +38,7 @@ export async function runtimeActionRequestApproval(
     && approval.input === JSON.stringify(input);
 
   return match(sameCall)
-    .with(false, () => false)
+    .with(false, () => 'denied' as const)
     .with(true, async () => {
       const watch = await harness.watchDoc(runtimeToolApproval, taskId, context);
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -63,10 +63,10 @@ export async function runtimeActionRequestApproval(
           return match(doc.approval)
             .with({ status: 'pending' }, (pending) => {
               doc.approval = { ...pending, status: 'expired', answeredAt: Date.now() };
-              return false;
+              return 'expired' as const;
             })
-            .with({ status: 'allowed' }, () => true)
-            .otherwise(() => false);
+            .with({ status: P.union('allowed', 'expired') }, ({ status }) => status)
+            .otherwise(() => 'denied' as const);
         }, context);
       } finally {
         clearTimeout(timer);

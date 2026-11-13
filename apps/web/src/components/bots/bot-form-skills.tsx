@@ -14,6 +14,8 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { match } from 'ts-pattern';
 import { BotFormShared } from '@/components/bots/bot-form-shared';
 import { useSectionScope } from '@/hooks/use-section-scope';
+import { useTeam } from '@/hooks/use-team';
+import { settingsIsTeamVisible } from '@/services/settings/settings.utils';
 import type { BotForm } from '@repo/contracts/universal';
 
 interface BotFormSkillsProps {
@@ -26,6 +28,7 @@ export function BotFormSkills({ botId, busy }: BotFormSkillsProps) {
   const navigate = useNavigate();
   const matchRoute = useMatchRoute();
   const scope = useSectionScope();
+  const team = useTeam();
   const shared = useQuery(rpc.skills.shared.queryOptions({ input: { botId } }));
   const tab = matchRoute(scope.bots.skillsLocal(botId)) ? 'local' : 'shared';
 
@@ -56,7 +59,7 @@ export function BotFormSkills({ botId, busy }: BotFormSkillsProps) {
             noMatch: m.bots_skills_no_match(),
             loadFailed: m.bots_skills_load_failed(),
             note: m.bots_skills_note(),
-            empty: m.bots_skills_empty(),
+            empty: settingsIsTeamVisible({ ...team, section: 'sources' }) ? m.bots_skills_empty() : m.bots_skills_empty_admin(),
           }}
           resource="skills"
         />

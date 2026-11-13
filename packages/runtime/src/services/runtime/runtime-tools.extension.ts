@@ -1,4 +1,5 @@
 import { defineExtension, hook, ToolTask } from '@earendil-works/pi-durable';
+import { TOOL_APPROVAL } from '@repo/contracts/universal';
 import { match, P } from 'ts-pattern';
 import { runtimeActionRequestApproval } from './runtime-action.request-approval';
 import { runtimeBot } from './runtime.constants';
@@ -44,24 +45,25 @@ export function runtimeToolsExtension({ harness, readOnlyTools, ownTools, permis
 
             context.abortSignal?.throwIfAborted();
 
-            const allowed = await match(decision)
-              .with('allow', () => true)
-              .with('deny', () => false)
+            const outcome = await match(decision)
+              .with('allow', () => 'allowed' as const)
+              .with('deny', () => 'denied' as const)
               .with('ask', async () => {
-                const approved = await runtimeActionRequestApproval({ harness }, {
+                const status = await runtimeActionRequestApproval({ harness }, {
                   call: input,
                   taskId: api.taskId,
                   timeoutMs: await permissions.approvalTimeoutMs(),
                   context,
                 });
 
-                return approved && await permissions.authorize({ ...input, approved: true }, context) === 'allow';
+                return status === 'allowed' && await permissions.authorize({ ...input, approved: true }, context) !== 'allow' ? 'denied' as const : status;
               })
               .exhaustive();
 
-            return match(allowed)
-              .with(true, () => undefined)
-              .with(false, () => ({ block: 'Tool permission was denied or expired.' }))
+            return match(outcome)
+              .with('allowed', () => undefined)
+              .with('expired', () => ({ block: TOOL_APPROVAL.expiredResult }))
+              .with('denied', () => ({ block: 'Tool permission was denied.' }))
               .exhaustive();
           })
           .otherwise(() => ({ block: 'This conversation has no bot identity.' }));

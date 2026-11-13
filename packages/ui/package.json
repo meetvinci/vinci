@@ -116,6 +116,7 @@
     "./rooms/rooms-chat-emoji-choices": "./src/components/rooms/rooms-chat-emoji-choices.tsx",
     "./rooms/rooms-chat-emoji-loading": "./src/components/rooms/rooms-chat-emoji-loading.tsx",
     "./rooms/rooms-chat-emoji-picker": "./src/components/rooms/rooms-chat-emoji-picker.tsx",
+    "./rooms/rooms-chat-expired": "./src/components/rooms/rooms-chat-expired.tsx",
     "./rooms/rooms-chat-failure": "./src/components/rooms/rooms-chat-failure.tsx",
     "./rooms/rooms-chat-files": "./src/components/rooms/rooms-chat-files.tsx",
     "./rooms/rooms-chat-history": "./src/components/rooms/rooms-chat-history.tsx",

@@ -10,7 +10,7 @@ import { Skeleton } from '@repo/ui/skeleton';
 import { StatusDot } from '@repo/ui/status-dot';
 import { Switch } from '@repo/ui/switch';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router';
 import { useId, useTransition } from 'react';
 import { match } from 'ts-pattern';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
@@ -228,6 +228,20 @@ export function AdminUserGate({ status, children }: AdminUserGateProps) {
 function AdminUserError() {
   const router = useRouter();
   const [isRetrying, startRetry] = useTransition();
+  const { userId } = useParams({ strict: false });
+  const { data: users } = useQuery(adminUsersQuery());
+  const isStopped = users?.find((item) => item.id === userId)?.enabled === false;
+
+  if (isStopped) {
+    return (
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>{m.admin_user_stopped()}</EmptyTitle>
+          <EmptyDescription>{m.admin_user_stopped_hint()}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
 
   return (
     <Empty>

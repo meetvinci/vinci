@@ -25,6 +25,7 @@ export function chatMessageSegments(message: ChatMessage, hideVerbose: boolean):
   for (const block of toolBlocks({ parts: message.parts, hideVerbose })) {
     const tools = match(block)
       .with({ kind: 'tools' }, ({ parts }) => parts)
+      .with({ kind: 'expired' }, ({ part }) => [part])
       .otherwise(() => undefined);
 
     if (block.kind === 'events') {

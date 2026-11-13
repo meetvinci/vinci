@@ -1,8 +1,10 @@
 import { adminPersonSection } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { ButtonLoading } from '@repo/ui/button-loading';
+import { cn } from '@repo/ui/cn';
 import { useMutation } from '@tanstack/react-query';
 import { useTeam } from '@/hooks/use-team';
+import { SETTINGS_READ_ONLY_CLASS } from '@/services/settings/settings.constants';
 import { teamOverride } from '@/services/team/team.client';
 import { TEAM } from '@/services/team/team.constants';
 import type { AdminSectionId } from '@repo/contracts/universal';
@@ -40,7 +42,7 @@ export function SettingsManaged({ section, children }: SettingsManagedProps) {
           </ButtonLoading>
         ) : null}
       </div>
-      <div inert className="flex flex-col gap-10 opacity-60">
+      <div inert className={cn('flex flex-col gap-10', SETTINGS_READ_ONLY_CLASS)}>
         {children}
       </div>
     </>

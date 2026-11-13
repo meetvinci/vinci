@@ -44,13 +44,14 @@ export function SettingsToolsRules({ disabled }: SettingsToolsRulesProps) {
       <h3 className="text-sm font-medium">{m.settings_tools_rules()}</h3>
       <Input
         aria-label={m.settings_tools_rules_when()}
+        data-slot="settings-draft"
         disabled={disabled}
         maxLength={300}
         placeholder={m.settings_tools_rules_when_placeholder()}
         value={draft.when}
         onChange={(event) => setDraft({ ...draft, when: event.target.value })}
       />
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2" data-slot="settings-draft">
         <Select
           disabled={disabled}
           value={draft.behavior}

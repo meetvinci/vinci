@@ -54,7 +54,7 @@ export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, remove
   const [callbackUrl, setCallbackUrl] = useState('');
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
-  const visible = mcp.rows.filter((row) => row.name.toLowerCase().includes(query));
+  const visible = mcp.rows.filter((row) => row.title.toLowerCase().includes(query));
 
   return (
     <SettingsGroup title={m.bots_mcp()}>
@@ -98,7 +98,7 @@ export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, remove
         <PanelRow className="flex-wrap" key={row.name}>
           <BotMcpLogo name={row.name} />
           <PanelContent className="min-w-24">
-            <PanelTitle className="truncate" title={row.server?.source}>{row.name}</PanelTitle>
+            <PanelTitle className="truncate" title={row.server?.source}>{row.title}</PanelTitle>
             <div className="flex items-center gap-1.5">
               <StatusDot label={mcp.status(row).label} variant={mcp.status(row).tone} />
               <span className="text-xxs text-muted-foreground">

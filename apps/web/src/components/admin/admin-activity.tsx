@@ -5,10 +5,10 @@ import { EmptyCompact } from '@repo/ui/empty';
 import { Panel, PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { Skeleton } from '@repo/ui/skeleton';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
-import { adminAdminsQuery, adminAuditQuery, adminUsersQuery } from '@/services/admin/admin.client';
+import { adminAdminsQuery, adminAuditQuery, adminRpc, adminUsersQuery } from '@/services/admin/admin.client';
 import { ADMIN } from '@/services/admin/admin.constants';
 import { adminAuditSentence } from '@/services/admin/admin.utils';
 import IconActivity from '~icons/lucide/activity';
@@ -31,6 +31,12 @@ export function AdminActivity({ filter }: AdminActivityProps) {
   const adminOptions = [...new Set([...admins.map((admin) => admin.email), ...filter.by ? [filter.by] : []])];
   const people = [...users.map((user) => user.id), ADMIN.templateId];
   const personOptions = filter.user && !people.includes(filter.user) ? [...people, filter.user] : people;
+  const botOwners = [...new Set(entries.flatMap((entry) => (entry.botId !== null && entry.userId !== null ? [entry.userId] : [])))];
+
+  const botNames = new Map(useQueries({
+    queries: botOwners.map((userId) => ({ ...adminRpc({ userId }).rpc.bots.list.queryOptions(), retry: false })),
+  }).flatMap((query) => query.data ?? []).map((bot) => [bot.id, bot.name]));
+
   const personName = (id: string) => (id === ADMIN.templateId ? m.admin_global_title() : users.find((user) => user.id === id)?.name ?? id);
 
   const setFilter = (change: AdminAuditFilter) => void navigate({
@@ -106,6 +112,7 @@ export function AdminActivity({ filter }: AdminActivityProps) {
           <Panel>
             {entries.map((entry) => (
               <AdminActivityRow
+                botName={entry.botId === null ? undefined : botNames.get(entry.botId)}
                 entry={entry}
                 key={entry.id}
                 person={entry.userId === null ? null : personName(entry.userId)}
@@ -129,11 +136,12 @@ export function AdminActivity({ filter }: AdminActivityProps) {
 }
 
 interface AdminActivityRowProps {
+  botName: string | undefined
   entry: AdminAuditEntry
   person: string | null
 }
 
-function AdminActivityRow({ entry, person }: AdminActivityRowProps) {
+function AdminActivityRow({ botName, entry, person }: AdminActivityRowProps) {
   const at = new Date(entry.createdAt);
   const filterLink = 'underline-offset-2 hover:text-foreground hover:underline';
 
@@ -161,7 +169,7 @@ function AdminActivityRow({ entry, person }: AdminActivityRowProps) {
                 {person}
               </Link>
             ) : null}
-            {entry.botId !== null ? <span className="font-mono" title={entry.botId}>{m.admin_activity_bot({ bot: entry.botId.slice(0, 8) })}</span> : null}
+            {entry.botId !== null ? <span className={botName ? undefined : 'font-mono'} title={entry.botId}>{m.admin_activity_bot({ bot: botName ?? entry.botId.slice(0, 8) })}</span> : null}
             {entry.conversationId !== null ? <span>{m.admin_activity_conversation({ conversation: String(entry.conversationId) })}</span> : null}
           </span>
         </PanelDescription>

@@ -9,6 +9,7 @@ import { htmlReplyPage } from '@repo/ui/html.utils';
 import { MENTION_ALLOWED_TAGS } from '@repo/ui/mention.constants';
 import { mentionRemark } from '@repo/ui/mention.utils';
 import { RoomsChatActions } from '@repo/ui/rooms/rooms-chat-actions';
+import { RoomsChatExpired } from '@repo/ui/rooms/rooms-chat-expired';
 import { RoomsChatFailure } from '@repo/ui/rooms/rooms-chat-failure';
 import { RoomsChatFiles } from '@repo/ui/rooms/rooms-chat-files';
 import { RoomsChatReasoning } from '@repo/ui/rooms/rooms-chat-reasoning';
@@ -67,7 +68,7 @@ export function RoomsChatMessage({
   const steps = hideVerbose && !live ? chatActivitySteps(message) : null;
   const blocks = toolBlocks({ parts: message.parts, hideVerbose: hideVerbose && !isExpanded });
   const files = message.parts.filter(isFileUIPart);
-  const standalone = (block: typeof blocks[number] | undefined) => block?.kind === 'tools' || block?.kind === 'events' || block?.kind === 'reasoning' || block?.kind === 'failure';
+  const standalone = (block: typeof blocks[number] | undefined) => block?.kind === 'tools' || block?.kind === 'events' || block?.kind === 'reasoning' || block?.kind === 'failure' || block?.kind === 'expired';
   const bubbleBlocks = blocks.filter((block) => !standalone(block));
   const firstText = blocks.find((block) => block.kind === 'text');
   const actionsBlock = blocks.filter((block) => block.kind === 'text').at(-1) ?? bubbleBlocks.at(-1);
@@ -156,6 +157,7 @@ export function RoomsChatMessage({
         />
       ))
       .with({ kind: 'failure' }, (failure) => <RoomsChatFailure bot={bot ?? { name }} detail={failure.text} />)
+      .with({ kind: 'expired' }, (expired) => <RoomsChatExpired bot={bot ?? { name }} part={expired.part} />)
       .otherwise(() => null);
 
     if (event) {
@@ -180,7 +182,7 @@ export function RoomsChatMessage({
             const key = `${message.id}-${block.index}`;
 
             const content = match(block)
-              .with({ kind: 'tools' }, { kind: 'events' }, { kind: 'reasoning' }, { kind: 'failure' }, () => null)
+              .with({ kind: 'tools' }, { kind: 'events' }, { kind: 'reasoning' }, { kind: 'failure' }, { kind: 'expired' }, () => null)
               .with({ kind: 'artifact' }, (artifact) => <RoomsChatArtifact artifact={artifact.artifact} />)
               .with({ kind: 'gif' }, (gif) => <RoomsChatGif gif={gif.gif} />)
               .with({ kind: 'subagent' }, (subagent) => (

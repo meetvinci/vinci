@@ -223,7 +223,7 @@ The panel never pairs a device and never acts as the user in a chat. It can read
 - MCP servers that need a browser sign-in can be added, but the sign-in itself is not in the panel: the provider would send the browser back to your own login, not the user's Orbs. The user signs in from their own app.
 - The app has no form to add a secret (a bot asks for one in chat), so neither does the panel. Secrets the user added show in **Settings → Secrets**, and you can remove them there.
 
-A user whose workspace is stopped or starting shows *Can't reach this user's workspace*; use **Try again** once it runs.
+A user whose sign-in is off shows *This workspace is stopped because sign-in is off*: turning sign-in on starts it again. A workspace that is stopped for any other reason, or still starting, shows *Can't reach this user's workspace*; use **Try again** once it runs.
 
 ### Reading a person's conversations
 
@@ -273,7 +273,7 @@ New bots a person creates start at **Ask first**, the app's default.
 
 **Refused for everyone, advanced or not:** each person's Orbs itself refuses a few security settings from any of their devices, so these hold even in an old browser tab or the phone app: changing a bot's permission level, approval rules and the approval timeout, how bots use secrets, changing or removing a global secret, adding an MCP server that runs a command on the server (the presets are web addresses and work), and rate limits. They answer *Your admin manages this*. You change all of them in the panel (rate limits on the person's **Devices** page). A bot can't add a command MCP server for them either.
 
-A settings section that follows global shows *Managed by your admin* above the values, which can't be changed there. An advanced user also gets **Change it for me** on Models, Chat and Sources (not on Tools or Secrets, which only you override): that section becomes **Overridden** for them (you see it in the panel and in **Activity** as `sections/overridden`, by their email), they can edit it, and later global changes leave it alone until you use **Back to global**. **Settings → Secrets** is the exception: it always lists every secret, global ones marked *From your admin*, and the person can remove their own whether or not the section follows global.
+A settings section that follows global shows *Managed by your admin* above the values, which can't be changed there: its add, remove, edit and **Save** buttons are hidden, and Tools shows only whether a Jev key is set. The panel's sections that follow global hide the same buttons; there Tools still shows the approval rules and timeout, with the Jev key's state instead of its field. Where a normal person can't open **Settings → Sources**, a bot's *Also read the shared instructions* and its empty skills list say your admin sets them instead of pointing there. An advanced user also gets **Change it for me** on Models, Chat and Sources (not on Tools or Secrets, which only you override): that section becomes **Overridden** for them (you see it in the panel and in **Activity** as `sections/overridden`, by their email), they can edit it, and later global changes leave it alone until you use **Back to global**. **Settings → Secrets** is the exception: it always lists every secret, global ones marked *From your admin*, and the person can remove their own whether or not the section follows global.
 
 The switch, and a section you switch back to global, reach the person's open app within about a minute, or when they load it again. Phone and desktop apps that don't load the web app still show everything (see the team workspace notes); the security refusals apply to them too.
 
@@ -320,7 +320,7 @@ The template workspace is a full Orbs: 90-130 MiB of memory idle, like a person'
 - On a person's **Settings**, each of those sections says **Global** or **Overridden**. A global section is read-only there. **Override for this person** makes it editable with the person's own values. **Back to global** first shows what that person would lose: what will be removed, what will be replaced with the global value (for Secrets, also their own secret with a global secret's name) and what will be added, by name only (never a secret or key value), or says that nothing will be lost. Confirm replaces the person's values for that section with the global ones. If the person's workspace or the global settings don't answer, the list can't be shown and there is nothing to confirm. If anything changed after the list was shown, the switch is refused and the list reloads. A turned-off person's Orbs is stopped, so their sections can't be switched back to global from the panel until you turn them on again.
 - *Copying the global values…* means a copy is running. *Couldn't copy the global values* shows the reason and a **Try again** button.
 - **Suggested bots** are bots you create in Global settings with the usual bot form. **Add user** lists them, all ticked; the ticked ones are copied to the new person. On a person's **Bots**, **Add from suggested bots** copies more later. Copies are independent: changing a suggested bot later does not change anyone's copy.
-- **Sync status** shows, per person, which sections they override and whether the last copy failed. **Sync now** copies every global section again.
+- **Sync status** shows, per person, which sections they override and whether the last copy failed. A person whose sign-in is off shows *Sign-in off* instead of *Syncing*: their sections catch up when sign-in is turned on. **Sync now** copies every global section again.
 
 **First setup, in this order:** in Global settings add a model provider's API key under Models (people then need no sign-in of their own), set the other sections, create the suggested bots, then add people with the bots each should start with. People see no onboarding steps, so whatever you set is what they get.
 
@@ -330,7 +330,7 @@ The template workspace is a full Orbs: 90-130 MiB of memory idle, like a person'
 
 ## Activity
 
-**Activity** in the admin panel lists what admins read and changed, newest first: when, which admin, what happened, whose workspace (or *Global settings*), and the bot and conversation when there is one. Filter by admin, person and kind (reads or changes); click an admin or a person in a row to filter by them; **Load more** shows older rows. A person's page has an **Activity** button that opens the list for that person. Nobody can edit or delete a row in the panel, and reading the list is not itself recorded.
+**Activity** in the admin panel lists what admins read and changed, newest first: when, which admin, what happened, whose workspace (or *Global settings*), and the bot (by name, or the start of its id once deleted) and conversation when there is one. Filter by admin, person and kind (reads or changes); click an admin or a person in a row to filter by them; **Load more** shows older rows. A person's page has an **Activity** button that opens the list for that person. Nobody can edit or delete a row in the panel, and reading the list is not itself recorded.
 
 What is recorded, one row each, never content or values:
 

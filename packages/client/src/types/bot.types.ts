@@ -113,6 +113,7 @@ export interface BotMcpParams {
 
 export interface BotMcpRow {
   name: string;
+  title: string;
   server: UniversalTypes.McpCatalog['servers'][number] | null;
   isShared: boolean;
   isOn: boolean;

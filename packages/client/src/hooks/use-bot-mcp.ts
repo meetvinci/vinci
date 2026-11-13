@@ -33,13 +33,14 @@ export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
   const rows: Omit<BotMcpRow, 'needsLogin'>[] = [
     ...servers.map((server) => ({
       name: server.name,
+      title: MCP.presets.find((preset) => preset.name === server.name)?.title ?? server.name,
       server,
       isShared: !server.isOwned && sharedNames.includes(server.name),
       isOn: true,
     })),
     ...sharedNames
       .filter((name) => !servers.some((server) => server.name === name))
-      .map((name) => ({ name, server: null, isShared: true, isOn: false })),
+      .map((name) => ({ name, title: name, server: null, isShared: true, isOn: false })),
   ].sort((left, right) => left.name.localeCompare(right.name));
 
   function toggle(name: string, isOn: boolean) {

@@ -114,7 +114,7 @@ function RoomsChatView({ bot, bots, chat, view }: RoomsChatViewProps) {
       host={panes}
       insetBottom={composerHeight}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-center px-14 *:pointer-events-auto max-md:bg-background/80 max-md:backdrop-blur-md md:h-auto md:pt-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-center px-14 *:pointer-events-auto max-md:bg-background/80 max-md:backdrop-blur-md md:h-auto md:bg-linear-to-b md:from-background md:from-60% md:to-transparent md:pt-3 md:pb-4">
         <RoomsChatPill activity={activity} bot={bot} />
       </div>
       {around ? (

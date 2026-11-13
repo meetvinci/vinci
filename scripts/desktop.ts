@@ -37,6 +37,28 @@ function files(folder: string): string[] {
   });
 }
 
+// Vite's SSR output loads a bundled CommonJS package's own dependencies (React for tiptap's use-sync-external-store) through a
+// runtime `createRequire`. Bun cannot follow those calls, and the bundle has no node_modules, so SSR failed (React error #419).
+// Turning each `__require("x")` into a static import lets Bun bundle the dependency like any other.
+const ssrRequires: Bun.BunPlugin = {
+  name: 'ssr-requires',
+  setup(build) {
+    build.onLoad({ filter: /apps[\\/]web[\\/]dist[\\/]server[\\/].*\.js$/u }, async ({ path: file }) => {
+      const source = await Bun.file(file).text();
+      const specifiers = [...new Set(Array.from(source.matchAll(/\b__require\("([^"]+)"\)/gu), ([, specifier]) => specifier))];
+
+      const contents = specifiers.reduce(
+        (code, specifier, index) => code.replaceAll(`__require("${specifier}")`, `__ssrRequire${index}`),
+        source,
+      );
+
+      const imports = specifiers.map((specifier, index) => `import * as __ssrRequire${index} from ${JSON.stringify(specifier)};\n`).join('');
+
+      return { contents: `${imports}${contents}`, loader: 'js' };
+    });
+  },
+};
+
 async function bundle() {
   const target = path.join(desktop, 'dist/server');
 
@@ -62,6 +84,7 @@ async function bundle() {
       entrypoints: [path.join(root, 'apps/web/dist/server/server.tanstack.js')],
       target: 'bun',
       splitting: true,
+      plugins: [ssrRequires],
       outdir: path.join(target, 'web/dist/server'),
     }),
     Bun.build({
