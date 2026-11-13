@@ -1,5 +1,5 @@
 import { Updater } from 'electrobun/main';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DESKTOP } from './desktop.constants';
@@ -17,20 +17,42 @@ function desktopUpdateSet(next: Partial<DesktopUpdateState>): DesktopUpdateState
   return state;
 }
 
-function desktopUpdateTeam(app: string): string | null {
+/**
+ * The running app's code requirement: Apple-issued signature, its signed identifier and Developer ID team. Null for an
+ * unsigned or ad hoc signed app, which then accepts no update.
+ */
+function desktopUpdateRequirement(app: string): string | null {
   const result = Bun.spawnSync([DESKTOP.update.codesign, '-dv', app], { stdout: 'pipe', stderr: 'pipe' });
-  const line = result.stderr.toString().split('\n').find((entry) => entry.startsWith(DESKTOP.update.teamIdPrefix));
-  const team = line?.slice(DESKTOP.update.teamIdPrefix.length).trim();
+  const lines = result.stderr.toString().split('\n');
+  const value = (prefix: string) => lines.find((entry) => entry.startsWith(prefix))?.slice(prefix.length).trim() ?? '';
+  const team = value(DESKTOP.update.teamIdPrefix);
+  const identifier = value(DESKTOP.update.identifierPrefix);
 
-  return result.exitCode === 0 && team && team !== 'not set' ? team : null;
+  if (result.exitCode !== 0 || !DESKTOP.update.team.test(team) || !DESKTOP.update.identifier.test(identifier)) {
+    return null;
+  }
+
+  return `anchor apple generic and identifier "${identifier}" and certificate leaf[subject.OU] = "${team}"`;
 }
 
-/** Electrobun checks only the release identity and build hash, so the downloaded app must also be signed by the same team and accepted by Gatekeeper. */
-async function desktopUpdateVerify(): Promise<boolean> {
-  const prepared = desktopUpdatePrepared.safeParse(JSON.parse(readFileSync(join(await Updater.appDataFolder(), DESKTOP.update.preparedFile), 'utf8')));
-  const team = desktopUpdateTeam(resolve(dirname(process.execPath), '..', '..'));
+function desktopUpdateVersion(app: string): string {
+  const plist = join(app, 'Contents', 'Info.plist');
 
-  if (!prepared.success || !team) {
+  return Bun.spawnSync([DESKTOP.update.plutil, '-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', plist]).stdout.toString().trim();
+}
+
+/**
+ * Electrobun checks only the release identity in the manifest, which whoever serves the update writes, and never the
+ * downloaded bytes. So the downloaded app must cryptographically satisfy this app's requirement (Apple anchor, same
+ * identifier and team, checked by codesign itself even when Gatekeeper is turned off), be accepted by Gatekeeper, and
+ * be newer than this app, so an older signed release can't be served again. Electrobun's helper installs from the
+ * retained tar with its own tar reader, so the tar is then rewritten to hold exactly the app checked here.
+ */
+async function desktopUpdateVerify(current: string): Promise<boolean> {
+  const prepared = desktopUpdatePrepared.safeParse(JSON.parse(readFileSync(join(await Updater.appDataFolder(), DESKTOP.update.preparedFile), 'utf8')));
+  const requirement = desktopUpdateRequirement(resolve(dirname(process.execPath), '..', '..'));
+
+  if (!prepared.success || !requirement) {
     return false;
   }
 
@@ -38,17 +60,37 @@ async function desktopUpdateVerify(): Promise<boolean> {
 
   try {
     const unpacked = Bun.spawnSync([DESKTOP.update.tar, '-xf', prepared.data.retained_tar_path, '-C', folder]);
-    const app = readdirSync(folder).find((entry) => entry.endsWith('.app'));
+    const entries = readdirSync(folder);
+    const app = entries[0];
 
-    if (unpacked.exitCode !== 0 || !app) {
+    // One real folder: a symlink would be checked at its target but installed as a link.
+    if (unpacked.exitCode !== 0 || entries.length !== 1 || !app.endsWith('.app') || !lstatSync(join(folder, app)).isDirectory()) {
       return false;
     }
 
     const path = join(folder, app);
+    const version = desktopUpdateVersion(path);
 
-    return Bun.spawnSync([DESKTOP.update.codesign, '--verify', '--deep', '--strict', path]).exitCode === 0
+    const accepted = Bun.spawnSync([DESKTOP.update.codesign, '--verify', '--deep', '--strict', `-R=${requirement}`, path]).exitCode === 0
       && Bun.spawnSync([DESKTOP.update.spctl, '--assess', '--type', 'execute', path]).exitCode === 0
-      && desktopUpdateTeam(path) === team;
+      && Bun.semver.satisfies(version, `>${current}`);
+
+    if (!accepted) {
+      return false;
+    }
+
+    const verified = `${prepared.data.retained_tar_path}.verified`;
+    const packed = Bun.spawnSync([DESKTOP.update.tar, '--no-mac-metadata', '-cf', verified, '-C', folder, app], { env: { ...process.env, COPYFILE_DISABLE: '1' } });
+
+    if (packed.exitCode !== 0) {
+      rmSync(verified, { force: true });
+
+      return false;
+    }
+
+    renameSync(verified, prepared.data.retained_tar_path);
+
+    return true;
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
@@ -71,7 +113,7 @@ async function desktopUpdateRun(): Promise<DesktopUpdateState> {
     desktopUpdateSet({ status: 'downloading' });
     await Updater.downloadUpdate();
 
-    if (!Updater.updateInfo().updateReady || !await desktopUpdateVerify()) {
+    if (!Updater.updateInfo().updateReady || !await desktopUpdateVerify(state.version)) {
       return desktopUpdateSet({ status: 'error' });
     }
 
@@ -94,16 +136,17 @@ export function desktopUpdateCheck(): Promise<DesktopUpdateState> {
   return running;
 }
 
-/** Only packaged stable builds update; dev and canary builds keep their own version. */
+/** Only packaged stable builds with an update address update; dev and canary builds keep their own version. */
 export async function desktopUpdateStart(onChange: (next: DesktopUpdateState) => void): Promise<boolean> {
   // Releases ship only signed macOS builds, and verification needs codesign and Gatekeeper.
   if (DESKTOP.platform !== 'macos') {
     return false;
   }
 
-  const { channel, version } = await Updater.getLocalInfo();
+  const { baseUrl, channel, version } = await Updater.getLocalInfo();
 
-  if (channel !== DESKTOP.update.channel) {
+  // DESKTOP_UPDATE_URL at build time; a build without it never looks for updates.
+  if (channel !== DESKTOP.update.channel || !baseUrl) {
     return false;
   }
 

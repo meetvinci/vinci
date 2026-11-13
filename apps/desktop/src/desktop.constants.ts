@@ -49,7 +49,11 @@ export const DESKTOP = {
     codesign: '/usr/bin/codesign',
     spctl: '/usr/sbin/spctl',
     tar: '/usr/bin/tar',
+    plutil: '/usr/bin/plutil',
     teamIdPrefix: 'TeamIdentifier=',
+    identifierPrefix: 'Identifier=',
+    team: /^[A-Z0-9]{10}$/u,
+    identifier: /^[A-Za-z0-9.-]+$/u,
   },
   notify: {
     frameworks: {

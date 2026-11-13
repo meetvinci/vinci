@@ -1,7 +1,7 @@
 import type { ElectrobunConfig } from 'electrobun';
 
 const name = process.env.APP_NAME ?? 'Orbs';
-const identifier = process.env.DESKTOP_BUNDLE_ID ?? 'app.orbs.desktop';
+const identifier = process.env.DESKTOP_BUNDLE_ID ?? 'pt.entrypoint.orbs.desktop';
 
 export default {
   app: {
@@ -32,5 +32,6 @@ export default {
   scripts: { postBuild: '../../scripts/desktop.ts' },
   // Read back at runtime through BuildConfig, so packaged builds keep the name and identifier.
   runtime: { exitOnLastWindowClosed: false, name, identifier },
-  release: { baseUrl: 'https://github.com/nikuscs/orbs/releases/latest/download', generatePatch: false },
+  // The update address (scripts/desktop.ts release requires it); without it the build has updates off.
+  release: { baseUrl: process.env.DESKTOP_UPDATE_URL ?? '', generatePatch: false },
 } satisfies ElectrobunConfig;

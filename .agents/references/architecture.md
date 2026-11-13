@@ -221,11 +221,11 @@ apps/mobile/
 
 ```
 apps/desktop/
-├── electrobun.config.ts                app identity and build; signing happens in scripts/desktop.ts release
+├── electrobun.config.ts                app identity, build and update address (DESKTOP_UPDATE_URL); scripts/desktop.ts release signs, publish uploads
 ├── icon.icon/                          the app icon
 └── src/
     ├── desktop.ts                      the main process: windows, tray, menus, local or remote server
-    ├── desktop-<concern>.ts            one concern: build, launch, network, notify, objc, server, settings, window
+    ├── desktop-<concern>.ts            one concern: build, launch, network, notify, objc, server, settings, update, window
     ├── desktop.constants.ts            ports, labels and limits
     ├── types/desktop.types.ts          desktop types
     └── views/<name>/index.{html,ts}    a bundled webview page

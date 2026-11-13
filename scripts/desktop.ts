@@ -1,5 +1,5 @@
 import { embedWrite } from '@repo/ui/native';
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -8,10 +8,18 @@ const desktop = path.join(root, 'apps/desktop');
 const name = process.env.APP_NAME ?? 'Orbs';
 const entitlements = ['allow-jit', 'allow-unsigned-executable-memory', 'disable-library-validation'];
 const isDarwin = process.platform === 'darwin';
+// The in-app updater only updates stable Apple silicon builds; Electrobun names its files after this prefix.
+const updatePrefix = 'stable-macos-arm64';
+const updateManifestName = `${updatePrefix}-update.json`;
 
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
+}
+
+// .env leaves unset values empty; empty counts as unset.
+function envValue(key: string): string | undefined {
+  return process.env[key]?.trim() ? process.env[key] : undefined;
 }
 
 function run(command: string[], env: Record<string, string | undefined> = process.env): string {
@@ -27,6 +35,24 @@ function run(command: string[], env: Record<string, string | undefined> = proces
   }
 
   return result.stdout.toString().trim();
+}
+
+/** DESKTOP_UPDATE_URL without a trailing slash: the address the app reads `<prefix>-update.json` and its bundle from. */
+function updateUrl(): string {
+  const value = envValue('DESKTOP_UPDATE_URL') ?? fail('Set DESKTOP_UPDATE_URL to the address the app downloads updates from (docs/desktop-release.md).');
+  const url = URL.parse(value);
+
+  // Electrobun appends its own `?query` to the address, so the address carries its key in the path, never in a query.
+  if (url?.protocol !== 'https:' || url.search || url.hash || url.username || url.password) {
+    fail('DESKTOP_UPDATE_URL must be an https:// address with no ?query, #fragment or user name.');
+  }
+
+  return value.replace(/\/+$/u, '');
+}
+
+/** The release identity Electrobun bakes into the app and reads back to look for updates. */
+function versionInfo(app: string): { version: string; hash: string; channel: string; baseUrl: string; identifier: string } {
+  return JSON.parse(readFileSync(path.join(app, 'Contents/Resources/version.json'), 'utf8'));
 }
 
 function files(folder: string): string[] {
@@ -133,7 +159,10 @@ function plist() {
 }
 
 function release() {
-  const app = path.join(desktop, `build/stable-macos-arm64/${name}.app`);
+  const app = path.join(desktop, `build/${updatePrefix}/${name}.app`);
+
+  // Fails before the build: the app reads updates only from this address (electrobun.config.ts).
+  updateUrl();
   const keychain = process.env.DESKTOP_SIGNING_KEYCHAIN ?? fail('Set DESKTOP_SIGNING_KEYCHAIN to the signing keychain path.');
   const identity = process.env.DESKTOP_SIGNING_IDENTITY ?? fail('Set DESKTOP_SIGNING_IDENTITY to the Developer ID SHA-1 fingerprint.');
   const credentialsFile = path.join(path.dirname(keychain), 'credentials.json');
@@ -202,7 +231,7 @@ function release() {
   rmSync(temp, { recursive: true, force: true });
 
   // The in-app updater downloads the manifest Electrobun wrote and a bundle of this signed, stapled app under the same name.
-  const manifest = JSON.parse(readFileSync(path.join(desktop, 'artifacts/stable-macos-arm64-update.json'), 'utf8'));
+  const manifest = JSON.parse(readFileSync(path.join(desktop, 'artifacts', updateManifestName), 'utf8'));
   const updateTar = path.join(desktop, 'artifacts', `${manifest.artifact.file}.tar`);
 
   run(['tar', '--no-mac-metadata', '-cf', updateTar, '-C', path.dirname(app), path.basename(app)], { ...process.env, COPYFILE_DISABLE: '1' });
@@ -211,13 +240,87 @@ function release() {
   console.log(`Notarized: ${zip}`);
 }
 
-const commands = { bundle, plist, release };
+/**
+ * Uploads a release's update files to the update bucket: the bundle, then the manifest, so no app sees a manifest before
+ * its bundle. It checks the bundle it uploads, never only the app it came from: signed with a Developer ID, notarized and
+ * stapled, accepted by Gatekeeper, and built for DESKTOP_UPDATE_URL. Anything else stops before the first upload.
+ */
+async function publish() {
+  if (!isDarwin) {
+    fail('Publish from a Mac: it checks the signature with codesign, spctl and stapler before uploading.');
+  }
+
+  const baseUrl = updateUrl();
+  const bucket = envValue('DESKTOP_UPDATE_S3_BUCKET') ?? fail('Set DESKTOP_UPDATE_S3_BUCKET and the other DESKTOP_UPDATE_S3_ settings (docs/desktop-release.md).');
+  const artifacts = path.resolve(process.argv[3] ?? path.join(desktop, 'artifacts'));
+  const manifestFile = path.join(artifacts, updateManifestName);
+
+  if (!existsSync(manifestFile)) {
+    fail(`No ${updateManifestName} in ${artifacts}: run bun run release first.`);
+  }
+
+  const manifestText = readFileSync(manifestFile, 'utf8');
+  const manifest = JSON.parse(manifestText);
+  const file: unknown = manifest.artifact?.file;
+
+  if (manifest.schemaVersion !== 1 || manifest.channel !== 'stable' || manifest.platform !== 'macos' || manifest.arch !== 'arm64'
+    || typeof file !== 'string' || !file.startsWith(`${updatePrefix}-`) || !file.endsWith('.tar.zst') || file.includes('/')) {
+    fail(`${manifestFile} is not a stable macOS arm64 update manifest.`);
+  }
+
+  // The exact bytes that are checked are the ones uploaded.
+  const archive = readFileSync(path.join(artifacts, file));
+  const temp = path.join(artifacts, '.publish-check');
+
+  rmSync(temp, { recursive: true, force: true });
+  mkdirSync(temp);
+  writeFileSync(path.join(temp, 'update.tar'), Bun.zstdDecompressSync(archive));
+  run(['tar', '-xf', path.join(temp, 'update.tar'), '-C', temp]);
+
+  const app = path.join(temp, readdirSync(temp).find((entry) => entry.endsWith('.app')) ?? fail(`${file} holds no app.`));
+  const info = versionInfo(app);
+
+  if (info.hash !== manifest.hash || info.version !== manifest.version || info.identifier !== manifest.identifier || info.channel !== 'stable') {
+    fail(`${file} is not the build ${manifestFile} describes.`);
+  }
+
+  if (info.baseUrl.replace(/\/+$/u, '') !== baseUrl) {
+    fail(info.baseUrl ? 'That build reads updates from another address than DESKTOP_UPDATE_URL.' : 'That build has no update address: build it with DESKTOP_UPDATE_URL set.');
+  }
+
+  run(['codesign', '--verify', '--deep', '--strict', app]);
+  run(['xcrun', 'stapler', 'validate', app]);
+  run(['spctl', '--assess', '--type', 'execute', app]);
+  console.log(`${name} ${info.version} (${info.identifier}) is signed, notarized and stapled.`);
+  rmSync(temp, { recursive: true, force: true });
+
+  const client = new Bun.S3Client({
+    bucket,
+    endpoint: envValue('DESKTOP_UPDATE_S3_ENDPOINT'),
+    region: envValue('DESKTOP_UPDATE_S3_REGION'),
+    accessKeyId: envValue('DESKTOP_UPDATE_S3_ACCESS_KEY_ID'),
+    secretAccessKey: envValue('DESKTOP_UPDATE_S3_SECRET_ACCESS_KEY'),
+  });
+
+  await client.write(file, archive, { type: 'application/zstd' });
+  await client.write(updateManifestName, manifestText, { type: 'application/json' });
+
+  const served = await fetch(`${baseUrl}/${updateManifestName}?${crypto.randomUUID()}`).then((response) => (response.ok ? response.json() : null)).catch(() => null);
+
+  if (served?.hash !== manifest.hash) {
+    fail(`Uploaded to ${bucket}, but DESKTOP_UPDATE_URL does not serve ${updateManifestName}: check the bucket's public address.`);
+  }
+
+  console.log(`Published ${name} ${manifest.version}: installed apps find it at DESKTOP_UPDATE_URL.`);
+}
+
+const commands = { bundle, plist, release, publish };
 
 // Electrobun runs its postBuild hook without arguments, so a bare call inside a build is the plist step.
 const command = process.argv[2] ?? (process.env.ELECTROBUN_BUILD_DIR ? 'plist' : '');
 
 if (!(command in commands)) {
-  fail('Usage: bun scripts/desktop.ts bundle | release (plist runs as the Electrobun postBuild hook)');
+  fail('Usage: bun scripts/desktop.ts bundle | release | publish [artifacts folder] (plist runs as the Electrobun postBuild hook)');
 }
 
 await commands[command as keyof typeof commands]();

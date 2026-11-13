@@ -6,7 +6,7 @@ Orbs runs a small daemon on your computer. Each bot is a persistent [Pi](https:/
 
 ## ⬇️ Download
 
-**[Download the latest macOS app](https://github.com/nikuscs/orbs/releases/latest)** (Apple silicon). Unzip it, move **Orbs** to Applications and open it. Choose **This Mac**, then connect a model provider such as Anthropic or OpenAI. The app runs the daemon for you and lives in the menu bar.
+**Download the macOS app** (Apple silicon) from this repository's GitHub Releases. Unzip it, move **Orbs** to Applications and open it. Choose **This Mac**, then connect a model provider such as Anthropic or OpenAI. The app runs the daemon for you and lives in the menu bar.
 
 ## ✨ Features
 
@@ -40,7 +40,7 @@ Start with the [team workspace guide](docs/team-workspace/README.md).
 **1. Install**
 
 ```bash
-git clone https://github.com/nikuscs/orbs && cd orbs
+git clone git@github.com:ijpatricio/orbs-bot.git orbs && cd orbs
 bun install
 cp .env.example .env
 ```
@@ -104,14 +104,14 @@ bun run release 0.2.0      # a specific version
 bun run release --draft    # publish the GitHub Release as a draft
 ```
 
-This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, and creates a GitHub Release with two files:
+This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with two files, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
 
 - `Orbs-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
 - `Orbs-<version>-server.tar.gz`: the daemon and web app for a Mac without the desktop app. Run `bun server/daemon/entry.native.js start` and `bun server/web/src/application/server.bun.js`.
 
 The iOS app ships through EAS and TestFlight, not GitHub: `bun run release:ios` builds it on this Mac and submits it to TestFlight; `bun run release:ios-expo` builds it on EAS instead. `bun run release:desktop` builds only the macOS app, without tagging.
 
-Signing reads `DESKTOP_SIGNING_KEYCHAIN` (a dedicated keychain holding the Developer ID certificate) and `DESKTOP_SIGNING_IDENTITY` (its SHA-1) from `.env`. The keychain password and notary key come from `.env` or from a `credentials.json` next to the keychain; see `.env.example`.
+The app looks for updates only at `DESKTOP_UPDATE_URL`, set at build time; a release refuses to start without it and `bun run publish:desktop` uploads a finished release to its bucket. Signing reads `DESKTOP_SIGNING_KEYCHAIN` (a dedicated keychain holding the Developer ID certificate) and `DESKTOP_SIGNING_IDENTITY` (its SHA-1) from `.env`. The keychain password and notary key come from `.env` or from a `credentials.json` next to the keychain; see `.env.example`.
 
 ### Container images
 

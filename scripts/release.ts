@@ -75,6 +75,11 @@ if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   fail('Usage: bun run release [major.minor.patch] [--draft]');
 }
 
+// The app is built for its update address and its update goes to the bucket: stop before tagging when either is missing.
+if (!process.env.DESKTOP_UPDATE_URL?.trim() || !process.env.DESKTOP_UPDATE_S3_BUCKET?.trim()) {
+  fail('Set DESKTOP_UPDATE_URL and the DESKTOP_UPDATE_S3_ settings in .env (docs/desktop-release.md).');
+}
+
 if (run(['git', 'status', '--porcelain'])) {
   fail('Commit or stash your changes first.');
 }
@@ -113,8 +118,6 @@ step(['bun', 'scripts/desktop.ts', 'release'], build);
 const artifacts = path.join(build, 'apps/desktop/artifacts');
 const desktop = path.join(artifacts, `${name}-${version}-macos-arm64.zip`);
 const server = path.join(artifacts, `${name}-${version}-server.tar.gz`);
-const updateManifest = path.join(artifacts, 'stable-macos-arm64-update.json');
-const updateBundle = path.join(artifacts, JSON.parse(readFileSync(updateManifest, 'utf8')).artifact.file);
 
 if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'], { cwd: build }).exitCode === 0) {
   fail(`The server bundle contains ${homedir()}. Nothing was pushed.`);
@@ -123,7 +126,25 @@ if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'],
 run(['tar', '-czf', server, '-C', path.join(build, 'apps/desktop/dist'), 'server']);
 
 run(['git', 'push', '--atomic', 'origin', 'main', tag]);
-run(['gh', 'release', 'create', tag, desktop, server, updateManifest, updateBundle, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
+run(['gh', 'release', 'create', tag, desktop, server, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
+tagged = false;
+
+// Last, so installed apps see the update only once the tag and the release exist; a draft is not offered to them yet.
+if (draft) {
+  console.log(`Draft: installed apps get ${tag} once you run bun run publish:desktop ${artifacts}`);
+  process.exit(0);
+}
+
+const published = Bun.spawnSync(['bun', 'scripts/desktop.ts', 'publish', artifacts], {
+  cwd: build,
+  stdout: 'inherit',
+  stderr: 'inherit',
+});
+
+if (!published.success) {
+  fail(`${tag} is released but not published to the update bucket: fix the cause, then run bun run publish:desktop ${artifacts}`);
+}
+
 run(['git', 'worktree', 'remove', '--force', build]);
 
 console.log(`Released ${tag}: ${run(['gh', 'release', 'view', tag, '--json', 'url', '--jq', '.url'])}`);

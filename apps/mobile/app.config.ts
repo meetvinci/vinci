@@ -12,7 +12,7 @@ if (existsSync('../../.env')) {
 const appEnv = z.object({
   APP_VARIANT: z.enum(['development', 'preview', 'production']).default('development'),
   APP_NAME: z.string().trim().min(1).default('Orbs'),
-  MOBILE_BUNDLE_ID: z.string().trim().min(1).default('app.openbots.mobile'),
+  MOBILE_BUNDLE_ID: z.string().trim().min(1).default('pt.entrypoint.orbs'),
   MOBILE_SCHEME: z.string().trim().min(1).default('orbs'),
   MOBILE_APPLE_TEAM_ID: z.string().trim().min(1).optional(),
   MOBILE_EAS_SLUG: z.string().trim().min(1).default('orbs'),
