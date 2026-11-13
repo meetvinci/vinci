@@ -31,6 +31,10 @@ services:
     mem_limit: 256m
     pids_limit: 128
     restart: unless-stopped
+    # Probed every second while starting, so the nightly backup's hub stop ends as soon as the hub answers.
+    healthcheck:
+      start_period: 30s
+      start_interval: 1s
     environment:
       ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
       ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}

@@ -17,6 +17,9 @@ Every setting and file in a team install. "Set by the image" means the container
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
 | `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
+| `BACKUP_TIME` | `03:00` | When the nightly backup runs, in server time. Read by `bun deploy.ts nightly install`; run it again after a change. |
+| `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY` | `7`, `4` | How many days and weeks of nightly backups to keep. See [backups](admin.md#nightly-backups). |
+| `BACKUP_OFFSITE_SCRIPT` | empty | Optional: a program run after each good nightly backup with the run's folder as its argument, to copy it off the server. See [off-site copy](admin.md#off-site-copy). |
 | `CLOUDFLARE_API_TOKEN` | empty | Optional secret: lets the provisioner update the Access allow policy and show the panel whom it lets in. Recommended with a list of emails. See [admin tasks](admin.md#let-the-server-update-cloudflare-access). |
 
 A required value that is missing stops `docker compose` with a message naming it.
@@ -83,7 +86,7 @@ It runs as root with every Linux capability dropped, a read-only system, no publ
 | `users.yaml` | `/opt/orbs/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
 | `compose.yaml`, `daemon.yaml` | `/opt/orbs/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the container every person gets. |
 | `cloudflared.compose.yaml` | `/opt/orbs/`, copied from `deploy/cloudflare/` | The tunnel connector. |
-| `deploy.ts` | `/opt/orbs/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
+| `deploy.ts` | `/opt/orbs/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/orbs/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
 | `users.compose.yaml` | `/opt/orbs/` | One container, network and volume per person, plus the same for the template workspace (`daemon-template`). Written by `apply`; do not edit. |
 | `hub/users.json` | `/opt/orbs/hub/`, `/data/` in the hub | Each enabled person's email, user id, daemon address (`http://daemon-<id>:47191`), owner socket (`/ipc/<id>/rpc.sock`) and `advanced: true` for an advanced user, and under `template` the template workspace's address and socket (no email). Written by `apply`; do not edit. |
@@ -91,8 +94,10 @@ It runs as root with every Linux capability dropped, a read-only system, no publ
 | `hub/admins.json` | `/opt/orbs/hub/`, `/data/` in the hub | `{"admins": ["<email>", ...]}`: who may open the admin panel at `/admin`. An admin does not need to be a user. Written by the hub when admins change in the panel; seeded from `HUB_ADMIN_EMAILS` while empty. If it is unreadable or invalid nobody is an admin until it is fixed. |
 | `hub/pins.json` | `/opt/orbs/hub/`, `/data/` in the hub | The ID of each person's Orbs, saved the first time the hub reaches it. The hub refuses to forward if the ID changes. Written by the hub; `purge` removes a person's line. |
 | `hub/audit.sqlite` | `/opt/orbs/hub/`, `/data/` in the hub | The admin panel's audit trail: one row per admin read or change, never content or values. Written by the hub only; kept by upgrades, `apply`, rollbacks and `purge`. See [Activity](admin.md#activity). |
-| `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume. Secret. |
-| `backups/hub-<time>.tar.gz` | `/opt/orbs/backups/` | The hub's folder, audit trail included. Secret. |
+| `backups/<time>/` | `/opt/orbs/backups/` | One nightly run: every person's and the template's volume, the hub folder, the deployment files with `.env`, and `manifest.json` with sizes and checksums. Secret. See [backups](admin.md#nightly-backups). |
+| `backups/nightly.json` | `/opt/orbs/backups/` | The last nightly run's time, result and error, for `bun deploy.ts nightly status`. |
+| `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume, from `backup <id>` or the copy `restore` saves first. Secret. Never deleted by retention. |
+| `/etc/systemd/system/orbs-backup.service`, `.timer` | the host | The nightly backup timer. Written by `bun deploy.ts nightly install`, removed by `nightly remove`. |
 | `models.json` | `/data/pi/` in each person's volume | Model provider settings, such as a different address for a provider. Read only at start. |
 | `auth.json` | `/data/pi/` in each person's volume | Keys and logins the person adds in Settings. Plain text. |
 | `data/credentials.key` | `/data/` in each person's volume | Encryption key for secrets the person's bots saved. |

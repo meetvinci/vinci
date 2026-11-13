@@ -392,52 +392,139 @@ Don't pair a device of your own into someone's Orbs instead: it can read and act
 
 ## Backups
 
-A backup is a copy of one person's whole volume: bots, chats, files, database, encryption key, model settings and home folder. Their Orbs stops for the few seconds it takes; other people are not affected.
+**Backups hold every secret.** Each person's backup has their encryption key (`credentials.key`), their model keys (`auth.json`), their secrets and their chats; the deployment files have `.env` with the tunnel token, the provisioner token and the shared model keys. Anyone with a backup folder can read all of it. Keep backups readable by root only, and copy them only to a place you trust as much as the server.
+
+### Nightly backups
+
+The server backs itself up every night with a systemd timer. Turn it on once, in `/opt/orbs`:
+
+```sh
+bun deploy.ts nightly install
+```
+
+Expected: `Wrote /etc/systemd/system/orbs-backup.service`, `Wrote /etc/systemd/system/orbs-backup.timer` and `The nightly backup runs at 03:00 server time into /opt/orbs/backups`. Set `BACKUP_TIME=02:15` in `.env` before `install` for another time. A server that was off at that time backs up once when it starts. `bun deploy.ts nightly remove` turns it off and keeps the backups.
+
+Each run writes one folder, `backups/<time>/` (UTC, such as `2026-11-13T030000Z`), with mode 700 and every file mode 600:
+
+| File | What it holds |
+| --- | --- |
+| `<id>.tar.gz` | One person's whole volume, for everyone in `users.yaml` (disabled people too) and `template.tar.gz` for the template workspace. Someone removed from `users.yaml` is no longer backed up: back them up by hand before you remove them if you may need their data. |
+| `hub.tar.gz` | The hub's folder: `users.json`, `admins.json`, `pins.json`, `global.json` and the audit trail `audit.sqlite`. |
+| `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`, the off-site script, and any other file `COMPOSE_FILE` loads. |
+| `manifest.json` | The image tag, each person (enabled, advanced, how long they were stopped), and each file's size and SHA-256. Written last: a folder without it is a run that did not finish. |
+
+People are backed up one at a time. Each person's Orbs stops for their own copy and starts again, so no database is copied half-written: about 2.5 seconds each on a test server, and a browser saw 0.5 to 2 seconds without answers. Then the hub stops for about 3 seconds while its folder is copied, so nobody's open app gets an answer for 1 to 2 seconds. Open chats reconnect on their own. A run waits up to five minutes for an `apply` or an admin panel change that is in progress, and admin panel changes made while it runs ask to try again in a minute.
+
+**Retention.** After a good run, the server keeps the newest run of each of the last 7 days and of each of the last 4 weeks (weeks start on Monday) and deletes every other run folder, including unfinished ones. Change the numbers with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. A run that fails deletes only its own unfinished folder, never an older run. Backups you made by hand (`backups/<id>-<time>.tar.gz`) are never deleted.
+
+**Check it:**
+
+```sh
+bun deploy.ts nightly status
+```
+
+```text
+Last run: backups/2026-11-13T030000Z, started 5.2 h ago: ok
+Tag 3335196, 4 workspaces, 0.1 MiB, took 14 s; longest stop template 2.7 s, hub 2.8 s
+Off-site copy: ok
+Finished backups on this server: 9 (2026-10-25T030000Z to 2026-11-13T030000Z)
+```
+
+followed by the timer's next run. It exits with an error when the last run failed, when it still says `running` after two hours (the run was killed, for example by a power loss), or when the last good run is more than 36 hours old, so a monitoring check can run it. A failed run also ends the systemd job with an error and writes one line to the journal, `Nightly backup failed: <reason>`: see `journalctl -u orbs-backup.service`. A run stopped by systemd (after two hours, or by a shutdown) or by Ctrl-C starts whoever it had stopped again and counts as failed. Only a hard kill or a power loss in the few seconds someone is stopped can leave their Orbs or the hub stopped: `bun deploy.ts apply` starts it again. To back up right now, run `bun deploy.ts nightly`; it is the same command the timer runs.
+
+### Off-site copy
+
+Backups on the server's own disk are lost with the server. To copy each good run somewhere else, write a small script and name it in `.env`:
+
+```sh
+BACKUP_OFFSITE_SCRIPT=/opt/orbs/offsite.sh
+```
+
+The script gets the run's folder as its only argument. For example, with [rclone](https://rclone.org) and a remote you set up with `rclone config`:
+
+```sh
+#!/bin/sh
+set -eu
+rclone copy "$1" "orbs-offsite:orbs-backups/$(basename "$1")"
+```
+
+Make it executable and root-only (`chmod 700 offsite.sh`): it runs as root, so the run refuses a script that another user owns or that its group or others can change. Name a script, not a command line: `.env` values lose anything written with `$`. If the script fails, the run counts as failed (`nightly status` shows `Off-site copy: failed`), but the backup on the server is kept. Off by default. The script is backed up with the deployment files when it is in `/opt/orbs`. Whatever it copies to holds every secret above: choose a target only you can read, and encrypt it there if you can.
+
+### Back up one person by hand
 
 ```sh
 bun deploy.ts backup <id>
 ```
 
-It takes a few seconds and writes `backups/<id>-<time>.tar.gz`, readable only by root. The backup contains the person's keys: store it like a password. Copy it off the server, keeping it private:
+It takes a few seconds and writes `backups/<id>-<time>.tar.gz`, readable only by root. Copy it off the server, keeping it private:
 
 ```sh
 scp -p root@<server>:/opt/orbs/backups/<id>-<time>.tar.gz <safe folder>/
 ```
 
-Backups stay on the server until you delete them by name (`rm /opt/orbs/backups/<file>`).
+These stay on the server until you delete them by name (`rm /opt/orbs/backups/<file>`).
 
-The hub's own folder holds the admin list, the pins, the global settings modes and the [audit trail](#activity). Back it up as well, ideally while nobody is using the admin panel:
+### Restore one person
 
-```sh
-tar -czf backups/hub-$(date -u +%Y%m%dT%H%M%SZ).tar.gz hub && chmod 600 backups/hub-*.tar.gz
-```
-
-To put a backup back:
+From last night's run (the folder) or a backup made by hand (the file):
 
 ```sh
+bun deploy.ts restore <id> backups/<time>
 bun deploy.ts restore <id> backups/<id>-<time>.tar.gz
 ```
 
-This replaces everything in that person's volume. It first takes a fresh backup of what is there, and prints its name. Expected: `Saved the current data of <id> to backups/…` and `Restored <id> from …`, and their container healthy again.
+It checks the file against the run's `manifest.json` first and refuses a damaged one, a file that does not unpack, and a file not named for that person (`<id>.tar.gz` or `<id>-<time>.tar.gz`), so a mistyped id cannot put someone else's data in their place. Then it stops that person's Orbs, saves what is there now to `backups/<id>-<time>.tar.gz`, replaces their whole volume and starts it again. Expected: `Saved the current data of <id> to backups/…` and `Restored <id> from …`. Other people are not affected.
 
-To put the hub's folder back, stop the hub, unpack the backup over `hub` as root (it keeps the owners and modes the hub needs), start the hub, and run `apply` so `hub/users.json` matches `users.yaml` again. The admin list and the section modes go back to the backup's, and rows added to the audit trail since that backup are lost, so first copy the current `hub/audit.sqlite` to `backups/` if you want to keep them:
+What the person gets back is exactly what they had at backup time: bots, chats, secrets, keys, settings and devices. Their browsers paired before the backup keep working. A browser or phone they paired after it is refused once and pairs again by itself the next time they open Orbs (no PIN). The hub is not touched:
+
+- **The audit trail keeps everything**, including rows about changes the restore has just undone. The restore itself writes no row; it shows in the shell where you ran it.
+- **Section modes stay as they are now.** A section that follows global holds the global values from backup time until the next global change. In the panel, open **Global settings** and press **Sync now** so it gets today's values (`sync status` still says *in sync* until then). A section switched to global after the backup keeps the person's old values until that sync.
+
+### Restore a whole install on a new server
+
+From one run folder alone, for example when the server is lost. Images are not in the backup: you need the same tag as `"tag"` in its `manifest.json`.
+
+1. Prepare the new server with [install](install.md) steps 1 and 2, and load the images of that tag as in step 3 (build them from that commit of the repository). Install Bun as in step 3.
+2. Copy the run folder to the new server and unpack the deployment files from it:
+
+   ```sh
+   ssh root@<new server> 'mkdir -p -m 700 /opt/orbs/backups'
+   scp -rp <run folder> root@<new server>:/opt/orbs/backups/
+   ssh root@<new server> 'cd /opt/orbs && chmod 700 . && tar -xzpf backups/<time>/deployment.tar.gz'
+   ```
+
+3. Stop the old server's Orbs if it still runs (`docker compose down` there): it has the same tunnel token, and Cloudflare would share people between both servers.
+4. Restore:
+
+   ```sh
+   ssh root@<new server> 'cd /opt/orbs && bun deploy.ts restore backups/<time>'
+   ```
+
+   It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
+5. Turn the nightly backup on again: `bun deploy.ts nightly install`. Note that the next run's retention deletes the folder you restored from if it is older than that day's run; copy it elsewhere first if you want to keep it.
+
+Nothing changes in Cloudflare: the tunnel token in `.env` connects the new server to the same tunnel, and the hostname, Access and DNS stay. For people, the install is as it was at backup time: browsers paired before the backup open Orbs as usual and chats continue; a browser paired after the backup pairs again by itself; anything done after the backup (chats, settings, panel changes, people added) is gone and needs doing again. Admins, pins and section modes are the backup's, and the audit trail ends at the backup.
+
+### Restore only the hub folder
+
+Stop the hub, unpack `hub.tar.gz` into `hub` as root (it keeps the owners and modes the hub needs), start the hub, and run `apply` so `hub/users.json` matches `users.yaml` again. The admin list and the section modes go back to the backup's, and rows added to the audit trail since that backup are lost, so first copy the current `hub/audit.sqlite` to `backups/` if you want to keep them:
 
 ```sh
 docker compose stop hub
-tar -xzf backups/hub-<time>.tar.gz
+tar -xzpf backups/<time>/hub.tar.gz -C hub
 docker compose start hub
 bun deploy.ts apply
 ```
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts backup <id>` for every user id in `users.yaml` and for `template`, one after the other, and back up the hub's folder with the `tar` command in the Backups section of `docs/team-workspace/admin.md`, then copy the new files in `/opt/orbs/backups/` to `<backup location>` without changing their permissions. Report the file names and sizes.
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts nightly status` and report the last run, its age, its result and the off-site copy. If it failed or is older than a day, show `journalctl -u orbs-backup.service --since -2d | grep -E "failed|Nightly"` and run `bun deploy.ts nightly` once. Never print `.env` or the content of a backup.
 
 ## Upgrades
 
 New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun orbs-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
-1. Back up everyone (above), the template workspace too (`bun deploy.ts backup template`), and the hub's folder (above). A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Orbs as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version.
+1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Orbs as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version.
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
 
    ```sh
@@ -465,7 +552,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up every user and the template with `bun deploy.ts backup <id>`, and the hub's folder as the Backups section shows, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If this is the first upgrade to the version where people keep their own secrets, tell me to press **Sync now** in Global settings once (step 5 of Upgrades): you can't, it needs my Access login. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly` and confirm `bun deploy.ts nightly status` says `ok`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If this is the first upgrade to the version where people keep their own secrets, tell me to press **Sync now** in Global settings once (step 5 of Upgrades): you can't, it needs my Access login. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 

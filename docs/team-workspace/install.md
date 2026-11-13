@@ -307,11 +307,25 @@ Then log in:
 
 > Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
 
+## 9. Turn on nightly backups
+
+The server backs everyone up every night with a systemd timer. Each backup holds every key and secret of the team: see [Backups](admin.md#backups) before copying them anywhere.
+
+```sh
+ssh root@<server> 'cd /opt/orbs && bun deploy.ts nightly install && bun deploy.ts nightly && bun deploy.ts nightly status'
+```
+
+Expected: the two unit files written, one run of a few seconds per person, and `Last run: backups/<time>, … ok`. Backups stay on the server's disk until you add an [off-site copy](admin.md#off-site-copy).
+
+**Give this to your agent:**
+
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts nightly install`, then `bun deploy.ts nightly` once, then `bun deploy.ts nightly status`, and report its output and `systemctl list-timers orbs-backup.timer`. Never print `.env` or a backup's content.
+
 ## The whole install in one prompt
 
 Fill in the angle brackets and paste:
 
-> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 8 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. Cloudflare lets in `<everyone @<company domain>, or "a list of emails" plus the small server token at <op://…>>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and tell me the address to log in at and the admin panel address (`/admin`), and remind me to set Global settings and the suggested bots there before people log in.
+> Install Orbs for my team by following `docs/team-workspace/install.md` in my Orbs checkout, steps 1 to 9 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `orbs-<team>`. Cloudflare lets in `<everyone @<company domain>, or "a list of emails" plus the small server token at <op://…>>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and the nightly backup of step 9 and tell me the address to log in at and the admin panel address (`/admin`), and remind me to set Global settings and the suggested bots there before people log in.
 
 ## Next
 

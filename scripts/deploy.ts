@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -34,6 +34,23 @@ const cloudflareFaviconPath = '^/(?:img/favicon/[^/]+|favicon\\.ico)$';
 // The hub on the Compose `tunnel` network, and the host's sshd as cloudflared's container sees it.
 const cloudflareOrigin = 'http://hub:47192';
 const cloudflareSshOrigin = 'ssh://host.docker.internal:22';
+const backupsFolder = 'backups';
+// One nightly run: backups/<UTC time>/ with each volume, the hub folder, the deployment files and manifest.json.
+const nightlyFolder = /^\d{4}-\d{2}-\d{2}T\d{6}Z$/u;
+const nightlyStatusFile = path.join(backupsFolder, 'nightly.json');
+const nightlyManifest = 'manifest.json';
+const nightlyHubFile = 'hub.tar.gz';
+const nightlyDeploymentFile = 'deployment.tar.gz';
+// What a fresh server needs next to the volumes and the hub folder; COMPOSE_FILE in .env may name more.
+const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'cloudflared.compose.yaml', 'deploy.ts'];
+// `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
+const nightlyStaleMs = 36 * 60 * 60 * 1000;
+// The timer's service is stopped after this long; `nightly status` counts a run still `running` after it as failed.
+const nightlyTimeoutMs = 2 * 60 * 60 * 1000;
+// A by-hand apply or a panel change may hold the lock when the timer fires; the nightly run waits this long for it.
+const nightlyLockWaitMs = 5 * 60 * 1000;
+const systemdFolder = '/etc/systemd/system';
+const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/u;
 
 interface CloudflareResponse<T> {
   success: boolean;
@@ -326,8 +343,8 @@ async function connectHub(ids: string[]) {
 }
 
 // One change at a time between a by-hand apply and the provisioner, which share /opt/orbs. A lock older than ten
-// minutes was left by a crash.
-async function locked<T>(work: () => Promise<T>): Promise<T> {
+// minutes was left by a crash, so a long holder touches it now and then (the nightly backup, between people).
+function takeLock(): boolean {
   const held = statSync(lockFile, { throwIfNoEntry: false });
 
   if (held && Date.now() - held.mtimeMs > lockStaleMs) {
@@ -336,9 +353,28 @@ async function locked<T>(work: () => Promise<T>): Promise<T> {
 
   try {
     closeSync(openSync(lockFile, 'wx', 0o600));
+
+    return true;
   } catch {
+    return false;
+  }
+}
+
+async function waitForLock(deadline: number) {
+  if (takeLock()) {
+    return;
+  }
+
+  if (Date.now() >= deadline) {
     fail(`Another apply or admin panel change is running (${lockFile}); try again in a minute.`);
   }
+
+  await Bun.sleep(5000);
+  await waitForLock(deadline);
+}
+
+async function locked<T>(work: () => Promise<T>, waitMs = 0): Promise<T> {
+  await waitForLock(Date.now() + waitMs);
 
   try {
     return await work();
@@ -395,21 +431,8 @@ function known(id: string | undefined): [string, Person] {
   return [id, person];
 }
 
-// Copies one person's whole volume (database, credentials key, bots, Pi settings, home) with their daemon stopped.
-async function backupVolume(id: string, person: Person): Promise<string> {
-  const folder = 'backups';
-  const file = path.join(folder, `${id}-${new Date().toISOString().replaceAll(/[:.]/gu, '-')}.tar.gz`);
-
-  mkdirSync(folder, { recursive: true, mode: 0o700 });
-
-  // A disabled person has no container to stop.
-  if (person.enabled) {
-    await docker(['compose', 'stop', `daemon-${id}`]);
-  }
-
-  await tools('tar -C /data -czf - .', [], { volume: `${await volumeName(id)}:/data:ro`, output: file });
-
-  return file;
+function backupsRoot() {
+  mkdirSync(backupsFolder, { recursive: true, mode: 0o700 });
 }
 
 // Starts the same container again: during an upgrade the new deployment files are in place before the new tag is set,
@@ -420,29 +443,540 @@ async function startDaemon(id: string, person: Person) {
   }
 }
 
+// A disabled person has no container to stop.
+async function stopDaemon(id: string, person: Person) {
+  if (person.enabled) {
+    await docker(['compose', 'stop', `daemon-${id}`]);
+  }
+}
+
+// Copies one person's whole volume (database, credentials key, bots, Pi settings, home). Their daemon must be stopped,
+// so no SQLite file is copied mid-write.
+async function copyVolume(id: string, file: string) {
+  await tools('tar -C /data -czf - .', [], { volume: `${await volumeName(id)}:/data:ro`, output: file });
+}
+
+// Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed
+// midway still stops the container). Returns how long they were down.
+async function backupVolume(id: string, person: Person, file: string): Promise<number> {
+  const stopped = Date.now();
+
+  try {
+    await stopDaemon(id, person);
+    await copyVolume(id, file);
+  } finally {
+    await startDaemon(id, person);
+  }
+
+  return Date.now() - stopped;
+}
+
+function backupStamp(): string {
+  return new Date().toISOString().replaceAll(/[:.]/gu, '-');
+}
+
 async function backup() {
   const [id, person] = known(process.argv[3]);
-  const file = await backupVolume(id, person);
+  const file = path.join(backupsFolder, `${id}-${backupStamp()}.tar.gz`);
 
-  await startDaemon(id, person);
+  backupsRoot();
+  await locked(() => backupVolume(id, person, file));
   console.log(`Backed up ${id} to ${file}. It contains their keys: keep it secret.`);
 }
 
-// Replaces one person's volume with a backup. Takes a fresh backup of the current data first.
-async function restore() {
-  const [id, person] = known(process.argv[3]);
-  const file = process.argv[4];
+async function fillVolume(id: string, file: string) {
+  await tools('find /data -mindepth 1 -delete && tar -C /data -xzpf -', [], { volume: `${await volumeName(id)}:/data`, input: file });
+}
 
-  if (!file || !existsSync(file)) {
-    fail('Usage: bun deploy.ts restore <id> <backup file>');
+// `restore <id> <file or nightly folder>` replaces one person's volume; `restore <nightly folder>` rebuilds a whole
+// install on a fresh server.
+async function restore() {
+  const [first, second] = process.argv.slice(3);
+
+  if (process.argv.length === 4 && statSync(first, { throwIfNoEntry: false })?.isDirectory()) {
+    await locked(() => restoreInstall(first));
+    return;
   }
 
-  const safety = await backupVolume(id, person);
+  const [id, person] = known(first);
 
-  console.log(`Saved the current data of ${id} to ${safety}.`);
-  await tools('find /data -mindepth 1 -delete && tar -C /data -xzpf -', [], { volume: `${await volumeName(id)}:/data`, input: file });
-  await startDaemon(id, person);
+  if (!second || !existsSync(second)) {
+    fail('Usage: bun deploy.ts restore <id> <backup file or nightly folder>, or restore <nightly folder> on a fresh server');
+  }
+
+  const file = statSync(second).isDirectory() ? await nightlyVerified(second, `${id}.tar.gz`) : second;
+  const safety = path.join(backupsFolder, `${id}-${backupStamp()}.tar.gz`);
+
+  // A file must be named for this person (backup's <id>-<time>.tar.gz or a run's <id>.tar.gz), so a mistyped id or
+  // path cannot put someone else's data in this volume.
+  if (!new RegExp(`^${id}(?:-\\d{4}-\\d{2}-\\d{2}T[\\d-]+Z)?\\.tar\\.gz$`, 'u').test(path.basename(file))) {
+    fail(`${file} is not a backup of ${id}: its name must be ${id}.tar.gz or ${id}-<time>.tar.gz.`);
+  }
+
+  // The volume is emptied before the unpack: refuse a file that does not unpack while the person is still running.
+  await tools('tar -tzf - > /dev/null', [], { input: file }).catch(() => fail(`${file} does not unpack: it is damaged. Use another backup.`));
+  backupsRoot();
+  // Locked like the nightly run, which would otherwise stop and start the same daemon in between.
+  await locked(async () => {
+    await stopDaemon(id, person);
+    await copyVolume(id, safety);
+    console.log(`Saved the current data of ${id} to ${safety}.`);
+    await fillVolume(id, file);
+    await startDaemon(id, person);
+  });
   console.log(`Restored ${id} from ${file}.`);
+}
+
+interface NightlyFile {
+  bytes: number;
+  sha256: string;
+}
+
+interface NightlyManifest {
+  tag: string;
+  project: string;
+  startedAt: string;
+  finishedAt: string;
+  people: { id: string; enabled: boolean; advanced: boolean; downtimeMs: number }[];
+  hubDowntimeMs: number;
+  files: Record<string, NightlyFile>;
+}
+
+interface NightlyStatus {
+  folder: string;
+  startedAt: string;
+  finishedAt?: string;
+  result: 'running' | 'ok' | 'failed';
+  error?: string;
+  offsite?: 'off' | 'ok' | 'failed';
+}
+
+async function fileDigest(file: string): Promise<NightlyFile> {
+  const hash = new Bun.CryptoHasher('sha256');
+  let bytes = 0;
+
+  for await (const chunk of Bun.file(file).stream()) {
+    hash.update(chunk);
+    bytes += chunk.byteLength;
+  }
+
+  return { bytes, sha256: hash.digest('hex') };
+}
+
+function nightlyManifestRead(folder: string): NightlyManifest {
+  const file = path.join(folder, nightlyManifest);
+
+  if (!existsSync(file)) {
+    fail(`${folder} has no ${nightlyManifest}: that run did not finish. Use an earlier backup.`);
+  }
+
+  return JSON.parse(readFileSync(file, 'utf8'));
+}
+
+// The file's path once its size and checksum match the manifest.
+async function nightlyVerified(folder: string, name: string): Promise<string> {
+  const expected = nightlyManifestRead(folder).files[name] ?? fail(`${folder} has no ${name}.`);
+  const file = path.join(folder, name);
+  const actual = await fileDigest(file);
+
+  if (actual.sha256 !== expected.sha256 || actual.bytes !== expected.bytes) {
+    fail(`${file} does not match its checksum in ${nightlyManifest}: it is damaged. Use another backup.`);
+  }
+
+  return file;
+}
+
+function nightlyStatusWrite(status: NightlyStatus) {
+  writeAtomic(nightlyStatusFile, `${JSON.stringify(status, null, 2)}\n`, 0o600);
+}
+
+// A setting from .env; an empty value counts as unset.
+function envValue(name: string): string | undefined {
+  return process.env[name] === '' ? undefined : process.env[name];
+}
+
+function envCount(name: string, fallback: number): number {
+  const value = Number(envValue(name) ?? fallback);
+
+  if (!Number.isInteger(value) || value < 1) {
+    fail(`${name} in .env must be a whole number of at least 1.`);
+  }
+
+  return value;
+}
+
+// The deployment files to keep: the usual ones, whatever COMPOSE_FILE in .env loads and the off-site script when it
+// lives in this folder, as far as they exist.
+function nightlyDeploymentFiles(): string[] {
+  const listed = (process.env.COMPOSE_FILE ?? '').split(':').filter(Boolean);
+  const offsite = envValue('BACKUP_OFFSITE_SCRIPT');
+  const files = [...deploymentFiles, ...listed, ...(offsite === undefined ? [] : [offsite])].map((file) => path.relative(process.cwd(), path.resolve(file)));
+
+  return [...new Set(files)].filter((file) => !file.startsWith('..') && existsSync(file));
+}
+
+// A run that fails takes its folder with it: an unfinished folder is no backup, and a full disk gets its space back.
+async function nightlyBackup(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
+  mkdirSync(folder, { mode: 0o700 });
+
+  try {
+    return await nightlyCopy(folder, startedAt, signal);
+  } catch (error) {
+    rmSync(folder, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+// Everyone one at a time (each person's daemon is down only for their own copy), then the hub folder with the hub
+// stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and whole: a folder
+// without it is an unfinished run. A signal stops the run before the next stop.
+async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
+  const current = team();
+  const people: [string, Person][] = [known(templateId), ...current.users];
+
+  const volumes = await people.reduce<Promise<NightlyManifest['people']>>(async (previous, [id, person]) => {
+    const done = await previous;
+
+    signal.throwIfAborted();
+
+    const downtimeMs = await backupVolume(id, person, path.join(folder, `${id}.tar.gz`));
+
+    console.log(`Backed up ${id}${person.enabled ? `; their Orbs was stopped for ${(downtimeMs / 1000).toFixed(1)} s` : ' (disabled)'}`);
+    utimesSync(lockFile, new Date(), new Date());
+
+    return [...done, { id, enabled: person.enabled, advanced: person.advanced, downtimeMs }];
+  }, Promise.resolve([]));
+
+  signal.throwIfAborted();
+
+  const hubStopped = Date.now();
+
+  try {
+    await docker(['compose', 'stop', 'hub']);
+    await tools('tar -C /hub -czf - .', [], { volume: `${path.resolve(hubData)}:/hub:ro`, output: path.join(folder, nightlyHubFile) });
+  } finally {
+    await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', 'hub']);
+  }
+
+  const hubDowntimeMs = Date.now() - hubStopped;
+
+  console.log(`Backed up the hub folder; the hub was stopped for ${(hubDowntimeMs / 1000).toFixed(1)} s`);
+  await tools('tar -C /orbs -czf - "$@"', nightlyDeploymentFiles(), { volume: `${process.cwd()}:/orbs:ro`, output: path.join(folder, nightlyDeploymentFile) });
+
+  const names = readdirSync(folder).sort();
+  const files = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await fileDigest(path.join(folder, name))] as const)));
+
+  const manifest = {
+    tag: process.env.ORBS_TAG ?? '',
+    project: await project(),
+    startedAt: startedAt.toISOString(),
+    finishedAt: new Date().toISOString(),
+    people: volumes,
+    hubDowntimeMs,
+    files,
+  };
+
+  writeAtomic(path.join(folder, nightlyManifest), `${JSON.stringify(manifest, null, 2)}\n`, 0o600);
+
+  return manifest;
+}
+
+// Run folders, oldest first.
+function nightlyRuns(): string[] {
+  return readdirSync(backupsFolder).filter((name) => nightlyFolder.test(name)).sort();
+}
+
+function nightlyFinished(name: string): boolean {
+  return existsSync(path.join(backupsFolder, name, nightlyManifest));
+}
+
+// Keeps the newest finished run of each of the last BACKUP_KEEP_DAILY days and of each of the last
+// BACKUP_KEEP_WEEKLY weeks (weeks start on Monday, UTC), and deletes every other run folder, unfinished ones included.
+// Only called after a run succeeded, so a failing backup never deletes one that works.
+function nightlyPrune(current: string) {
+  const daily = envCount('BACKUP_KEEP_DAILY', 7);
+  const weekly = envCount('BACKUP_KEEP_WEEKLY', 4);
+  const runs = nightlyRuns().reverse();
+  const finished = runs.filter(nightlyFinished);
+
+  const week = (name: string) => {
+    const day = new Date(`${name.slice(0, 10)}T00:00:00Z`);
+
+    day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
+
+    return day.toISOString().slice(0, 10);
+  };
+
+  // `finished` is newest first, so the first run seen for a day or week is its newest.
+  const newestPer = (key: (name: string) => string, count: number) => {
+    const newest = new Map<string, string>();
+
+    for (const name of finished) {
+      if (!newest.has(key(name))) {
+        newest.set(key(name), name);
+      }
+    }
+
+    return [...newest.values()].slice(0, count);
+  };
+
+  const keep = new Set([current, ...newestPer((name) => name.slice(0, 10), daily), ...newestPer(week, weekly)]);
+
+  for (const name of runs.filter((run) => !keep.has(run))) {
+    rmSync(path.join(backupsFolder, name), { recursive: true, force: true });
+    console.log(`Deleted ${backupsFolder}/${name} (retention: ${daily} daily, ${weekly} weekly)`);
+  }
+}
+
+// BACKUP_OFFSITE_SCRIPT from .env: a program (no shell) run after a good run with the run's folder as its only
+// argument. Not a command line: Bun and Compose both expand `$` in .env values, so a `$folder` there would arrive empty.
+async function nightlyOffsite(folder: string): Promise<'off' | 'ok'> {
+  const script = envValue('BACKUP_OFFSITE_SCRIPT');
+
+  if (script === undefined) {
+    return 'off';
+  }
+
+  const { uid, mode } = statSync(script, { throwIfNoEntry: false }) ?? fail(`BACKUP_OFFSITE_SCRIPT ${script} does not exist.`);
+
+  // It runs as root: anyone who can change it could run anything as root.
+  if (uid !== process.getuid?.() || (mode & 0o022) !== 0) {
+    fail(`BACKUP_OFFSITE_SCRIPT ${script} must belong to ${process.getuid?.() === 0 ? 'root' : 'this user'} and be writable by it only (chmod 700).`);
+  }
+
+  const code = await Bun.spawn([path.resolve(script), path.resolve(folder)], { stdout: 'inherit', stderr: 'inherit' }).exited;
+
+  if (code !== 0) {
+    fail(`the off-site copy (BACKUP_OFFSITE_SCRIPT) exited with ${code}; the backup itself is in ${folder}`);
+  }
+
+  console.log(`Copied ${folder} off-site.`);
+
+  return 'ok';
+}
+
+// What the systemd timer runs. Fails with a non-zero exit and one `Nightly backup failed:` line, which the journal keeps.
+// systemd ends a run that takes too long, or one the server's shutdown catches, with SIGTERM to every process of the
+// unit: the docker call in progress fails, whoever it stopped is started again, and the lock and status are written.
+async function nightlyRun() {
+  const startedAt = new Date();
+  const folder = path.join(backupsFolder, `${startedAt.toISOString().slice(0, 19).replaceAll(':', '')}Z`);
+  const status: NightlyStatus = { folder, startedAt: startedAt.toISOString(), result: 'running' };
+  const stop = new AbortController();
+  const stopped = () => stop.abort(new Error('stopped by a signal (timeout, shutdown or Ctrl-C)'));
+
+  process.once('SIGTERM', stopped);
+  process.once('SIGINT', stopped);
+  backupsRoot();
+  nightlyStatusWrite(status);
+
+  try {
+    const manifest = await locked(() => nightlyBackup(folder, startedAt, stop.signal), nightlyLockWaitMs);
+    const bytes = Object.values(manifest.files).reduce((sum, file) => sum + file.bytes, 0);
+
+    console.log(`Nightly backup ${folder}: ${manifest.people.length} workspaces, ${(bytes / 1024 / 1024).toFixed(1)} MiB. It holds every key: keep it secret.`);
+    nightlyPrune(path.basename(folder));
+    status.result = 'ok';
+    // Stays `failed` when the copy throws.
+    status.offsite = 'failed';
+    status.offsite = await nightlyOffsite(folder);
+  } catch (error) {
+    status.result = 'failed';
+    status.error = errorMessage(error);
+    fail(`Nightly backup failed: ${status.error}`);
+  } finally {
+    status.finishedAt = new Date().toISOString();
+    nightlyStatusWrite(status);
+  }
+}
+
+function ago(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+
+  return minutes < 120 ? `${minutes} min ago` : `${(minutes / 60).toFixed(1)} h ago`;
+}
+
+// The last run, its age and result; exits non-zero when it failed, never ran or is older than a day and a half.
+async function nightlyStatus() {
+  if (!existsSync(nightlyStatusFile)) {
+    fail('No nightly backup has run yet. Install the timer with `bun deploy.ts nightly install`, or run `bun deploy.ts nightly`.');
+  }
+
+  const status: NightlyStatus = JSON.parse(readFileSync(nightlyStatusFile, 'utf8'));
+  const age = Date.now() - Date.parse(status.startedAt);
+  const kept = nightlyRuns().filter(nightlyFinished);
+
+  console.log(`Last run: ${status.folder}, started ${ago(age)}: ${status.result}${status.error ? ` (${status.error})` : ''}`);
+
+  if (status.result === 'ok') {
+    const manifest = nightlyManifestRead(status.folder);
+    const bytes = Object.values(manifest.files).reduce((sum, file) => sum + file.bytes, 0);
+    const longest = manifest.people.toSorted((a, b) => b.downtimeMs - a.downtimeMs)[0];
+
+    console.log(`Tag ${manifest.tag}, ${manifest.people.length} workspaces, ${(bytes / 1024 / 1024).toFixed(1)} MiB, took ${Math.round((Date.parse(manifest.finishedAt) - Date.parse(manifest.startedAt)) / 1000)} s; longest stop ${longest.id} ${(longest.downtimeMs / 1000).toFixed(1)} s, hub ${(manifest.hubDowntimeMs / 1000).toFixed(1)} s`);
+  }
+
+  console.log(`Off-site copy: ${status.offsite ?? 'not reached'}`);
+  console.log(`Finished backups on this server: ${kept.length}${kept.length > 0 ? ` (${kept[0]} to ${kept.at(-1)})` : ''}`);
+
+  const unit = await nightlyUnit();
+
+  if (Bun.which('systemctl')) {
+    Bun.spawnSync(['systemctl', 'list-timers', `${unit}.timer`, '--all', '--no-pager'], { stdout: 'inherit', stderr: 'inherit' });
+  }
+
+  // A run still `running` after the unit's timeout was killed (SIGKILL, power loss) before it could say so.
+  if (status.result === 'running' && age < nightlyTimeoutMs) {
+    return;
+  }
+
+  if (status.result !== 'ok' || age > nightlyStaleMs) {
+    fail(status.result === 'ok' ? 'The last nightly backup is more than a day and a half old: check the timer.' : 'The last nightly backup did not succeed.');
+  }
+}
+
+// orbs-backup for the default project: a second stack on the host (COMPOSE_PROJECT_NAME) gets its own timer.
+async function nightlyUnit(): Promise<string> {
+  return `${await project()}-backup`;
+}
+
+function nightlyUnits(unit: string, at: string): Record<string, string> {
+  return {
+    [`${unit}.service`]: [
+      '# Written by `bun deploy.ts nightly install`. Remove with `bun deploy.ts nightly remove`.',
+      '[Unit]',
+      `Description=Orbs nightly backup of ${process.cwd()}`,
+      'Wants=docker.service',
+      'After=docker.service',
+      '',
+      '[Service]',
+      'Type=oneshot',
+      `WorkingDirectory=${process.cwd()}`,
+      `ExecStart=${process.execPath} ${import.meta.path} nightly`,
+      'UMask=0077',
+      'Nice=10',
+      `TimeoutStartSec=${nightlyTimeoutMs / 1000}`,
+      '',
+    ].join('\n'),
+    [`${unit}.timer`]: [
+      '# Written by `bun deploy.ts nightly install`. Remove with `bun deploy.ts nightly remove`.',
+      '[Unit]',
+      `Description=Orbs nightly backup of ${process.cwd()} at ${at}`,
+      '',
+      '[Timer]',
+      `OnCalendar=*-*-* ${at}:00`,
+      // A server that was off at that time backs up once when it starts.
+      'Persistent=true',
+      '',
+      '[Install]',
+      'WantedBy=timers.target',
+      '',
+    ].join('\n'),
+  };
+}
+
+function systemdRequired() {
+  if (!Bun.which('systemctl')) {
+    fail('This server has no systemd: run `bun deploy.ts nightly` from its own scheduler instead.');
+  }
+}
+
+function systemctl(args: string[]) {
+  if (!Bun.spawnSync(['systemctl', ...args], { stdout: 'inherit', stderr: 'inherit' }).success) {
+    fail(`systemctl ${args.join(' ')} failed.`);
+  }
+}
+
+// A systemd timer on the host, at BACKUP_TIME (server time, default 03:00).
+async function nightlyInstall() {
+  const at = envValue('BACKUP_TIME') ?? '03:00';
+
+  if (!timePattern.test(at)) {
+    fail('BACKUP_TIME in .env must be a time such as 03:00.');
+  }
+
+  systemdRequired();
+
+  // ExecStart and WorkingDirectory take these paths unquoted, where systemd reads spaces, `%` and `$` itself.
+  if (![process.execPath, import.meta.path, process.cwd()].every((value) => /^[\w./-]+$/u.test(value))) {
+    fail(`Bun (${process.execPath}) and ${import.meta.path} must be on paths of letters, digits, dots, dashes and slashes for the timer.`);
+  }
+
+  const unit = await nightlyUnit();
+
+  for (const [name, content] of Object.entries(nightlyUnits(unit, at))) {
+    writeFileSync(path.join(systemdFolder, name), content, { mode: 0o644 });
+    console.log(`Wrote ${path.join(systemdFolder, name)}`);
+  }
+
+  systemctl(['daemon-reload']);
+  systemctl(['enable', '--now', `${unit}.timer`]);
+  console.log(`The nightly backup runs at ${at} server time into ${path.resolve(backupsFolder)}. Check it with \`bun deploy.ts nightly status\`.`);
+}
+
+// Removes the timer; the backups stay.
+async function nightlyRemove() {
+  systemdRequired();
+
+  const unit = await nightlyUnit();
+
+  Bun.spawnSync(['systemctl', 'disable', '--now', `${unit}.timer`], { stdout: 'inherit', stderr: 'inherit' });
+
+  for (const name of Object.keys(nightlyUnits(unit, '03:00'))) {
+    rmSync(path.join(systemdFolder, name), { force: true });
+  }
+
+  systemctl(['daemon-reload']);
+  console.log(`Removed the ${unit} timer. The backups in ${path.resolve(backupsFolder)} stay.`);
+}
+
+async function nightly() {
+  const actions = { run: nightlyRun, status: nightlyStatus, install: nightlyInstall, remove: nightlyRemove };
+  const action = process.argv[3] ?? 'run';
+
+  if (!(action in actions)) {
+    fail('Usage: bun deploy.ts nightly [run|status|install|remove]');
+  }
+
+  await actions[action as keyof typeof actions]();
+}
+
+// A whole install from one nightly folder, on a server whose /opt/orbs holds only that run's deployment files. The hub
+// folder (admins, pins, global settings modes, audit trail) and every volume go back before anything starts, so the
+// hub never meets a fresh daemon and every pinned server ID matches.
+async function restoreInstall(folder: string) {
+  const manifest = nightlyManifestRead(folder);
+
+  if (existsSync(hubData) && readdirSync(hubData).length > 0) {
+    fail(`${hubData}/ is not empty: a whole restore is only for a fresh server. To restore one person, run restore <id> ${folder}.`);
+  }
+
+  // The ids name volumes and files: only what users.yaml allows.
+  if (!manifest.people.every(({ id }) => userId.test(id))) {
+    fail(`${folder}/${nightlyManifest} lists an invalid id.`);
+  }
+
+  const files = await Promise.all([nightlyHubFile, ...manifest.people.map(({ id }) => `${id}.tar.gz`)].map((name) => nightlyVerified(folder, name)));
+
+  mkdirSync(hubData, { recursive: true, mode: 0o770 });
+  await tools('tar -C /hub -xzpf -', [], { volume: `${path.resolve(hubData)}:/hub`, input: files[0] });
+  console.log(`Restored the hub folder from ${folder}.`);
+
+  // Compose creates every volume with its own labels, disabled people's too (apply then removes their containers), so
+  // enabling someone later does not meet a volume Compose did not create.
+  const daemons = manifest.people.map(({ id }) => id);
+
+  writeFileSync('users.compose.yaml', renderCompose(daemons));
+  await docker(['compose', 'create', ...daemons.map((id) => `daemon-${id}`)]);
+
+  await manifest.people.reduce(async (previous, { id }) => {
+    await previous;
+    await fillVolume(id, path.join(folder, `${id}.tar.gz`));
+    console.log(`Restored ${id}.`);
+  }, Promise.resolve());
+
+  await applyTeam();
+  console.log(`Restored the whole install from ${folder} (tag ${manifest.tag}).`);
 }
 
 // A file in the hub's folder, owned by the hub's uid as the hub writes it.
@@ -1288,7 +1822,7 @@ async function provisioner() {
   console.log(`Provisioner listening on ${server.port}; Access sync ${config.access === undefined ? 'off (manual)' : 'on'}${rule}.`);
 }
 
-const commands = { images, cloudflare, apply, backup, restore, purge, provisioner };
+const commands = { images, cloudflare, apply, backup, nightly, restore, purge, provisioner };
 const command = process.argv[2] ?? '';
 
 try {
@@ -1300,7 +1834,11 @@ try {
       'On the server, in /opt/orbs:',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
       '  bun deploy.ts backup <id>               copy one person\'s volume to backups/',
-      '  bun deploy.ts restore <id> <file>       replace one person\'s volume with a backup',
+      '  bun deploy.ts nightly                   back up everyone, the hub folder and the deployment files to backups/<time>/',
+      '  bun deploy.ts nightly status            the last nightly run, its age and result',
+      '  bun deploy.ts nightly install|remove    the systemd timer that runs it every night',
+      '  bun deploy.ts restore <id> <file|folder> replace one person\'s volume with a backup',
+      '  bun deploy.ts restore <folder>          rebuild a whole install from a nightly folder on a fresh server',
       '  bun deploy.ts purge <id>                delete a removed person\'s data for good',
       'In the provisioner image:',
       '  bun deploy.ts provisioner               serve the hub\'s user API on PROVISIONER_PORT',
