@@ -1,7 +1,7 @@
 import { m } from '@repo/i18n/client';
 import Electrobun, { ApplicationMenu, BrowserView, BrowserWindow, PATHS, Screen, Tray, Utils } from 'electrobun/main';
 import { join } from 'node:path';
-import { DESKTOP_BUILD } from './desktop-build';
+import { DESKTOP_BUILD, DESKTOP_PORTS } from './desktop-build';
 import { desktopLaunchAtLogin, desktopLaunchAtLoginSet, desktopLaunchClaim, desktopLaunchPrepare, desktopLaunchRelease } from './desktop-launch';
 import { desktopNetworkFind, desktopNetworkHost, desktopNetworkProbe, desktopNetworkSelf, desktopNetworkTailscale } from './desktop-network';
 import { desktopNotify } from './desktop-notify';
@@ -97,7 +97,7 @@ function desktopTrayRender(): void {
     },
     { type: 'normal', label: m.desktop_tailscale_stopped(), enabled: false, hidden: server?.tailscale !== 'stopped' },
     { type: 'normal', label: m.desktop_tailscale_missing(), enabled: false, hidden: server?.tailscale !== 'missing' },
-    { type: 'normal', label: m.desktop_port_fallback({ name: appName, port: DESKTOP.ports[0] }), enabled: false, hidden: !server?.portFallback },
+    { type: 'normal', label: m.desktop_port_fallback({ name: appName, port: DESKTOP_PORTS[0] }), enabled: false, hidden: !server?.portFallback },
     ...headless ? [] : [
       { type: 'separator' },
       { type: 'normal', label: m.desktop_update_restart({ version: update.available ?? '' }), action: 'update:apply', hidden: update.status !== 'ready', enabled: !busy },

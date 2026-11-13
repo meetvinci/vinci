@@ -3,14 +3,12 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { match } from 'ts-pattern';
-import { DESKTOP_BUILD } from './desktop-build';
+import { DESKTOP_BUILD, DESKTOP_DATA_DIR } from './desktop-build';
 import { DESKTOP } from './desktop.constants';
 import { desktopSettings, desktopState } from './types/desktop.types';
 import type { DesktopSettings, DesktopState } from './types/desktop.types';
 
-const desktopDataDir = process.env.DATA_DIR ?? DESKTOP.dataDir;
-
-export const desktopHome = { root: resolve(desktopDataDir.replace(/^~(?=\/|$)/u, homedir())) };
+export const desktopHome = { root: resolve(DESKTOP_DATA_DIR.replace(/^~(?=\/|$)/u, homedir())) };
 
 export function desktopSettingsRead(): DesktopSettings {
   const { network = 'all', host } = desktopStateRead();

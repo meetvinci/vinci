@@ -80,8 +80,13 @@ export const desktopTailscaleStatus = z.object({
   })).optional(),
 });
 
-/** App name and bundle ID that electrobun.config.ts stores in the build. */
-export const desktopBuild = z.object({ name: z.string().min(1), identifier: z.string().min(1) });
+/** App name, bundle ID, data folder and first port that electrobun.config.ts stores in the build. */
+export const desktopBuild = z.object({
+  name: z.string().min(1),
+  identifier: z.string().min(1),
+  dataDir: z.string().min(1).optional(),
+  port: z.number().int().min(1024).max(65_000).optional(),
+});
 
 export const desktopHealth = z.object({ status: z.literal('ok'), app: z.literal('bots') });
 

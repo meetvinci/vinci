@@ -1,7 +1,7 @@
 import { PATHS } from 'electrobun/main';
 import { closeSync, existsSync, mkdirSync, openSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { DESKTOP_BUILD } from './desktop-build';
+import { DESKTOP_BUILD, DESKTOP_PORTS } from './desktop-build';
 import { desktopNetworkAdvertise, desktopNetworkOrigins, desktopNetworkProbe, desktopNetworkUrl } from './desktop-network';
 import { desktopHome, desktopStateRead, desktopStateWrite } from './desktop-settings';
 import { DESKTOP } from './desktop.constants';
@@ -92,7 +92,7 @@ async function desktopServerAdopt(): Promise<DesktopServer | null> {
     return null;
   }
 
-  const urls = DESKTOP.ports.map((port) => desktopNetworkUrl(DESKTOP.localHost, port));
+  const urls = DESKTOP_PORTS.map((port) => desktopNetworkUrl(DESKTOP.localHost, port));
   const probes = await Promise.all(urls.map((url) => desktopNetworkProbe(url, DESKTOP.healthIntervalMs * 10)));
   const index = probes.findIndex((probe) => probe.status === 'ok');
 
@@ -100,7 +100,7 @@ async function desktopServerAdopt(): Promise<DesktopServer | null> {
     return null;
   }
 
-  const port = DESKTOP.ports[index];
+  const port = DESKTOP_PORTS[index];
   const url = urls[index];
 
   const origins = await desktopNetworkOrigins(port);
@@ -154,7 +154,7 @@ export async function desktopServerStart(settings: DesktopSettings): Promise<Des
     const shared = {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
-      DATA_DIR: process.env.DATA_DIR,
+      DATA_DIR: desktopHome.root,
       APP_NAME: DESKTOP_BUILD.name,
     };
 
@@ -207,7 +207,7 @@ export async function desktopServerStart(settings: DesktopSettings): Promise<Des
     return {
       url,
       port,
-      portFallback: port !== DESKTOP.ports[0],
+      portFallback: port !== DESKTOP_PORTS[0],
       tailscale: origins.tailscale,
       urls: [url, ...remote],
       daemonEntry: desktopDaemonEntry(),
@@ -237,7 +237,7 @@ export async function desktopServerStart(settings: DesktopSettings): Promise<Des
     return await desktopServerLaunch(port) ?? desktopServerTry(rest);
   }
 
-  return desktopServerTry(DESKTOP.ports);
+  return desktopServerTry(DESKTOP_PORTS);
 }
 
 /** A one-time pairing link for this Mac's own daemon, through its owner-only CLI socket. */
@@ -252,7 +252,7 @@ export async function desktopServerPairLink(server: DesktopServer): Promise<stri
     env: {
       PATH: process.env.PATH,
       HOME: process.env.HOME,
-      DATA_DIR: process.env.DATA_DIR,
+      DATA_DIR: desktopHome.root,
     },
   });
 

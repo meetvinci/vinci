@@ -9,7 +9,8 @@ export const DESKTOP = {
     .otherwise((platform) => {
       throw new Error(`The desktop app runs on macOS and Linux, not ${platform}.`);
     }),
-  ports: Array.from({ length: 10 }, (_, index) => 47190 + index),
+  port: 47190,
+  portCount: 10,
   daemonPortOffset: 100,
   localHost: '127.0.0.1',
   allHost: '::',
