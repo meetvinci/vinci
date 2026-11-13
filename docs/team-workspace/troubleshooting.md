@@ -31,7 +31,20 @@ Your email is not in `/opt/orbs/hub/admins.json`, or the file is invalid (the hu
 
 ## A person gets an error page (502) instead of their bots
 
-When everyone gets it at once, check the firewall first: people's networks let the hub through only while its rules are in place. `docker compose ps firewall` must be `Up` and `docker compose logs firewall` must end with `Firewall on`. A message such as `No DOCKER-USER chain in iptables-nft` means Docker does not manage iptables through `iptables-nft` (`iptables-legacy`, its nftables backend, or `"iptables": false` in `/etc/docker/daemon.json`). If `apply` says `… predate the firewall`, the one-time `docker compose rm -sf …` step of [Upgrades](admin.md#upgrades) was skipped or run for the hub only: run it, then `bun deploy.ts apply`.
+When everyone gets it at once, check the firewall first (next section): people's networks let the hub through only while its rules are in place, and people's Orbs start only once the firewall is healthy. If the admin panel says `… predate the firewall`, the upgrade's `bun deploy.ts apply` has not run yet: run it on the server.
+
+## The firewall is unhealthy
+
+`bun deploy.ts firewall status` says what its checks found.
+
+- `This server's Docker uses iptables-legacy`, or `No DOCKER-USER chain in iptables-nft`: Docker does not manage iptables through `iptables-nft` (`iptables-legacy`, its nftables backend, or `"iptables": false` in `/etc/docker/daemon.json`). Orbs does not run on such a host: `apply` stops before starting anyone's Orbs. Use a server whose `iptables --version` ends with `(nf_tables)`.
+- `Rules were missing or out of place; restored …`: something deleted or moved the rules (a hand-made `iptables` or `nft` command, another firewall tool reloading). The check put them back and the next check is healthy again. Until then, at most about 2 seconds, bots could reach internal addresses. Find what removed them; ufw or firewalld reloads are a usual cause.
+- `Docker's DOCKER-USER chain is gone`: someone emptied the whole firewall (`nft flush ruleset`, `iptables -F` with the wrong options), which removes Docker's own rules too. Within 2 seconds the check closes the server itself to bots again and stops everything they send through it, so containers have no internet until you restart Docker (`systemctl restart docker`); the firewall removes that stop and is healthy again after that.
+- `FORWARD does not jump to DOCKER-USER` or `net.bridge.bridge-nf-call-iptables is … not 1`: Docker's own rules or the kernel no longer send people's traffic through the firewall. Restart Docker (`systemctl restart docker`), which puts its rules back; the firewall stays unhealthy until then.
+
+While it is unhealthy, running Orbs keep running, but Compose starts none, so `apply` and the admin panel's changes fail.
+
+> On `root@<server>`, in `/opt/orbs`, run `bun deploy.ts firewall status` and report what it says. If it lists restored rules, show `iptables -S INPUT | head -3` and `iptables -S DOCKER-USER | head -3` and look in `journalctl --since -1h` for what changed the firewall around that time. Don't edit the `ORBS-DAEMONS` chains by hand.
 
 When it is one person:
 

@@ -56,6 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gpg gpg-agent &
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=build /src/apps/desktop/dist/server/daemon /app/daemon
 COPY --chmod=755 deploy/docker/orbs.sh /usr/local/bin/orbs
+COPY --chmod=755 deploy/docker/firewall-wait.sh /usr/local/bin/firewall-wait
 # A fresh named volume copies these directories with their owner, so the daemon can write them. data/ipc exists so
 # a nested mount of the owner-socket folder there does not make Docker create data/ as root.
 RUN mkdir -p /data/home /data/pi /data/data/ipc && chown -R 1000:1000 /data
@@ -86,12 +87,15 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/deploy.ts", "provisioner"]
 
 # The firewall: keeps bots off the server's internal addresses with iptables rules for every daemon bridge, set by
-# scripts/deploy.ts firewall and checked every 30 s. Runs on the host network with NET_ADMIN only; it serves nothing
-# and holds no secret. It uses Debian's iptables-nft, next to Docker's chains.
+# scripts/deploy.ts firewall. Its health check puts back missing rules every 2 s and fails when it had to, so Compose
+# starts no daemon meanwhile. Runs on the host network with NET_ADMIN only; it serves nothing and holds no secret. It
+# uses Debian's iptables-nft, next to Docker's chains.
 FROM ${BUN_IMAGE}-slim AS firewall
 RUN apt-get update && apt-get install -y --no-install-recommends iptables && rm -rf /var/lib/apt/lists/*
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY scripts/deploy.ts /app/deploy.ts
 USER 0:0
 ENV HOME=/tmp
+HEALTHCHECK --interval=2s --timeout=5s --start-period=10s --start-interval=1s --retries=1 \
+  CMD ["bun", "--no-install", "/app/deploy.ts", "firewall", "check"]
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/deploy.ts", "firewall"]

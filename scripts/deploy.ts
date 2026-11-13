@@ -42,7 +42,13 @@ const daemonPort = 47191;
 // (what daemons send to the host itself), both only for packets that come in on a daemon bridge.
 const firewallChains = { forward: 'ORBS-DAEMONS', host: 'ORBS-DAEMONS-HOST' };
 const firewallParents = { forward: 'DOCKER-USER', host: 'INPUT' };
-const firewallCheckMs = 30 * 1000;
+// The port a starting daemon connects to on its gateway until the firewall rejects it (deploy/docker/firewall-wait.sh).
+const firewallWaitPort = 9;
+// While Docker's chains are gone (`nft flush ruleset`), nothing filters what daemons forward: this drop holds until
+// Docker writes its chains again. Without Docker's NAT they have no internet then anyway.
+const firewallFlushGuard = ['FORWARD', '-i', `${daemonBridgePrefix}+`, '-j', 'DROP'];
+// How a failed health check starts its line in the firewall's log, for `firewall status`.
+const firewallProblem = 'Firewall check failed:';
 // Addresses no bot reaches unless ORBS_INTERNAL_ALLOW names one: private, shared (CGNAT, Tailscale), link-local
 // (cloud metadata), loopback, benchmarking, multicast and reserved ranges.
 const internalRanges = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.168.0.0/16', '198.18.0.0/15', '224.0.0.0/3'];
@@ -312,6 +318,10 @@ function daemonNetwork(id: string) {
 function renderCompose(ids: string[]): string {
   const services = Object.fromEntries(ids.map((id) => [`daemon-${id}`, {
     extends: { file: 'daemon.yaml', service: 'daemon' },
+    // Compose starts a daemon only once the firewall is healthy. Docker ignores that order after a reboot or its own
+    // restart, so the daemon itself first waits until the firewall rejects it (deploy/docker/firewall-wait.sh).
+    depends_on: { firewall: { condition: 'service_healthy' } },
+    environment: { ORBS_WAIT_FOR_FIREWALL: 'true' },
     networks: { [`user-${id}`]: {} },
     volumes: [
       `data-${id}:/data`,
@@ -378,10 +388,14 @@ async function connectHub(ids: string[]) {
 }
 
 // A daemon network made before the firewall has Docker's own bridge name, and Docker renames a bridge only by
-// recreating its network: with containers still on it, Compose would stop every daemon, then fail on the hub's
-// endpoint, and everyone gets 502. Refuses before anything stops (gotcha 142).
-async function refuseOldNetworks(ids: string[]) {
-  const prefix = `${await project()}_user-`;
+// recreating its network, once nothing is attached to it: with the hub still on it Compose stops every daemon and then
+// fails, and with only the hub gone it reconnects the daemon without its alias and the hub answers 502 (gotcha 142).
+// So a by-hand apply first removes the hub and those daemons, containers only (volumes and hub/ stay), and the rest of
+// apply creates them again on the new networks. The provisioner refuses instead: it would remove the hub that waits
+// for its answer. Either refuses, before anything stops, when another container is on such a network.
+async function moveOldNetworks(ids: string[], byHand: boolean) {
+  const name = await project();
+  const prefix = `${name}_user-`;
   const existing = new Set((await docker(['network', 'ls', '--format', '{{.Name}}'])).split('\n'));
   const networks = ids.map((id) => `${prefix}${id}`).filter((network) => existing.has(network));
 
@@ -389,12 +403,39 @@ async function refuseOldNetworks(ids: string[]) {
     return;
   }
 
-  // Compose recreates an old network itself once nothing is attached to it.
-  const states = await docker(['network', 'inspect', '--format', '{{.Name}} {{len .Containers}} {{index .Options "com.docker.network.bridge.name"}}', ...networks]);
-  const old = states.split('\n').map((line) => line.split(' ')).filter(([, attached, bridge = '']) => attached !== '0' && !bridge.startsWith(daemonBridgePrefix)).map(([name]) => name);
+  const states = await docker(['network', 'inspect', '--format', '{{.Name}} {{index .Options "com.docker.network.bridge.name"}} {{range .Containers}}{{.Name}},{{end}}', ...networks]);
+  const old = states.split('\n').map((line) => line.split(' ')).filter(([, bridge = '', attached = '']) => attached !== '' && !bridge.startsWith(daemonBridgePrefix));
 
-  if (old.length > 0) {
-    fail(`${old.join(', ')} predate the firewall. Once, run docker compose rm -sf $(docker compose ps --services | grep -e '^hub$' -e '^daemon-'), then apply again (admin.md, Upgrade). Nothing was changed.`);
+  if (old.length === 0) {
+    return;
+  }
+
+  const services = old.map(([network = '']) => `daemon-${network.slice(prefix.length)}`);
+  const ours = new Set(['hub', ...services].map((service) => `${name}-${service}-1`));
+  const strangers = old.flatMap(([, , attached = '']) => attached.split(',')).filter((container) => container !== '' && !ours.has(container));
+
+  const list = old.map(([network]) => network).join(', ');
+
+  if (strangers.length > 0) {
+    fail(`${list} predate the firewall, and ${strangers.join(', ')} is attached to them: disconnect it, then apply again. Nothing was changed.`);
+  }
+
+  if (!byHand) {
+    fail(`${list} predate the firewall: run bun deploy.ts apply on the server once (admin.md, Upgrades). Nothing was changed.`);
+  }
+
+  console.log(`Moving ${services.join(', ')} to the firewall's networks: removing their containers and the hub's, which start again below.`);
+  await docker(['compose', 'rm', '--stop', '--force', 'hub', ...services]);
+}
+
+// The firewall first: daemons depend on it, and apply refuses to go on without it (legacy iptables, for one).
+async function firewallUp() {
+  try {
+    await docker(['compose', 'up', '--detach', '--wait', '--wait-timeout', '60', 'firewall']);
+  } catch {
+    const logs = await docker(['compose', 'logs', '--no-log-prefix', '--tail', '1', 'firewall']).catch(() => '');
+
+    fail(`The firewall did not start, so apply stopped before starting or changing anyone's Orbs.${logs.trim() === '' ? '' : ` It said: ${logs.trim()}`}`);
   }
 }
 
@@ -455,7 +496,8 @@ async function applyTeam(waitFor?: string[]) {
   // A bad value would leave the firewall restarting while apply reports success. Bun reads it from /opt/orbs/.env.
   internalAllow();
   writeFileSync('users.compose.yaml', renderCompose(daemons));
-  await refuseOldNetworks(daemons);
+  await firewallUp();
+  await moveOldNetworks(daemons, waitFor === undefined);
   hubFolder();
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
   await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
@@ -2127,11 +2169,24 @@ function iptablesOk(binary: string, args: string[], input?: string) {
 // same moment, at boot for one.
 const iptablesNft = 'iptables-nft';
 
-// Docker's own chains must be there, so the rules sit next to Docker's.
+// Docker's own chains must be there, so the rules sit next to Docker's. A host whose Docker uses iptables-legacy has
+// legacy tables, listed in /proc/net/ip_tables_names (the host's, on the host network) without touching them.
 function iptablesBinary(): string {
-  return iptables(iptablesNft, ['-w', '-S', firewallParents.forward]).ok
-    ? iptablesNft
-    : fail(`No ${firewallParents.forward} chain in iptables-nft: Docker must manage iptables through iptables-nft (not iptables-legacy, not its nftables backend) before the firewall can start.`);
+  if (iptables(iptablesNft, ['-w', '-S', firewallParents.forward]).ok) {
+    return iptablesNft;
+  }
+
+  const legacy = (() => {
+    try {
+      return readFileSync('/proc/net/ip_tables_names', 'utf8').split('\n').includes('filter');
+    } catch {
+      return false;
+    }
+  })();
+
+  return fail(legacy
+    ? 'This server\'s Docker uses iptables-legacy, so the firewall cannot keep bots off internal addresses. Orbs needs a host on iptables-nft (nf_tables), such as Ubuntu 22.04 or later with its default iptables (install.md, step 2).'
+    : `No ${firewallParents.forward} chain in iptables-nft: Docker must manage iptables through iptables-nft (not iptables-legacy, not its nftables backend) before the firewall can start.`);
 }
 
 // ORBS_INTERNAL_ALLOW: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach, such as a test model on
@@ -2163,16 +2218,18 @@ function firewallRules(allow: [string, string][]): Record<keyof typeof firewallC
       ...allowed,
       ...internalRanges.map((range) => ['-d', range, ...reject]),
     ],
-    // Nothing on the host itself: sshd, Docker's gateways, any other listener.
-    host: [established, ...allowed, reject],
+    // Nothing on the host itself: sshd, Docker's gateways, any other listener. The discard port gets a reject no other
+    // firewall sends (ENOPROTOOPT), so a daemon's wait (firewall-wait.sh) cannot mistake a host firewall's for ours.
+    host: [established, ...allowed, ['-p', 'tcp', '-m', 'tcp', '--dport', String(firewallWaitPort), '-j', 'REJECT', '--reject-with', 'icmp-proto-unreachable'], reject],
   };
 }
 
-// Brings the chains and their jumps in line; true when something had to change. Each jump stays first in its parent,
-// ahead of rules such as ufw's that would accept the packet. Never touches a policy or any other rule.
-function firewallSync(binary: string, rules: Record<keyof typeof firewallChains, string[][]>): boolean {
+type FirewallChain = keyof typeof firewallChains;
+
+// Brings the chains (all, or only `keys`) and their jumps in line and names what had to change. Each jump stays first
+// in its parent, ahead of rules such as ufw's that would accept the packet. Never touches a policy or any other rule.
+function firewallSync(binary: string, rules: Record<FirewallChain, string[][]>, keys = Object.keys(firewallChains) as FirewallChain[]): string[] {
   const tag = `orbs:${createHash('sha256').update(JSON.stringify(rules)).digest('hex').slice(0, 12)}`;
-  const keys = Object.keys(firewallChains) as (keyof typeof firewallChains)[];
 
   const listed = (chain: string) => {
     const { ok, out } = iptables(binary, ['-w', '-S', chain]);
@@ -2215,12 +2272,58 @@ function firewallSync(binary: string, rules: Record<keyof typeof firewallChains,
     return true;
   });
 
-  return stale.length > 0 || moved.length > 0;
+  return [...stale.map((key) => firewallChains[key]), ...moved.map((key) => `the jump to ${firewallChains[key]} in ${firewallParents[key]}`)];
+}
+
+// What the firewall cannot put back itself but makes its rules useless: Docker no longer sends forwarded packets
+// through DOCKER-USER, or the kernel passes bridged packets (the hub to a daemon, a daemon to the hub) without iptables.
+function firewallBypassed(binary: string): string[] {
+  const forward = iptables(binary, ['-w', '-S', 'FORWARD']).out.split('\n');
+
+  const bridged = (() => {
+    try {
+      return readFileSync('/proc/sys/net/bridge/bridge-nf-call-iptables', 'utf8').trim();
+    } catch {
+      return 'missing';
+    }
+  })();
+
+  return [
+    ...(forward.includes(`-A FORWARD -j ${firewallParents.forward}`) ? [] : [`FORWARD does not jump to ${firewallParents.forward}.`]),
+    ...(bridged === '1' ? [] : [`net.bridge.bridge-nf-call-iptables is ${bridged}, not 1: traffic between containers on a bridge skips iptables.`]),
+  ];
+}
+
+// `firewall status`, as root on the server: the health Docker last saw, and the firewall's last restores and problems
+// from its log. Exits non-zero unless healthy.
+async function firewallStatus() {
+  const id = await docker(['compose', 'ps', '--all', '--quiet', 'firewall']);
+
+  if (id.trim() === '') {
+    fail('The firewall service does not exist: run bun deploy.ts apply.');
+  }
+
+  const state: { Status: string, Health?: { Status: string, Log?: { Output: string }[] } } = JSON.parse(await docker(['inspect', '--format', '{{json .State}}', id.trim()]));
+  const logs = (await docker(['compose', 'logs', '--no-log-prefix', '--timestamps', '--tail', '1000', 'firewall'])).split('\n').filter(Boolean);
+  const problems = logs.filter((line) => line.includes(firewallProblem)).slice(-5);
+  const health = state.Health?.Status ?? state.Status;
+
+  console.log(`Firewall: ${health}. Last check: ${state.Health?.Log?.at(-1)?.Output.trim() ?? 'none yet'}`);
+  console.log(`Last log line: ${logs.at(-1) ?? 'none'}`);
+  console.log(problems.length === 0 ? 'No check found a problem since the container started.' : ['Last problems a check found:', ...problems].join('\n'));
+
+  if (health !== 'healthy') {
+    fail('The firewall is not healthy: bots may reach internal addresses, and Orbs that stop do not start again. See troubleshooting.md, "The firewall is unhealthy".');
+  }
 }
 
 // `firewall remove`, as root on the server: stops the service, then deletes the chains and their jumps.
 async function firewallRemove() {
   await docker(['compose', 'stop', 'firewall']);
+
+  while (iptables(iptablesNft, ['-w', '-C', ...firewallFlushGuard]).ok) {
+    iptablesOk(iptablesNft, ['-w', '-D', ...firewallFlushGuard]);
+  }
 
   for (const key of Object.keys(firewallChains) as (keyof typeof firewallChains)[]) {
     const jump = [firewallParents[key], '-i', `${daemonBridgePrefix}+`, '-j', firewallChains[key]];
@@ -2237,29 +2340,63 @@ async function firewallRemove() {
   }
 }
 
-// The firewall service (compose.yaml): keeps bots off the server's internal addresses. It sets the rules, then checks
-// them every 30 s, so a Docker restart or a reboot (which start this service again) or a lost rule heals by itself.
+// The firewall service (compose.yaml): keeps bots off the server's internal addresses. It sets the rules at start (a
+// Docker restart or a reboot starts it again); its health check (`firewall check`) puts back a lost rule.
 async function firewall() {
-  if (process.argv[3] === 'remove') {
+  const action = process.argv[3];
+
+  if (action === 'remove') {
     return firewallRemove();
+  }
+
+  if (action === 'status') {
+    return firewallStatus();
   }
 
   const allow = internalAllow();
   const rules = firewallRules(allow);
-  const binary = iptablesBinary();
 
-  firewallSync(binary, rules);
-  console.log(`Firewall on (${binary}): daemons reach the internet and DNS, not internal addresses${allow.length > 0 ? `, except ${allow.map((entry) => entry.join(':')).join(', ')}` : ''}.`);
+  // A check that finds Docker's chains gone (the whole ruleset flushed) keeps the server itself closed to daemons,
+  // which needs no Docker chain, and says what brings the rest back.
+  if (action === 'check' && !iptables(iptablesNft, ['-w', '-S', firewallParents.forward]).ok) {
+    const restored = firewallSync(iptablesNft, rules, ['host']);
 
-  setInterval(() => {
-    try {
-      if (firewallSync(binary, rules)) {
-        console.log('Firewall rules were missing or out of place; restored.');
-      }
-    } catch (error) {
-      console.error(errorMessage(error));
+    if (!iptables(iptablesNft, ['-w', '-C', ...firewallFlushGuard]).ok) {
+      iptablesOk(iptablesNft, ['-w', '-I', firewallFlushGuard[0] ?? 'FORWARD', '1', ...firewallFlushGuard.slice(1)]);
     }
-  }, firewallCheckMs);
+
+    return firewallCheck(restored, [`Docker's ${firewallParents.forward} chain is gone, so daemons can reach nothing outside their network: restart Docker (systemctl restart docker), which writes its chains again.`]);
+  }
+
+  const binary = iptablesBinary();
+  const restored = firewallSync(binary, rules);
+
+  while (iptables(binary, ['-w', '-C', ...firewallFlushGuard]).ok) {
+    iptablesOk(binary, ['-w', '-D', ...firewallFlushGuard]);
+  }
+
+  if (action === 'check') {
+    return firewallCheck(restored, firewallBypassed(binary));
+  }
+
+  console.log(`Firewall on (${binary}): daemons reach the internet and DNS, not internal addresses${allow.length > 0 ? `, except ${allow.map((entry) => entry.join(':')).join(', ')}` : ''}.`);
+  // The health check keeps the rules from here on; this process only keeps the container up.
+  setInterval(() => undefined, 2 ** 31 - 1);
+}
+
+// `firewall check`, the image's health check every 2 s: puts back whatever is missing, and fails when it had to or
+// when Docker or the kernel bypass the rules, so `docker compose ps` and `firewall status` show it and Compose starts
+// no daemon meanwhile. A failure also goes to the container's log (the main process's output, /proc/1/fd/1), which
+// keeps it longer than Docker's last five health results.
+function firewallCheck(restored: string[], bypassed: string[]) {
+  const problems = [...(restored.length > 0 ? [`Rules were missing or out of place; restored ${restored.join(', ')}.`] : []), ...bypassed];
+
+  if (problems.length > 0) {
+    writeFileSync('/proc/1/fd/1', `${firewallProblem} ${problems.join(' ')}\n`, { flag: 'a' });
+    fail(`${firewallProblem} ${problems.join(' ')}`);
+  }
+
+  console.log('Firewall on: rules in place.');
 }
 
 const commands = { images, cloudflare, apply, backup, nightly, restore, purge, provisioner, firewall };
@@ -2281,11 +2418,13 @@ try {
       '  bun deploy.ts restore <id> <file|folder> replace one person\'s volume with a backup',
       '  bun deploy.ts restore <folder>          rebuild a whole install from a nightly folder on a fresh server',
       '  bun deploy.ts purge <id>                delete a removed person\'s data for good',
+      '  bun deploy.ts firewall status           the firewall\'s health and the last problems its checks found',
       '  bun deploy.ts firewall remove           stop the firewall service and delete its rules (teardown)',
       'In the provisioner image:',
       '  bun deploy.ts provisioner               serve the hub\'s user API on PROVISIONER_PORT',
       'In the firewall image:',
       '  bun deploy.ts firewall                  keep daemons off internal addresses (ORBS_INTERNAL_ALLOW)',
+      '  bun deploy.ts firewall check            the health check: restore missing rules, fail if any were',
     ].join('\n'));
   }
 

@@ -84,13 +84,13 @@ It runs as root with every Linux capability dropped, a read-only system, no publ
 
 ## Firewall (one per server)
 
-Keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-reach)) with two named iptables chains for people's networks (bridges named `orbs-d<9 hex>`): `ORBS-DAEMONS`, jumped from the first rule of Docker's `DOCKER-USER`, and `ORBS-DAEMONS-HOST`, jumped from the first rule of `INPUT`. It lets the hub open each person's port 47191, rejects the rest between containers on a person's network, and rejects private, link-local, shared (`100.64.0.0/10`), loopback, multicast and reserved addresses and anything on the server itself, except `ORBS_INTERNAL_ALLOW`. It changes no policy and no other rule, checks the chains every 30 seconds and rewrites them when they are missing or different.
+Keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-reach)) with two named iptables chains for people's networks (bridges named `orbs-d<9 hex>`): `ORBS-DAEMONS`, jumped from the first rule of Docker's `DOCKER-USER`, and `ORBS-DAEMONS-HOST`, jumped from the first rule of `INPUT`. It lets the hub open each person's port 47191, rejects the rest between containers on a person's network, and rejects private, link-local, shared (`100.64.0.0/10`), loopback, multicast and reserved addresses and anything on the server itself, except `ORBS_INTERNAL_ALLOW`. It changes no policy and no other rule. Its health check runs every 2 seconds, rewrites the chains when they are missing or different, and fails when it had to or when Docker or the kernel bypass them. People's daemons depend on it: Compose starts them only while it is healthy, and each one waits at start until the firewall rejects it (`ORBS_WAIT_FOR_FIREWALL`, set by `apply`).
 
 | Setting | Value in a team install | What it does |
 | --- | --- | --- |
 | `ORBS_INTERNAL_ALLOW` | from `.env` (set by Compose) | Destinations let through before the rejects. `apply` refuses a value that is not `<IPv4>:<port>` (no hostnames, ranges or leading zeros) before the firewall sees it. |
 
-It runs on the host network as root with only `NET_ADMIN`, a read-only system, no port and 128 MB of memory. It uses `iptables-nft` only, and refuses to start when Docker's `DOCKER-USER` chain is not there (Docker on `iptables-legacy`, its nftables backend, or `"iptables": false`). `bun deploy.ts firewall remove`, on the server, stops it and deletes the chains and jumps.
+It runs on the host network as root with only `NET_ADMIN`, a read-only system, no port and 128 MB of memory. It uses `iptables-nft` only, and refuses to start when Docker's `DOCKER-USER` chain is not there (Docker on `iptables-legacy`, its nftables backend, or `"iptables": false`); `apply` then stops before starting anyone's Orbs. `bun deploy.ts firewall status`, on the server, shows its health and the last problems its checks found; `bun deploy.ts firewall remove` stops it and deletes the chains and jumps.
 
 ## Files
 

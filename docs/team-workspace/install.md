@@ -50,14 +50,14 @@ Expected: `x86_64`, `Ubuntu 24.04…`, `avx2`, a total memory of at least 3.7Gi,
 ## 2. Install Docker
 
 ```sh
-ssh root@<server> 'curl -fsSL https://get.docker.com | sh > /root/docker-install.log 2>&1; docker version --format "{{.Server.Version}}"; docker compose version; systemctl is-enabled docker'
+ssh root@<server> 'curl -fsSL https://get.docker.com | sh > /root/docker-install.log 2>&1; docker version --format "{{.Server.Version}}"; docker compose version; systemctl is-enabled docker; iptables --version'
 ```
 
-Expected: a Docker version of 26 or newer, `Docker Compose version v2…` or newer, and `enabled`. Docker starts on boot after this.
+Expected: a Docker version of 26 or newer, `Docker Compose version v2…` or newer, `enabled`, and an `iptables` version ending with `(nf_tables)`, as on Ubuntu 22.04 or later. Docker starts on boot after this. With `(legacy)`, Orbs' firewall cannot work and `apply` refuses to start anyone's Orbs: use another server.
 
 **Give this to your agent:**
 
-> SSH to `root@<server>` and install Docker with `curl -fsSL https://get.docker.com | sh`. Confirm `docker version` shows a server version of 26 or newer, `docker compose version` works, and `systemctl is-enabled docker` prints `enabled`.
+> SSH to `root@<server>` and install Docker with `curl -fsSL https://get.docker.com | sh`. Confirm `docker version` shows a server version of 26 or newer, `docker compose version` works, `systemctl is-enabled docker` prints `enabled`, and `iptables --version` ends with `(nf_tables)` (stop and tell me if it says `(legacy)`; don't run `iptables-legacy`).
 
 ## 3. Get Orbs onto the server
 
@@ -257,7 +257,7 @@ Check it:
 ssh root@<server> 'cd /opt/orbs && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-firewall-1` (`Up`, no health check), `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-firewall-1`, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
 The hub creates `hub/audit.sqlite` on its first start: the admin panel's [audit trail](admin.md#activity). `ssh root@<server> 'ls -l /opt/orbs/hub/audit.sqlite'` shows it owned by uid 1000 with mode `-rw-------`.
 
