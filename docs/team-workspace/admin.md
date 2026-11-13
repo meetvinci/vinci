@@ -222,7 +222,7 @@ The panel never pairs a device and never acts as the user in a chat. It can read
 - Provider sign-ins with a Claude or ChatGPT account are left out: they would put the admin's own account in someone else's workspace. Enter an API key instead.
 - MCP servers that need a browser sign-in can be added, but the sign-in itself is not in the panel: the provider would send the browser back to your own login, not the user's MeetVinci. The user signs in from their own app.
 - The app has no form to add a secret (a bot asks for one in chat), so neither does the panel. Secrets the user added show in **Settings → Secrets**, and you can remove them there.
-- A bot's commands see only a placeholder for each secret. The person's MeetVinci swaps in the value only over HTTPS to the secret's allowed hosts. Images built before the Bun 1.4.4 pin refused every such request with *Proxy authorization required*, so secrets work only after you upgrade to an image from that pin or later.
+- A bot's commands see only a placeholder for each secret. The person's MeetVinci swaps in the value only over HTTPS to the secret's allowed hosts. Whatever those hosts send back has the value replaced by the placeholder again, at any size: in the body (also when compressed with gzip, br, deflate or zstd; another compression is refused), in headers such as a redirect's address, and in the forms a value is usually echoed in (URL-encoded, base64, inside a Basic sign-in). A host that changes the value some other way before sending it back can still hand it to the bot, so give a secret only hosts you trust with it. Images built before the Bun 1.4.4 pin refused every such request with *Proxy authorization required*, so secrets work only after you upgrade to an image from that pin or later.
 
 A user whose sign-in is off shows *This workspace is stopped because sign-in is off*: turning sign-in on starts it again. A workspace that is stopped for any other reason, or still starting, shows *Can't reach this user's workspace*; use **Try again** once it runs.
 
@@ -421,6 +421,8 @@ A bot runs its commands and web requests inside its person's MeetVinci. From the
 | IPv6 | no: people's networks have IPv6 off, so only public IPv4 goes out |
 | A destination listed in `MEETVINCI_INTERNAL_ALLOW` | yes, that address and port only |
 
+The same holds for a bot's web requests through its MeetVinci's secrets proxy (what curl, git and Bun `fetch` use): the proxy looks up the name once, refuses with *The proxy does not connect to … : bots cannot reach internal addresses.* when any answer is internal (also a name that points at one, a redirect to one, or a name that changes its answer between lookups), and otherwise connects to exactly the address it checked. It allows the same `MEETVINCI_INTERNAL_ALLOW` destinations.
+
 The `firewall` container keeps this. It adds two named rule sets for people's networks to the server's firewall, `MEETVINCI-DAEMONS` (in Docker's `DOCKER-USER`) and `MEETVINCI-DAEMONS-HOST` (in `INPUT`); it changes no policy and no other rule, so it cannot lock you out of SSH. Its health check runs every 2 seconds: it puts back anything missing or moved and then reports the firewall unhealthy until the next check, and also when Docker or the kernel no longer send people's traffic through the rules. A person you add gets the same protection with no extra step. The rules stay in place when the container stops or restarts; a reboot clears them until the firewall starts again.
 
 Nobody's MeetVinci starts without them. `apply` (and the admin panel) start the firewall first and stop with its message if it does not become healthy; Compose starts a person's MeetVinci only while the firewall is healthy. After a reboot or a Docker restart, when Docker starts every container at once, each person's MeetVinci first waits until the firewall rejects it (its log then says `Waiting for the firewall` and `The firewall confines this container after … ms`), so no bot runs before the rules exist. If someone deletes the rules while everything runs, bots can reach internal addresses until the next check, at most about 2 seconds; if they emptied the whole firewall, Docker's rules included, that check also stops all traffic out of people's networks until Docker restarts.
@@ -439,7 +441,7 @@ To let every person's MeetVinci reach one internal service anyway, such as a mod
 MEETVINCI_INTERNAL_ALLOW=10.0.0.5:8080
 ```
 
-Only the firewall restarts. It is empty by default. Allow only what every person may use: everything allowed is open to every bot.
+The firewall and every person's MeetVinci restart (about 10 seconds), since each person's secrets proxy reads it too. It is empty by default. Allow only what every person may use: everything allowed is open to every bot.
 
 To check from inside a person's MeetVinci (it should print `public: 200`, then `blocked` for the metadata service, the server's SSH on the person's gateway address, the hub and a private address):
 

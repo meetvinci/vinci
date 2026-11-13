@@ -1,20 +1,26 @@
 import type { SecretSource } from './secret.types';
-import type { CompletedRequest, Mockttp, requestSteps } from 'mockttp';
+import type { CompletedRequest, Mockttp } from 'mockttp';
+import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import type { BlockList } from 'node:net';
 
 export interface SecretProxyServiceParams {
   source: SecretSource;
   folder: string;
+  internalAllow: string[];
 }
 
 export interface SecretProxyServiceDeps extends SecretProxyServiceParams {
   state: SecretProxyState;
+  internal: BlockList;
 }
 
 export interface SecretProxyState {
   token: string;
+  forwardKey: string;
   server: Mockttp | null;
+  forward: Server | null;
+  forwardUrl: string;
   starting: Promise<void> | null;
-  swapped: Map<string, SecretProxySwap[]>;
 }
 
 export interface SecretProxySwap {
@@ -22,11 +28,25 @@ export interface SecretProxySwap {
   value: string;
 }
 
+export interface SecretProxyScrubForm {
+  match: Buffer;
+  replacement: Buffer;
+}
+
 export interface SecretProxySwapParams {
   request: CompletedRequest;
 }
 
-export interface SecretProxyScrubParams {
-  response: requestSteps.PassThroughResponse;
-  request: CompletedRequest;
+export interface SecretProxyForwardParams {
+  request: IncomingMessage;
+  response: ServerResponse;
+}
+
+export type SecretProxyResolved = { address: string } | { address: null; statusCode: number; message: string };
+
+export interface SecretProxyRespondParams {
+  upstreamResponse: IncomingMessage;
+  response: ServerResponse;
+  forms: SecretProxyScrubForm[];
+  hasBody: boolean;
 }

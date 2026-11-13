@@ -13,7 +13,7 @@ Every setting and file in a team install. "Set by the image" means the container
 | `MEETVINCI_TAG` | `v0.2.0` | The tag of the `meetvinci-daemon`, `meetvinci-web`, `meetvinci-hub`, `meetvinci-provisioner` and `meetvinci-firewall` images. Change it to upgrade or roll back. |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
 | `LOG_LEVEL` | `info` | Log detail for every container. |
-| `MEETVINCI_INTERNAL_ALLOW` | empty | Internal destinations every person's MeetVinci may still reach, `<IPv4>:<port>` (TCP), comma separated, such as `172.17.0.1:48290`. Empty: none. See [what a bot can reach](admin.md#what-a-bot-can-reach). |
+| `MEETVINCI_INTERNAL_ALLOW` | empty | Internal destinations every person's MeetVinci may still reach, `<IPv4>:<port>` (TCP), comma separated, such as `172.17.0.1:48290`. Empty: none. The firewall and each person's secrets proxy both read it. See [what a bot can reach](admin.md#what-a-bot-can-reach). |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's MeetVinci gets as environment variables. Every person's bots can read them. |
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
@@ -39,6 +39,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `DAEMON_PORT` | `47191` (set by the image) | Port inside the container. Never published to the internet. |
 | `DAEMON_PUBLIC_URLS` | `https://<team>.<domain>` (set by Compose) | The address people reach MeetVinci at, comma separated if more than one. The daemon tells apps only these addresses and accepts browser calls from them. Without it every browser call gets 403. |
 | `DAEMON_TEAM` | `true` (set by Compose) | Marks a team daemon: people's devices cannot change a bot's permission level, approval rules or timeout, how bots use secrets, rate limits, or add an MCP server that runs a command. The admin still can in the panel. Leave it out for a single-owner daemon. |
+| `MEETVINCI_INTERNAL_ALLOW` | from `.env` (set by Compose) | The firewall's exceptions, `<IPv4>:<port>` comma separated. The secrets proxy refuses every internal address but these; a daemon does not start with a value that is not `<IPv4>:<port>`. Empty outside Docker, so a daemon run by hand refuses all internal addresses through the proxy. |
 | `DAEMON_ALLOWED_ORIGINS` | empty | Extra browser addresses allowed to call the daemon. Not needed when `DAEMON_PUBLIC_URLS` is set. |
 | `WEB_PUBLIC_URL` | `https://<team>.<domain>` (set by Compose) | The address pairing links open. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |

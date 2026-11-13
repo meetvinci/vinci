@@ -173,7 +173,13 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
   const secrets = makeSecretService({ credentials, settings });
 
   const secretsFolder = join(paths.data, 'secrets');
-  const secretProxy = makeSecretProxyService({ source: secrets, folder: secretsFolder });
+
+  const secretProxy = makeSecretProxyService({
+    source: secrets,
+    folder: secretsFolder,
+    internalAllow: env.MEETVINCI_INTERNAL_ALLOW,
+  });
+
   resources.defer(() => secretProxy.actions.stop());
 
   const mcpClients = makeMcpClientService({ root: paths.root, auth: mcpAuth });

@@ -24,6 +24,8 @@ services:
       # A team install: the public door refuses permission levels, approval rules and timeout, the secrets mode,
       # MCP servers with a command or env, and limits for every device. The owner socket (admin) keeps them.
       DAEMON_TEAM: 'true'
+      # The firewall's exceptions: the secrets proxy lets bots through to exactly these <IPv4>:<port> too.
+      MEETVINCI_INTERNAL_ALLOW: ${MEETVINCI_INTERNAL_ALLOW:-}
       # Model API keys from .env, the same for every person. Each person's bots can read them (risk 1).
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

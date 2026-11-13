@@ -15,6 +15,9 @@ export const envServerSchema = {
     .pipe(z.array(z.url({ protocol: /^https?$/ }).refine((url) => new URL(url).pathname === '/', 'Use a bare origin without a path')))
     .transform((origins) => origins.map((origin) => new URL(origin).origin)),
   DAEMON_TEAM: z.stringbool().default(false),
+  MEETVINCI_INTERNAL_ALLOW: z.string().trim().default('')
+    .transform((value) => value.split(',').map((entry) => entry.trim()).filter(Boolean))
+    .pipe(z.array(z.string().regex(/^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d):(?:6553[0-5]|655[0-2]\d|65[0-4]\d\d|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})$/u))),
 
   WEB_HOST: z.string().trim().min(1).default('127.0.0.1'),
   WEB_PORT: z.coerce.number().int().min(1).max(65535).default(47190),
