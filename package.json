@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "type": "module",
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.4",
   "workspaces": [
     "apps/daemon",
     "apps/desktop",
@@ -27,7 +27,7 @@
     "@orpc/shared": "2.0.0-beta.39",
     "@t3-oss/env-core": "^0.13.11",
     "@tanstack/router-core": "^1.171.32",
-    "@types/bun": "1.4.2",
+    "@types/bun": "1.4.4",
     "@types/mdast": "4.0.4",
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",

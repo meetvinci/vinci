@@ -7,5 +7,6 @@ export const SECRET_PROXY = {
   noProxy: 'localhost,127.0.0.1,::1',
   proxyEnv: ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy'],
   noProxyEnv: ['NO_PROXY', 'no_proxy'],
+  basicAuthEnv: ['GIT_HTTP_PROXY_AUTHMETHOD'],
   caEnv: ['SSL_CERT_FILE', 'CURL_CA_BUNDLE', 'REQUESTS_CA_BUNDLE', 'NODE_EXTRA_CA_CERTS', 'GIT_SSL_CAINFO', 'CARGO_HTTP_CAINFO'],
 } as const;

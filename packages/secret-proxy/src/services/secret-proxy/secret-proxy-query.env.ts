@@ -18,6 +18,7 @@ export async function secretProxyQueryEnv({ source, state, folder }: SecretProxy
     ...Object.fromEntries(rules.map((rule) => [rule.name, secretProxyPlaceholder(rule.name)])),
     ...Object.fromEntries(SECRET_PROXY.proxyEnv.map((name) => [name, proxyUrl])),
     ...Object.fromEntries(SECRET_PROXY.noProxyEnv.map((name) => [name, SECRET_PROXY.noProxy])),
+    ...Object.fromEntries(SECRET_PROXY.basicAuthEnv.map((name) => [name, 'basic'])),
     ...Object.fromEntries(SECRET_PROXY.caEnv.map((name) => [name, bundlePath])),
   };
 }

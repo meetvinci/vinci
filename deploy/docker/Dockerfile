@@ -3,7 +3,7 @@
 # Build from the repo root: bun run build:images (see scripts/deploy.ts).
 # Every image runs as uid 1000 under tini and works with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
 # Bundles run with --no-install: an unresolved optional import must fail, not download a package from npm at runtime.
-ARG BUN_IMAGE=oven/bun:1.4.2
+ARG BUN_IMAGE=oven/bun:1.4.4
 # The Docker CLI and its Compose plugin for the provisioner: static binaries, nothing else from this image.
 ARG DOCKER_CLI_IMAGE=docker:29.8.2-cli
 

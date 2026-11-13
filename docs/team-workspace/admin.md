@@ -222,6 +222,7 @@ The panel never pairs a device and never acts as the user in a chat. It can read
 - Provider sign-ins with a Claude or ChatGPT account are left out: they would put the admin's own account in someone else's workspace. Enter an API key instead.
 - MCP servers that need a browser sign-in can be added, but the sign-in itself is not in the panel: the provider would send the browser back to your own login, not the user's Orbs. The user signs in from their own app.
 - The app has no form to add a secret (a bot asks for one in chat), so neither does the panel. Secrets the user added show in **Settings → Secrets**, and you can remove them there.
+- A bot's commands see only a placeholder for each secret. The person's Orbs swaps in the value only over HTTPS to the secret's allowed hosts. Images built before the Bun 1.4.4 pin refused every such request with *Proxy authorization required*, so secrets work only after you upgrade to an image from that pin or later.
 
 A user whose sign-in is off shows *This workspace is stopped because sign-in is off*: turning sign-in on starts it again. A workspace that is stopped for any other reason, or still starting, shows *Can't reach this user's workspace*; use **Try again** once it runs.
 

@@ -91,7 +91,7 @@ The deploy commands need Bun on the server. Take it from the image you just load
 ssh root@<server> "docker run --rm --entrypoint cat orbs-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun && bun --version"
 ```
 
-Expected: a Bun version such as `1.4.2`.
+Expected: a Bun version such as `1.4.4`.
 
 **Give this to your agent:**
 

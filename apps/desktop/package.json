@@ -19,6 +19,6 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/bun": "catalog:",
-    "electrobun": "2.0.2"
+    "electrobun": "2.0.5"
   }
 }
