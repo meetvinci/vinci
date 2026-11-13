@@ -2,7 +2,7 @@ import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { globalActionApply } from './global-action.apply';
 import { globalActionSave } from './global-action.save';
-import { globalSectionState, globalWithSection } from './global.utils';
+import { globalQueue, globalSectionState, globalWithSection } from './global.utils';
 import type * as GlobalTypes from '../../types/global.types';
 import type { AdminSection } from '@repo/contracts/universal';
 
@@ -19,7 +19,7 @@ export async function globalActionMode(
   }
 
   if (mode === 'overridden') {
-    await globalActionSave(deps, { change: (file) => globalWithSection(file, id, section, { mode, sync: 'in-sync' }) });
+    await globalQueue(deps, id, async () => globalActionSave(deps, { change: (file) => globalWithSection(file, id, section, { mode, sync: 'in-sync' }) }));
   } else if (marker === undefined && globalSectionState(deps.state.file, id, section).mode === 'overridden') {
     throw new Errors.VALIDATION_ERROR({ fields: { marker: { message: 'validation_invalid' } }, internal: `Switching ${section} of ${id} back to global needs the marker of its preview` });
   } else {
