@@ -656,8 +656,10 @@ interface NightlyStatus {
   error?: string;
 }
 
-// The last upload to the bucket and the last failure, kept across runs for `nightly status`.
+// The last upload to the bucket and the last failure, kept across runs for `nightly status`, with the bucket and
+// prefix they were for.
 interface OffsiteStatus {
+  where?: string;
   uploaded?: { run: string; at: string };
   failed?: { at: string; error: string };
 }
@@ -971,8 +973,16 @@ function offsiteReason(error: unknown): string {
   return error instanceof Error && error.name === 'S3Error' && typeof code === 'string' ? `${message} (${code})` : message;
 }
 
-function offsiteStatusRead(): OffsiteStatus {
-  return existsSync(offsiteStatusFile) ? JSON.parse(readFileSync(offsiteStatusFile, 'utf8')) : {};
+// A record made for another bucket or prefix says nothing about this one. A record without `where` predates it and is
+// taken as this bucket's until the next run writes one.
+function offsiteStatusRead(bucket: OffsiteBucket | undefined): OffsiteStatus {
+  if (bucket === undefined || !existsSync(offsiteStatusFile)) {
+    return {};
+  }
+
+  const status: OffsiteStatus = JSON.parse(readFileSync(offsiteStatusFile, 'utf8'));
+
+  return (status.where ?? bucket.where) === bucket.where ? status : {};
 }
 
 // The off-site part of a nightly run: its error, recorded for `nightly status`, or undefined. It never fails the
@@ -982,9 +992,12 @@ async function nightlyOffsite(): Promise<string | undefined> {
     return undefined;
   }
 
-  const status = offsiteStatusRead();
+  let status: OffsiteStatus = {};
 
   try {
+    const bucket = offsiteBucket() ?? fail('BACKUP_S3_BUCKET is not set in .env.');
+
+    status = { ...offsiteStatusRead(bucket), where: bucket.where };
     status.uploaded = { run: await offsiteSync(), at: new Date().toISOString() };
 
     return undefined;
@@ -1066,7 +1079,7 @@ async function nightlyStatus() {
   console.log(`Finished backups on this server: ${kept.length}${kept.length > 0 ? ` (${kept[0]} to ${kept.at(-1)})` : ''}`);
 
   const bucket = offsiteBucket();
-  const { uploaded, failed } = offsiteStatusRead();
+  const { uploaded, failed } = offsiteStatusRead(bucket);
   // Off-site is failing until an upload newer than the last failure went through.
   const offsiteFailing = bucket !== undefined && (uploaded === undefined || Date.parse(failed?.at ?? '') > Date.parse(uploaded.at));
 

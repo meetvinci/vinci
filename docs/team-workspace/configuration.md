@@ -110,7 +110,7 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | `hub/audit.sqlite` | `/opt/orbs/hub/`, `/data/` in the hub | The admin panel's audit trail: one row per admin read or change, never content or values. Written by the hub only; kept by upgrades, `apply`, rollbacks and `purge`. See [Activity](admin.md#activity). |
 | `backups/<time>/` | `/opt/orbs/backups/` | One nightly run: every person's and the template's volume, the hub folder, the deployment files with `.env`, and `manifest.json` with sizes and checksums. Secret. See [backups](admin.md#nightly-backups). |
 | `backups/nightly.json` | `/opt/orbs/backups/` | The last nightly run's time, result and error, for `bun deploy.ts nightly status`. |
-| `backups/offsite.json` | `/opt/orbs/backups/` | The last off-site upload and the last off-site failure with its reason, for `bun deploy.ts nightly status`. |
+| `backups/offsite.json` | `/opt/orbs/backups/` | The last off-site upload and the last off-site failure with its reason, and the bucket and prefix they were for, for `bun deploy.ts nightly status`. |
 | `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume, from `backup <id>` or the copy `restore` saves first. Secret. Never deleted by retention. |
 | `/etc/systemd/system/orbs-backup.service`, `.timer` | the host | The nightly backup timer. Written by `bun deploy.ts nightly install`, removed by `nightly remove`. |
 | `models.json` | `/data/pi/` in each person's volume | Model provider settings, such as a different address for a provider. Read only at start. |
