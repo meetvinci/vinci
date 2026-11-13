@@ -6,8 +6,8 @@ import type { AccessIdentity } from './access.types';
 import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
 import type { GlobalService } from './global.types';
-import type { User, UserService } from './user.types';
-import type { ConversationTarget } from '@repo/contracts/universal';
+import type { User, UserDaemon, UserService } from './user.types';
+import type { AdminOutsideInput, ConversationTarget } from '@repo/contracts/universal';
 
 export interface CoreServices {
   access: AccessService;
@@ -43,6 +43,11 @@ export interface CoreAdminChange {
   detail?: string | null;
   userId?: string | null;
   botId?: string | null;
+}
+
+export interface CoreAuditOutside {
+  target: AdminOutsideInput;
+  user: UserDaemon | null;
 }
 
 export interface CoreAdminRelay {

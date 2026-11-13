@@ -235,9 +235,17 @@ An admin can read every conversation a person has with their bots, read only, in
 - One chat per bot. Hidden and muted chats are listed too.
 - The messages, photos (click to enlarge) and files (click to download), tool calls with the approval asked and its answer, answers to the bot's questions, and silent turns, as they happened. Scroll up for older messages.
 - A subagent run: click its card to read what it did. A private conversation between two of the person's bots: click the bot's name in *Messaged …* to read it.
-- An artifact: click its card to open it read only, at the version that message made. **Version** lists the other versions the bot keeps; pick one to see it. It looks and works as in the person's app (a page runs in the same sandbox: it cannot reach the panel, your session, your storage or the network through requests, open windows or post forms), but nothing you tick, type or pick is saved, and you can't rename or restore it. Closing the pane forgets what you changed.
+- An artifact: click its card to open it read only, at the version that message made. **Version** lists the other versions the bot keeps; pick one to see it. It looks as in the person's app, but nothing you tick, type or pick is saved, and you can't rename or restore it. Closing the pane forgets what you changed. Outside content is off until you load it (next part).
 - What waits for the person: an approval a bot asked for shows as **Waiting for approval** with the command or tool and what it would do; a bot's question shows as **Waiting for an answer** with its text and choices (a secret question names the secret, never a value). Only the person can answer, in their app; the panel has no buttons for it.
 - Search: type and press Enter. It searches every chat of that person; a hit opens the chat at that message. Like the app's search, it looks at recent messages first, so an old match may need a more recent word.
+
+**Outside content stays off until you load it**
+
+The viewer loads nothing from outside servers on its own. A picture in an artifact or a message whose address is on another server shows as a grey box with its description, a reaction GIF shows as its emoji, and a page (an HTML artifact, or a page in a message) shows without its scripts, links and inner frames. Where that happened, a line says *Outside content is off here. Loading it can be used for tracking, analytics and spying on who opens this.* with a **Load outside content** button. A picture from outside tells its server your IP address, your browser and when you opened it; a page's script can do the same through a network probe (WebRTC) that no browser setting blocks inside the page, which is why scripts are off too.
+
+Press **Load outside content** only when you need to see it. The hub records the click first (one row, *Loaded outside content*, with the person, the bot and the conversation), then that one artifact or message loads as in the person's app: its pictures load, and a page runs its scripts in the app's sandbox (it still cannot make requests, open windows or post forms; only the WebRTC probe and sending its own frame to an address get out, and the panel then closes the page and says so). Nothing is remembered: closing the pane, picking another version or opening the chat again turns it off. If the hub cannot record the click, nothing loads and the panel shows an error.
+
+Without scripts a page can still be clicked: a plain link inside it opens in its frame, which is you choosing to visit that address (the panel then closes the page).
 
 **What leaves no trace**
 
@@ -245,13 +253,14 @@ Reading changes nothing the person sees: nothing is marked read, unread counts, 
 
 **The audit trail**
 
-Every read is recorded with your email, the person, the bot and the conversation, never the content: one row when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, one per artifact version opened, one for the waiting approvals and one for the waiting questions when something is waiting (opening a chat with nothing waiting adds no row for them), and one when the person's Bots tab reads their routines or todos. See them under [Activity](#activity). If the hub cannot record a read, it refuses the read: the panel shows the chat or file as failed, and nothing is shown unrecorded.
+Every read is recorded with your email, the person, the bot and the conversation, never the content: one row when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, one per artifact version opened, one for the waiting approvals and one for the waiting questions when something is waiting (opening a chat with nothing waiting adds no row for them), one each time you press **Load outside content**, and one when the person's Bots tab reads their routines or todos. See them under [Activity](#activity). If the hub cannot record a read, it refuses the read: the panel shows the chat or file as failed, and nothing is shown unrecorded.
 
 **What the panel does not show (known gaps)**
 
 - A reply still being written appears after **Refresh**; so does an approval or question asked after you opened the chat.
 - Links show without a preview or a site icon. A preview is fetched live by the person's Orbs each time (it stores none), so showing one would make their workspace fetch an address of your choice, and the preview's picture and the icon would load in your browser from outside sites. Previews were removed in the wave 3 review for that reason, and stay off.
-- An artifact can tell an outside site that you opened it. A picture inside it (its **Image** block) loads from the address the bot gave, as in the person's app, so that site learns your IP address, your browser and when you opened it. A page can do the same by sending a network probe (WebRTC) or by sending its own frame to an address; the panel then closes the page and says so. Neither can read anything of yours. A picture address can also point at the panel's own read addresses, so your browser makes that read as you: it shows nothing to the bot, but a file read through it is recorded as yours.
+- A page without its scripts may look incomplete (charts drawn by script stay empty and the frame keeps a fixed height; it still gets the panel's colours). The notice shows on every page that has script, since the panel cannot tell what a script would do without running it.
+- After **Load outside content**, a picture address can point at the panel's own read addresses, so your browser makes that read as you: it shows nothing to the bot, but a file read through it is recorded as yours.
 - **Cleared history is gone.** When the person clears a chat, its messages, files, subagent runs and private conversations are replaced by an empty chat; only the routines, todos and the latest version of each artifact carry over. You then see the same as the person.
 - The template workspace has no conversations with anyone.
 - There is no export.
@@ -337,7 +346,7 @@ The template workspace is a full Orbs: 90-130 MiB of memory idle, like a person'
 
 What is recorded, one row each, never content or values:
 
-- Reads: a conversation list, history or search, a person's routines or todos, a file opened.
+- Reads: a conversation list, history or search, a person's routines or todos, a file opened, and **Load outside content** pressed in a conversation.
 - Changes: a person added, renamed, their sign-in turned on or off, or removed; an admin added or removed; a settings section switched to global or overridden; a global sync; suggested bots copied; and every save in a person's or the template's settings and bot forms, recorded as the form's action (for example `secrets/save`) and the bot it names. What was typed into the form, an API key or a secret value included, is never stored. A refused attempt is recorded too, with its status.
 
 The rows live in `hub/audit.sqlite`, next to `admins.json`. Restarts, upgrades, `apply` and rollbacks keep it (an older hub leaves the file alone, and what admins do while it runs is only in its log), and the [hub folder backup](#backups) includes it. If the hub cannot write a row, a read is refused, and a change still happens and the hub logs `The audit trail could not record a change; the change stands` (refusing a change that was already made would only make you make it again). The hub also writes each row to its log as a `hub-audit` line, as before; that copy goes with the hub container.

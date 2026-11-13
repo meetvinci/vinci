@@ -6,6 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import { htmlFrameFonts } from '../services/html/html.client';
+import { htmlFrameTheme, htmlHasOutside, htmlInert } from '../services/html/html.utils';
+import { useOutsideContent } from './outside-content';
 
 interface HtmlFrameProps {
   html: string
@@ -13,13 +15,27 @@ interface HtmlFrameProps {
 }
 
 export function HtmlFrame({ html, title }: HtmlFrameProps) {
+  const isBlocked = useOutsideContent(htmlHasOutside(html));
+
+  // Without script the page has no WebRTC, no navigation of its own frame and no meta refresh; without links and frames, no early connections; the frame's CSP stops the rest.
+  return (
+    <HtmlFrameDocument
+      html={isBlocked ? htmlInert(html) : html}
+      key={String(isBlocked)}
+      sandbox={isBlocked ? '' : 'allow-scripts'}
+      title={title}
+    />
+  );
+}
+
+function HtmlFrameDocument({ html, title, sandbox }: HtmlFrameProps & { sandbox: string }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const loads = useRef(0);
   const [height, setHeight] = useState(320);
   const [hasLeft, setHasLeft] = useState(false);
   const theme = useTheme();
   const { data: fonts } = useQuery(htmlFrameFonts);
-  const document = htmlDocument(html);
+  const document = htmlDocument(html, sandbox === '' ? htmlFrameTheme(theme.resolved) : '');
 
   const postTheme = () => {
     const styles = getComputedStyle(window.document.documentElement);
@@ -71,7 +87,7 @@ export function HtmlFrame({ html, title }: HtmlFrameProps) {
       className="block w-full border-0"
       ref={frame}
       referrerPolicy="no-referrer"
-      sandbox="allow-scripts"
+      sandbox={sandbox}
       srcDoc={document}
       style={{ height, colorScheme: theme.resolved }}
       title={title}

@@ -1,4 +1,4 @@
-import { adminSectionId, adminTemplateId, attachmentGet, SERVER_PROTOCOL } from '@repo/contracts/universal';
+import { adminOutsideInput, adminSectionId, adminTemplateId, attachmentGet, SERVER_PROTOCOL } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
@@ -7,7 +7,7 @@ import { adminEmptyReply, adminInput, adminListBody, adminReadBody, adminWriteBo
 import { auditListInput } from '../types/audit.types';
 import { globalBotsInput, globalModeInput, globalSyncInput } from '../types/global.types';
 import { userCreateInput, userUpdateInput } from '../types/user.types';
-import { coreAuditChange, coreAuditRecord } from './core-audit.native';
+import { coreAuditChange, coreAuditOutside, coreAuditRecord } from './core-audit.native';
 import type * as CoreTypes from '../types/core.types';
 import type { UserDaemon } from '../types/user.types';
 import type { z } from 'zod';
@@ -104,6 +104,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
       attachmentId,
       isPoster: true,
     }))
+    .with({ method: 'POST', segments: ['users', P.string, 'outside'] }, async ({ segments: [, id] }) => coreAuditOutside(services, context, { target: await coreAdminBody(request, adminOutsideInput), user: await coreAdminTarget(services, id) }))
     .with({ method: 'POST', segments: ['users', P.string, 'rpc', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminRpc(services, context, { id, procedure: rest.join('/') }))
     .with({ method: 'GET', segments: ['global'] }, async () => Response.json(await services.global.queries.global(), { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['global', 'status'] }, async () => Response.json({ users: await services.global.queries.status() }, { headers: NO_STORE }))

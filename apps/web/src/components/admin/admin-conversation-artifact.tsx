@@ -8,6 +8,7 @@ import { ArtifactView } from '@repo/ui/artifact-view';
 import { Button } from '@repo/ui/button';
 import { cn } from '@repo/ui/cn';
 import * as DropdownMenu from '@repo/ui/dropdown-menu';
+import { OutsideContentGuard } from '@repo/ui/outside-content';
 import { Pane, PaneBody, PaneContent, PaneHeader, PaneTitle } from '@repo/ui/pane';
 import { Skeleton } from '@repo/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
@@ -92,11 +93,9 @@ function AdminConversationArtifactPane({ artifact, onOpenChange }: AdminConversa
           </div>
           {match(shown)
             .with({ data: P.nonNullable }, ({ data }) => (
-              <ArtifactView
-                key={data.version}
-                spec={data.spec}
-                title={data.title}
-              />
+              <OutsideContentGuard key={data.version}>
+                <ArtifactView spec={data.spec} title={data.title} />
+              </OutsideContentGuard>
             ))
             .with({ isPending: true }, () => <Skeleton className="h-64 w-full" />)
             .otherwise(() => <p className="text-sm text-muted-foreground" role="alert">{isGone ? m.admin_conversations_artifact_gone() : m.artifacts_error()}</p>)}

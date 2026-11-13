@@ -49,6 +49,8 @@
   "ui_html_preview": "HTML preview",
   "ui_html_page": "Page",
   "ui_html_left": "This page tried to open another address, so it was closed.",
+  "ui_outside_off": "Outside content is off here. Loading it can be used for tracking, analytics and spying on who opens this.",
+  "ui_outside_load": "Load outside content",
   "ui_tool_bot_status_prompt": "The owner sees a live status line while you work. Before each tool call other than bot_react and bot_gif, write one short line of 2 to 6 words saying what you are doing, ending with an ellipsis, such as \"Finding the best hotel…\" or \"Checking your calendar…\". It is shown as your status, not as a message, so never repeat it in your answer.",
   "ui_tool_bot_gif_description": "Send a reaction GIF in this chat, picked by mood: laugh for something hilarious, celebrate or yay for wins, clap for applause, thumbsup to agree, love for warmth. The owner chooses the GIF style in settings. Use it now and then, when it says more than words; never mention or explain it.",
   "ui_tool_bot_gif_prompt": "Now and then, when something is genuinely funny or worth celebrating, a reaction GIF (bot_gif) can replace or follow a short reply. Keep it rare and never send one about bad news.",

@@ -1,5 +1,6 @@
 import { gifEmojiUrl } from '@repo/client/client';
 import { m } from '@repo/i18n/client';
+import { useOutsideContent } from '@repo/ui/outside-content';
 import { useState } from 'react';
 import { match } from 'ts-pattern';
 import type { GifToolDetails } from '@repo/contracts/universal';
@@ -10,8 +11,9 @@ interface RoomsChatGifProps {
 
 export function RoomsChatGif({ gif }: RoomsChatGifProps) {
   const [isFailed, setIsFailed] = useState(false);
+  const isHeld = useOutsideContent(true);
 
-  if (isFailed) {
+  if (isFailed || isHeld) {
     return <span className="text-7xl leading-none">{gif.emoji}</span>;
   }
 

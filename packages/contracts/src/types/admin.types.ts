@@ -38,6 +38,10 @@ export const adminUserCreate = z.object({
 
 export const adminChangeResult = z.object({ access: adminAccess.optional() });
 
+export const adminOutsideInput = z.strictObject({ botId: z.uuid(), conversationId: z.number().int().positive() });
+
+export const adminOutsideResult = z.object({});
+
 export const adminUserPatch = z.object({
   id: adminUserId,
   name: z.string().trim().min(1).max(80).optional(),
@@ -156,6 +160,7 @@ export type AdminPreviewChange = z.infer<typeof adminPreviewChange>;
 export type AdminPreviewItem = z.infer<typeof adminPreviewItem>;
 export type AdminSectionPreview = z.infer<typeof adminSectionPreview>;
 export type AdminBotCopyInput = z.infer<typeof adminBotCopyInput>;
+export type AdminOutsideInput = z.infer<typeof adminOutsideInput>;
 export type AdminAuditEntry = z.infer<typeof adminAuditEntry>;
 export type AdminAuditPage = z.infer<typeof adminAuditPage>;
 export type AdminAuditFilter = z.infer<typeof adminAuditFilter>;

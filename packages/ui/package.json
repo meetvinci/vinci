@@ -101,6 +101,7 @@
     "./onboarding/onboarding-step-layout": "./src/components/onboarding/onboarding-step-layout.tsx",
     "./onboarding/onboarding-step-list": "./src/components/onboarding/onboarding-step-list.tsx",
     "./onboarding/onboarding-step-welcome": "./src/components/onboarding/onboarding-step-welcome.tsx",
+    "./outside-content": "./src/components/outside-content.tsx",
     "./pane": "./src/components/pane.tsx",
     "./panel": "./src/components/panel.tsx",
     "./popover": "./src/components/popover.tsx",

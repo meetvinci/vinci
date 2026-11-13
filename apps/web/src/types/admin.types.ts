@@ -43,6 +43,11 @@ export interface AdminRequestParams<T> {
     | UniversalTypes.AdminSectionModeInput
     | UniversalTypes.AdminGlobalSyncInput
     | UniversalTypes.AdminBotCopyInput
+    | UniversalTypes.AdminOutsideInput
+}
+
+export interface AdminOutsideParams extends UniversalTypes.AdminOutsideInput {
+  userId: string
 }
 
 export interface AdminBotCopyProblemParams {

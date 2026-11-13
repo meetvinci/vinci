@@ -1,7 +1,9 @@
 import { code } from '@streamdown/code';
 import { defaultComponents, defaultRemarkPlugins, Streamdown } from 'streamdown';
+import IconImageOff from '~icons/lucide/image-off';
 import { cn } from '../../lib/cn';
-import { htmlReplyBlocks } from '../../services/html/html.utils';
+import { htmlIsOutside, htmlReplyBlocks } from '../../services/html/html.utils';
+import { OutsideContentGuard, useOutsideContent } from '../outside-content';
 import { ResponseCodeIcon } from './response-code-icon';
 import { ResponseHtml } from './response-html';
 import { ResponseLink } from './response-link';
@@ -39,8 +41,27 @@ function ResponseTable({ node: _node, className, ...props }: ComponentProps<'tab
   );
 }
 
+function ResponseImage(props: ComponentProps<'img'> & ExtraProps) {
+  const isOutside = htmlIsOutside(String(props.src ?? ''));
+  const isHeld = useOutsideContent(isOutside) && isOutside;
+
+  return isHeld ? (
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 align-middle text-xs text-muted-foreground">
+      <IconImageOff aria-hidden className="size-3.5 shrink-0" />
+      <span className="truncate">{props.alt}</span>
+    </span>
+  ) : <defaultComponents.img {...props} />;
+}
+
+// The sanitizer keeps `<picture><source srcset>`, which the browser loads in place of the picture's own `img`.
+function ResponseSource({ node: _node, ...props }: ComponentProps<'source'> & ExtraProps) {
+  return useOutsideContent(true) ? null : <source {...props} />;
+}
+
 const responseComponents: Components = {
   a: ResponseLink,
+  img: ResponseImage,
+  source: ResponseSource,
   h1: responseElement('h1', 'mt-5 mb-1.5 text-base font-semibold text-balance'),
   h2: responseElement('h2', 'mt-5 mb-1.5 text-base font-semibold text-balance'),
   h3: responseElement('h3', 'mt-4 mb-1 text-sm font-semibold text-balance'),
@@ -65,16 +86,18 @@ const responseComponents: Components = {
 
 export function ResponseContent({ className, components, remarkPlugins, renderHtml = false, ...props }: ResponseProps) {
   return (
-    <Streamdown
-      BlockComponent={renderHtml ? ResponseHtml : undefined}
-      parseIncompleteMarkdown={renderHtml ? props.isAnimating === true : undefined}
-      parseMarkdownIntoBlocksFn={renderHtml ? htmlReplyBlocks : undefined}
-      className={cn('size-full space-y-3 **:data-[streamdown=code-block]:my-0 **:data-[streamdown=code-block]:rounded-none **:data-[streamdown=code-block]:border-0 **:data-[streamdown=code-block]:bg-transparent **:data-[streamdown=code-block]:p-0 **:data-[streamdown=code-block]:text-foreground **:data-[streamdown=code-block-actions]:border-0 **:data-[streamdown=code-block-actions]:bg-background **:data-[streamdown=code-block-actions]:p-0 **:data-[streamdown=code-block-actions]:backdrop-blur-none **:data-[streamdown=code-block-body]:scrollbar **:data-[streamdown=code-block-body]:max-h-80 **:data-[streamdown=code-block-body]:overflow-auto **:data-[streamdown=code-block-body]:rounded-xl **:data-[streamdown=code-block-body]:p-3 **:data-[streamdown=code-block-body]:pt-9 **:data-[streamdown=code-block-body]:text-xs **:data-[streamdown=code-block-body]:[--scrollbar-thumb:color-mix(in_oklab,var(--muted-foreground)_20%,transparent)] **:data-[streamdown=code-block-body]:[--scrollbar-track:transparent] **:data-[streamdown=code-block-body]:scrollbar-h-1 **:data-[streamdown=code-block-body]:scrollbar-thumb-rounded-full **:data-[streamdown=code-block-body]:scrollbar-w-1 **:data-[streamdown=code-block-body]:*:*:*:before:mr-3 **:data-[streamdown=code-block-body]:*:*:*:before:w-4 **:data-[streamdown=code-block-header]:hidden [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
-      components={{ ...responseComponents, ...components }}
-      controls={{ table: false, code: { copy: true, download: false }, mermaid: false }}
-      plugins={{ code }}
-      remarkPlugins={remarkPlugins ? [...Object.values(defaultRemarkPlugins), ...remarkPlugins] : undefined}
-      {...props}
-    />
+    <OutsideContentGuard>
+      <Streamdown
+        BlockComponent={renderHtml ? ResponseHtml : undefined}
+        parseIncompleteMarkdown={renderHtml ? props.isAnimating === true : undefined}
+        parseMarkdownIntoBlocksFn={renderHtml ? htmlReplyBlocks : undefined}
+        className={cn('size-full space-y-3 **:data-[streamdown=code-block]:my-0 **:data-[streamdown=code-block]:rounded-none **:data-[streamdown=code-block]:border-0 **:data-[streamdown=code-block]:bg-transparent **:data-[streamdown=code-block]:p-0 **:data-[streamdown=code-block]:text-foreground **:data-[streamdown=code-block-actions]:border-0 **:data-[streamdown=code-block-actions]:bg-background **:data-[streamdown=code-block-actions]:p-0 **:data-[streamdown=code-block-actions]:backdrop-blur-none **:data-[streamdown=code-block-body]:scrollbar **:data-[streamdown=code-block-body]:max-h-80 **:data-[streamdown=code-block-body]:overflow-auto **:data-[streamdown=code-block-body]:rounded-xl **:data-[streamdown=code-block-body]:p-3 **:data-[streamdown=code-block-body]:pt-9 **:data-[streamdown=code-block-body]:text-xs **:data-[streamdown=code-block-body]:[--scrollbar-thumb:color-mix(in_oklab,var(--muted-foreground)_20%,transparent)] **:data-[streamdown=code-block-body]:[--scrollbar-track:transparent] **:data-[streamdown=code-block-body]:scrollbar-h-1 **:data-[streamdown=code-block-body]:scrollbar-thumb-rounded-full **:data-[streamdown=code-block-body]:scrollbar-w-1 **:data-[streamdown=code-block-body]:*:*:*:before:mr-3 **:data-[streamdown=code-block-body]:*:*:*:before:w-4 **:data-[streamdown=code-block-header]:hidden [&>*:first-child]:mt-0 [&>*:last-child]:mb-0', className)}
+        components={{ ...responseComponents, ...components }}
+        controls={{ table: false, code: { copy: true, download: false }, mermaid: false }}
+        plugins={{ code }}
+        remarkPlugins={remarkPlugins ? [...Object.values(defaultRemarkPlugins), ...remarkPlugins] : undefined}
+        {...props}
+      />
+    </OutsideContentGuard>
   );
 }

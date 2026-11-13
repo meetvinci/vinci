@@ -222,6 +222,7 @@
   "admin_activity_read_todos": "Viewed to-dos",
   "admin_activity_read_file": "Opened a file",
   "admin_activity_read_poster": "Opened a video preview",
+  "admin_activity_outside_load": "Loaded outside content",
   "admin_activity_user_create": "Added a person ({email})",
   "admin_activity_user_update": "Renamed the person",
   "admin_activity_user_enable": "Turned on sign-in",

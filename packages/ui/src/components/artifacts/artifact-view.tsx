@@ -5,9 +5,11 @@ import { artifactComponents } from '@repo/contracts/universal';
 import { Children, useId } from 'react';
 import { match, P } from 'ts-pattern';
 import IconExternalLink from '~icons/lucide/external-link';
+import IconImageOff from '~icons/lucide/image-off';
 import IconInfo from '~icons/lucide/info';
 import { cn } from '../../lib/cn';
 import { ARTIFACTS } from '../../services/artifacts/artifacts.constants';
+import { htmlIsOutside } from '../../services/html/html.utils';
 import { ActivityHeatmap } from '../activity-heatmap';
 import { Event, EventLabel, EventTrigger } from '../ai/event';
 import { messageList, messageRow, messageSurface } from '../ai/message';
@@ -22,6 +24,7 @@ import { Gauge } from '../gauge';
 import { HtmlFrame } from '../html-frame';
 import { ArcLineChart } from '../line-chart';
 import { MetricCard } from '../metric-card';
+import { useOutsideContent } from '../outside-content';
 import { Progress } from '../progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../select';
 import { Separator } from '../separator';
@@ -241,17 +244,29 @@ const { registry } = defineRegistry(defineCatalog(schema, { components: artifact
         </a>
       </Button>
     ),
-    Image: ({ props }) => (
-      <figure className="flex flex-col gap-2">
-        <img
-          alt={props.alt}
-          className="max-h-96 w-full rounded-xl border object-cover"
-          loading="lazy"
-          src={props.url}
-        />
-        {props.caption ? <figcaption className="text-xs text-muted-foreground">{props.caption}</figcaption> : null}
-      </figure>
-    ),
+    Image: ({ props }) => {
+      const isOutside = htmlIsOutside(props.url);
+      const isHeld = useOutsideContent(isOutside) && isOutside;
+
+      return (
+        <figure className="flex flex-col gap-2">
+          {isHeld ? (
+            <div className="flex h-24 w-full items-center justify-center gap-2 rounded-xl border px-3 text-xs text-muted-foreground">
+              <IconImageOff aria-hidden className="size-4 shrink-0" />
+              <span className="truncate">{props.alt}</span>
+            </div>
+          ) : (
+            <img
+              alt={props.alt}
+              className="max-h-96 w-full rounded-xl border object-cover"
+              loading="lazy"
+              src={props.url}
+            />
+          )}
+          {props.caption ? <figcaption className="text-xs text-muted-foreground">{props.caption}</figcaption> : null}
+        </figure>
+      );
+    },
     AreaChart: ({ props }) => <ArcLineChart area {...props} />,
     PieChart: ({ props }) => <DonutChart {...props} />,
     Select: ({ props, bindings }) => {

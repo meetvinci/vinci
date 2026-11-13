@@ -213,6 +213,7 @@ export function adminAuditSentence({ action, detail }: UniversalTypes.AdminAudit
     .with('todos/list', () => m.admin_activity_read_todos())
     .with('attachments/download', () => m.admin_activity_read_file())
     .with('attachments/poster', () => m.admin_activity_read_poster())
+    .with('outside/load', () => m.admin_activity_outside_load())
     .with('users/create', () => m.admin_activity_user_create({ email: detail ?? '' }))
     .with('users/update', () => m.admin_activity_user_update())
     .with('users/enable', () => m.admin_activity_user_enable())

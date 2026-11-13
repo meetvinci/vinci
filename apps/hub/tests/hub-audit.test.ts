@@ -154,6 +154,41 @@ describe('audit trail', () => {
     expect(logs).toContain('The audit trail could not record a change; the change stands');
   });
 
+  it('records loading outside content as its own read, and loads nothing it cannot record', async ({ fixture, tokens }) => {
+    const target = { botId: crypto.randomUUID(), conversationId: 7 };
+    const outside = (token: string, body: object, user = 'alice') => hubAdminTestWrite(token, `/admin/api/users/${user}/outside`, { body });
+
+    const loaded = await outside(tokens.root, target);
+
+    const refused = await Promise.all([
+      outside(tokens.bob, target),
+      outside(tokens.root, target, 'nobody'),
+      outside(tokens.root, { ...target, extra: 1 }),
+      outside(tokens.root, { botId: target.botId }),
+    ]);
+
+    const row = (await audit(tokens.root)).page?.entries.find((entry) => entry.action === 'outside/load');
+
+    await chmod(join(fixture.root, 'hub'), 0o500);
+
+    const unrecorded = await outside(tokens.root, target);
+
+    await chmod(join(fixture.root, 'hub'), 0o700);
+
+    expect(loaded.status).toBe(204);
+    expect(refused.map(({ status }) => status)).toEqual([403, 404, 422, 422]);
+    expect(row).toMatchObject({
+      by: HUB_AUDIT_FIXTURE.admin,
+      kind: 'read',
+      userId: 'alice',
+      botId: target.botId,
+      conversationId: 7,
+      status: 204,
+    });
+    expect(unrecorded).toEqual({ status: 503, json: { error: 'audit_unavailable' } });
+    expect(fixture.logs.join('')).toContain('Admin loaded outside content in a conversation');
+  });
+
   it('pages newest first and filters by admin, person and kind', async ({ tokens }) => {
     await Promise.all(Array.from({ length: 30 }, (_, index) => hubAdminTestWrite(index % 2 === 0 ? tokens.root : tokens.alice, `/admin/api/users/${index % 3 === 0 ? 'bob' : 'alice'}/rpc/routines/list`, {
       body: { json: { botId: crypto.randomUUID() } },

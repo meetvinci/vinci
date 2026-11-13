@@ -7,6 +7,7 @@ import { Button } from '@repo/ui/button';
 import { ButtonLoading } from '@repo/ui/button-loading';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/empty';
 import { MessageScrollerProvider } from '@repo/ui/message-scroller';
+import { OutsideContentPolicy } from '@repo/ui/outside-content';
 import { Skeleton } from '@repo/ui/skeleton';
 import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
@@ -14,6 +15,7 @@ import { useEffect, useTransition } from 'react';
 import { match, P } from 'ts-pattern';
 import { AdminConversationWaiting } from '@/components/admin/admin-conversation-waiting';
 import { RoomsChatTranscript } from '@/components/rooms/rooms-chat-transcript';
+import { adminLoadOutside } from '@/services/admin/admin.client';
 import { adminConversationWaiting, adminQueriesStatus } from '@/services/admin/admin.utils';
 import IconArrowLeft from '~icons/lucide/arrow-left';
 import IconEye from '~icons/lucide/eye';
@@ -42,6 +44,12 @@ export function AdminConversation({ userId, botId, entryId }: AdminConversationP
       queryClient.invalidateQueries({ queryKey: rpc.artifacts.key() }),
       queryClient.invalidateQueries({ queryKey: rpc.bots.list.key() }),
     ]);
+  });
+
+  const loadOutside = (conversationId: number) => adminLoadOutside({
+    userId,
+    botId,
+    conversationId,
   });
 
   const header = (
@@ -95,23 +103,25 @@ export function AdminConversation({ userId, botId, entryId }: AdminConversationP
     .with({ status: 'pending' }, () => <AdminConversationSkeleton />)
     .with({ status: 'error' }, () => <AdminConversationNotice description={m.admin_user_unreachable_hint()} title={m.admin_conversations_failed()} />)
     .with({ chat: P.nonNullable, bot: P.nonNullable }, (found) => (found.chat.lastMessage ? (
-      <MessageScrollerProvider key={`${userId}:${botId}:${entryId ?? 'latest'}`}>
-        {entryId === undefined ? (
-          <AdminConversationLatest
-            bot={found.bot}
-            bots={bots.data ?? []}
-            conversationId={found.chat.conversationId}
-          />
-        ) : (
-          <AdminConversationAround
-            bot={found.bot}
-            bots={bots.data ?? []}
-            conversationId={found.chat.conversationId}
-            entryId={entryId}
-            userId={userId}
-          />
-        )}
-      </MessageScrollerProvider>
+      <OutsideContentPolicy onAllow={() => loadOutside(found.chat.conversationId)}>
+        <MessageScrollerProvider key={`${userId}:${botId}:${entryId ?? 'latest'}`}>
+          {entryId === undefined ? (
+            <AdminConversationLatest
+              bot={found.bot}
+              bots={bots.data ?? []}
+              conversationId={found.chat.conversationId}
+            />
+          ) : (
+            <AdminConversationAround
+              bot={found.bot}
+              bots={bots.data ?? []}
+              conversationId={found.chat.conversationId}
+              entryId={entryId}
+              userId={userId}
+            />
+          )}
+        </MessageScrollerProvider>
+      </OutsideContentPolicy>
     ) : <AdminConversationNotice description={m.admin_conversations_no_messages_hint()} title={m.admin_conversations_no_messages()} />))
     .otherwise(() => <AdminConversationNotice description={m.admin_conversations_missing_hint()} title={m.admin_conversations_missing()} />);
 

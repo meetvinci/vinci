@@ -9,6 +9,7 @@ export function auditActionRecord(deps: AuditTypes.AuditServiceDeps, entry: Audi
     tag: 'hub-audit',
     message: match(entry)
       .with({ kind: 'change' }, () => 'Admin made a change')
+      .with({ action: 'outside/load' }, () => 'Admin loaded outside content in a conversation')
       .when(({ action }) => /^(?:routines|todos)\//u.test(action), () => 'Admin read routines or todos')
       .otherwise(() => 'Admin read a conversation'),
     by: entry.by,

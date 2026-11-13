@@ -33,6 +33,28 @@ export async function coreAuditChange(
   }
 }
 
+export function coreAuditOutside(
+  services: CoreTypes.CoreServices,
+  { identity }: CoreTypes.CoreAdminContext,
+  { target, user }: CoreTypes.CoreAuditOutside,
+): Response {
+  const headers = { 'Cache-Control': 'no-store' };
+
+  if (!user) {
+    return new Response(null, { status: 404, headers });
+  }
+
+  return coreAuditRecord(services, {
+    by: identity.email,
+    kind: 'read',
+    action: 'outside/load',
+    userId: user.id,
+    botId: target.botId,
+    conversationId: target.conversationId,
+    status: 204,
+  }) ? new Response(null, { status: 204, headers }) : Response.json({ error: 'audit_unavailable' }, { status: 503, headers });
+}
+
 export function coreAuditRecord(services: CoreTypes.CoreServices, entry: AuditEntry): boolean {
   try {
     services.audit.actions.record(entry);

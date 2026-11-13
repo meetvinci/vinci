@@ -1,7 +1,7 @@
 import { createRouterUtils } from '@orpc/tanstack-query';
 import { CHAT, makeHttpClient } from '@repo/client/client';
 import { queryMutationCache } from '@repo/client/react';
-import { adminAuditPage, adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminSectionPreview, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
+import { adminAuditPage, adminBotCopyResult, adminChangeResult, adminGlobal, adminGlobalStatus, adminList, adminMe, adminOutsideResult, adminSectionPreview, adminUserCreateResult, adminUserList, adminUserSections, AVATAR } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { log } from '@repo/logger/client';
 import { toasty } from '@repo/ui/sonner';
@@ -192,6 +192,15 @@ export function adminRemoveUser({ id }: Pick<UniversalTypes.AdminUserPatch, 'id'
     path: `/users/${encodeURIComponent(id)}`,
     schema: adminChangeResult,
     method: 'DELETE',
+  });
+}
+
+export async function adminLoadOutside({ userId, botId, conversationId }: AdminTypes.AdminOutsideParams): Promise<void> {
+  await adminRequest({
+    path: `/users/${encodeURIComponent(userId)}/outside`,
+    schema: adminOutsideResult,
+    method: 'POST',
+    body: { botId, conversationId },
   });
 }
 
