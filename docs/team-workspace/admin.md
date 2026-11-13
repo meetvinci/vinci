@@ -234,6 +234,8 @@ An admin can read every conversation a person has with their bots, read only, in
 - One chat per bot. Hidden and muted chats are listed too.
 - The messages, photos (click to enlarge) and files (click to download), tool calls with the approval asked and its answer, answers to the bot's questions, and silent turns, as they happened. Scroll up for older messages.
 - A subagent run: click its card to read what it did. A private conversation between two of the person's bots: click the bot's name in *Messaged …* to read it.
+- An artifact: click its card to open it read only, at the version that message made. **Version** lists the other versions the bot keeps; pick one to see it. It looks and works as in the person's app (a page runs in the same sandbox: it cannot reach the panel, your session, your storage or the network through requests, open windows or post forms), but nothing you tick, type or pick is saved, and you can't rename or restore it. Closing the pane forgets what you changed.
+- What waits for the person: an approval a bot asked for shows as **Waiting for approval** with the command or tool and what it would do; a bot's question shows as **Waiting for an answer** with its text and choices (a secret question names the secret, never a value). Only the person can answer, in their app; the panel has no buttons for it.
 - Search: type and press Enter. It searches every chat of that person; a hit opens the chat at that message. Like the app's search, it looks at recent messages first, so an old match may need a more recent word.
 
 **What leaves no trace**
@@ -242,14 +244,13 @@ Reading changes nothing the person sees: nothing is marked read, unread counts, 
 
 **The audit trail**
 
-Every read is recorded with your email, the person, the bot and the conversation, never the content: one row when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, and one when the person's Bots tab reads their routines or todos. See them under [Activity](#activity). If the hub cannot record a read, it refuses the read: the panel shows the chat or file as failed, and nothing is shown unrecorded.
+Every read is recorded with your email, the person, the bot and the conversation, never the content: one row when you open a chat, press **Refresh** or load older messages, one per chat searched, one per file opened, one per artifact version opened, one for the waiting approvals and one for the waiting questions when something is waiting (opening a chat with nothing waiting adds no row for them), and one when the person's Bots tab reads their routines or todos. See them under [Activity](#activity). If the hub cannot record a read, it refuses the read: the panel shows the chat or file as failed, and nothing is shown unrecorded.
 
 **What the panel does not show (known gaps)**
 
-- An artifact shows only its title: running its page in the panel would run the person's code with your access.
-- An approval or question still waiting shows as an unfinished tool step, without its card. You can never answer it.
-- A reply still being written appears after **Refresh**.
-- Links show without a preview.
+- A reply still being written appears after **Refresh**; so does an approval or question asked after you opened the chat.
+- Links show without a preview or a site icon. A preview is fetched live by the person's Orbs each time (it stores none), so showing one would make their workspace fetch an address of your choice, and the preview's picture and the icon would load in your browser from outside sites. Previews were removed in the wave 3 review for that reason, and stay off.
+- An artifact can tell an outside site that you opened it. A picture inside it (its **Image** block) loads from the address the bot gave, as in the person's app, so that site learns your IP address, your browser and when you opened it. A page can do the same by sending a network probe (WebRTC) or by sending its own frame to an address; the panel then closes the page and says so. Neither can read anything of yours. A picture address can also point at the panel's own read addresses, so your browser makes that read as you: it shows nothing to the bot, but a file read through it is recorded as yours.
 - **Cleared history is gone.** When the person clears a chat, its messages, files, subagent runs and private conversations are replaced by an empty chat; only the routines, todos and the latest version of each artifact carry over. You then see the same as the person.
 - The template workspace has no conversations with anyone.
 - There is no export.

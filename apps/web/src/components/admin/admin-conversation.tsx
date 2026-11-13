@@ -12,8 +12,9 @@ import { useInfiniteQuery, useQueries, useQuery, useQueryClient } from '@tanstac
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useTransition } from 'react';
 import { match, P } from 'ts-pattern';
+import { AdminConversationWaiting } from '@/components/admin/admin-conversation-waiting';
 import { RoomsChatTranscript } from '@/components/rooms/rooms-chat-transcript';
-import { adminQueriesStatus } from '@/services/admin/admin.utils';
+import { adminConversationWaiting, adminQueriesStatus } from '@/services/admin/admin.utils';
 import IconArrowLeft from '~icons/lucide/arrow-left';
 import IconEye from '~icons/lucide/eye';
 import IconRefreshCw from '~icons/lucide/refresh-cw';
@@ -37,6 +38,8 @@ export function AdminConversation({ userId, botId, entryId }: AdminConversationP
   const refresh = () => startRefresh(async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: rpc.conversation.key() }),
+      queryClient.invalidateQueries({ queryKey: rpc.tools.pending.key() }),
+      queryClient.invalidateQueries({ queryKey: rpc.artifacts.key() }),
       queryClient.invalidateQueries({ queryKey: rpc.bots.list.key() }),
     ]);
   });
@@ -138,11 +141,15 @@ function AdminConversationLatest({ bot, bots, conversationId }: AdminConversatio
     enabled: true,
   });
 
-  const messages = chatMessages({
+  const { data: pending = [] } = useQuery(rpcs.rpc.tools.pending.queryOptions({ input: { botId: bot.id } }));
+  const { data: questions = [] } = useQuery(rpcs.rpc.conversation.questions.queryOptions({ input: { botId: bot.id, conversationId } }));
+  const approvals = pending.filter((approval) => approval.conversationId === conversationId || approval.privateWith !== null);
+
+  const messages = adminConversationWaiting(chatMessages({
     entries: [...(history.data?.pages.flatMap((page) => page.items) ?? [])].reverse(),
     bot,
     bots,
-  });
+  }), approvals);
 
   const reactions = useQueries({
     queries: (history.data?.pages ?? []).map((page) => rpcs.rpc.conversation.reactions.queryOptions({
@@ -168,6 +175,14 @@ function AdminConversationLatest({ bot, bots, conversationId }: AdminConversatio
         bot={bot}
         bots={bots}
         focusedEntryId={undefined}
+        footer={approvals.length + questions.length > 0 ? (
+          <AdminConversationWaiting
+            approvals={approvals}
+            bot={bot}
+            bots={bots}
+            questions={questions}
+          />
+        ) : undefined}
         messages={messages}
         older={{ isEnabled: history.hasNextPage, isLoading: history.isFetchingNextPage, onLoad: () => void history.fetchNextPage() }}
         reactions={reactions}

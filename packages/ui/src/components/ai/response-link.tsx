@@ -56,7 +56,7 @@ export function ResponseLink({ node: _node, href = '', className, children, ...p
   const rpcs = use(rpcContext);
   const rpc = rpcs?.hasLinkPreviews === false ? undefined : rpcs?.rpc;
   const path = linkInternalPath(href, origin);
-  const favicon = linkFaviconUrl(href);
+  const favicon = rpcs?.hasLinkPreviews === false ? null : linkFaviconUrl(href);
   const host = linkHost(href);
 
   if (!href || href.startsWith('streamdown:')) {
@@ -80,7 +80,7 @@ export function ResponseLink({ node: _node, href = '', className, children, ...p
     </a>
   );
 
-  // Artifact embeds render without a daemon connection, and the admin panel asks for no previews, so they show the favicon only.
+  // Artifact embeds render without a daemon connection, so they show the favicon only; the admin panel asks for neither, so it shows the plain link.
   if (!favicon || !host || !rpc) {
     return anchor;
   }

@@ -18,7 +18,7 @@ export const tools = {
     return context.tools.actions.configure(input);
   }),
   export: localRouter.tools.export.handler(async ({ context }) => context.tools.queries.export()),
-  pending: authedRouter.tools.pending.handler(async ({ context, input }) => context.conversation.queries.approvals(input)),
+  pending: ownerRouter.tools.pending.handler(async ({ context, input }) => context.conversation.queries.approvals(input)),
   alwaysAllowed: ownerRouter.tools.alwaysAllowed.handler(async ({ context, input }) => context.tools.queries.alwaysAllowed(input)),
   clearAlwaysAllowed: ownerRouter.tools.clearAlwaysAllowed.handler(async ({ context, input }) => context.tools.actions.clearAlwaysAllowed(input)),
   answer: authedRouter.tools.answer.handler(async ({ context, input }) => (

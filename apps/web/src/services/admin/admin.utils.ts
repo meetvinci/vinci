@@ -8,6 +8,7 @@ import { ADMIN } from '@/services/admin/admin.constants';
 import { SETTINGS_NAV } from '@/services/settings/settings.constants';
 import type * as AdminTypes from '@/types/admin.types';
 import type { SectionScope } from '@/types/section.types';
+import type { ChatMessage } from '@repo/client/client';
 import type * as UniversalTypes from '@repo/contracts/universal';
 
 export function adminSectionScope(userId: string): SectionScope {
@@ -203,6 +204,9 @@ export function adminAuditSentence({ action, detail }: UniversalTypes.AdminAudit
     .with('conversation/list', () => m.admin_activity_read_list())
     .with('conversation/history', () => m.admin_activity_read_history())
     .with('conversation/search', () => m.admin_activity_read_search())
+    .with('conversation/questions', () => m.admin_activity_read_questions())
+    .with('tools/pending', () => m.admin_activity_read_approvals())
+    .with('artifacts/get', () => m.admin_activity_read_artifact())
     .with('routines/list', () => m.admin_activity_read_routines())
     .with('todos/list', () => m.admin_activity_read_todos())
     .with('attachments/download', () => m.admin_activity_read_file())
@@ -219,4 +223,17 @@ export function adminAuditSentence({ action, detail }: UniversalTypes.AdminAudit
     .with('global/sync', () => (detail ? m.admin_activity_sync_section({ section: adminAuditSection(detail) }) : m.admin_activity_sync()))
     .with('bots/copy', () => m.admin_activity_bots_copy({ count: detail ?? '' }))
     .otherwise((procedure) => m.admin_activity_change({ procedure }));
+}
+
+export function adminConversationWaiting(messages: ChatMessage[], approvals: UniversalTypes.ToolApproval[]): ChatMessage[] {
+  const waiting = new Map(approvals.map((approval) => [`${approval.toolName}:${JSON.stringify(approval.arguments)}`, approval]));
+
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.map((part) => match(part)
+      .with({ type: 'dynamic-tool', state: 'input-available' }, (tool) => match(waiting.get(`${tool.toolName}:${JSON.stringify(tool.input)}`))
+        .with(P.nonNullable, (approval) => ({ ...tool, state: 'approval-requested' as const, approval: { id: String(approval.id) } }))
+        .otherwise(() => tool))
+      .otherwise(() => part)),
+  }));
 }

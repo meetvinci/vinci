@@ -6,7 +6,8 @@ import type { RpcLocalAllowlist, RpcLocalAuthorizeParams, RpcLocalRule } from '.
 const RPC_LOCAL_ALLOWLIST = {
   server: { info: true, configure: true },
   onboarding: { state: true, complete: true },
-  conversation: { settings: true, configure: true, list: true, history: true, search: true, reactions: true },
+  conversation: { settings: true, configure: true, list: true, history: true, search: true, reactions: true, questions: true },
+  artifacts: { get: true, versions: true },
   attachments: { download: true, poster: true },
   notifications: { settings: true, configure: true },
   limits: { settings: true, configure: true },
@@ -17,7 +18,7 @@ const RPC_LOCAL_ALLOWLIST = {
   skills: { discover: true, shared: true, local: true, settings: true, configure: true },
   mcp: { discover: true, shared: true, connect: true, add: true, remove: true, settings: true, configure: true },
   mcpAuth: { start: true, complete: true, cancel: true, logout: true, status: true },
-  tools: { settings: true, configure: true, export: true, alwaysAllowed: true, clearAlwaysAllowed: true },
+  tools: { settings: true, configure: true, export: true, pending: true, alwaysAllowed: true, clearAlwaysAllowed: true },
   workspace: { export: true, import: true },
   secrets: { list: true, save: true, remove: true, settings: true, configure: true, export: true, import: true },
   credentials: { list: true, set: true },

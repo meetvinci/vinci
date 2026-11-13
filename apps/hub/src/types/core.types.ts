@@ -71,6 +71,7 @@ export interface CoreAdminFile {
 export interface CoreAdminRead {
   body: string;
   isAudited: boolean;
+  isWaiting: boolean;
   target: ConversationTarget | null;
 }
 

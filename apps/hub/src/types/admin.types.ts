@@ -25,6 +25,8 @@ export const adminReadBody = adminReadJson.pipe(z.object({ json: conversationTar
 
 export const adminWriteBody = adminReadJson.pipe(z.object({ json: z.object({ botId: z.uuid() }) }));
 
+export const adminEmptyReply = adminReadJson.pipe(z.object({ json: z.array(z.json()).length(0) }));
+
 export const adminListBody = z.union([z.literal(''), adminReadJson.pipe(z.object({ json: z.union([z.null(), z.strictObject({})]).optional() }))]);
 
 export interface AdminServiceParams {

@@ -140,12 +140,18 @@ function hubFixtureModelReply(body: string): string {
     usage: { input_tokens: 1, output_tokens: 1 },
   };
 
+  const tool = /MOCK-TOOL (\w+) (\{.*\})$/u.exec(text);
+
+  const [start, delta] = match(tool)
+    .with(P.nonNullable, ([, name, input]) => [{ type: 'tool_use', id: `toolu_${crypto.randomUUID().replaceAll('-', '')}`, name, input: {} }, { type: 'input_json_delta', partial_json: input }])
+    .otherwise(() => [{ type: 'text', text: '' }, { type: 'text_delta', text: `Mock reply: ${text.slice(-60)}` }]);
+
   const events: [string, object][] = [
     ['message_start', { type: 'message_start', message }],
-    ['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }],
-    ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `Mock reply: ${text.slice(-60)}` } }],
+    ['content_block_start', { type: 'content_block_start', index: 0, content_block: start }],
+    ['content_block_delta', { type: 'content_block_delta', index: 0, delta }],
     ['content_block_stop', { type: 'content_block_stop', index: 0 }],
-    ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 3 } }],
+    ['message_delta', { type: 'message_delta', delta: { stop_reason: tool ? 'tool_use' : 'end_turn', stop_sequence: null }, usage: { output_tokens: 3 } }],
     ['message_stop', { type: 'message_stop' }],
   ];
 

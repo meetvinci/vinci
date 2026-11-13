@@ -1,6 +1,7 @@
 import { htmlDocument } from '@repo/client/client';
 import { THEME_CONFIG, useTheme } from '@repo/client/web';
 import { htmlFrameMessage } from '@repo/contracts/universal';
+import { m } from '@repo/i18n/client';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
@@ -13,7 +14,9 @@ interface HtmlFrameProps {
 
 export function HtmlFrame({ html, title }: HtmlFrameProps) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const loads = useRef(0);
   const [height, setHeight] = useState(320);
+  const [hasLeft, setHasLeft] = useState(false);
   const theme = useTheme();
   const { data: fonts } = useQuery(htmlFrameFonts);
   const document = htmlDocument(html);
@@ -56,7 +59,14 @@ export function HtmlFrame({ html, title }: HtmlFrameProps) {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  return (
+  // The srcdoc loads once; a later load is the page sending its own frame to an address the bot chose, so the frame closes.
+  const onLoad = () => {
+    loads.current += 1;
+
+    return loads.current > 1 ? setHasLeft(true) : postTheme();
+  };
+
+  return hasLeft ? <p className="text-sm text-muted-foreground" role="alert">{m.ui_html_left()}</p> : (
     <iframe
       className="block w-full border-0"
       ref={frame}
@@ -65,7 +75,7 @@ export function HtmlFrame({ html, title }: HtmlFrameProps) {
       srcDoc={document}
       style={{ height, colorScheme: theme.resolved }}
       title={title}
-      onLoad={postTheme}
+      onLoad={onLoad}
     />
   );
 }

@@ -1,5 +1,3 @@
-import { makeHttpClient } from '@repo/client/client';
-import { authPairCode, authRedeemResult } from '@repo/contracts/universal';
 import { join } from 'node:path';
 import { describe, expect, vi } from 'vitest';
 import { z } from 'zod';
@@ -7,7 +5,7 @@ import { hubAdminTestKit } from './support/hub-admin.fixture';
 import { HUB_RELAY_FIXTURE, hubFixtureFakeSocket } from './support/hub.fixture';
 
 const { hub, publicOrigin, emails } = HUB_RELAY_FIXTURE;
-const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_RELAY_FIXTURE);
+const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite, person: hubAdminTestPerson } = hubAdminTestKit(HUB_RELAY_FIXTURE);
 
 describe('admin relay to the private door', () => {
   it('forwards only RPC to the owner socket, pinned and without the caller identity', async ({ fixture, tokens }) => {
@@ -166,31 +164,7 @@ describe('admin relay to the private door', () => {
     ].map(async (input) => limits('configure', input)));
 
     const after = await limits('settings', null);
-    const handoff = await hubAdminTestGet('/connect', tokens.bob);
-    const { pin } = authPairCode.parse(new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code'));
-
-    const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
-      method: 'POST',
-      headers: { 'cf-access-jwt-assertion': tokens.bob, 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
-      body: JSON.stringify({ json: { pin, name: 'bob limits test' } }),
-    });
-
-    const device = z.object({ json: authRedeemResult }).parse(await redeemed.json()).json;
-
-    const person = makeHttpClient(() => ({
-      url: `${hub}/rpc`,
-      serverId: device.serverId,
-      token: () => device.token,
-      fetch: (url, init) => {
-        const headers = new Headers(init.headers);
-
-        headers.set('cf-access-jwt-assertion', tokens.bob);
-        headers.set('origin', publicOrigin);
-
-        return fetch(url, { ...init, headers });
-      },
-    }));
-
+    const person = await hubAdminTestPerson(tokens.bob);
     const own = await person.limits.settings();
 
     await expect(person.limits.configure({ rpcInFlight: 100 })).rejects.toMatchObject({ code: 'TEAM_MANAGED' });
@@ -232,30 +206,7 @@ describe('conversation viewer through the relay', () => {
     });
 
     const { id: botId } = z.object({ json: z.object({ id: z.uuid() }) }).parse(created.json).json;
-    const handoff = await hubAdminTestGet('/connect', tokens.alice);
-    const { pin } = authPairCode.parse(new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code'));
-
-    const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
-      method: 'POST',
-      headers: { 'cf-access-jwt-assertion': tokens.alice, 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
-      body: JSON.stringify({ json: { pin, name: 'alice viewer test' } }),
-    });
-
-    const device = z.object({ json: authRedeemResult }).parse(await redeemed.json()).json;
-
-    const person = makeHttpClient(() => ({
-      url: `${hub}/rpc`,
-      serverId: device.serverId,
-      token: () => device.token,
-      fetch: (url, init) => {
-        const headers = new Headers(init.headers);
-
-        headers.set('cf-access-jwt-assertion', tokens.alice);
-        headers.set('origin', publicOrigin);
-
-        return fetch(url, { ...init, headers });
-      },
-    }));
+    const person = await hubAdminTestPerson(tokens.alice);
 
     const attachment = await person.attachments.upload({ botId, file: new File(['viewer attachment body'], 'note.txt', { type: 'text/plain' }) });
 
@@ -338,9 +289,99 @@ describe('conversation viewer through the relay', () => {
     expect(logs).not.toContain('viewer attachment body');
   });
 
+  it('opens an artifact by version and shows what waits for the person, without changing what they see, and audits only real reads', async ({ fixture, tokens }) => {
+    const create = async (handle: string) => z.object({ json: z.object({ id: z.uuid() }) }).parse((await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/rpc/bots/create', {
+      body: { json: { name: handle, handle, modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'medium' } },
+      headers: { 'x-bots-protocol': '1' },
+    })).json).json.id;
+
+    const [asker, approver] = [await create('askerbot'), await create('approverbot')];
+    const person = await hubAdminTestPerson(tokens.alice);
+    const text = (value: string) => ({ root: 'text', elements: { text: { type: 'Text', props: { text: value }, children: [] } }, state: { seen: false } });
+
+    const first = await person.artifacts.create({
+      botId: approver,
+      title: 'Viewer artifact',
+      spec: text('ARTIFACT-V1-TEXT'),
+    });
+
+    await person.artifacts.update({
+      botId: approver,
+      artifactId: first.id,
+      version: first.version,
+      spec: text('ARTIFACT-V2-TEXT'),
+    });
+    await person.conversation.submit({
+      botId: approver,
+      requestId: crypto.randomUUID(),
+      content: 'MOCK-TOOL bash {"command":"echo WAITING-COMMAND"}',
+    });
+    await person.conversation.submit({
+      botId: asker,
+      requestId: crypto.randomUUID(),
+      content: 'MOCK-TOOL bot_question {"text":"WAITING-QUESTION?","choices":["Yes","No"]}',
+    });
+    await vi.waitFor(async () => expect(await person.tools.pending({ botId: approver })).toHaveLength(1), { timeout: 30_000, interval: 250 });
+    await vi.waitFor(async () => expect(await person.conversation.questions({ botId: asker })).toHaveLength(1), { timeout: 30_000, interval: 250 });
+
+    const ref = { botId: approver, conversationId: first.conversationId, artifactId: first.id };
+
+    const snapshot = async () => JSON.stringify([
+      await person.conversation.list(),
+      await person.sidebarSections.list(),
+      await person.artifacts.get(ref),
+      await person.artifacts.versions(ref),
+      await person.artifacts.list({ botId: approver }),
+      await person.tools.pending({ botId: approver }),
+      await person.conversation.questions({ botId: asker }),
+    ]);
+
+    const before = await snapshot();
+    const logged = fixture.logs.length;
+    const read = (procedure: string, input: object) => hubAdminTestWrite(tokens.root, `/admin/api/users/alice/rpc/${procedure}`, { body: { json: input }, headers: { 'x-bots-protocol': '1' } });
+
+    const reads = await Promise.all([
+      read('artifacts/get', { ...ref, version: 1 }),
+      read('artifacts/get', ref),
+      read('artifacts/versions', ref),
+      read('tools/pending', { botId: approver }),
+      read('conversation/questions', { botId: asker }),
+      read('tools/pending', { botId: asker }),
+      read('conversation/questions', { botId: approver }),
+    ]);
+
+    const writes = await Promise.all([
+      // The door refuses by procedure before it reads the input, so a bare target is enough.
+      read('artifacts/saveState', ref),
+      read('artifacts/restore', ref),
+      read('tools/answer', { botId: approver }),
+      read('conversation/answerQuestion', { botId: asker }),
+    ]);
+
+    const after = await snapshot();
+    const logs = fixture.logs.slice(logged).join('');
+    const audits = logs.split(/\n(?=\S)/u).filter((line) => line.includes('Admin read a conversation'));
+    const [v1, v2, versions, pending, questions, nothingPending, noQuestions] = reads.map(({ json }) => JSON.stringify(json));
+
+    expect(reads.map(({ status }) => status)).toEqual(reads.map(() => 200));
+    expect(v1).toContain('ARTIFACT-V1-TEXT');
+    expect(v2).toContain('ARTIFACT-V2-TEXT');
+    expect(versions).toContain('"version":1');
+    expect(pending).toContain('WAITING-COMMAND');
+    expect(questions).toContain('WAITING-QUESTION?');
+    expect([nothingPending, noQuestions]).toEqual(['{"json":[]}', '{"json":[]}']);
+    expect(writes.map(({ status }) => status)).toEqual([403, 403, 403, 403]);
+    expect(after).toBe(before);
+    expect(audits.filter((line) => line.includes('artifacts/get') && line.includes(approver))).toHaveLength(2);
+    expect(audits.filter((line) => line.includes('artifacts/versions'))).toHaveLength(0);
+    expect(audits.filter((line) => line.includes('tools/pending')).map((line) => line.includes(approver))).toEqual([true]);
+    expect(audits.filter((line) => line.includes('conversation/questions')).map((line) => line.includes(asker))).toEqual([true]);
+    expect(['ARTIFACT-V1-TEXT', 'ARTIFACT-V2-TEXT', 'WAITING-COMMAND', 'WAITING-QUESTION'].filter((content) => logs.includes(content))).toEqual([]);
+  });
+
   it('refuses the reads the viewer does not use, and an audited read whose body the hub cannot parse', async ({ fixture, tokens }) => {
     const botId = crypto.randomUUID();
-    const unused = ['conversation/questions', 'conversation/contexts', 'tools/pending', 'artifacts/list', 'artifacts/listBot', 'artifacts/get', 'artifacts/versions', 'activity/list', 'activity/run', 'attachments/list', 'attachments/download', 'attachments/poster', 'links/preview'];
+    const unused = ['conversation/contexts', 'artifacts/list', 'artifacts/listBot', 'artifacts/blocks', 'activity/list', 'activity/run', 'attachments/list', 'attachments/download', 'attachments/poster', 'links/preview'];
 
     const refused = await Promise.all(unused.map(async (procedure) => (await hubAdminTestWrite(tokens.root, `/admin/api/users/alice/rpc/${procedure}`, {
       body: { json: { botId } },

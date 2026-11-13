@@ -1,3 +1,5 @@
+import { makeHttpClient } from '@repo/client/client';
+import { authPairCode, authRedeemResult } from '@repo/contracts/universal';
 import { test } from 'vitest';
 import { z } from 'zod';
 import { hubFixtureStart } from './hub.fixture';
@@ -38,6 +40,33 @@ export function hubAdminTestKit(config: HubFixtureConfig) {
     body: body ? JSON.stringify(body) : undefined,
   }));
 
+  const person = async (token: string) => {
+    const handoff = await get('/connect', token);
+    const { pin } = authPairCode.parse(new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code'));
+
+    const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
+      method: 'POST',
+      headers: { 'cf-access-jwt-assertion': token, ...writeHeaders, 'x-bots-protocol': '1' },
+      body: JSON.stringify({ json: { pin, name: 'hub test device' } }),
+    });
+
+    const device = z.object({ json: authRedeemResult }).parse(await redeemed.json()).json;
+
+    return makeHttpClient(() => ({
+      url: `${hub}/rpc`,
+      serverId: device.serverId,
+      token: () => device.token,
+      fetch: (url, init) => {
+        const headers = new Headers(init.headers);
+
+        headers.set('cf-access-jwt-assertion', token);
+        headers.set('origin', publicOrigin);
+
+        return fetch(url, { ...init, headers });
+      },
+    }));
+  };
+
   const it = test.extend<HubAdminTestFixtures>({
     config: [config, { scope: 'file' }],
     fixture: [async ({ config: started }, use) => {
@@ -56,5 +85,5 @@ export function hubAdminTestKit(config: HubFixtureConfig) {
     }, { scope: 'file' }],
   });
 
-  return { it, get, read, write };
+  return { it, get, read, write, person };
 }

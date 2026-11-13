@@ -3,7 +3,7 @@ import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
 import { provisionerAccessMode, provisionerAccessOf } from '../services/provisioner/provisioner.utils';
-import { adminInput, adminListBody, adminReadBody, adminWriteBody } from '../types/admin.types';
+import { adminEmptyReply, adminInput, adminListBody, adminReadBody, adminWriteBody } from '../types/admin.types';
 import { auditListInput } from '../types/audit.types';
 import { globalBotsInput, globalModeInput, globalSyncInput } from '../types/global.types';
 import { userCreateInput, userUpdateInput } from '../types/user.types';
@@ -15,8 +15,9 @@ import type { z } from 'zod';
 const API_PREFIX = '/admin/api/';
 const RELAY_PATH = /^[A-Za-z\d]+(?:\/[A-Za-z\d]+)*$/u;
 const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/(?:export|import)$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
-const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions)|routines\/list|todos\/list)$/iu;
-const RELAY_UNAUDITED = /^conversation\/reactions$/iu;
+const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions|questions)|artifacts\/(?:get|versions)|tools\/pending|routines\/list|todos\/list)$/iu;
+const RELAY_UNAUDITED = /^(?:conversation\/reactions|artifacts\/versions)$/iu;
+const RELAY_WAITING = /^(?:tools\/pending|conversation\/questions)$/iu;
 const RELAY_QUIET = /^(?:[A-Za-z]+\/(?:list|get|catalog|settings|discover|shared|local|state|info|status|session)|tools\/alwaysAllowed)$/u;
 const RELAY_READ_LIMIT = 64 * 1024;
 const AVATAR_FILE = /^(?:bots\/)?[\da-f-]{36}\.(?:png|webp)$/u;
@@ -272,7 +273,9 @@ async function coreAdminRelay(
     signal: request.signal,
   }));
 
-  if (read?.isAudited && !coreAuditRecord(services, {
+  const reply = read?.isWaiting && response.ok ? await response.text() : null;
+
+  if (read?.isAudited && !coreAdminIsNothingWaiting(reply) && !coreAuditRecord(services, {
     by: identity.email,
     kind: 'read',
     action: procedure,
@@ -281,7 +284,7 @@ async function coreAdminRelay(
     conversationId: read.target?.conversationId ?? null,
     status: response.status,
   })) {
-    await response.body?.cancel();
+    await (reply === null ? response.body?.cancel() : undefined);
 
     return Response.json({ error: 'audit_unavailable' }, { status: 503, headers: NO_STORE });
   }
@@ -307,7 +310,7 @@ async function coreAdminRelay(
     .with(P.string, (value) => replyHeaders.set(name, value))
     .otherwise(() => undefined));
 
-  return new Response(response.body, { status: response.status, headers: replyHeaders });
+  return new Response(reply ?? response.body, { status: response.status, headers: replyHeaders });
 }
 
 async function coreAdminGlobal(services: CoreTypes.CoreServices, run: () => Promise<Response>): Promise<Response> {
@@ -452,7 +455,11 @@ async function coreAdminRead(request: Request, procedure: string): Promise<CoreT
     throw new Errors.VALIDATION_ERROR({ fields: { body: { message: 'validation_invalid' } }, internal: `The admin relay reads only a JSON target for /rpc/${procedure}` });
   }
 
-  return { body, isAudited: !RELAY_UNAUDITED.test(procedure), target: target ?? null };
+  return { body, isAudited: !RELAY_UNAUDITED.test(procedure), isWaiting: RELAY_WAITING.test(procedure), target: target ?? null };
+}
+
+function coreAdminIsNothingWaiting(reply: string | null): boolean {
+  return reply !== null && adminEmptyReply.safeParse(reply).success;
 }
 
 function coreAdminIsSameSite({ request, publicUrl }: CoreTypes.CoreAdminContext): boolean {

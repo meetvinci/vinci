@@ -86,6 +86,14 @@ export function roomsQuestionText({ question }: RoomsTypes.RoomsQuestionTextPara
   return { title, detail: details.join('\n').trim() };
 }
 
+export function roomsQuestionHint({ question }: RoomsTypes.RoomsQuestionHintParams): string {
+  return match(question)
+    .with({ secret: { name: P.string } }, ({ secret }) => m.rooms_chat_question_secret({ name: secret.name, hosts: secret.hosts.join(', ') }))
+    .with({ choices: [] }, () => m.rooms_chat_question_open())
+    .with({ isMultiSelect: true }, () => m.rooms_chat_question_many())
+    .otherwise(() => m.rooms_chat_question_one());
+}
+
 export function roomsReactionGroups({ reaction, bots }: RoomsTypes.RoomsReactionGroupsParams): RoomsTypes.RoomsReactionGroup[] {
   const names = new Map(bots.map((bot) => [bot.id, bot.name]));
 

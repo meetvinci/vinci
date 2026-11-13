@@ -14,7 +14,16 @@ export const Route = createFileRoute('/admin/users/$userId/conversations')({
     const { rpc } = context.userRpc;
     const readOnce = { staleTime: Number.POSITIVE_INFINITY, refetchOnWindowFocus: false, refetchOnReconnect: false };
 
-    const reads = [rpc.conversation.list, rpc.conversation.history, rpc.conversation.search, rpc.conversation.reactions];
+    const reads = [
+      rpc.conversation.list,
+      rpc.conversation.history,
+      rpc.conversation.search,
+      rpc.conversation.reactions,
+      rpc.conversation.questions,
+      rpc.tools.pending,
+      rpc.artifacts.get,
+      rpc.artifacts.versions,
+    ];
 
     reads.forEach((procedure) => context.queryClient.setQueryDefaults(procedure.key(), readOnce));
 

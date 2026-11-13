@@ -300,7 +300,7 @@ const { registry } = defineRegistry(defineCatalog(schema, { components: artifact
 
 interface ArtifactViewProps {
   spec: ArtifactSpec
-  store: StateStore
+  store?: StateStore
   title: string
 }
 
@@ -315,6 +315,7 @@ export function ArtifactView({ spec, store, title }: ArtifactViewProps) {
     ))
     .otherwise((structured) => (
       <JSONUIProvider
+        initialState={structured.state}
         key={JSON.stringify(structured.elements)}
         registry={registry}
         store={store}

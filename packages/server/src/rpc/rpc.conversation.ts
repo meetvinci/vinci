@@ -9,7 +9,7 @@ export const conversation = {
     })
   )),
   search: ownerRouter.conversation.search.handler(async ({ context, input }) => context.conversation.queries.search(input)),
-  questions: authedRouter.conversation.questions.handler(async ({ context, input }) => context.conversation.queries.questions(input)),
+  questions: ownerRouter.conversation.questions.handler(async ({ context, input }) => context.conversation.queries.questions(input)),
   answerQuestion: authedRouter.conversation.answerQuestion.handler(async ({ context, input }) => context.conversation.actions.answerQuestion({
     ...input,
     answeredBy: context.device.id,

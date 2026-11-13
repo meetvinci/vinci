@@ -48,6 +48,10 @@ export interface RoomsQuestionTextParams {
   question: string;
 }
 
+export interface RoomsQuestionHintParams {
+  question: UniversalTypes.ConversationQuestion;
+}
+
 export interface RoomsQuestionText {
   title: string;
   detail: string;

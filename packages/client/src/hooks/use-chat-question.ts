@@ -1,10 +1,9 @@
 import { ORPCError } from '@orpc/client';
-import { m } from '@repo/i18n/client';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { match, P } from 'ts-pattern';
+import { match } from 'ts-pattern';
 import { chatAnswerProblem } from '../services/chat/chat.utils';
-import { roomsQuestionText } from '../services/rooms/rooms.utils';
+import { roomsQuestionHint, roomsQuestionText } from '../services/rooms/rooms.utils';
 import { useRpc } from './use-rpc';
 import type { ConversationQuestion, QuestionAnswerInput } from '@repo/contracts/universal';
 
@@ -26,11 +25,7 @@ export function useChatQuestion(question: ConversationQuestion) {
 
   return {
     ...roomsQuestionText({ question: question.text }),
-    hint: match(question)
-      .with({ secret: { name: P.string } }, ({ secret }) => m.rooms_chat_question_secret({ name: secret.name, hosts: secret.hosts.join(', ') }))
-      .with({ choices: [] }, () => m.rooms_chat_question_open())
-      .with({ isMultiSelect: true }, () => m.rooms_chat_question_many())
-      .otherwise(() => m.rooms_chat_question_one()),
+    hint: roomsQuestionHint({ question }),
     picked,
     typed,
     setTyped,
