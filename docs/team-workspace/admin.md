@@ -461,12 +461,12 @@ Each run writes one folder, `backups/<time>/` (UTC, such as `2026-11-13T030000Z`
 | --- | --- |
 | `<id>.tar.gz` | One person's whole volume, for everyone in `users.yaml` (disabled people too) and `template.tar.gz` for the template workspace. Someone removed from `users.yaml` is no longer backed up: back them up by hand before you remove them if you may need their data. |
 | `hub.tar.gz` | The hub's folder: `users.json`, `admins.json`, `pins.json`, `global.json` and the audit trail `audit.sqlite`. |
-| `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`, the off-site script, and any other file `COMPOSE_FILE` loads. |
+| `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`, and any other file `COMPOSE_FILE` loads. |
 | `manifest.json` | The image tag, each person (enabled, advanced, how long they were stopped), and each file's size and SHA-256. Written last: a folder without it is a run that did not finish. |
 
 People are backed up one at a time. Each person's Orbs stops for their own copy and starts again, so no database is copied half-written: about 2.5 seconds each on a test server, and a browser saw 0.5 to 2 seconds without answers. Then the hub stops for about 3 seconds while its folder is copied, so nobody's open app gets an answer for 1 to 2 seconds. Open chats reconnect on their own. A run waits up to five minutes for an `apply` or an admin panel change that is in progress, and admin panel changes made while it runs ask to try again in a minute.
 
-**Retention.** After a good run, the server keeps the newest run of each of the last 7 days and of each of the last 4 weeks (weeks start on Monday) and deletes every other run folder, including unfinished ones. Change the numbers with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. A run that fails deletes only its own unfinished folder, never an older run. Backups you made by hand (`backups/<id>-<time>.tar.gz`) are never deleted, nor is anything whose name is not a run's time. Only the newest run of a day (UTC) is kept, so a run you start by hand, such as the one before an upgrade, is deleted by any later run on the same day, the nightly one included when it runs later that day: copy it under another name if you want to keep it (see [Upgrades](#upgrades), step 1).
+**Retention.** After a good run, the server keeps every run of the last 7 days that have one, and the newest run of each of the last 4 weeks (weeks start on Monday, UTC), and deletes every other run folder, including unfinished ones. Change the numbers with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. A run that fails deletes only its own unfinished folder, never an older run. Backups you made by hand (`backups/<id>-<time>.tar.gz`) are never deleted, nor is anything whose name is not a run's time. A run you start by hand, such as the one before an upgrade, stays like the nightly ones: a later run on the same day does not replace it.
 
 **Check it:**
 
@@ -477,29 +477,91 @@ bun deploy.ts nightly status
 ```text
 Last run: backups/2026-11-13T030000Z, started 5.2 h ago: ok
 Tag 3335196, 4 workspaces, 0.1 MiB, took 14 s; longest stop template 2.7 s, hub 2.8 s
-Off-site copy: ok
 Finished backups on this server: 9 (2026-10-25T030000Z to 2026-11-13T030000Z)
+Off-site copy to acme-orbs-backups/orbs/: last upload 2026-11-13T030000Z, 5.2 h ago
 ```
 
-followed by the timer's next run. It exits with an error when the last run failed, when it still says `running` after two hours (the run was killed, for example by a power loss), or when the last good run is more than 36 hours old, so a monitoring check can run it. A failed run also ends the systemd job with an error and writes one line to the journal, `Nightly backup failed: <reason>`: see `journalctl -u orbs-backup.service`. A run stopped by systemd (after two hours, or by a shutdown) or by Ctrl-C starts whoever it had stopped again and counts as failed. Only a hard kill or a power loss in the few seconds someone is stopped can leave their Orbs or the hub stopped: `bun deploy.ts apply` starts it again. To back up right now, run `bun deploy.ts nightly`; it is the same command the timer runs.
+followed by the timer's next run. It exits with an error when the last run failed, when it still says `running` after two hours (the run was killed, for example by a power loss), when the last good run is more than 36 hours old, or when the [off-site copy](#off-site-copy) is on and its last upload failed, so a monitoring check can run it. A failed run also ends the systemd job with an error and writes one line to the journal, `Nightly backup failed: <reason>`: see `journalctl -u orbs-backup.service`. A run stopped by systemd (after two hours, or by a shutdown) or by Ctrl-C starts whoever it had stopped again and counts as failed. Only a hard kill or a power loss in the few seconds someone is stopped can leave their Orbs or the hub stopped: `bun deploy.ts apply` starts it again. To back up right now, run `bun deploy.ts nightly`; it is the same command the timer runs.
 
 ### Off-site copy
 
-Backups on the server's own disk are lost with the server. To copy each good run somewhere else, write a small script and name it in `.env`:
+Backups on the server's own disk are lost with the server. Each nightly run can also upload its backup to a bucket at an S3 provider: Amazon S3, Cloudflare R2, Backblaze B2 or any other S3-compatible storage. Off by default; the backups on the server stay as they are either way. It replaces the earlier `BACKUP_OFFSITE_SCRIPT`, which is no longer run: if your `.env` has it, set up the bucket below and delete that line.
 
-```sh
-BACKUP_OFFSITE_SCRIPT=/opt/orbs/offsite.sh
+**The copy is encrypted on the server before it leaves**, with GnuPG (OpenPGP, AES-256) and a passphrase you choose. Nothing is uploaded without one. The bucket only ever sees encrypted files and their checksums: no names, no secrets.
+
+> **Losing the passphrase means the off-site copies can never be restored.** Nobody can recover it, not even with access to the server and the bucket. Keep it outside this server, in your password manager, next to the bucket's keys. It is also in `.env`, so the backups on the server hold it, but those are gone with the server.
+
+1. Create a bucket and an access key that can list, read, write and delete in it (and nothing else, if your provider allows). Keep the bucket private.
+2. Make a passphrase and save it in your password manager first:
+
+   ```sh
+   openssl rand -hex 32
+   ```
+
+   Use letters and digits only: `.env` values lose anything written with `$`.
+3. Add these to `/opt/orbs/.env`, as in one of the examples below:
+
+   | Setting | What it is |
+   | --- | --- |
+   | `BACKUP_S3_BUCKET` | The bucket. Setting it turns the off-site copy on. |
+   | `BACKUP_S3_ENDPOINT` | The provider's S3 address. Leave empty for Amazon S3. |
+   | `BACKUP_S3_REGION` | The bucket's region (`auto` for R2). |
+   | `BACKUP_S3_PREFIX` | Optional folder in the bucket, such as `orbs/`. |
+   | `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | The access key. |
+   | `BACKUP_PASSPHRASE` | The passphrase from step 2, at least 20 characters. |
+
+   Amazon S3:
+
+   ```sh
+   BACKUP_S3_BUCKET=acme-orbs-backups
+   BACKUP_S3_REGION=eu-central-1
+   BACKUP_S3_PREFIX=orbs/
+   BACKUP_S3_ACCESS_KEY_ID=AKIA...
+   BACKUP_S3_SECRET_ACCESS_KEY=...
+   BACKUP_PASSPHRASE=<64 hex characters>
+   ```
+
+   Cloudflare R2 (an R2 API token with *Object Read & Write* on the bucket gives the key pair; a bucket with an EU jurisdiction uses `https://<account id>.eu.r2.cloudflarestorage.com`):
+
+   ```sh
+   BACKUP_S3_ENDPOINT=https://<account id>.r2.cloudflarestorage.com
+   BACKUP_S3_REGION=auto
+   BACKUP_S3_BUCKET=acme-orbs-backups
+   BACKUP_S3_ACCESS_KEY_ID=...
+   BACKUP_S3_SECRET_ACCESS_KEY=...
+   BACKUP_PASSPHRASE=<64 hex characters>
+   ```
+
+   Backblaze B2 (an application key for the bucket: its *keyID* and *applicationKey*; the endpoint is on the bucket's page):
+
+   ```sh
+   BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+   BACKUP_S3_REGION=us-west-004
+   BACKUP_S3_BUCKET=acme-orbs-backups
+   BACKUP_S3_ACCESS_KEY_ID=...
+   BACKUP_S3_SECRET_ACCESS_KEY=...
+   BACKUP_PASSPHRASE=<64 hex characters>
+   ```
+
+4. Run one backup and check it: `bun deploy.ts nightly`, then `bun deploy.ts nightly status`. Expected: `Uploaded <time> to <bucket>/<prefix>, encrypted (… MiB).` and `Off-site copy to <bucket>/<prefix>: last upload <time>, 0 min ago`.
+
+After each good run on the server, the run checks the backup against its `manifest.json`, encrypts it to one file and uploads `<prefix><time>.tar.gpg`, then `<prefix><time>.sha256` with that file's checksum. It uploads every backup kept on the server that the bucket does not have yet, so the first run uploads all of them, and a backup whose upload failed goes up with the next run. Then the bucket keeps what the server keeps (see Retention above, with the same `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY`): it deletes only objects under the prefix named like a backup (`<time>.tar.gpg`, `<time>.sha256`), so other files in the bucket are never touched, and it deletes nothing when an upload failed. Give each install its own prefix: two installs with the same bucket and prefix delete each other's backups. An upload cut off midway (power loss, a stopped run) can leave hidden parts of a multipart upload that the provider bills but never lists: where your provider allows it, add a lifecycle rule to the bucket that aborts incomplete multipart uploads after a few days (R2 does this after 7 days by itself).
+
+**When the upload fails** (wrong key, the provider unreachable, no passphrase), the backup on the server is kept and counts as good. The run ends with an error and the journal line `Off-site upload failed: <reason>`, and `nightly status` shows the reason and exits with an error until an upload works again:
+
+```text
+Off-site copy to acme-orbs-backups/orbs/: last upload 2026-11-12T030000Z, 26.5 h ago
+Last off-site failure 2.4 h ago: an unexpected error has occurred (DNSResolveFailed)
+The off-site copy is not up to date: the last upload failed or none was made yet.
 ```
 
-The script gets the run's folder as its only argument. For example, with [rclone](https://rclone.org) and a remote you set up with `rclone config`:
+The reason in brackets says what went wrong: `DNSResolveFailed` or `ConnectionRefused` (check `BACKUP_S3_ENDPOINT` and the server's internet access), `SignatureDoesNotMatch` or `InvalidAccessKeyId` (check the key pair), `NoSuchBucket` (check `BACKUP_S3_BUCKET` and the region). Fix `.env` and run `bun deploy.ts nightly` to try again at once.
 
-```sh
-#!/bin/sh
-set -eu
-rclone copy "$1" "orbs-offsite:orbs-backups/$(basename "$1")"
-```
+The upload holds the same lock as the backup, so admin panel changes made during it ask to try again in a minute. How long it takes depends on the size of the backups and the server's upload speed; the first run uploads every backup the server keeps.
 
-Make it executable and root-only (`chmod 700 offsite.sh`): it runs as root, so the run refuses a script that another user owns or that its group or others can change. Name a script, not a command line: `.env` values lose anything written with `$`. If the script fails, the run counts as failed (`nightly status` shows `Off-site copy: failed`), but the backup on the server is kept. Off by default. The script is backed up with the deployment files when it is in `/opt/orbs`. Whatever it copies to holds every secret above: choose a target only you can read, and encrypt it there if you can.
+The bucket's own encryption at rest, if your provider offers it, is an extra layer; it does not replace the passphrase, because the provider holds those keys.
+
+To restore from the bucket, see [Restore from the off-site copy](#restore-from-the-off-site-copy). To decrypt one by hand on any computer with GnuPG: `gpg --decrypt <time>.tar.gpg | tar -x` asks for the passphrase and gives the run's folder.
 
 ### Back up one person by hand
 
@@ -552,9 +614,46 @@ From one run folder alone, for example when the server is lost. Images are not i
    ```
 
    It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
-5. Turn the nightly backup on again: `bun deploy.ts nightly install`. Note that the next run's retention deletes the folder you restored from if it is older than that day's run; copy it elsewhere first if you want to keep it.
+5. Turn the nightly backup on again: `bun deploy.ts nightly install`. Note that the next run's retention deletes the folder you restored from once it is older than the 7 newest days with a run; copy it under a name that is not a run's time first if you want to keep it.
 
 Nothing changes in Cloudflare: the tunnel token in `.env` connects the new server to the same tunnel, and the hostname, Access and DNS stay. For people, the install is as it was at backup time: browsers paired before the backup open Orbs as usual and chats continue; a browser paired after the backup pairs again by itself; anything done after the backup (chats, settings, panel changes, people added) is gone and needs doing again. Admins, pins and section modes are the backup's, and the audit trail ends at the backup.
+
+### Restore from the off-site copy
+
+When the server is lost, or its disk no longer has the backup you want. You need the bucket settings and the passphrase from your password manager, and the images of the tag the backup was made with.
+
+1. Prepare the new server with [install](install.md) steps 1 and 2, load the images as in step 3 (build them from the tag you last upgraded to; step 4 tells you the backup's own tag) and install Bun as in step 3.
+2. Copy `deploy.ts` from that checkout and write a `.env` that holds only the image tag and the off-site settings:
+
+   ```sh
+   ssh root@<new server> 'mkdir -p -m 700 /opt/orbs'
+   scp scripts/deploy.ts root@<new server>:/opt/orbs/deploy.ts
+   ssh root@<new server> 'cd /opt/orbs && umask 077 && cat > .env'
+   ```
+
+   Type or paste `ORBS_TAG=<tag>`, every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
+3. List the backups in the bucket and pick one (UTC times, oldest first):
+
+   ```sh
+   ssh root@<new server> 'cd /opt/orbs && bun deploy.ts nightly fetch'
+   ```
+
+4. Fetch it:
+
+   ```sh
+   ssh root@<new server> 'cd /opt/orbs && bun deploy.ts nightly fetch <time>'
+   ```
+
+   It downloads `<time>.tar.gpg`, refuses it unless it matches `<time>.sha256`, decrypts it into `backups/<time>/` (refusing a wrong passphrase) and checks every file against the run's `manifest.json`. Expected: `Fetched <time> into backups/<time>; every file matches its manifest (tag <tag>).` If that tag is not the one you loaded, load its images now and set `ORBS_TAG` to it in `.env`.
+5. Unpack the deployment files from it. This replaces the short `.env` with the one from the backup, which has the same off-site settings:
+
+   ```sh
+   ssh root@<new server> 'cd /opt/orbs && tar -xzpf backups/<time>/deployment.tar.gz'
+   ```
+
+6. Go on with [Restore a whole install on a new server](#restore-a-whole-install-on-a-new-server) from step 3: stop the old server's Orbs if it still runs, `bun deploy.ts restore backups/<time>`, then `bun deploy.ts nightly install`.
+
+To restore one person from the bucket on a server that still runs, fetch the backup (step 4) and run `bun deploy.ts restore <id> backups/<time>` as in [Restore one person](#restore-one-person).
 
 ### Restore only the hub folder
 
@@ -575,11 +674,7 @@ bun deploy.ts apply
 
 New images arrive with a new tag. Build and load all five (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`, `orbs-firewall`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun orbs-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
-1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Orbs as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version. On the first upgrade to the version with nightly backups, the hub stops for about 7 seconds instead of 3: the running hub still has the old health check. Keep this run: a later run on the same day (UTC), such as that night's nightly run after an upgrade made just past midnight, deletes it, since retention keeps one run per day. Copy it under a name that is not a run's time, which retention never touches and `restore` accepts like a run folder:
-
-   ```sh
-   cp -a backups/<time> backups/pre-upgrade-<old tag>-<time>
-   ```
+1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Orbs as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version. On the first upgrade to the version with nightly backups, the hub stops for about 7 seconds instead of 3: the running hub still has the old health check. Note the run's time (`Last run: backups/<time>`): it stays for 7 days like the nightly runs, a later run on the same day included, and is the one to restore if the new version goes wrong.
 
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
 
@@ -621,7 +716,7 @@ To roll back, copy the old version's deployment files into `/opt/orbs` again (fr
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner` and (from the version with the firewall) `orbs-firewall` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and copy that run to `backups/pre-upgrade-<old tag>-<time>` so a later run on the same day cannot delete it. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `orbs-fw-undo` timer from the Upgrades section. Set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then only on the first upgrade to the version with the firewall, the `docker compose rm -sf …` command from the Upgrades section, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, the firewall `Up` with `Firewall on` in its log, and the hub log shows no error; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. The hub copies the global settings again as it starts; confirm the `global/sync` by `hub start` line in its log a minute after the restart. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner` and (from the version with the firewall) `orbs-firewall` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `orbs-fw-undo` timer from the Upgrades section. Set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then only on the first upgrade to the version with the firewall, the `docker compose rm -sf …` command from the Upgrades section, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, the firewall `Up` with `Firewall on` in its log, and the hub log shows no error; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. The hub copies the global settings again as it starts; confirm the `global/sync` by `hub start` line in its log a minute after the restart. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 

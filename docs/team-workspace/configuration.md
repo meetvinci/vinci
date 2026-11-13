@@ -20,7 +20,10 @@ Every setting and file in a team install. "Set by the image" means the container
 | `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
 | `BACKUP_TIME` | `03:00` | When the nightly backup runs, in server time. Read by `bun deploy.ts nightly install`; run it again after a change. |
 | `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY` | `7`, `4` | How many days and weeks of nightly backups to keep. See [backups](admin.md#nightly-backups). |
-| `BACKUP_OFFSITE_SCRIPT` | empty | Optional: a program run after each good nightly backup with the run's folder as its argument, to copy it off the server. See [off-site copy](admin.md#off-site-copy). |
+| `BACKUP_S3_BUCKET` | empty | Optional: an S3-compatible bucket that receives an encrypted copy of each good nightly backup. See [off-site copy](admin.md#off-site-copy). |
+| `BACKUP_S3_ENDPOINT`, `BACKUP_S3_REGION`, `BACKUP_S3_PREFIX` | empty | The provider's S3 address (empty for Amazon S3), the bucket's region (`auto` for R2) and an optional folder in the bucket. |
+| `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | empty | The bucket's access key: list, read, write and delete. |
+| `BACKUP_PASSPHRASE` | empty | Encrypts every off-site upload, at least 20 characters, letters and digits. Required with `BACKUP_S3_BUCKET`. Without it the off-site copies cannot be restored: keep it in a password manager too. |
 | `CLOUDFLARE_API_TOKEN` | empty | Optional secret: lets the provisioner update the Access allow policy and show the panel whom it lets in. Recommended with a list of emails. See [admin tasks](admin.md#let-the-server-update-cloudflare-access). |
 
 A required value that is missing stops `docker compose` with a message naming it.
@@ -107,6 +110,7 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | `hub/audit.sqlite` | `/opt/orbs/hub/`, `/data/` in the hub | The admin panel's audit trail: one row per admin read or change, never content or values. Written by the hub only; kept by upgrades, `apply`, rollbacks and `purge`. See [Activity](admin.md#activity). |
 | `backups/<time>/` | `/opt/orbs/backups/` | One nightly run: every person's and the template's volume, the hub folder, the deployment files with `.env`, and `manifest.json` with sizes and checksums. Secret. See [backups](admin.md#nightly-backups). |
 | `backups/nightly.json` | `/opt/orbs/backups/` | The last nightly run's time, result and error, for `bun deploy.ts nightly status`. |
+| `backups/offsite.json` | `/opt/orbs/backups/` | The last off-site upload and the last off-site failure with its reason, for `bun deploy.ts nightly status`. |
 | `backups/<id>-<time>.tar.gz` | `/opt/orbs/backups/` | One person's whole volume, from `backup <id>` or the copy `restore` saves first. Secret. Never deleted by retention. |
 | `/etc/systemd/system/orbs-backup.service`, `.timer` | the host | The nightly backup timer. Written by `bun deploy.ts nightly install`, removed by `nightly remove`. |
 | `models.json` | `/data/pi/` in each person's volume | Model provider settings, such as a different address for a provider. Read only at start. |

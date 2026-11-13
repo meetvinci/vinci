@@ -63,6 +63,15 @@ const nightlyStaleMs = 36 * 60 * 60 * 1000;
 const nightlyTimeoutMs = 2 * 60 * 60 * 1000;
 // A by-hand apply or a panel change may hold the lock when the timer fires; the nightly run waits this long for it.
 const nightlyLockWaitMs = 5 * 60 * 1000;
+// The off-site copy of a run in the S3 bucket: <prefix><run>.tar.gpg, the run's folder encrypted with BACKUP_PASSPHRASE,
+// and <prefix><run>.sha256 with that object's checksum, written last: an object without it is an unfinished upload.
+const offsiteObject = /^(?<run>\d{4}-\d{2}-\d{2}T\d{6}Z)\.(?:tar\.gpg|sha256)$/u;
+const offsitePrefix = /^(?:[\w.-]+\/)*$/u;
+const offsiteStatusFile = path.join(backupsFolder, 'offsite.json');
+const offsitePassphraseLength = 20;
+// GnuPG's symmetric OpenPGP encryption: AES-256 with an integrity check, the passphrase stretched by its S2K. The
+// passphrase reaches gpg on fd 3 from the environment, never on a command line.
+const gpgOptions = '--homedir /tmp/gnupg --quiet --batch --no-tty --pinentry-mode loopback --passphrase-fd 3';
 const systemdFolder = '/etc/systemd/system';
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/u;
 
@@ -598,7 +607,18 @@ interface NightlyStatus {
   finishedAt?: string;
   result: 'running' | 'ok' | 'failed';
   error?: string;
-  offsite?: 'off' | 'ok' | 'failed';
+}
+
+// The last upload to the bucket and the last failure, kept across runs for `nightly status`.
+interface OffsiteStatus {
+  uploaded?: { run: string; at: string };
+  failed?: { at: string; error: string };
+}
+
+interface OffsiteBucket {
+  client: Bun.S3Client;
+  prefix: string;
+  where: string;
 }
 
 async function fileDigest(file: string): Promise<NightlyFile> {
@@ -655,12 +675,10 @@ function envCount(name: string, fallback: number): number {
   return value;
 }
 
-// The deployment files to keep: the usual ones, whatever COMPOSE_FILE in .env loads and the off-site script when it
-// lives in this folder, as far as they exist.
+// The deployment files to keep: the usual ones and whatever COMPOSE_FILE in .env loads, as far as they exist.
 function nightlyDeploymentFiles(): string[] {
   const listed = (process.env.COMPOSE_FILE ?? '').split(':').filter(Boolean);
-  const offsite = envValue('BACKUP_OFFSITE_SCRIPT');
-  const files = [...deploymentFiles, ...listed, ...(offsite === undefined ? [] : [offsite])].map((file) => path.relative(process.cwd(), path.resolve(file)));
+  const files = [...deploymentFiles, ...listed].map((file) => path.relative(process.cwd(), path.resolve(file)));
 
   return [...new Set(files)].filter((file) => !file.startsWith('..') && existsSync(file));
 }
@@ -740,74 +758,202 @@ function nightlyFinished(name: string): boolean {
   return existsSync(path.join(backupsFolder, name, nightlyManifest));
 }
 
-// Keeps the newest finished run of each of the last BACKUP_KEEP_DAILY days and of each of the last
-// BACKUP_KEEP_WEEKLY weeks (weeks start on Monday, UTC), and deletes every other run folder, unfinished ones included.
-// Only called after a run succeeded, so a failing backup never deletes one that works.
-function nightlyPrune(current: string) {
+// The runs retention keeps, of `finished` runs (on this server or in the bucket): every run of the newest
+// BACKUP_KEEP_DAILY days that have one, so a run made by hand before an upgrade survives a later run on the same day,
+// and the newest run of each of the newest BACKUP_KEEP_WEEKLY weeks (weeks start on Monday, UTC).
+function nightlyKept(finished: string[]): Set<string> {
   const daily = envCount('BACKUP_KEEP_DAILY', 7);
   const weekly = envCount('BACKUP_KEEP_WEEKLY', 4);
-  const runs = nightlyRuns().reverse();
-  const finished = runs.filter(nightlyFinished);
+  const newest = finished.toSorted().reverse();
+  const days = new Set([...new Set(newest.map((name) => name.slice(0, 10)))].slice(0, daily));
+  const weeks = new Map<string, string>();
 
-  const week = (name: string) => {
+  for (const name of newest) {
     const day = new Date(`${name.slice(0, 10)}T00:00:00Z`);
 
     day.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
 
-    return day.toISOString().slice(0, 10);
-  };
-
-  // `finished` is newest first, so the first run seen for a day or week is its newest.
-  const newestPer = (key: (name: string) => string, count: number) => {
-    const newest = new Map<string, string>();
-
-    for (const name of finished) {
-      if (!newest.has(key(name))) {
-        newest.set(key(name), name);
-      }
+    // Newest first, so the first run seen for a week is its newest.
+    if (!weeks.has(day.toISOString())) {
+      weeks.set(day.toISOString(), name);
     }
+  }
 
-    return [...newest.values()].slice(0, count);
-  };
+  return new Set([...newest.filter((name) => days.has(name.slice(0, 10))), ...[...weeks.values()].slice(0, weekly)]);
+}
 
-  const keep = new Set([current, ...newestPer((name) => name.slice(0, 10), daily), ...newestPer(week, weekly)]);
+// Deletes every run folder retention does not keep, unfinished ones included. Only called after a run succeeded, so a
+// failing backup never deletes one that works.
+function nightlyPrune(current: string) {
+  const keep = nightlyKept(nightlyRuns().filter(nightlyFinished)).add(current);
 
-  for (const name of runs.filter((run) => !keep.has(run))) {
+  for (const name of nightlyRuns().filter((run) => !keep.has(run))) {
     rmSync(path.join(backupsFolder, name), { recursive: true, force: true });
-    console.log(`Deleted ${backupsFolder}/${name} (retention: ${daily} daily, ${weekly} weekly)`);
+    console.log(`Deleted ${backupsFolder}/${name} (retention)`);
   }
 }
 
-// BACKUP_OFFSITE_SCRIPT from .env: a program (no shell) run after a good run with the run's folder as its only
-// argument. Not a command line: Bun and Compose both expand `$` in .env values, so a `$folder` there would arrive empty.
-async function nightlyOffsite(folder: string): Promise<'off' | 'ok'> {
-  const script = envValue('BACKUP_OFFSITE_SCRIPT');
+// The bucket from .env, or undefined when no off-site copy is set up. Bun's own S3 client, for any S3-compatible
+// storage (Amazon S3, Cloudflare R2, Backblaze B2, MinIO).
+function offsiteBucket(): OffsiteBucket | undefined {
+  const bucket = envValue('BACKUP_S3_BUCKET');
 
-  if (script === undefined) {
-    return 'off';
+  if (bucket === undefined) {
+    return undefined;
   }
 
-  const { uid, mode } = statSync(script, { throwIfNoEntry: false }) ?? fail(`BACKUP_OFFSITE_SCRIPT ${script} does not exist.`);
+  const prefix = (envValue('BACKUP_S3_PREFIX') ?? '').replace(/(?<=[^/])$/u, '/');
 
-  // It runs as root: anyone who can change it could run anything as root.
-  if (uid !== process.getuid?.() || (mode & 0o022) !== 0) {
-    fail(`BACKUP_OFFSITE_SCRIPT ${script} must belong to ${process.getuid?.() === 0 ? 'root' : 'this user'} and be writable by it only (chmod 700).`);
+  if (!offsitePrefix.test(prefix)) {
+    fail('BACKUP_S3_PREFIX in .env may hold only letters, digits, dots, dashes, underscores and slashes, and not start with a slash.');
   }
 
-  const code = await Bun.spawn([path.resolve(script), path.resolve(folder)], { stdout: 'inherit', stderr: 'inherit' }).exited;
+  const client = new Bun.S3Client({
+    bucket,
+    endpoint: envValue('BACKUP_S3_ENDPOINT'),
+    region: envValue('BACKUP_S3_REGION'),
+    accessKeyId: envValue('BACKUP_S3_ACCESS_KEY_ID'),
+    secretAccessKey: envValue('BACKUP_S3_SECRET_ACCESS_KEY'),
+  });
 
-  if (code !== 0) {
-    fail(`the off-site copy (BACKUP_OFFSITE_SCRIPT) exited with ${code}; the backup itself is in ${folder}`);
+  return { client, prefix, where: `${bucket}/${prefix}` };
+}
+
+// Never upload in the clear: the copy holds every person's secrets and keys.
+function offsitePassphrase() {
+  if ((envValue('BACKUP_PASSPHRASE') ?? '').length < offsitePassphraseLength) {
+    fail(`BACKUP_PASSPHRASE in .env must be at least ${offsitePassphraseLength} characters: nothing is uploaded unencrypted.`);
+  }
+}
+
+// The names under the prefix that are ours (<run>.tar.gpg, <run>.sha256); anything else there is never touched.
+async function offsiteNames(bucket: OffsiteBucket, after?: string): Promise<string[]> {
+  const page = await bucket.client.list({ prefix: bucket.prefix, startAfter: after });
+  const keys = (page.contents ?? []).map(({ key }) => key);
+  const rest = page.isTruncated && keys.length > 0 ? await offsiteNames(bucket, keys.at(-1)) : [];
+
+  return [...keys.map((key) => key.slice(bucket.prefix.length)).filter((name) => offsiteObject.test(name)), ...rest];
+}
+
+function offsiteRun(name: string): string {
+  return offsiteObject.exec(name)?.groups?.run ?? fail(`${name} is not an off-site backup.`);
+}
+
+// GnuPG in the daemon image, by plain `docker run` rather than the tools service: on a fresh server it decrypts before
+// the deployment files are back, with only ORBS_TAG, the bucket and the passphrase in .env.
+async function gpg(script: string, volume: string, options: DockerOptions): Promise<string> {
+  const tag = envValue('ORBS_TAG') ?? fail('Set ORBS_TAG in .env: the off-site copy is encrypted by GnuPG in the orbs-daemon image of that tag.');
+
+  return docker([
+    'run', '--rm', ...(options.input ? ['--interactive'] : []), '--network', 'none', '--read-only', '--tmpfs', '/tmp', '--user', '0:0',
+    '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER', '--security-opt', 'no-new-privileges:true',
+    '--env', 'BACKUP_PASSPHRASE', '--volume', volume, '--entrypoint', 'bash', `orbs-daemon:${tag}`,
+    '-o', 'pipefail', '-c', `mkdir -m 700 /tmp/gnupg && ${script}`,
+  ], options);
+}
+
+// Checks a finished run against its manifest, encrypts it to backups/<run>.tar.gpg and uploads that, then its checksum.
+async function offsitePut(bucket: OffsiteBucket, run: string) {
+  const folder = path.join(backupsFolder, run);
+  const encrypted = `${folder}.tar.gpg`;
+
+  await Promise.all(Object.keys(nightlyManifestRead(folder).files).map((name) => nightlyVerified(folder, name)));
+  rmSync(encrypted, { force: true });
+
+  try {
+    await gpg(
+      // The run's folder by name, not `.`: unpacking `.` would give backups/ the mount point's mode.
+      `tar -C /backup -cf - ${run} | gpg ${gpgOptions} --symmetric --cipher-algo AES256 --s2k-digest-algo SHA512 --s2k-count 65011712 --compress-algo none --output - 3<<<"$BACKUP_PASSPHRASE"`,
+      `${path.resolve(folder)}:/backup/${run}:ro`,
+      { output: encrypted },
+    );
+
+    const { sha256, bytes } = await fileDigest(encrypted);
+
+    await bucket.client.write(`${bucket.prefix}${run}.tar.gpg`, Bun.file(encrypted), { type: 'application/octet-stream' });
+    await bucket.client.write(`${bucket.prefix}${run}.sha256`, `${sha256}  ${run}.tar.gpg\n`, { type: 'text/plain' });
+    console.log(`Uploaded ${run} to ${bucket.where}, encrypted (${(bytes / 1024 / 1024).toFixed(1)} MiB).`);
+  } finally {
+    rmSync(encrypted, { force: true });
+  }
+}
+
+// Uploads every finished run on this server that the bucket lacks, newest first, so a failed upload is retried by the
+// next run. Then, only when all of them went up, deletes the bucket's runs that retention no longer keeps.
+async function offsiteSync(): Promise<string> {
+  const bucket = offsiteBucket() ?? fail('BACKUP_S3_BUCKET is not set in .env.');
+
+  offsitePassphrase();
+
+  const names = await offsiteNames(bucket);
+  const uploaded = new Set(names.filter((name) => name.endsWith('.sha256')).map(offsiteRun));
+  const missing = nightlyRuns().filter(nightlyFinished).filter((run) => !uploaded.has(run)).reverse();
+
+  // One upload of a large backup on a slow line can outlast lockStaleMs: touch the lock while it runs, or a panel change
+  // would take it as left by a crash and run alongside.
+  const heartbeat = setInterval(() => {
+    if (existsSync(lockFile)) {
+      utimesSync(lockFile, new Date(), new Date());
+    }
+  }, 60_000);
+
+  try {
+    await missing.reduce(async (previous, run) => {
+      await previous;
+      await offsitePut(bucket, run);
+    }, Promise.resolve());
+  } finally {
+    clearInterval(heartbeat);
   }
 
-  console.log(`Copied ${folder} off-site.`);
+  const keep = nightlyKept([...uploaded, ...missing]);
+  const stale = names.filter((name) => !keep.has(offsiteRun(name)));
 
-  return 'ok';
+  await Promise.all(stale.map((name) => bucket.client.delete(`${bucket.prefix}${name}`)));
+  stale.forEach((name) => console.log(`Deleted ${bucket.where}${name} (retention)`));
+
+  return [...uploaded, ...missing].toSorted().at(-1) ?? fail('Nothing to upload.');
+}
+
+// Bun's S3 client says only "an unexpected error has occurred" when it cannot connect; its code says why
+// (ConnectionRefused, DNSResolveFailed, SignatureDoesNotMatch, …).
+function offsiteReason(error: unknown): string {
+  const message = errorMessage(error).replace(/\.+$/u, '');
+  const { code } = error as { code?: unknown };
+
+  return error instanceof Error && error.name === 'S3Error' && typeof code === 'string' ? `${message} (${code})` : message;
+}
+
+function offsiteStatusRead(): OffsiteStatus {
+  return existsSync(offsiteStatusFile) ? JSON.parse(readFileSync(offsiteStatusFile, 'utf8')) : {};
+}
+
+// The off-site part of a nightly run: its error, recorded for `nightly status`, or undefined. It never fails the
+// run's backup on this server, which is already finished and kept.
+async function nightlyOffsite(): Promise<string | undefined> {
+  if (envValue('BACKUP_S3_BUCKET') === undefined) {
+    return undefined;
+  }
+
+  const status = offsiteStatusRead();
+
+  try {
+    status.uploaded = { run: await offsiteSync(), at: new Date().toISOString() };
+
+    return undefined;
+  } catch (error) {
+    status.failed = { at: new Date().toISOString(), error: offsiteReason(error) };
+
+    return status.failed.error;
+  } finally {
+    writeAtomic(offsiteStatusFile, `${JSON.stringify(status, null, 2)}\n`, 0o600);
+  }
 }
 
 // What the systemd timer runs. Fails with a non-zero exit and one `Nightly backup failed:` line, which the journal keeps.
 // systemd ends a run that takes too long, or one the server's shutdown catches, with SIGTERM to every process of the
 // unit: the docker call in progress fails, whoever it stopped is started again, and the lock and status are written.
+// The upload runs under the same lock, so two runs never upload or delete in the bucket at once.
 async function nightlyRun() {
   const startedAt = new Date();
   const folder = path.join(backupsFolder, `${startedAt.toISOString().slice(0, 19).replaceAll(':', '')}Z`);
@@ -820,23 +966,27 @@ async function nightlyRun() {
   backupsRoot();
   nightlyStatusWrite(status);
 
-  try {
-    const manifest = await locked(() => nightlyBackup(folder, startedAt, stop.signal), nightlyLockWaitMs);
+  const offsiteError = await locked(async () => {
+    const manifest = await nightlyBackup(folder, startedAt, stop.signal);
     const bytes = Object.values(manifest.files).reduce((sum, file) => sum + file.bytes, 0);
 
     console.log(`Nightly backup ${folder}: ${manifest.people.length} workspaces, ${(bytes / 1024 / 1024).toFixed(1)} MiB. It holds every key: keep it secret.`);
     nightlyPrune(path.basename(folder));
     status.result = 'ok';
-    // Stays `failed` when the copy throws.
-    status.offsite = 'failed';
-    status.offsite = await nightlyOffsite(folder);
-  } catch (error) {
+
+    return nightlyOffsite();
+  }, nightlyLockWaitMs).catch((error: unknown) => {
     status.result = 'failed';
     status.error = errorMessage(error);
-    fail(`Nightly backup failed: ${status.error}`);
-  } finally {
+
+    return fail(`Nightly backup failed: ${status.error}`);
+  }).finally(() => {
     status.finishedAt = new Date().toISOString();
     nightlyStatusWrite(status);
+  });
+
+  if (offsiteError !== undefined) {
+    fail(`Off-site upload failed: ${offsiteError}. The backup on this server is kept; the next run tries again`);
   }
 }
 
@@ -866,8 +1016,22 @@ async function nightlyStatus() {
     console.log(`Tag ${manifest.tag}, ${manifest.people.length} workspaces, ${(bytes / 1024 / 1024).toFixed(1)} MiB, took ${Math.round((Date.parse(manifest.finishedAt) - Date.parse(manifest.startedAt)) / 1000)} s; longest stop ${longest.id} ${(longest.downtimeMs / 1000).toFixed(1)} s, hub ${(manifest.hubDowntimeMs / 1000).toFixed(1)} s`);
   }
 
-  console.log(`Off-site copy: ${status.offsite ?? 'not reached'}`);
   console.log(`Finished backups on this server: ${kept.length}${kept.length > 0 ? ` (${kept[0]} to ${kept.at(-1)})` : ''}`);
+
+  const bucket = offsiteBucket();
+  const { uploaded, failed } = offsiteStatusRead();
+  // Off-site is failing until an upload newer than the last failure went through.
+  const offsiteFailing = bucket !== undefined && (uploaded === undefined || Date.parse(failed?.at ?? '') > Date.parse(uploaded.at));
+
+  if (bucket === undefined) {
+    console.log('Off-site copy: off (no BACKUP_S3_BUCKET in .env)');
+  } else {
+    console.log(`Off-site copy to ${bucket.where}: last upload ${uploaded ? `${uploaded.run}, ${ago(Date.now() - Date.parse(uploaded.at))}` : 'none yet'}`);
+  }
+
+  if (failed) {
+    console.log(`Last off-site failure ${ago(Date.now() - Date.parse(failed.at))}: ${failed.error}`);
+  }
 
   const unit = await nightlyUnit();
 
@@ -883,6 +1047,70 @@ async function nightlyStatus() {
   if (status.result !== 'ok' || age > nightlyStaleMs) {
     fail(status.result === 'ok' ? 'The last nightly backup is more than a day and a half old: check the timer.' : 'The last nightly backup did not succeed.');
   }
+
+  if (offsiteFailing) {
+    fail('The off-site copy is not up to date: the last upload failed or none was made yet.');
+  }
+}
+
+// `nightly fetch` lists the runs in the bucket; `nightly fetch <run>` downloads one, checks its checksum, decrypts it
+// into backups/<run>/ and checks every file against its manifest, ready for `restore`. Needs only ORBS_TAG, the
+// bucket and the passphrase in .env and the orbs-daemon image, so it works on a fresh server.
+async function nightlyFetch() {
+  const bucket = offsiteBucket() ?? fail('Set BACKUP_S3_BUCKET and the other BACKUP_S3_ settings in .env (admin.md, Off-site copy).');
+  const [run] = process.argv.slice(4);
+  const names = await offsiteNames(bucket).catch((error: unknown) => fail(`${bucket.where} cannot be listed: ${offsiteReason(error)}`));
+  const runs = names.filter((name) => name.endsWith('.sha256')).map(offsiteRun).sort();
+
+  if (!run) {
+    console.log(runs.length > 0 ? `Backups in ${bucket.where}:\n${runs.join('\n')}` : `No finished backups in ${bucket.where}.`);
+    return;
+  }
+
+  if (!runs.includes(run)) {
+    fail(`${run} is not a finished backup in ${bucket.where}; \`bun deploy.ts nightly fetch\` lists them.`);
+  }
+
+  const folder = path.join(backupsFolder, run);
+  const encrypted = `${folder}.tar.gpg`;
+  // Unpacked and checked here first, then moved into place: a fetch cut off midway leaves no half run folder.
+  const staging = `${folder}.fetch`;
+
+  if (existsSync(folder)) {
+    fail(`${folder} is already on this server: restore from it.`);
+  }
+
+  offsitePassphrase();
+  backupsRoot();
+  rmSync(encrypted, { force: true });
+  rmSync(staging, { recursive: true, force: true });
+  mkdirSync(staging, { mode: 0o700 });
+
+  try {
+    await Bun.write(encrypted, bucket.client.file(`${bucket.prefix}${run}.tar.gpg`));
+
+    const expected = (await bucket.client.file(`${bucket.prefix}${run}.sha256`).text()).split(' ')[0];
+
+    if ((await fileDigest(encrypted)).sha256 !== expected) {
+      fail(`${run}.tar.gpg does not match its checksum in ${run}.sha256: it is damaged. Fetch another backup.`);
+    }
+
+    // Only the run's own folder is unpacked: an archive cannot write elsewhere in backups/.
+    await gpg(`gpg ${gpgOptions} --decrypt --output - 3<<<"$BACKUP_PASSPHRASE" | tar -C /out -xpf - ${run}`, `${path.resolve(staging)}:/out`, { input: encrypted })
+      .catch(() => fail(`${run}.tar.gpg did not decrypt: BACKUP_PASSPHRASE is not the one it was made with, or the file is damaged.`));
+
+    const unpacked = path.join(staging, run);
+
+    await Promise.all(Object.keys(nightlyManifestRead(unpacked).files).map((name) => nightlyVerified(unpacked, name)));
+    renameSync(unpacked, folder);
+  } catch (error) {
+    fail(offsiteReason(error));
+  } finally {
+    rmSync(encrypted, { force: true });
+    rmSync(staging, { recursive: true, force: true });
+  }
+
+  console.log(`Fetched ${run} into ${folder}; every file matches its manifest (tag ${nightlyManifestRead(folder).tag}).`);
 }
 
 // orbs-backup for the default project: a second stack on the host (COMPOSE_PROJECT_NAME) gets its own timer.
@@ -981,11 +1209,11 @@ async function nightlyRemove() {
 }
 
 async function nightly() {
-  const actions = { run: nightlyRun, status: nightlyStatus, install: nightlyInstall, remove: nightlyRemove };
+  const actions = { run: nightlyRun, status: nightlyStatus, install: nightlyInstall, remove: nightlyRemove, fetch: nightlyFetch };
   const action = process.argv[3] ?? 'run';
 
   if (!(action in actions)) {
-    fail('Usage: bun deploy.ts nightly [run|status|install|remove]');
+    fail('Usage: bun deploy.ts nightly [run|status|install|remove|fetch [<time>]]');
   }
 
   await actions[action as keyof typeof actions]();
@@ -2049,6 +2277,7 @@ try {
       '  bun deploy.ts nightly                   back up everyone, the hub folder and the deployment files to backups/<time>/',
       '  bun deploy.ts nightly status            the last nightly run, its age and result',
       '  bun deploy.ts nightly install|remove    the systemd timer that runs it every night',
+      '  bun deploy.ts nightly fetch [<time>]    list the off-site backups, or download and decrypt one into backups/<time>/',
       '  bun deploy.ts restore <id> <file|folder> replace one person\'s volume with a backup',
       '  bun deploy.ts restore <folder>          rebuild a whole install from a nightly folder on a fresh server',
       '  bun deploy.ts purge <id>                delete a removed person\'s data for good',

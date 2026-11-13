@@ -49,8 +49,10 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/web/src/application/server.bun.js"]
 
 # One daemon per user. All state, HOME and the Pi agent directory live on the /data volume.
-# Debian slim, not distroless: bots run their bash tool here. The product needs no other native tools.
+# Debian slim, not distroless: bots run their bash tool here. The product needs no other native tools; GnuPG is for
+# `deploy.ts`, which encrypts the off-site backup with this image.
 FROM ${BUN_IMAGE}-slim AS daemon
+RUN apt-get update && apt-get install -y --no-install-recommends gpg gpg-agent && rm -rf /var/lib/apt/lists/*
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=build /src/apps/desktop/dist/server/daemon /app/daemon
 COPY --chmod=755 deploy/docker/orbs.sh /usr/local/bin/orbs
