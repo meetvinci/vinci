@@ -2,6 +2,7 @@ import type { DatabaseService } from '../services/database/database.service';
 import type { InstructionService } from '../services/instruction/instruction.service';
 import type { McpService } from '../services/mcp/mcp.service';
 import type { PluginService } from '../services/plugin/plugin.service';
+import type { SettingsService } from '../services/settings/settings.service';
 import type { SkillService } from '../services/skill/skill.service';
 import type { WorkspaceService } from '../services/workspace/workspace.service';
 import type * as UniversalTypes from '@repo/contracts/universal';
@@ -18,6 +19,7 @@ export interface BotServiceDeps extends BotDatabaseDeps {
   plugin: PluginService;
   instruction: InstructionService;
   mcp: McpService;
+  settings: SettingsService;
   changes: Set<BotChangeListener>;
   queues: Map<string, Promise<void>>;
   muteExpiry: { timer: ReturnType<typeof setTimeout> | undefined };
@@ -32,6 +34,13 @@ export interface BotConfiguration {
 }
 
 export type BotChangeListener = () => void;
+
+export interface BotStartParams {
+  canStart: boolean;
+}
+
+export type BotCreateParams = UniversalTypes.BotCreateInput & BotStartParams;
+export type BotUpdateParams = UniversalTypes.BotUpdateInput & BotStartParams;
 
 export interface BotPreferences {
   isPinned: boolean;

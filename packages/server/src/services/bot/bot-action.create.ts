@@ -3,10 +3,9 @@ import { match, P } from 'ts-pattern';
 import { botActionConfigure } from './bot-action.configure';
 import { botActionStart } from './bot-action.start';
 import { botValues } from './bot.utils';
-import type { BotServiceDeps } from '../../types/bot.types';
-import type { BotCreateInput } from '@repo/contracts/universal';
+import type { BotCreateParams, BotServiceDeps } from '../../types/bot.types';
 
-export async function botActionCreate(deps: BotServiceDeps, params: BotCreateInput) {
+export async function botActionCreate(deps: BotServiceDeps, { canStart, ...params }: BotCreateParams) {
   deps.runtime.queries.validateModel(params);
 
   const botId = await deps.database.db.transaction().execute(async (tx) => {
@@ -37,7 +36,7 @@ export async function botActionCreate(deps: BotServiceDeps, params: BotCreateInp
 
   const bot = await botActionConfigure(deps, { botId });
 
-  if (bot.instructions.trim()) {
+  if (canStart && bot.instructions.trim()) {
     await botActionStart(deps, { botId });
   }
 

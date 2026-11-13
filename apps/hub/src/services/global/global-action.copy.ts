@@ -6,7 +6,15 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
   const { template, person } = await globalClients(deps, { user });
 
   await match(section)
-    .with('models', async () => person.providers.import(await template.providers.export()))
+    .with('models', async () => {
+      const [keys, settings] = await Promise.all([
+        template.providers.export(),
+        template.models.settings(),
+      ]);
+
+      await person.providers.import(keys);
+      await person.models.configure(settings);
+    })
     .with('chat', async () => {
       await person.conversation.configure(await template.conversation.settings());
     })

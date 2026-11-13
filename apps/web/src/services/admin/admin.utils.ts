@@ -106,6 +106,7 @@ export function adminIsPreviewStale(error: Error | null): boolean {
 export function adminPreviewKind(kind: UniversalTypes.AdminPreviewKind): string {
   return match(kind)
     .with('provider', () => m.admin_preview_kind_provider())
+    .with('modelSetting', () => m.admin_preview_kind_model_setting())
     .with('chatSetting', () => m.admin_preview_kind_chat_setting())
     .with('toolSetting', () => m.admin_preview_kind_tool_setting())
     .with('secret', () => m.admin_preview_kind_secret())
@@ -121,6 +122,7 @@ export function adminPreviewKind(kind: UniversalTypes.AdminPreviewKind): string 
 
 export function adminPreviewName({ kind, name }: UniversalTypes.AdminPreviewItem): string | null {
   return match({ kind, name })
+    .with({ kind: 'modelSetting', name: 'defaultModel' }, () => m.admin_preview_setting_default_model())
     .with({ kind: 'chatSetting', name: 'whenBusy' }, () => m.admin_preview_setting_when_busy())
     .with({ kind: 'chatSetting', name: 'hideVerbose' }, () => m.admin_preview_setting_hide_verbose())
     .with({ kind: 'chatSetting', name: 'gifProvider' }, () => m.admin_preview_setting_gif_provider())

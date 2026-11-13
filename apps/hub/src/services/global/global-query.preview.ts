@@ -31,9 +31,10 @@ export async function globalQueryPreview(
 
   const globalRead = async (client: Client, isPerson: boolean): Promise<GlobalTypes.GlobalPreviewGroups> => match(section)
     .with('models', async () => {
-      const [{ keys }, { providers }] = await Promise.all([
+      const [{ keys }, { providers }, settings] = await Promise.all([
         client.providers.export(),
         client.providers.list(),
+        client.models.settings(),
       ]);
 
       const exported = new Set(keys.map(({ providerId }) => providerId));
@@ -47,6 +48,7 @@ export async function globalQueryPreview(
         ]),
         oauth: globalSorted(globalStored('oauth').map(({ id: providerId }) => [providerId, 'oauth'])),
         modelsJson: globalSorted(providers.filter(({ source }) => source === 'models_json_key' || source === 'models_json_command').map(({ id: providerId }) => [providerId, 'models.json'])),
+        settings: globalValues(settings),
       };
     })
     .with('chat', async () => ({ settings: globalValues(await client.conversation.settings()) }))
@@ -204,11 +206,14 @@ export async function globalQueryPreview(
       const replaced = Object.entries(mine.oauth ?? {}).filter(([providerId]) => Object.hasOwn(keys, providerId));
       const modelsJson = mine.modelsJson ?? {};
 
-      return globalDiff({
-        kind: 'provider',
-        person: { ...Object.fromEntries(replaced), ...mine.keys },
-        template: keys,
-      }).map((item) => (item.change === 'added' && Object.hasOwn(modelsJson, item.name) ? { ...item, change: 'replaced' as const } : item));
+      return [
+        ...globalDiff({
+          kind: 'provider',
+          person: { ...Object.fromEntries(replaced), ...mine.keys },
+          template: keys,
+        }).map((item) => (item.change === 'added' && Object.hasOwn(modelsJson, item.name) ? { ...item, change: 'replaced' as const } : item)),
+        ...globalDiff(globalPair('modelSetting', 'settings')),
+      ];
     })
     .with('chat', () => globalDiff(globalPair('chatSetting', 'settings')))
     .with('tools', () => globalDiff(globalPair('toolSetting', 'settings')))

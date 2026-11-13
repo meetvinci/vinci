@@ -91,7 +91,7 @@ import {
   mcpAuthTarget,
 } from '../types/mcp-auth.types';
 import { mcpCatalog, mcpCatalogServer, mcpConfigure, mcpDiscover, mcpServerAdd, mcpServerRemove, mcpSettings, mcpShared } from '../types/mcp.types';
-import { modelList } from '../types/model.types';
+import { modelList, modelSettings } from '../types/model.types';
 import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid } from '../types/notification.types';
 import { onboardingState } from '../types/onboarding.types';
 import { pluginCatalog, pluginConfigure, pluginDiscover, pluginSettings } from '../types/plugin.types';
@@ -265,6 +265,10 @@ export const contract = {
 
   models: {
     list: ocAuth.output(modelList),
+
+    settings: ocAuth.output(modelSettings),
+
+    configure: ocAuth.errors(ocTeam).input(modelSettings).output(modelSettings),
   },
 
   commands: {

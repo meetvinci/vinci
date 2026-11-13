@@ -2,6 +2,7 @@ import { botActionAddMcp } from './bot-action.add-mcp';
 import { botActionArrange } from './bot-action.arrange';
 import { botActionClearHistory } from './bot-action.clear-history';
 import { botActionConfigure } from './bot-action.configure';
+import { botActionConfigureModels } from './bot-action.configure-models';
 import { botActionConnectMcp } from './bot-action.connect-mcp';
 import { botActionCreate } from './bot-action.create';
 import { botActionDelete } from './bot-action.delete';
@@ -20,6 +21,7 @@ import { botQueryInstructions } from './bot-query.instructions';
 import { botQueryList } from './bot-query.list';
 import { botQueryLocalSkills } from './bot-query.local-skills';
 import { botQueryMcp } from './bot-query.mcp';
+import { botQueryModelSettings } from './bot-query.model-settings';
 import { botQueryPlugins } from './bot-query.plugins';
 import { botQueryPreferences } from './bot-query.preferences';
 import { botQuerySharedMcp } from './bot-query.shared-mcp';
@@ -53,9 +55,10 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       addMcp: (params: UniversalTypes.McpServerAddInput) => botActionAddMcp(serviceDeps, params),
       removeMcp: (params: UniversalTypes.McpServerRemoveInput) => botActionRemoveMcp(serviceDeps, params),
       restore: () => botActionRestore(serviceDeps),
-      create: (params: UniversalTypes.BotCreateInput) => botActionCreate(serviceDeps, params),
+      create: (params: BotTypes.BotCreateParams) => botActionCreate(serviceDeps, params),
+      configureModels: (params: UniversalTypes.ModelSettings) => botActionConfigureModels(serviceDeps, params),
       swapModels: (params: UniversalTypes.BotSwapModelsInput) => botActionSwapModels(serviceDeps, params),
-      update: (params: UniversalTypes.BotUpdateInput) => botActionUpdate(serviceDeps, params),
+      update: (params: BotTypes.BotUpdateParams) => botActionUpdate(serviceDeps, params),
       delete: (params: UniversalTypes.BotGetInput) => botActionDelete(serviceDeps, params),
       clearHistory: (params: UniversalTypes.BotGetInput) => botActionClearHistory(serviceDeps, params),
       setPreferences: (params: BotTypes.BotPreferencesUpdate) => botActionSetPreferences(serviceDeps, params),
@@ -64,6 +67,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       importFiles: (params: UniversalTypes.BotFilesImportInput) => botActionImportFiles(serviceDeps, params),
     },
     queries: {
+      modelSettings: () => botQueryModelSettings(serviceDeps),
       plugins: (params: UniversalTypes.BotGetInput) => botQueryPlugins(serviceDeps, params),
       instructions: (params: UniversalTypes.BotGetInput) => botQueryInstructions(serviceDeps, params),
       catalog: (params: UniversalTypes.BotGetInput) => botQueryCatalog(serviceDeps, params),

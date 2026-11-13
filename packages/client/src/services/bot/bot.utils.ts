@@ -82,6 +82,17 @@ export function botDefaultSettings({ models, thinkingLevel }: BotTypes.BotDefaul
     .otherwise(() => ({ modelProvider: '', modelId: '', thinkingLevel }));
 }
 
+export function botNewModel({ models, defaultModel }: BotTypes.BotNewModelParams): UniversalTypes.ModelDefault {
+  const botIsOffered = ({ modelProvider, modelId }: BotTypes.BotSettings) => models.some((model) => model.provider === modelProvider && model.id === modelId);
+
+  return match(defaultModel)
+    .with(P.when((preferred): preferred is UniversalTypes.ModelDefault => preferred !== null && botIsOffered(preferred)), (preferred) => ({
+      ...preferred,
+      fallbackModel: preferred.fallbackModel && botIsOffered(preferred.fallbackModel) ? preferred.fallbackModel : null,
+    }))
+    .otherwise(() => ({ ...botDefaultSettings({ models, thinkingLevel: 'medium' }), fallbackModel: null }));
+}
+
 export function botAvatarColor({ avatar }: BotTypes.BotAvatarColorParams): ColorId | null {
   return match(avatar)
     .with({ kind: 'blob' }, ({ color }) => color)

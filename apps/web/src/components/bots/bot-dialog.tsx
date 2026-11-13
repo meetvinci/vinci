@@ -1,5 +1,5 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
-import { botDefaultSettings, botHandle } from '@repo/client/client';
+import { botHandle, botNewModel } from '@repo/client/client';
 import { useBotCreate, useRpc } from '@repo/client/react';
 import { botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
@@ -18,6 +18,7 @@ import { BotEdit } from '@/components/bots/bot-edit';
 import { BotFormModel } from '@/components/bots/bot-form-model';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
+import { useTeam } from '@/hooks/use-team';
 import IconChevronLeft from '~icons/lucide/chevron-left';
 import type { BotDialogView } from '@/types/bot.types';
 import type { BotForm } from '@repo/contracts/universal';
@@ -68,14 +69,16 @@ function BotDialogCreate() {
   const { rpc } = useRpc();
   const navigate = useNavigate();
   const scope = useSectionScope();
+  const team = useTeam();
   const { data: models } = useQuery({ ...rpc.models.list.queryOptions(), retry: false });
-  const settings = models ? botDefaultSettings({ models, thinkingLevel: 'medium' }) : null;
+  const { data: modelSettings } = useQuery({ ...rpc.models.settings.queryOptions(), retry: false });
+  const settings = models ? botNewModel({ models, defaultModel: modelSettings?.defaultModel ?? null }) : null;
 
   const form = useForm({
     resolver: standardSchemaResolver(botForm),
     defaultValues: {
       avatar: null,
-      fallbackModel: null,
+      fallbackModel: settings?.fallbackModel ?? null,
       name: m.rooms_bot_default_name(),
       handle: '',
       instructions: '',
@@ -83,7 +86,7 @@ function BotDialogCreate() {
       modelId: settings?.modelId ?? '',
       thinkingLevel: settings?.thinkingLevel ?? 'medium',
       permission: 'ask',
-      inherit: ['skills', 'mcp', 'plugins'],
+      inherit: scope.isAdmin || team.isTeam ? ['skills', 'agentsFile', 'mcp', 'plugins'] : ['skills', 'mcp', 'plugins'],
       sharedSkills: null,
       sharedMcp: null,
       disabledSkills: null,

@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
 import { HUB_GLOBAL_FIXTURE } from './support/hub.fixture';
 
+const SUGGESTED = { name: 'Suggested', handle: 'suggested', modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'medium', instructions: 'Team instructions' };
+const DEFAULT_MODEL = { modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'high', fallbackModel: null };
 const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_GLOBAL_FIXTURE);
 
 describe('global settings and the template workspace', () => {
@@ -116,6 +118,7 @@ describe('global settings and the template workspace', () => {
     const followed = await hubAdminTestUntil(async () => JSON.stringify((await relay(tokens.root, 'alice', 'conversation/settings')).json).includes('"followUp"'));
     const bob = await relay(tokens.root, 'bob', 'conversation/settings');
 
+    await relay(tokens.root, 'template', 'models/configure', { defaultModel: DEFAULT_MODEL });
     await hubAdminTestBack(tokens.root, 'alice', 'secrets');
     await hubAdminTestBack(tokens.root, 'alice', 'models');
 
@@ -140,6 +143,7 @@ describe('global settings and the template workspace', () => {
     expect(JSON.stringify(bob.json)).toContain('"interrupt"');
     expect(JSON.stringify(secrets.json)).toContain('TEAM_KEY');
     expect(auth).toMatchObject({ anthropic: { type: 'api_key', key: 'hub-test-template' } });
+    expect((await relay(tokens.root, 'alice', 'models/settings')).json).toEqual({ json: { defaultModel: DEFAULT_MODEL } });
     expect(sections.json).toMatchObject({ sections: [{ id: 'models', mode: 'global' }, { id: 'chat', mode: 'global' }, { id: 'tools', mode: 'overridden' }, { id: 'secrets', mode: 'global' }, { id: 'sources', mode: 'overridden' }] });
     expect(back.json).toEqual({ sections: [{ id: 'chat', mode: 'overridden', sync: 'in-sync' }] });
     expect(editable.status).toBe(200);
@@ -190,25 +194,19 @@ describe('global settings and the template workspace', () => {
   });
 
   it('copies template bots with their own files to a user as new bots', async ({ fixture, tokens }) => {
-    const created = await relay(tokens.root, 'template', 'bots/create', {
-      name: 'Suggested',
-      handle: 'suggested',
-      modelProvider: 'anthropic',
-      modelId: 'claude-opus-5-5',
-      thinkingLevel: 'medium',
-      instructions: 'Team instructions',
-    });
+    const created = await relay(tokens.root, 'template', 'bots/create', SUGGESTED);
 
     const templateBot = z.object({ json: z.object({ id: z.uuid() }) }).parse(created.json).json.id;
 
     await writeFile(join(fixture.root, 'template/agents', templateBot, 'AGENTS.md'), 'Suggested bot file');
 
     const copy = await hubAdminTestWrite(tokens.root, '/admin/api/users/bob/bots/copy', { body: { bots: [templateBot] } });
-    const result = z.object({ bots: z.array(z.object({ from: z.uuid(), botId: z.uuid() })) }).parse(copy.json);
-    const [{ botId }] = result.bots;
+    const [{ botId }] = z.object({ bots: z.array(z.object({ from: z.uuid(), botId: z.uuid() })) }).parse(copy.json).bots;
     const bot = await relay(tokens.root, 'bob', 'bots/get', { botId });
+    const chats = await Promise.all(['bob', 'template'].map(async (user) => relay(tokens.root, user, 'conversation/list')));
 
     expect(botId).not.toBe(templateBot);
+    expect(JSON.stringify(chats)).not.toMatch(/"lastMessage":\{/u);
     expect(bot.json).toMatchObject({ json: { name: 'Suggested', handle: 'suggested', instructions: 'Team instructions' } });
     expect(await readFile(join(fixture.root, 'bob/agents', botId, 'AGENTS.md'), 'utf8')).toBe('Suggested bot file');
   });
@@ -361,6 +359,7 @@ describe('global settings and the template workspace', () => {
     await relay(tokens.root, 'bob', 'secrets/save', secret('BOB_ONLY', 'dummy-bob-only-value'));
     await relay(tokens.root, 'bob', 'secrets/save', secret('TEAM_KEY', 'dummy-bob-team-value'));
     await relay(tokens.root, 'bob', 'tools/configure', { approvalTimeoutMinutes: 3 });
+    await relay(tokens.root, 'bob', 'models/configure', { defaultModel: { ...DEFAULT_MODEL, thinkingLevel: 'low' } });
 
     const files = async () => Promise.all(['pi/auth.json', '.agents/mcp.json', '.agents/skills/mine/SKILL.md', '.agents/skills/team/SKILL.md'].map(async (path) => readFile(join(bobHome, path), 'utf8')));
     const reads = async () => Promise.all(['secrets/list', 'conversation/settings', 'tools/settings', 'skills/settings'].map(async (procedure) => JSON.stringify((await relay(tokens.root, 'bob', procedure)).json)));
@@ -396,6 +395,7 @@ describe('global settings and the template workspace', () => {
         { kind: 'provider', name: 'mistral', change: 'replaced' },
         { kind: 'provider', name: 'openai', change: 'removed' },
         { kind: 'provider', name: 'xai', change: 'removed' },
+        { kind: 'modelSetting', name: 'defaultModel', change: 'changed' },
       ],
       chat: [{ kind: 'chatSetting', name: 'whenBusy', change: 'changed' }],
       tools: [{ kind: 'toolSetting', name: 'approvalTimeoutMinutes', change: 'changed' }],

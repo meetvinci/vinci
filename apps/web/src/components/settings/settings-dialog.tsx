@@ -23,6 +23,7 @@ import { SettingsGeneral } from '@/components/settings/settings-general';
 import { SettingsManaged } from '@/components/settings/settings-managed';
 import { SettingsModelSwap } from '@/components/settings/settings-model-swap';
 import { SettingsModels } from '@/components/settings/settings-models';
+import { SettingsModelsDefault } from '@/components/settings/settings-models-default';
 import { SettingsTools } from '@/components/settings/settings-tools';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
@@ -207,6 +208,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
           signOutLink={scope.settings.providerLogout}
           onSignOutClose={onBack}
         />
+        {scope.isAdmin ? <SettingsModelsDefault /> : null}
         <SettingsModels />
       </SettingsManaged>
     )))

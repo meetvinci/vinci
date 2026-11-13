@@ -83,6 +83,7 @@ export async function makeServices({
       instruction,
       plugin,
       mcp,
+      settings,
     });
 
     const attachments = makeAttachmentService({

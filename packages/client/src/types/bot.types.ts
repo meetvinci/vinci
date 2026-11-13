@@ -92,6 +92,11 @@ export interface BotDefaultSettingsParams {
   thinkingLevel: BotThinkingLevel;
 }
 
+export interface BotNewModelParams {
+  models: BotModel[];
+  defaultModel: UniversalTypes.ModelDefault | null;
+}
+
 export interface BotDeleteParams {
   botId: string;
   onDeleted: () => void | Promise<void>;

@@ -69,6 +69,7 @@ export const adminSectionModeInput = z.object({ mode: adminSectionMode, marker: 
 
 export const adminPreviewKind = z.enum([
   'provider',
+  'modelSetting',
   'chatSetting',
   'toolSetting',
   'secret',

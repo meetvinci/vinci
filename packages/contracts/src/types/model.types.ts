@@ -18,3 +18,10 @@ export const modelList = z.array(z.object({
 }));
 
 export type ModelList = z.infer<typeof modelList>;
+
+export const modelDefault = modelSelection.extend({ fallbackModel: modelSelection.nullable() });
+
+export const modelSettings = z.object({ defaultModel: modelDefault.nullable() });
+
+export type ModelDefault = z.infer<typeof modelDefault>;
+export type ModelSettings = z.infer<typeof modelSettings>;

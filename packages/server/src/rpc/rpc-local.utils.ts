@@ -12,7 +12,7 @@ const RPC_LOCAL_ALLOWLIST = {
   notifications: { settings: true, configure: true },
   limits: { settings: true, configure: true },
   providers: { list: true, login: true, complete: true, session: true, cancel: true, logout: true, export: true, import: true },
-  models: { list: true },
+  models: { list: true, settings: true, configure: true },
   plugins: { discover: true, settings: true, configure: true },
   instructions: { discover: true, settings: true, configure: true },
   skills: { discover: true, shared: true, local: true, settings: true, configure: true },

@@ -13,6 +13,7 @@ export const Route = createFileRoute('/_chat/bots')({
     await Promise.all([
       context.queryClient.ensureQueryData(rpc.bots.list.queryOptions()),
       context.queryClient.prefetchQuery(rpc.models.list.queryOptions()),
+      context.queryClient.prefetchQuery(rpc.models.settings.queryOptions()),
       context.queryClient.prefetchQuery(rpc.providers.list.queryOptions()),
     ]);
 

@@ -17,6 +17,7 @@ export const Route = createFileRoute('/admin/users/$userId/bots')({
     await Promise.all([
       context.queryClient.prefetchQuery(rpc.bots.list.queryOptions()),
       context.queryClient.prefetchQuery(rpc.models.list.queryOptions()),
+      context.queryClient.prefetchQuery(rpc.models.settings.queryOptions()),
       context.queryClient.prefetchQuery(rpc.providers.list.queryOptions()),
     ]);
   },
