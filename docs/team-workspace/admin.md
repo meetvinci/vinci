@@ -205,7 +205,7 @@ Do not use a Claude or ChatGPT subscription login for the team. The providers' t
 Open `https://<your team host>/admin` and log in at Cloudflare as usual. Only emails on the admin list see it; an admin does not need to be a user and has no workspace of their own.
 
 - **Users** lists everyone with their workspace state. Add a user with a name and email; open one to manage them.
-- For one user, **Bots** and **Settings** show the same forms the user sees in their own app, saved straight to that user's workspace. **Devices** lists the browsers and phones they signed in with; revoking one signs it out. Below it, **Rate limits** sets how much that person's Orbs accepts before it answers *too many requests*: requests per minute from each device and in total, pairing attempts per minute, and requests and live updates at the same time. Each field shows its default and its allowed range, and the person's Orbs refuses a value outside it. Limits are per person, not part of global settings; each save is recorded in **Activity**. People can't change their own limits.
+- For one user, **Bots** and **Settings** show the same forms the user sees in their own app, saved straight to that user's workspace. A person's **Settings** has no *General* tab: notifications, where they go, and appearance are the person's own choices, made in their app. **Devices** lists the browsers and phones they signed in with; revoking one signs it out. Below it, **Rate limits** sets how much that person's Orbs accepts before it answers *too many requests*: requests per minute from each device and in total, pairing attempts per minute, and requests and live updates at the same time. Each field shows its default and its allowed range, and the person's Orbs refuses a value outside it. Limits are per person, not part of global settings; each save is recorded in **Activity**. People can't change their own limits.
 - **Advanced user** (a switch on the person's page) shows them the advanced settings in their own app; see [What people see](#what-people-see). Off for everyone until you turn it on, and recorded in **Activity** as `users/advanced` `on` or `off`.
 - **Turn off sign-in** stops the person from logging in. **Remove user** removes their login and stops their workspace; their data stays on the server (deleting it is `bun deploy.ts purge <id>` on the server).
 - **Global settings** edits the template workspace: the team's default settings and the suggested bots. Each person follows each section or overrides it; see [Global settings and suggested bots](#global-settings-and-suggested-bots).
@@ -378,6 +378,8 @@ Users can do all of this themselves in the app, and an admin can do it for them 
 | MCP servers for one bot | `/data/agents/<bot>/.agents/mcp.json` or `/data/agents/<bot>/.pi/mcp.json` |
 
 Skill and instruction changes show up within about 30 seconds. Files must be owned by the container user.
+
+A skill whose `SKILL.md` can't be loaded (for example a header value with an unquoted colon) is skipped. **Settings → Sources** then lists it under *Skipped skills*, with the file and the reason, in Global settings and on the person's page. Fix the file; the list clears when you open Sources again.
 
 **Give this to your agent:**
 

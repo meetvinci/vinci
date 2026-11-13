@@ -5,12 +5,13 @@ export function useSettingsSources() {
   const queryClient = useQueryClient();
   const { rpc } = useRpc();
   const skills = useQuery(rpc.skills.settings.queryOptions());
+  const skillStatus = useQuery(rpc.skills.status.queryOptions());
   const instructions = useQuery(rpc.instructions.settings.queryOptions());
   const plugins = useQuery(rpc.plugins.settings.queryOptions());
   const mcp = useQuery(rpc.mcp.settings.queryOptions());
 
   const saveSkills = useMutation(rpc.skills.configure.mutationOptions({
-    meta: { invalidates: [rpc.skills.shared.key(), rpc.skills.discover.key()] },
+    meta: { invalidates: [rpc.skills.shared.key(), rpc.skills.discover.key(), rpc.skills.status.key()] },
     onSuccess: (saved) => queryClient.setQueryData(rpc.skills.settings.queryKey(), saved),
   }));
 
@@ -34,6 +35,7 @@ export function useSettingsSources() {
       isPending: saveSkills.isPending,
       isFailed: saveSkills.isError,
       save: (directories: string[]) => saveSkills.mutate({ directories }),
+      skipped: skillStatus.data?.skipped ?? [],
     },
     instructions: {
       paths: instructions.data?.paths ?? [],

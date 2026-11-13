@@ -20,6 +20,18 @@ export const skill = z.object({
 
 export const skillCatalog = z.array(skill);
 
+export const skillSkipReason = z.enum(['frontmatter', 'description', 'duplicate', 'other']);
+
+export const skillStatus = z.object({
+  skipped: z.array(z.object({
+    path: z.string(),
+    reason: skillSkipReason,
+    message: z.string(),
+  })),
+});
+
 export type SkillSettings = z.infer<typeof skillSettings>;
 export type SkillConfigureInput = z.infer<typeof skillConfigure>;
 export type Skill = z.infer<typeof skill>;
+export type SkillSkipReason = z.infer<typeof skillSkipReason>;
+export type SkillStatus = z.infer<typeof skillStatus>;

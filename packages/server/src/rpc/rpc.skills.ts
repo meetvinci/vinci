@@ -5,5 +5,6 @@ export const skills = {
   shared: ownerRouter.skills.shared.handler(async ({ context, input }) => context.bots.queries.sharedSkills(input)),
   local: ownerRouter.skills.local.handler(async ({ context, input }) => context.bots.queries.localSkills(input)),
   settings: ownerRouter.skills.settings.handler(async ({ context }) => context.skills.queries.settings()),
+  status: ownerRouter.skills.status.handler(async ({ context }) => context.skills.queries.status()),
   configure: ownerRouter.skills.configure.handler(async ({ context, input }) => context.skills.actions.configure(input)),
 };

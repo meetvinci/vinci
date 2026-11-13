@@ -343,7 +343,12 @@ function renderCompose(ids: string[]): string {
 
 function renderUsers({ users }: Team, ids: string[]): string {
   const daemon = (id: string) => ({ daemonUrl: `http://daemon-${id}:47191`, socketPath: `/ipc/${id}/rpc.sock` });
-  const entries = ids.map((id) => [users.get(id)?.email, { id, ...daemon(id), ...(users.get(id)?.advanced ? { advanced: true } : {}) }]);
+
+  const entries = ids.map((id) => {
+    const person = users.get(id);
+
+    return [person?.email, { id, name: person?.name, ...daemon(id), ...(person?.advanced ? { advanced: true } : {}) }];
+  });
 
   // The template has no email: no login routes to it, only the admin panel through the hub.
   return `${JSON.stringify({ users: Object.fromEntries(entries), template: daemon(templateId) }, null, 2)}\n`;

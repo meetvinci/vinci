@@ -196,7 +196,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
     .with('general', () => (view === 'theme' ? <ClientOnly><SettingsThemeCreate onBack={onBack} /></ClientOnly> : (
       <>
         <SettingsGeneral />
-        {scope.isAdmin ? null : <SettingsAppearance />}
+        <SettingsAppearance />
       </>
     )))
     .with('chat', () => <SettingsChat />)

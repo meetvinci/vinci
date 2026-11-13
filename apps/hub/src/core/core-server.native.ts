@@ -197,6 +197,7 @@ async function coreServerWhoami(services: CoreTypes.CoreServices, { identity, us
 
   return Response.json({
     email: identity.email,
+    name: user.name ?? null,
     user: user.id,
     serverId: daemon?.serverId ?? null,
     isAdvanced: user.advanced === true,

@@ -1,9 +1,9 @@
 import { getAgentDir, loadSkills, parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { log } from '@repo/logger/server';
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { match, P } from 'ts-pattern';
+import { skillSharedPaths } from './skill.utils';
 import type { SkillLoaderServiceDeps, SkillLoadParams, SkillResolvedResult } from '../../types/skill.types';
 
 export function skillQueryResolve(deps: SkillLoaderServiceDeps, params: SkillLoadParams): SkillResolvedResult {
@@ -40,7 +40,7 @@ export function skillQueryResolve(deps: SkillLoaderServiceDeps, params: SkillLoa
     const localPaths = [join(directory, '.pi/skills'), join(directory, '.agents/skills')];
 
     const sharedPaths = match(isInherited)
-      .with(true, () => [...directories.map(skillResolvePath), join(agentDir, 'skills')].filter(existsSync))
+      .with(true, () => skillSharedPaths(root, agentDir, directories))
       .with(false, () => [])
       .exhaustive();
 
@@ -59,13 +59,6 @@ export function skillQueryResolve(deps: SkillLoaderServiceDeps, params: SkillLoa
         isShared: !localPaths.some((path) => skill.filePath.startsWith(`${path}/`)),
       })),
     };
-  }
-
-  function skillResolvePath(path: string) {
-    return resolve(deps.root, match(path)
-      .with('~', () => homedir())
-      .when((value) => value.startsWith('~/'), (value) => join(homedir(), value.slice(2)))
-      .otherwise((value) => value));
   }
 
   function skillArgumentHint(filePath: string): string | null {

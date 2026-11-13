@@ -1,6 +1,7 @@
 import { LayoutBrand } from '@repo/ui/layout/layout-brand';
 import * as Sidebar from '@repo/ui/sidebar';
-import { Link } from '@tanstack/react-router';
+import { Link, useMatch, useRouter } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { RoomsSidebar, RoomsSidebarActions } from '@/components/rooms/rooms-sidebar';
 import BrandsLogo from '~icons/brands/logo';
 import { LayoutNavDevice } from './layout-nav-device';
@@ -12,6 +13,16 @@ interface LayoutAppSidebarProps extends ComponentProps<typeof Sidebar.Sidebar> {
 }
 
 export function LayoutAppSidebar({ connection, ...props }: LayoutAppSidebarProps) {
+  const { isMobile, setOpenMobile } = Sidebar.useSidebar();
+  const router = useRouter();
+  const isHome = useMatch({ from: '/_chat/rooms/', shouldThrow: false }) !== undefined;
+
+  useEffect(() => {
+    if (isMobile && isHome && Object.keys(router.state.location.search).length === 0) {
+      setOpenMobile(true);
+    }
+  }, [isMobile, isHome, router, setOpenMobile]);
+
   return (
     <Sidebar.Sidebar {...props}>
       <div className="cursor-default electrobun-webkit-app-region-drag">

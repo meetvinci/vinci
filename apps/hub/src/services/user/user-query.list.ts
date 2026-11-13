@@ -12,9 +12,9 @@ export async function userQueryList(deps: UserTypes.UserServiceDeps): Promise<Pr
     await userActionReload(deps);
   }
 
-  return [...deps.state.users.values()].map(({ id, email, advanced }) => ({
+  return [...deps.state.users.values()].map(({ id, name, email, advanced }) => ({
     id,
-    name: id,
+    name: name ?? id,
     email,
     enabled: true,
     advanced: advanced === true,

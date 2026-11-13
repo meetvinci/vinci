@@ -13,6 +13,7 @@ const userDaemon = z.strictObject({
 
 const userEntry = userDaemon.extend({
   id: userId.refine((id) => id !== adminTemplateId, { message: 'The id template is reserved for the template workspace' }),
+  name: z.string().optional(),
   advanced: z.literal(true).optional(),
 });
 

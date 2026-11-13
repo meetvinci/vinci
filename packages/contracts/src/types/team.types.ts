@@ -3,6 +3,7 @@ import { adminEmail, adminSectionId, adminSectionMode, adminUserId } from './adm
 
 export const teamWhoami = z.object({
   email: adminEmail,
+  name: z.string().nullable(),
   user: adminUserId,
   serverId: z.string().nullable(),
   isAdvanced: z.boolean(),

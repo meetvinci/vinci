@@ -120,7 +120,7 @@ import {
   sidebarSectionTarget,
   sidebarSectionVoid,
 } from '../types/sidebar-section.types';
-import { skillCatalog, skillConfigure, skillDiscover, skillSettings } from '../types/skill.types';
+import { skillCatalog, skillConfigure, skillDiscover, skillSettings, skillStatus } from '../types/skill.types';
 import { todo, todoCreate, todoList, todoRemoveResult, todoReorder, todoTarget, todoUpdate } from '../types/todo.types';
 import {
   toolAlwaysAllowed,
@@ -301,6 +301,8 @@ export const contract = {
     local: ocFind.input(skillDiscover).output(skillCatalog),
 
     settings: ocAuth.output(skillSettings),
+
+    status: ocAuth.output(skillStatus),
 
     configure: ocAuth.input(skillConfigure).output(skillSettings),
   },

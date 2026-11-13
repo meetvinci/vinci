@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
-import { useSectionScope } from '@/hooks/use-section-scope';
 import type { NotificationPlatform } from '@repo/contracts/universal';
 
 const SETTINGS_NOTIFY_PREFER = {
@@ -44,15 +43,12 @@ function SettingsGeneralNotifications() {
 
 export function SettingsGeneral() {
   const notify = useNotificationSettings();
-  const scope = useSectionScope();
 
   return (
     <SettingsGroup title={m.settings_general()}>
-      {scope.isAdmin ? null : (
-        <ClientOnly>
-          <SettingsGeneralNotifications />
-        </ClientOnly>
-      )}
+      <ClientOnly>
+        <SettingsGeneralNotifications />
+      </ClientOnly>
       <PanelRow>
         <PanelContent>
           <PanelTitle>{m.settings_notify_prefer()}</PanelTitle>

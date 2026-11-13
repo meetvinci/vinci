@@ -78,6 +78,7 @@ const modelRequest = z.object({
 
 export interface HubFixtureUser {
   id: string;
+  name?: string;
   daemonUrl: string;
   socketPath: string;
   advanced?: true;
@@ -349,7 +350,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
   };
 
   const users = {
-    [emails.alice]: { id: 'alice', daemonUrl: config.daemons.alice, socketPath: join(root, 'alice/data/ipc/rpc.sock') },
+    [emails.alice]: { id: 'alice', name: 'Alice Example', daemonUrl: config.daemons.alice, socketPath: join(root, 'alice/data/ipc/rpc.sock') },
     [emails.bob]: { id: 'bob', daemonUrl: config.daemons.bob, socketPath: join(root, 'bob/data/ipc/rpc.sock') },
   } satisfies Record<string, HubFixtureUser>;
 

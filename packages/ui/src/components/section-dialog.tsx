@@ -6,6 +6,7 @@ import { cn } from '../lib/cn';
 import { Button } from './button';
 import { ButtonLoading } from './button-loading';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from './dialog';
+import { ScrollArea } from './scroll-area';
 import type { ComponentProps, ReactNode } from 'react';
 
 interface SectionDialogProps {
@@ -94,9 +95,15 @@ export function SectionDialogNav({ label, header, activeKey, footer, children }:
   return (
     <nav aria-label={label} className="flex min-w-0 shrink-0 flex-col gap-2 border-b bg-muted/40 py-3.5 @min-[720px]/section-dialog:w-54 @min-[720px]/section-dialog:gap-4 @min-[720px]/section-dialog:border-r @min-[720px]/section-dialog:border-b-0 @min-[720px]/section-dialog:px-2 @min-[720px]/section-dialog:pt-4 @min-[720px]/section-dialog:pb-2">
       <div className="pr-14 pl-5 @min-[720px]/section-dialog:px-1">{header}</div>
-      <ul className="flex snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] gap-0.5 overflow-x-auto mask-r-from-85% pr-16 pl-2 @min-[720px]/section-dialog:min-h-0 @min-[720px]/section-dialog:flex-1 @min-[720px]/section-dialog:snap-none @min-[720px]/section-dialog:flex-col @min-[720px]/section-dialog:overflow-x-visible @min-[720px]/section-dialog:overflow-y-auto @min-[720px]/section-dialog:mask-none @min-[720px]/section-dialog:px-0" ref={list}>
-        {children}
-      </ul>
+      <ScrollArea
+        className="min-w-0 @min-[720px]/section-dialog:min-h-0 @min-[720px]/section-dialog:flex-1"
+        orientation="horizontal"
+        viewportClassName="snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] @min-[720px]/section-dialog:h-full @min-[720px]/section-dialog:snap-none @min-[720px]/section-dialog:overflow-x-visible @min-[720px]/section-dialog:overflow-y-auto"
+      >
+        <ul className="flex w-max min-w-full gap-0.5 px-2 @min-[720px]/section-dialog:w-auto @min-[720px]/section-dialog:flex-col @min-[720px]/section-dialog:px-0" ref={list}>
+          {children}
+        </ul>
+      </ScrollArea>
       {footer ? <div className="hidden flex-col items-start @min-[720px]/section-dialog:flex">{footer}</div> : null}
     </nav>
   );
@@ -158,7 +165,7 @@ export function SectionDialogBody({ title, description, actions, footer, childre
         {title ? (
           <div className="flex min-w-0 flex-1 basis-full flex-col gap-0.5 @min-[720px]/section-dialog:basis-0">
             <h2 className="truncate text-lg font-semibold">{title}</h2>
-            {description ? <p className="truncate text-sm text-muted-foreground">{description}</p> : null}
+            {description ? <p className="text-sm text-pretty text-muted-foreground">{description}</p> : null}
           </div>
         ) : null}
         {actions}

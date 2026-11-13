@@ -9,6 +9,7 @@ import { Link, useHydrated } from '@tanstack/react-router';
 import { match } from 'ts-pattern';
 import { connectionForget } from '@/services/connection/connection.client';
 import { rpc } from '@/services/rpc/rpc.client';
+import { teamQuery } from '@/services/team/team.client';
 import BrandsLogo from '~icons/brands/logo';
 import LucideChevronsUpDown from '~icons/lucide/chevrons-up-down';
 import IconLogOut from '~icons/lucide/log-out';
@@ -23,6 +24,7 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
   const { isMobile } = Sidebar.useSidebar();
   const hydrated = useHydrated();
   const server = useQuery(rpc.server.info.queryOptions());
+  const { data: team } = useQuery(teamQuery());
   const host = new URL((connection.addresses.find((address) => address.kind !== 'loopback') ?? connection.addresses[0]).url).host;
 
   const status = match(server)
@@ -49,8 +51,8 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
                 </span>
               </span>
               <div className="grid flex-1 text-left text-sm/tight group-data-[collapsible=icon]:sr-only">
-                <span className="truncate font-semibold">{env.VITE_APP_NAME}</span>
-                <span className="truncate text-xxs text-muted-foreground">{host}</span>
+                <span className="truncate font-semibold">{team?.name ?? env.VITE_APP_NAME}</span>
+                <span className="truncate text-xxs text-muted-foreground">{team?.email ?? host}</span>
               </div>
               <LucideChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
             </Sidebar.SidebarMenuButton>

@@ -1,14 +1,16 @@
 import { skillQueryExpand } from './skill-query.expand';
 import { skillQueryLoad } from './skill-query.load';
-import type { SkillExpandParams, SkillLoaderServiceDeps, SkillLoadParams } from '../../types/skill.types';
+import { skillQueryStatus } from './skill-query.status';
+import type * as SkillTypes from '../../types/skill.types';
 
-export function makeSkillLoaderService({ root }: Pick<SkillLoaderServiceDeps, 'root'>) {
-  const deps: SkillLoaderServiceDeps = { root, catalogs: new Map() };
+export function makeSkillLoaderService({ root }: Pick<SkillTypes.SkillLoaderServiceDeps, 'root'>) {
+  const deps: SkillTypes.SkillLoaderServiceDeps = { root, catalogs: new Map() };
 
   return {
     queries: {
-      load: (params: SkillLoadParams) => skillQueryLoad(deps, params),
-      expand: (params: SkillExpandParams) => skillQueryExpand(deps, params),
+      load: (params: SkillTypes.SkillLoadParams) => skillQueryLoad(deps, params),
+      expand: (params: SkillTypes.SkillExpandParams) => skillQueryExpand(deps, params),
+      status: (params: SkillTypes.SkillStatusParams) => skillQueryStatus(deps, params),
     },
   };
 }

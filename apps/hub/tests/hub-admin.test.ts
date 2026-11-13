@@ -47,6 +47,10 @@ describe('admin access', () => {
     expect(unknown.map(({ status }) => status)).toEqual([404, 404, 404]);
   });
 
+  it('tells a person their name from users.json, which the sidebar shows', async ({ tokens }) => {
+    expect((await hubAdminTestRead(tokens.alice, '/hub/whoami')).json).toMatchObject({ email: emails.alice, name: 'Alice Example' });
+  });
+
   it.for([
     ['eve', 'eve@team.example', '/', 'No workspace for this email'],
     ['eve', 'eve@team.example', '/admin/users', 'This page is for admins'],

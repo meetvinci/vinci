@@ -38,6 +38,10 @@ export interface SkillLoadResult {
   skills: UniversalTypes.Skill[];
 }
 
+export interface SkillStatusParams {
+  directories: string[];
+}
+
 export interface SkillExpandParams extends SkillLoadParams {
   names: string[];
 }

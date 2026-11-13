@@ -9,7 +9,7 @@ export const Route = createFileRoute('/admin/users/$userId/settings/')({
 
     throw redirect({
       to: '/admin/users/$userId/settings/$tab',
-      params: { ...params, tab: global?.sections.at(0)?.id ?? (isTemplate ? 'models' : 'general') },
+      params: { ...params, tab: global?.sections.at(0)?.id ?? (isTemplate ? 'models' : 'chat') },
       replace: true,
     });
   },
