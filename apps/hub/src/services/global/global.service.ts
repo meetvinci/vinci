@@ -9,9 +9,11 @@ import { globalActionStart } from './global-action.start';
 import { globalActionSync } from './global-action.sync';
 import { globalActionUpdate } from './global-action.update';
 import { globalQueryGlobal } from './global-query.global';
+import { globalQueryIsStarted } from './global-query.is-started';
 import { globalQueryPreview } from './global-query.preview';
 import { globalQueryStatus } from './global-query.status';
 import { GLOBAL } from './global.constants';
+import { globalDriverStartWrite } from './global.driver';
 import { globalSections, globalSectionState, globalWrittenSection } from './global.utils';
 import type * as GlobalTypes from '../../types/global.types';
 
@@ -19,6 +21,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
   const deps: GlobalTypes.GlobalServiceDeps = {
     ...services,
     path: join(directory, GLOBAL.file),
+    startPath: join(directory, GLOBAL.startFile),
     state: {
       file: { users: {} },
       isBroken: false,
@@ -46,6 +49,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
       status: () => globalQueryStatus(deps),
       preview: (params) => globalQueryPreview(deps, params),
       section: ({ procedure }) => globalWrittenSection(procedure),
+      isStarted: (params) => globalQueryIsStarted(deps, params),
       guard: ({ id, procedure }) => {
         const section = GLOBAL.ownWrites.includes(procedure.toLowerCase()) ? null : globalWrittenSection(procedure);
 
@@ -56,6 +60,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
       mode: (params) => globalActionMode(deps, params),
       sync: (params) => globalActionSync(deps, params),
       start: ({ by }) => globalActionStart(deps, { by, attempts: GLOBAL.startAttempts }),
+      started: (params) => globalDriverStartWrite(deps.startPath, params),
       changed: (params) => globalActionChanged(deps, params),
       create: (params) => globalActionCreate(deps, params),
       update: (params) => globalActionUpdate(deps, params),

@@ -1,6 +1,7 @@
 import { adminAuditPage } from '@repo/contracts/universal';
 import { chmod, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
 import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
@@ -187,6 +188,29 @@ describe('audit trail', () => {
     });
     expect(unrecorded).toEqual({ status: 503, json: { error: 'audit_unavailable' } });
     expect(fixture.logs.join('')).toContain('Admin loaded outside content in a conversation');
+  });
+
+  it('runs the global sync at start once per version, and again after a hub of another version synced', async ({ fixture, tokens }) => {
+    const lastStart = async () => ((await audit(tokens.root, '?kind=change')).page?.entries ?? []).find((entry) => entry.by === 'hub start')?.id ?? 0;
+    const skipped = () => fixture.logs.join('').split('The global sync at start already ran for this version').length - 1;
+
+    const restart = async (extra: Record<string, string>) => {
+      const before = { row: await lastStart(), skips: skipped() };
+
+      await fixture.restartHub(extra);
+      await expect.poll(async () => (await lastStart()) > before.row || skipped() > before.skips, { timeout: 30_000 }).toBe(true);
+      await sleep(500);
+
+      return (await lastStart()) > before.row ? 'synced' : 'skipped';
+    };
+
+    expect(await restart({ HUB_VERSION: 'v1' })).toBe('synced');
+    expect(JSON.parse(await readFile(join(fixture.hubData, 'start-sync.json'), 'utf8'))).toEqual({ version: 'v1', row: await lastStart() });
+    expect(await restart({ HUB_VERSION: 'v1' })).toBe('skipped');
+    expect(await restart({})).toBe('synced');
+    expect(await restart({ HUB_VERSION: 'v1' })).toBe('synced');
+    expect(await restart({ HUB_VERSION: 'v1' })).toBe('skipped');
+    expect(await restart({ HUB_VERSION: 'v2' })).toBe('synced');
   });
 
   it('pages newest first and filters by admin, person and kind', async ({ tokens }) => {

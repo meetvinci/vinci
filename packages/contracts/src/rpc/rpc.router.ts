@@ -34,6 +34,7 @@ import {
   botFilesImportResult,
   botGet,
   botList,
+  botOpenResult,
   botSwapModels,
   botSwapModelsResult,
   botUpdate,
@@ -368,6 +369,8 @@ export const contract = {
     catalog: ocFind.input(botGet).output(botCatalog),
 
     usage: ocFind.input(botGet).output(conversationUsage),
+
+    open: ocFind.input(botGet).output(botOpenResult),
 
     exportFiles: ocAdmin.input(botGet).output(botFiles),
 

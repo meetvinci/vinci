@@ -41,6 +41,8 @@ services:
       HUB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
       HUB_WEB_URL: http://web:47190
       HUB_ADMIN_EMAILS: ${HUB_ADMIN_EMAILS:?set HUB_ADMIN_EMAILS in .env}
+      # The global sync at start runs once per version, not at every restart.
+      HUB_VERSION: ${ORBS_TAG}
       PROVISIONER_URL: http://provisioner:47193
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}

@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { chatQueries } from '../services/chat/chat.client';
 import { chatActivity, chatCompaction, chatEntryIds, chatFailure, chatLive, chatMessages, chatOutgoingMessages, chatQueued } from '../services/chat/chat.utils';
+import { useBotOpen } from './use-bot-open';
 import { useChatReactions } from './use-chat-reactions';
 import { useRpc } from './use-rpc';
 import type { ChatRoomParams } from '../types/chat.types';
@@ -8,6 +9,7 @@ import type { ChatRoomParams } from '../types/chat.types';
 export function useChatRoom({ bot, bots, view, outgoing, isMain = false }: ChatRoomParams) {
   const rpcs = useRpc();
   const { conversationId } = view;
+  useBotOpen(bot.id, isMain);
 
   const history = useInfiniteQuery(chatQueries.history(rpcs, {
     botId: bot.id,

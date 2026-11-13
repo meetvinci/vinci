@@ -54,3 +54,9 @@ export function auditDriverList(database: Database, { cursor, by, user, kind, li
     limit,
   });
 }
+
+export function auditDriverLastStart(database: Database, by: string): number | null {
+  return database.query<{ id: number | null }, { by: string }>(`
+    SELECT max(id) AS id FROM audit WHERE admin = $by AND action = 'global/sync'
+  `).get({ by })?.id ?? null;
+}

@@ -51,8 +51,12 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
                 </span>
               </span>
               <div className="grid flex-1 text-left text-sm/tight group-data-[collapsible=icon]:sr-only">
-                <span className="truncate font-semibold">{team?.name ?? env.VITE_APP_NAME}</span>
-                <span className="truncate text-xxs text-muted-foreground">{team?.email ?? host}</span>
+                {team ? <span className="truncate font-semibold">{team.name ?? team.email}</span> : (
+                  <>
+                    <span className="truncate font-semibold">{env.VITE_APP_NAME}</span>
+                    <span className="truncate text-xxs text-muted-foreground">{host}</span>
+                  </>
+                )}
               </div>
               <LucideChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
             </Sidebar.SidebarMenuButton>

@@ -73,6 +73,8 @@ export const botUpdate = botFields.partial().extend(botGet.shape);
 
 export const botDeleteResult = z.void();
 
+export const botOpenResult = z.void();
+
 export const botFiles = workspaceFiles.extend({ mcp: mcpOwned });
 export const botFilesImport = botFiles.extend(botGet.shape);
 export const botFilesImportResult = z.void();

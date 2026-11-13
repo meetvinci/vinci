@@ -1,6 +1,7 @@
 import { log } from '@repo/logger/server';
 import { join } from 'node:path';
 import { auditActionRecord } from './audit-action.record';
+import { auditQueryLastStart } from './audit-query.last-start';
 import { auditQueryList } from './audit-query.list';
 import { AUDIT } from './audit.constants';
 import { auditDatabase } from './audit.utils';
@@ -22,6 +23,7 @@ export function makeAuditService({ directory }: AuditTypes.AuditServiceParams) {
   return {
     queries: {
       list: (input: AuditTypes.AuditListInput) => auditQueryList(deps, input),
+      lastStart: (params: AuditTypes.AuditLastStartParams) => auditQueryLastStart(deps, params),
     },
     actions: {
       record: (entry: AuditTypes.AuditEntry) => auditActionRecord(deps, entry),

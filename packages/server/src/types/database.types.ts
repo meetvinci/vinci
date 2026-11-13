@@ -48,6 +48,7 @@ export interface DatabaseSchema {
   };
   bot: DatabaseBot;
   botPreference: DatabaseBotPreference;
+  botStart: { botId: string };
   sidebarSection: DatabaseSidebarSection;
   device: {
     id: string;

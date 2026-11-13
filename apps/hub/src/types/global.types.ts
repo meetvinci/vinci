@@ -20,7 +20,10 @@ export const globalSyncInput = z.strictObject({ section: adminSectionId.optional
 
 export const globalBotsInput = z.strictObject({ bots: z.array(z.uuid()).min(1).max(50) });
 
+export const globalStartRecord = z.strictObject({ version: z.string(), row: z.number().int().nullable() });
+
 export type GlobalFile = z.infer<typeof globalFile>;
+export type GlobalStartRecord = z.infer<typeof globalStartRecord>;
 
 export type GlobalSectionState = z.infer<typeof globalSectionState>;
 
@@ -32,6 +35,7 @@ export interface GlobalServiceParams {
 
 export interface GlobalServiceDeps extends Omit<GlobalServiceParams, 'directory'> {
   path: string;
+  startPath: string;
   state: GlobalState;
 }
 
@@ -164,11 +168,13 @@ export interface GlobalService {
     guard: (params: GlobalGuardParams) => UniversalTypes.AdminSectionId | null;
     preview: (params: GlobalPreviewParams) => Promise<UniversalTypes.AdminSectionPreview>;
     section: (params: Pick<GlobalGuardParams, 'procedure'>) => UniversalTypes.AdminSectionId | null;
+    isStarted: (params: GlobalStartRecord) => Promise<boolean>;
   };
   actions: {
     mode: (params: GlobalModeParams) => Promise<UniversalTypes.AdminSection>;
     sync: (params: GlobalSyncParams) => Promise<GlobalStatusUser[]>;
     start: (params: Pick<GlobalStartParams, 'by'>) => Promise<void>;
+    started: (params: GlobalStartRecord) => Promise<void>;
     changed: (params: GlobalChangedParams) => void;
     create: (params: UserTypes.UserCreateParams) => Promise<GlobalCreated>;
     update: (params: UserTypes.UserUpdateParams) => Promise<UserTypes.UserChanged>;

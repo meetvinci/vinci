@@ -8,6 +8,7 @@ import { botActionCreate } from './bot-action.create';
 import { botActionDelete } from './bot-action.delete';
 import { botActionImportFiles } from './bot-action.import-files';
 import { botActionMarkRead } from './bot-action.mark-read';
+import { botActionOpen } from './bot-action.open';
 import { botActionRemoveMcp } from './bot-action.remove-mcp';
 import { botActionRestore } from './bot-action.restore';
 import { botActionSetPreferences } from './bot-action.set-preferences';
@@ -63,6 +64,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       clearHistory: (params: UniversalTypes.BotGetInput) => botActionClearHistory(serviceDeps, params),
       setPreferences: (params: BotTypes.BotPreferencesUpdate) => botActionSetPreferences(serviceDeps, params),
       markRead: (params: BotTypes.BotMarkReadParams) => botActionMarkRead(serviceDeps, params),
+      open: (params: UniversalTypes.BotGetInput) => botActionOpen(serviceDeps, params),
       arrange: (params: BotTypes.BotArrangeParams) => botActionArrange(serviceDeps, params),
       importFiles: (params: UniversalTypes.BotFilesImportInput) => botActionImportFiles(serviceDeps, params),
     },

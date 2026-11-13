@@ -27,7 +27,14 @@ export async function botActionUpdate(deps: BotServiceDeps, { botId, canStart, .
 
     await tx.updateTable('bot').set({ ...botValues(bot), updatedAt: bot.updatedAt }).where('id', '=', botId).execute();
 
-    return canStart && !previous.instructions.trim() && Boolean(bot.instructions.trim());
+    const isFirstInstructions = !previous.instructions.trim() && Boolean(bot.instructions.trim());
+
+    await match(isFirstInstructions && !canStart)
+      .with(true, () => tx.insertInto('botStart').values({ botId }).onConflict((conflict) => conflict.doNothing()).execute())
+      .with(false, () => undefined)
+      .exhaustive();
+
+    return canStart && isFirstInstructions;
   });
 
   for (const listener of deps.changes) {

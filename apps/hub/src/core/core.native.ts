@@ -96,6 +96,20 @@ export async function coreNativeRun(): Promise<void> {
 }
 
 async function coreNativeGlobalStart(services: CoreTypes.CoreServices): Promise<void> {
+  const version = env.HUB_VERSION;
+  const isStarted = version !== undefined && await services.global.queries.isStarted({ version, row: services.audit.queries.lastStart({ by: START_BY }) });
+
+  await match(isStarted)
+    .with(true, () => log.info({
+      tag: 'hub',
+      message: 'The global sync at start already ran for this version',
+      version,
+    }))
+    .with(false, () => coreNativeGlobalSync(services, version))
+    .exhaustive();
+}
+
+async function coreNativeGlobalSync(services: CoreTypes.CoreServices, version: string | undefined): Promise<void> {
   const status = await services.global.queries.isBroken().then(async (isBroken) => {
     if (isBroken) {
       return 503;
@@ -120,4 +134,15 @@ async function coreNativeGlobalStart(services: CoreTypes.CoreServices): Promise<
     action: 'global/sync',
     status,
   });
+
+  await match({ version, status })
+    .with({ version: P.string, status: 200 }, ({ version: synced }) => services.global.actions.started({
+      version: synced,
+      row: services.audit.queries.lastStart({ by: START_BY }),
+    }).catch((error: unknown) => log.error({
+      tag: 'hub',
+      message: 'The global sync at start is not recorded; the next start runs it again',
+      error,
+    })))
+    .otherwise(() => undefined);
 }

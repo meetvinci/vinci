@@ -50,5 +50,6 @@ export function databaseDriverLoadMigrations() {
     '0003_bot_shared_skills': readFileSync(new URL('./migrations/0003_bot_shared_skills.sql', import.meta.url), 'utf8'),
     '0004_bot_shared_mcp': readFileSync(new URL('./migrations/0004_bot_shared_mcp.sql', import.meta.url), 'utf8'),
     '0005_bot_disabled_skills': readFileSync(new URL('./migrations/0005_bot_disabled_skills.sql', import.meta.url), 'utf8'),
+    '0006_bot_start': readFileSync(new URL('./migrations/0006_bot_start.sql', import.meta.url), 'utf8'),
   };
 }

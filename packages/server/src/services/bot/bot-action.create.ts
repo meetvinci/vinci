@@ -27,6 +27,11 @@ export async function botActionCreate(deps: BotServiceDeps, { canStart, ...param
         throw new Errors.CONFLICT();
       });
 
+    await match(!canStart && Boolean(params.instructions.trim()))
+      .with(true, () => tx.insertInto('botStart').values({ botId: id }).execute())
+      .with(false, () => undefined)
+      .exhaustive();
+
     return id;
   });
 

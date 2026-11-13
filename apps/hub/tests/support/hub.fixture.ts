@@ -8,6 +8,8 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { match, P } from 'ts-pattern';
 import { z } from 'zod';
+import { hubFixtureProvisioner } from './hub-provisioner.fixture';
+import type { HubFixtureCall } from './hub-provisioner.fixture';
 import type { ChildProcess } from 'node:child_process';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 
@@ -53,20 +55,6 @@ export const HUB_RELAY_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_RE
 export const HUB_AUDIT_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_AUDIT_PORT ?? 48670));
 
 export type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
-
-interface HubFixtureAccess {
-  domains: string[];
-  missing: string[];
-  isDown: boolean;
-  admins: string[];
-}
-
-interface HubFixtureCall {
-  method: string;
-  url: string;
-  headers: Record<string, string | string[] | undefined>;
-  body: string;
-}
 
 const modelRequest = z.object({
   model: z.string(),
@@ -209,75 +197,6 @@ async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'a
   });
 }
 
-function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureConfig) {
-  const calls: HubFixtureCall[] = [];
-
-  const userBody = z.object({
-    name: z.string(),
-    email: z.string(),
-    enabled: z.boolean(),
-    advanced: z.boolean(),
-  });
-
-  const users = new Map(Object.entries(emails).map(([id, email]) => [id, {
-    id,
-    name: id,
-    email,
-    enabled: true,
-    advanced: false,
-    state: 'running',
-  }]));
-
-  const access: HubFixtureAccess = { domains: [], missing: [], isDown: false, admins: [] };
-
-  const accessRule = () => ({
-    domains: access.domains,
-    emails: [...[...users.values()].filter((user) => user.enabled).map((user) => user.email), ...access.admins]
-      .filter((email) => !access.missing.includes(email) && !access.domains.some((domain) => email.endsWith(`@${domain}`))),
-  });
-
-  const handle = (request: IncomingMessage, response: ServerResponse, body: string) => {
-    const [, kind = '', id = ''] = (request.url ?? '').split('/');
-
-    calls.push({
-      method: request.method ?? '',
-      url: request.url ?? '',
-      headers: request.headers,
-      body,
-    });
-
-    if (request.headers.authorization !== `Bearer ${provisionerToken}`) {
-      response.writeHead(401).end();
-      return;
-    }
-
-    match({ method: request.method, kind })
-      .with({ method: 'GET', kind: 'users' }, () => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ users: [...users.values()] })))
-      .with({ method: 'PUT', kind: 'users' }, () => {
-        users.set(id, {
-          id,
-          ...userBody.parse(JSON.parse(body)),
-          state: 'running',
-        });
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
-      })
-      .with({ method: 'DELETE', kind: 'users' }, () => {
-        users.delete(id);
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
-      })
-      .with({ method: 'PUT', kind: 'access' }, () => {
-        access.admins = z.object({ emails: z.array(z.string()) }).parse(JSON.parse(body)).emails;
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
-      })
-      .with({ method: 'GET', kind: 'access' }, () => (access.isDown
-        ? response.writeHead(500).end()
-        : response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(accessRule()))))
-      .otherwise(() => response.writeHead(404).end());
-  };
-
-  return { calls, access, handle };
-}
-
 function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtureHubOptions): ChildProcess {
   return spawn('bun', ['src/entry.native.ts'], {
     cwd: join(ROOT, 'apps/hub'),
@@ -293,6 +212,17 @@ function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtu
       HUB_ADMIN_EMAILS: `${config.admin},${config.emails.alice}`,
       ...extra,
     }),
+  });
+}
+
+async function hubFixtureExit(child: ChildProcess | undefined): Promise<void> {
+  child?.kill('SIGTERM');
+  await new Promise((done) => {
+    if (child?.exitCode === null) {
+      child.once('exit', done);
+    } else {
+      done(null);
+    }
   });
 }
 
@@ -387,11 +317,13 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
 
   await Promise.all(Object.entries({ ...config.daemons, template: config.template }).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
 
+  const hubExtra = { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken, LOG_LEVEL: 'info' };
+
   const hubs = [
     hubFixtureHub(config, {
       port: config.ports.hub,
       data: hubData,
-      extra: { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken, LOG_LEVEL: 'info' },
+      extra: hubExtra,
     }),
     hubFixtureHub(config, {
       port: config.ports.byHand,
@@ -402,11 +334,11 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
 
   const logs: string[] = [];
 
-  hubs.forEach((child, index) => [child.stdout, child.stderr].forEach((stream) => stream?.on('data', (chunk: Buffer) => {
-    if (index === 0) {
-      logs.push(chunk.toString());
-    }
-  })));
+  const keepLogs = (child: ChildProcess) => [child.stdout, child.stderr].forEach((stream) => stream?.on('data', (chunk: Buffer) => {
+    logs.push(chunk.toString());
+  }));
+
+  keepLogs(hubs[0]);
 
   await hubFixtureWait('hub', `${config.hub}/hub/health`);
   await hubFixtureWait('by-hand hub', `${config.byHand}/hub/health`);
@@ -444,17 +376,21 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     await sleep(1500);
   }
 
+  async function restartHub(extra: Record<string, string>): Promise<void> {
+    await hubFixtureExit(hubs[0]);
+    hubs[0] = hubFixtureHub(config, {
+      port: config.ports.hub,
+      data: hubData,
+      extra: { ...hubExtra, ...extra },
+    });
+    keepLogs(hubs[0]);
+    await hubFixtureWait('hub', `${config.hub}/hub/health`);
+  }
+
   async function stop(): Promise<void> {
     const children = [...hubs, ...daemons];
 
-    children.forEach((child) => child.kill('SIGTERM'));
-    await Promise.all(children.map((child) => new Promise((done) => {
-      if (child.exitCode === null) {
-        child.once('exit', done);
-      } else {
-        done(null);
-      }
-    })));
+    await Promise.all(children.map(hubFixtureExit));
     await Promise.all(servers.map((server) => new Promise((done) => {
       server.close(done);
     })));
@@ -472,6 +408,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     logs,
     mint,
     writeUsers,
+    restartHub,
     stop,
   };
 }

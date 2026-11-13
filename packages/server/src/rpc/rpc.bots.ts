@@ -25,6 +25,7 @@ export const bots = {
   delete: ownerRouter.bots.delete.handler(async ({ context, input }) => context.bots.actions.delete(input)),
   catalog: ownerRouter.bots.catalog.handler(async ({ context, input }) => context.bots.queries.catalog(input)),
   usage: authedRouter.bots.usage.handler(async ({ context, input }) => context.bots.queries.usage(input)),
+  open: authedRouter.bots.open.handler(async ({ context, input }) => context.bots.actions.open(input)),
   exportFiles: localRouter.bots.exportFiles.handler(async ({ context, input }) => context.bots.queries.files(input)),
   importFiles: localRouter.bots.importFiles.handler(async ({ context, input }) => context.bots.actions.importFiles(input)),
 };

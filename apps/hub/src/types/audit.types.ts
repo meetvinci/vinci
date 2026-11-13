@@ -15,6 +15,10 @@ export type AuditListInput = z.infer<typeof auditListInput>;
 
 export type AuditEntry = Omit<AdminAuditEntry, 'id' | 'createdAt' | 'detail' | 'userId' | 'botId' | 'conversationId'> & Partial<Pick<AdminAuditEntry, 'detail' | 'userId' | 'botId' | 'conversationId'>>;
 
+export interface AuditLastStartParams {
+  by: string;
+}
+
 export interface AuditServiceParams {
   directory: string;
 }
