@@ -25,4 +25,6 @@ export const GLOBAL = {
   reads: ['list', 'settings', 'session'],
   ownWrites: ['secrets/remove'],
   errorMaxLength: 300,
+  startAttempts: 30,
+  startRetryMs: 2000,
 };

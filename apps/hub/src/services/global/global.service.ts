@@ -5,6 +5,7 @@ import { globalActionChanged } from './global-action.changed';
 import { globalActionCreate } from './global-action.create';
 import { globalActionMode } from './global-action.mode';
 import { globalActionReload } from './global-action.reload';
+import { globalActionStart } from './global-action.start';
 import { globalActionSync } from './global-action.sync';
 import { globalActionUpdate } from './global-action.update';
 import { globalQueryGlobal } from './global-query.global';
@@ -54,6 +55,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
     actions: {
       mode: (params) => globalActionMode(deps, params),
       sync: (params) => globalActionSync(deps, params),
+      start: ({ by }) => globalActionStart(deps, { by, attempts: GLOBAL.startAttempts }),
       changed: (params) => globalActionChanged(deps, params),
       create: (params) => globalActionCreate(deps, params),
       update: (params) => globalActionUpdate(deps, params),

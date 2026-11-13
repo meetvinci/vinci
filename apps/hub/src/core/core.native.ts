@@ -1,5 +1,5 @@
 import { env } from '@repo/env/server';
-import { Errors } from '@repo/errors/universal';
+import { Errors, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
@@ -12,10 +12,12 @@ import { makeGlobalService } from '../services/global/global.service';
 import { makePairingService } from '../services/pairing/pairing.service';
 import { makeProvisionerService } from '../services/provisioner/provisioner.service';
 import { makeUserService } from '../services/user/user.service';
+import { coreAuditRecord, coreAuditStatus } from './core-audit.native';
 import { coreServer } from './core-server.native';
 import type * as CoreTypes from '../types/core.types';
 
 const STOP_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
+const START_BY = 'hub start';
 
 export async function coreNativeRun(): Promise<void> {
   const settings = {
@@ -75,6 +77,8 @@ export async function coreNativeRun(): Promise<void> {
 
   const server = coreServer(services, publicUrl);
 
+  void coreNativeGlobalStart(services);
+
   log.info({
     tag: 'hub',
     message: 'Hub started',
@@ -89,4 +93,31 @@ export async function coreNativeRun(): Promise<void> {
   await server.stop(true);
   services.audit.actions.close();
   log.info({ tag: 'hub', message: 'Hub stopped' });
+}
+
+async function coreNativeGlobalStart(services: CoreTypes.CoreServices): Promise<void> {
+  const status = await services.global.queries.isBroken().then(async (isBroken) => {
+    if (isBroken) {
+      return 503;
+    }
+
+    await services.global.actions.start({ by: START_BY });
+
+    return 200;
+  }).catch((error: unknown) => {
+    log.error({
+      tag: 'hub',
+      message: 'The global sync at start failed; Sync now in the admin panel tries again',
+      error,
+    });
+
+    return coreAuditStatus(isAppError(error) ? error.code : undefined);
+  });
+
+  coreAuditRecord(services, {
+    by: START_BY,
+    kind: 'change',
+    action: 'global/sync',
+    status,
+  });
 }

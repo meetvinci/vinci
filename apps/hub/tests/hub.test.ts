@@ -172,6 +172,7 @@ describe('access token verification', () => {
     expect(fixture.hubData).toBeTruthy();
     expect(await (await hubTestGet('/hub/health')).json()).toEqual({ status: 'ok' });
     expect((await hubTestGet('/hub/whoami')).status).toBe(401);
+    expect(await Promise.all(['/connect', '/connect?code=x'].map(async (path) => hubTestGet(path, { accept: 'text/html' }).then(async (page) => [page.status, await page.text()])))).toEqual([[401, ''], [401, '']]);
   });
 });
 

@@ -2,7 +2,7 @@ import { env } from '@repo/env/server';
 import { initNativeLogger, log } from '@repo/logger/server';
 import { join, posix, sep } from 'node:path';
 import { CONNECTION } from '@/services/connection/connection.constants';
-import { connectionFileHeaders, connectionHasAddresses, connectionTarget } from '@/services/connection/connection.utils';
+import { connectionAccessHeaders, connectionFileHeaders, connectionHasAddresses, connectionTarget } from '@/services/connection/connection.utils';
 import type { RpcProxySocket } from '@/types/rpc.types';
 import type { ServerWebSocket, WebSocketOptions } from 'bun';
 
@@ -119,6 +119,10 @@ try {
 
       if (pathname.toLowerCase().endsWith('.map')) {
         return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      if (env.WEB_HUB_URL && Object.keys(connectionAccessHeaders(request.headers)).length === 0) {
+        return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
       }
 
       const response = await app.default.fetch(request);

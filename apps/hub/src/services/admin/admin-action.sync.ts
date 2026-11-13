@@ -32,7 +32,7 @@ export async function adminActionSync(deps: AdminTypes.AdminServiceDeps, { by, a
     .with({ access: P.nonNullable }, ({ access: synced }) => synced)
     .with({ isLast: true }, () => 'manual' as const)
     .otherwise(async () => {
-      await sleep(ADMIN.startSyncRetryMs);
+      await sleep(ADMIN.startSyncRetryMs, null, { ref: false });
 
       return adminActionSync(deps, { by, attempts: attempts - 1 });
     });

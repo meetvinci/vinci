@@ -116,6 +116,16 @@ export interface GlobalSyncParams {
   by: string;
 }
 
+export interface GlobalStartParams {
+  by: string;
+  attempts: number;
+}
+
+export interface GlobalStartRetryParams extends GlobalUserParams {
+  sections: UniversalTypes.AdminSectionId[];
+  attempts: number;
+}
+
 export interface GlobalChangedParams extends Pick<GlobalGuardParams, 'procedure'> {
   by: string;
 }
@@ -158,6 +168,7 @@ export interface GlobalService {
   actions: {
     mode: (params: GlobalModeParams) => Promise<UniversalTypes.AdminSection>;
     sync: (params: GlobalSyncParams) => Promise<GlobalStatusUser[]>;
+    start: (params: Pick<GlobalStartParams, 'by'>) => Promise<void>;
     changed: (params: GlobalChangedParams) => void;
     create: (params: UserTypes.UserCreateParams) => Promise<GlobalCreated>;
     update: (params: UserTypes.UserUpdateParams) => Promise<UserTypes.UserChanged>;
