@@ -30,6 +30,10 @@ export function SettingsTools() {
 
   const save = useSettingsTools({ onDone: () => form.reset({ ...form.getValues(), jevApiKey: '' }) });
 
+  if (team.isTeam && team.followsGlobal('tools')) {
+    return null;
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(team.isTeam ? save.saveJev : save.save)}>

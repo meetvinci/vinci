@@ -1,3 +1,5 @@
+import { makeHttpClient } from '@repo/client/client';
+import { authPairCode, authRedeemResult } from '@repo/contracts/universal';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -71,7 +73,7 @@ describe('global settings and the template workspace', () => {
   });
 
   it('refuses the copy-only export and import procedures on the relay', async ({ tokens }) => {
-    const procedures = ['providers/export', 'providers/import', 'secrets/export', 'tools/export', 'workspace/export', 'workspace/import', 'bots/exportFiles', 'bots/importFiles'];
+    const procedures = ['providers/export', 'providers/import', 'secrets/export', 'secrets/import', 'tools/export', 'workspace/export', 'workspace/import', 'bots/exportFiles', 'bots/importFiles'];
     const responses = await Promise.all(procedures.flatMap((procedure) => ['template', 'alice'].map((user) => relay(tokens.root, user, procedure))));
 
     expect(responses.map(({ status }) => status)).toEqual(Array.from({ length: procedures.length * 2 }, () => 403));
@@ -138,7 +140,7 @@ describe('global settings and the template workspace', () => {
 
   it('lets an advanced person, and no one else, take over a section that follows global, and a sync leaves it alone', async ({ fixture, tokens }) => {
     const { emails } = HUB_GLOBAL_FIXTURE;
-    const override = () => hubAdminTestWrite(tokens.bob, '/hub/sections/chat/override', { body: {} });
+    const override = (section = 'chat') => hubAdminTestWrite(tokens.bob, `/hub/sections/${section}/override`, { body: {} });
 
     await relay(tokens.root, 'bob', 'conversation/configure', { whenBusy: 'reject' });
     await hubAdminTestBack(tokens.root, 'bob', 'chat');
@@ -149,6 +151,7 @@ describe('global settings and the template workspace', () => {
     await fixture.writeUsers({ ...fixture.users, [emails.bob]: { ...fixture.users[emails.bob], advanced: true } });
 
     const advanced = await override();
+    const adminOnly = await Promise.all(['tools', 'secrets'].map(async (section) => override(section)));
     const after = await hubAdminTestRead(tokens.bob, '/hub/whoami');
     const own = await relay(tokens.root, 'bob', 'conversation/configure', { whenBusy: 'interrupt' });
 
@@ -163,6 +166,7 @@ describe('global settings and the template workspace', () => {
     expect(normal.status).toBe(403);
     expect(before.json).toMatchObject({ isAdvanced: false, sections: expect.arrayContaining([{ id: 'chat', mode: 'global' }]) });
     expect(advanced.json).toEqual({ id: 'chat', mode: 'overridden' });
+    expect(adminOnly.map(({ status }) => status)).toEqual([403, 403]);
     expect(after.json).toMatchObject({ isAdvanced: true, sections: expect.arrayContaining([{ id: 'chat', mode: 'overridden' }]) });
     expect(own.status).toBe(200);
     expect(JSON.stringify(kept.json)).toContain('"interrupt"');
@@ -228,6 +232,101 @@ describe('global settings and the template workspace', () => {
     ]);
     expect(read.status).toBe(200);
     expect(reserved.status).toBe(403);
+  });
+
+  it("keeps a person's own secrets through a sync and Back to global, and lets them remove only their own", async ({ fixture, tokens }) => {
+    const { hub, publicOrigin } = HUB_GLOBAL_FIXTURE;
+    const secret = (name: string, value: string) => ({ name, hosts: ['api.example.com'], value });
+    const secretList = z.object({ json: z.array(z.object({ name: z.string(), isGlobal: z.boolean().optional() })) });
+    const listed = async () => Object.fromEntries(secretList.parse((await relay(tokens.root, 'alice', 'secrets/list')).json).json.map(({ name, isGlobal }) => [name, isGlobal === true]));
+
+    await relay(tokens.root, 'template', 'secrets/save', secret('TEAM_TWO', 'team-two-secret'));
+    await hubAdminTestBack(tokens.root, 'alice', 'secrets');
+
+    const handoff = await hubAdminTestGet('/connect', tokens.alice);
+    const { pin } = authPairCode.parse(new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code'));
+
+    const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
+      method: 'POST',
+      headers: { 'cf-access-jwt-assertion': tokens.alice, 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
+      body: JSON.stringify({ json: { pin, name: 'alice secrets test' } }),
+    });
+
+    const device = z.object({ json: authRedeemResult }).parse(await redeemed.json()).json;
+
+    const person = makeHttpClient(() => ({
+      url: `${hub}/rpc`,
+      serverId: device.serverId,
+      token: () => device.token,
+      fetch: (url, init) => {
+        const headers = new Headers(init.headers);
+
+        headers.set('cf-access-jwt-assertion', tokens.alice);
+        headers.set('origin', publicOrigin);
+
+        return fetch(url, { ...init, headers });
+      },
+    }));
+
+    await person.secrets.save(secret('ALICE_OWN', 'dummy-alice-own-value'));
+    await person.secrets.save(secret('ALICE_CLASH', 'dummy-alice-clash-value'));
+
+    const before = await listed();
+
+    await relay(tokens.root, 'template', 'secrets/save', secret('ALICE_CLASH', 'team-clash-secret'));
+    await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: { section: 'secrets' } });
+
+    const synced = await listed();
+
+    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/secrets', { method: 'PUT', body: { mode: 'overridden' } });
+
+    const preview = await hubAdminTestRead(tokens.root, '/admin/api/users/alice/sections/secrets/preview');
+    const back = await hubAdminTestBack(tokens.root, 'alice', 'secrets');
+    const switched = await listed();
+
+    const credential = async (key: string, value: string | null) => person.credentials.set({ key, value });
+
+    const refused = await Promise.allSettled([
+      person.secrets.remove({ name: 'TEAM_KEY' }),
+      person.secrets.save(secret('TEAM_TWO', 'dummy-alice-overwrite-value')),
+      credential('secrets.TEAM_TWO', 'dummy-alice-overwrite-value'),
+      credential('secrets.TEAM_KEY', null),
+    ]);
+
+    await person.secrets.remove({ name: 'ALICE_OWN' });
+    await person.secrets.save(secret('ALICE_ADMIN', 'dummy-alice-admin-value'));
+
+    const adminRemove = await relay(tokens.root, 'alice', 'secrets/remove', { name: 'ALICE_ADMIN' });
+    const adminSave = await relay(tokens.root, 'alice', 'secrets/save', secret('ALICE_ADMIN', 'dummy-alice-admin-value'));
+
+    await relay(tokens.root, 'template', 'secrets/remove', { name: 'TEAM_TWO' });
+    await relay(tokens.root, 'template', 'secrets/remove', { name: 'ALICE_CLASH' });
+    await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: { section: 'secrets' } });
+
+    const after = await listed();
+    const audit = await hubAdminTestRead(tokens.root, '/admin/api/audit?user=alice');
+    const state = await readFile(join(fixture.hubData, 'global.json'), 'utf8');
+
+    expect(before).toMatchObject({
+      TEAM_KEY: true,
+      TEAM_TWO: true,
+      ALICE_OWN: false,
+      ALICE_CLASH: false,
+    });
+    expect(synced).toMatchObject({
+      TEAM_KEY: true,
+      TEAM_TWO: true,
+      ALICE_OWN: false,
+      ALICE_CLASH: true,
+    });
+    expect(preview.json).toMatchObject({ items: [] });
+    expect(back.json).toEqual({ sections: [{ id: 'secrets', mode: 'global', sync: 'in-sync' }] });
+    expect(switched).toEqual(synced);
+    expect(refused.map((result) => result.status === 'rejected' && JSON.stringify(result.reason))).toEqual(Array.from({ length: 4 }, () => expect.stringContaining('TEAM_MANAGED')));
+    expect(adminRemove.status).toBe(200);
+    expect(adminSave).toEqual({ status: 409, json: { code: 'SECTION_FOLLOWS_GLOBAL', section: 'secrets' } });
+    expect(after).toEqual({ TEAM_KEY: true });
+    expect(JSON.stringify([preview, audit, state])).not.toMatch(/dummy-|team-two-secret|team-clash-secret/u);
   });
 
   it('previews switching back to global by name only, changes nothing, and refuses a stale preview', async ({ fixture, tokens }) => {
@@ -296,7 +395,7 @@ describe('global settings and the template workspace', () => {
       models: [{ kind: 'provider', name: 'anthropic', change: 'changed' }, { kind: 'provider', name: 'openai', change: 'removed' }],
       chat: [{ kind: 'chatSetting', name: 'whenBusy', change: 'changed' }],
       tools: [{ kind: 'toolSetting', name: 'approvalTimeoutMinutes', change: 'changed' }],
-      secrets: [{ kind: 'secret', name: 'BOB_ONLY', change: 'removed' }, { kind: 'secret', name: 'TEAM_KEY', change: 'changed' }],
+      secrets: [{ kind: 'secret', name: 'TEAM_KEY', change: 'replaced' }],
       sources: [
         { kind: 'skill', name: 'mine', change: 'removed' },
         { kind: 'skill', name: 'team', change: 'changed' },
@@ -327,7 +426,8 @@ describe('global settings and the template workspace', () => {
 
     expect(refusedSwitch.status).toBe(409);
     expect(stillOwn.json).toMatchObject({ sections: [{}, {}, {}, { id: 'secrets', mode: 'overridden' }, {}] });
-    expect(fresh.items.map(({ name }) => name)).toContain('BOB_LATE');
+    expect(fresh.marker).not.toBe(stale);
+    expect(fresh.items.map(({ name }) => name)).not.toContain('BOB_LATE');
 
     const marker = async (section: string) => items.parse((await preview(section)).json).marker;
     const markers = Object.fromEntries(await Promise.all(sections.map(async (section) => [section, await marker(section)] as const)));
@@ -344,7 +444,11 @@ describe('global settings and the template workspace', () => {
 
     expect(switched.map(({ json }) => json)).toEqual(sections.map((id) => ({ sections: [{ id, mode: 'global', sync: 'in-sync' }] })));
     expect(emptied).toEqual(sections.map(() => []));
-    expect(JSON.stringify(secrets.json)).not.toMatch(/BOB_ONLY|BOB_LATE/u);
+    expect(secrets.json).toMatchObject({ json: expect.arrayContaining([
+      { name: 'BOB_ONLY', hosts: ['api.example.com'] },
+      { name: 'BOB_LATE', hosts: ['api.example.com'] },
+      { name: 'TEAM_KEY', hosts: ['api.example.com'], isGlobal: true },
+    ]) });
     expect(mcp).not.toContain('bobserver');
     expect(stored).not.toContain('openai');
   });

@@ -46,6 +46,7 @@ export const adminUserPatch = z.object({
 });
 
 export const adminSectionId = settingsSection.extract(['models', 'chat', 'tools', 'secrets', 'sources']);
+export const adminPersonSection = adminSectionId.extract(['models', 'chat', 'sources']);
 export const adminSectionMode = z.enum(['global', 'overridden']);
 export const adminSectionSync = z.enum(['in-sync', 'pending', 'failed']);
 export const adminTemplateState = z.enum(['ready', 'starting', 'missing']);
@@ -80,7 +81,7 @@ export const adminPreviewKind = z.enum([
   'sourceSetting',
 ]);
 
-export const adminPreviewChange = z.enum(['removed', 'changed', 'added']);
+export const adminPreviewChange = z.enum(['removed', 'changed', 'replaced', 'added']);
 
 export const adminPreviewItem = z.object({
   kind: adminPreviewKind,

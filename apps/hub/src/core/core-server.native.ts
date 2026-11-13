@@ -1,4 +1,4 @@
-import { adminSectionId, SERVER_PROTOCOL } from '@repo/contracts/universal';
+import { adminPersonSection, adminSectionId, SERVER_PROTOCOL } from '@repo/contracts/universal';
 import { env } from '@repo/env/server';
 import { Errors, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
@@ -220,6 +220,10 @@ async function coreServerOverride(services: CoreTypes.CoreServices, context: Cor
 
   if (user.advanced !== true) {
     throw new Errors.FORBIDDEN({ internal: `${user.id} is not an advanced user and cannot override ${section.data}` });
+  }
+
+  if (!adminPersonSection.safeParse(section.data).success) {
+    throw new Errors.FORBIDDEN({ internal: `Only the admin overrides ${section.data} for ${user.id}` });
   }
 
   return coreAuditChange(services, context, {

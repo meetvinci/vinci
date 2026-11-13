@@ -13,7 +13,9 @@ export async function conversationActionAnswerQuestion(
 
       return match(questions.find((question) => question.id === params.id)?.secret)
         .with(P.nonNullable, async (rule) => {
-          await secrets.actions.save({ ...rule, value });
+          if (!(await secrets.queries.isGlobal(rule))) {
+            await secrets.actions.save({ ...rule, value });
+          }
 
           return runtime.actions.answerQuestion({ ...params, answer: { kind: 'secret' } });
         })

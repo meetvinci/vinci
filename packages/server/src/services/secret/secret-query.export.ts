@@ -7,5 +7,5 @@ export async function secretQueryExport(deps: SecretServiceDeps): Promise<Secret
   const rules = await secretQueryRules(deps);
   const values = await Promise.all(rules.map(async (rule) => ({ ...rule, value: await secretQueryValue(deps, { name: rule.name }) })));
 
-  return values.flatMap(({ value, ...rule }) => (value === null ? [] : [{ ...rule, value }]));
+  return values.flatMap(({ name, hosts, value }) => (value === null ? [] : [{ name, hosts, value }]));
 }

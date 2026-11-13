@@ -9,7 +9,9 @@ export const secretRule = z.object({
   hosts: z.array(secretHost).min(1).max(10),
 });
 
-export const secretRules = z.array(secretRule).max(100);
+export const secretStored = secretRule.extend({ isGlobal: z.boolean().optional() });
+
+export const secretRules = z.array(secretStored).max(100);
 
 export const secretSave = secretRule.extend({ value: z.string().min(1).max(16384) });
 export const secretRemove = secretRule.pick({ name: true });

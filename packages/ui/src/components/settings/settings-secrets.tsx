@@ -2,6 +2,7 @@ import { useSettingsSecrets } from '@repo/client/react';
 import { secretMode } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import IconTrash from '~icons/lucide/trash-2';
+import { Badge } from '../badge';
 import { Button } from '../button';
 import { PanelContent, PanelDescription, PanelRow, PanelTitle } from '../panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../select';
@@ -16,9 +17,11 @@ const SETTINGS_SECRETS_MODE = {
 
 interface SettingsSecretsProps {
   isModeVisible: boolean
+  isModeLocked: boolean
+  canRemoveGlobal: boolean
 }
 
-export function SettingsSecrets({ isModeVisible }: SettingsSecretsProps) {
+export function SettingsSecrets({ isModeVisible, isModeLocked, canRemoveGlobal }: SettingsSecretsProps) {
   const secrets = useSettingsSecrets();
 
   return (
@@ -43,7 +46,7 @@ export function SettingsSecrets({ isModeVisible }: SettingsSecretsProps) {
             </PanelDescription>
           </PanelContent>
           <Select
-            disabled={secrets.isPending || !secrets.mode}
+            disabled={isModeLocked || secrets.isPending || !secrets.mode}
             value={secrets.mode ?? ''}
             onValueChange={(value) => secrets.configure(secretMode.parse(value))}
           >
@@ -67,19 +70,24 @@ export function SettingsSecrets({ isModeVisible }: SettingsSecretsProps) {
       ) : secrets.secrets.map((secret) => (
         <PanelRow key={secret.name}>
           <PanelContent>
-            <PanelTitle>{secret.name}</PanelTitle>
+            <PanelTitle className="flex flex-wrap items-center gap-2">
+              {secret.name}
+              {secret.isGlobal ? <Badge variant="outline">{m.settings_secrets_global()}</Badge> : null}
+            </PanelTitle>
             <PanelDescription>{secret.hosts.join(', ')}</PanelDescription>
           </PanelContent>
-          <Button
-            aria-label={m.settings_secrets_remove({ name: secret.name })}
-            disabled={secrets.isPending}
-            size="icon-sm"
-            title={m.settings_secrets_remove({ name: secret.name })}
-            variant="ghost"
-            onClick={() => secrets.remove(secret.name)}
-          >
-            <IconTrash />
-          </Button>
+          {secret.isGlobal && !canRemoveGlobal ? null : (
+            <Button
+              aria-label={m.settings_secrets_remove({ name: secret.name })}
+              disabled={secrets.isPending}
+              size="icon-sm"
+              title={m.settings_secrets_remove({ name: secret.name })}
+              variant="ghost"
+              onClick={() => secrets.remove(secret.name)}
+            >
+              <IconTrash />
+            </Button>
+          )}
         </PanelRow>
       ))}
     </SettingsGroup>

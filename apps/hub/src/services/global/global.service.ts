@@ -46,7 +46,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
       preview: (params) => globalQueryPreview(deps, params),
       section: ({ procedure }) => globalWrittenSection(procedure),
       guard: ({ id, procedure }) => {
-        const section = globalWrittenSection(procedure);
+        const section = GLOBAL.ownWrites.includes(procedure.toLowerCase()) ? null : globalWrittenSection(procedure);
 
         return section && globalSectionState(deps.state.file, id, section).mode === 'global' ? section : null;
       },

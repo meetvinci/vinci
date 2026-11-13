@@ -3,8 +3,22 @@ import { localRouter, ownerRouter } from './rpc.procedures';
 
 export const secrets = {
   list: ownerRouter.secrets.list.handler(async ({ context }) => context.secrets.queries.rules()),
-  save: ownerRouter.secrets.save.handler(async ({ context, input }) => context.secrets.actions.save(input)),
-  remove: ownerRouter.secrets.remove.handler(async ({ context, input }) => context.secrets.actions.remove(input)),
+  save: ownerRouter.secrets.save.handler(async ({ context, input }) => {
+    await rpcTeamRefuse({
+      context,
+      path: 'secrets.save',
+      changes: async () => context.secrets.queries.isGlobal(input),
+    });
+    return context.secrets.actions.save(input);
+  }),
+  remove: ownerRouter.secrets.remove.handler(async ({ context, input }) => {
+    await rpcTeamRefuse({
+      context,
+      path: 'secrets.remove',
+      changes: async () => context.secrets.queries.isGlobal(input),
+    });
+    return context.secrets.actions.remove(input);
+  }),
   settings: ownerRouter.secrets.settings.handler(async ({ context }) => context.secrets.queries.settings()),
   configure: ownerRouter.secrets.configure.handler(async ({ context, input }) => {
     await rpcTeamRefuse({
@@ -15,4 +29,5 @@ export const secrets = {
     return context.secrets.actions.configure(input);
   }),
   export: localRouter.secrets.export.handler(async ({ context }) => context.secrets.queries.export()),
+  import: localRouter.secrets.import.handler(async ({ context, input }) => context.secrets.actions.import(input)),
 };

@@ -18,7 +18,7 @@ const RPC_LOCAL_ALLOWLIST = {
   mcpAuth: { start: true, complete: true, cancel: true, logout: true, status: true },
   tools: { settings: true, configure: true, export: true, alwaysAllowed: true, clearAlwaysAllowed: true },
   workspace: { export: true, import: true },
-  secrets: { list: true, save: true, remove: true, settings: true, configure: true, export: true },
+  secrets: { list: true, save: true, remove: true, settings: true, configure: true, export: true, import: true },
   credentials: { list: true, set: true },
   bots: { list: true, get: true, catalog: true, create: true, update: true, delete: true, swapModels: true, exportFiles: true, importFiles: true },
   avatars: { upload: true },

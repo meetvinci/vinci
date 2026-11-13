@@ -23,5 +23,6 @@ export const GLOBAL = {
     },
   ] satisfies { id: AdminSectionId; procedures: string[] }[],
   reads: ['list', 'settings', 'session'],
+  ownWrites: ['secrets/remove'],
   errorMaxLength: 300,
 };

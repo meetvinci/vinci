@@ -57,14 +57,16 @@ export async function globalQueryPreview(
       };
     })
     .with('secrets', async () => {
-      const [settings, secrets] = await Promise.all([
+      const [settings, secrets, rules] = await Promise.all([
         client.secrets.settings(),
         client.secrets.export(),
+        client.secrets.list(),
       ]);
 
       return {
         settings: globalValues(settings),
         secrets: globalSorted(secrets.map(({ name, ...secret }) => [name, JSON.stringify(secret)])),
+        own: globalSorted(rules.filter(({ isGlobal }) => isGlobal !== true).map(({ name }) => [name, 'own'])),
       };
     })
     .with('sources', async () => {
@@ -191,10 +193,25 @@ export async function globalQueryPreview(
     })
     .with('chat', () => globalDiff(globalPair('chatSetting', 'settings')))
     .with('tools', () => globalDiff(globalPair('toolSetting', 'settings')))
-    .with('secrets', () => [
-      ...globalDiff(globalPair('secretSetting', 'settings')),
-      ...globalDiff(globalPair('secret', 'secrets')),
-    ])
+    .with('secrets', () => {
+      const own = mine.own ?? {};
+      const global = wanted.secrets ?? {};
+      const shared = Object.fromEntries(Object.entries(mine.secrets ?? {}).filter(([name]) => !Object.hasOwn(own, name)));
+
+      return [
+        ...globalDiff(globalPair('secretSetting', 'settings')),
+        ...globalDiff({
+          kind: 'secret',
+          person: shared,
+          template: global,
+        }).filter(({ name }) => !Object.hasOwn(own, name)),
+        ...Object.keys(own).filter((name) => Object.hasOwn(global, name)).map((name) => ({
+          kind: 'secret' as const,
+          name,
+          change: 'replaced' as const,
+        })),
+      ];
+    })
     .with('sources', () => [
       ...globalDiff(globalPair('sourceSetting', 'settings')),
       ...(['skill', 'instruction', 'plugin', 'mcpServer', 'file'] as const).flatMap((kind) => globalDiff({

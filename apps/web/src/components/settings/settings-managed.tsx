@@ -1,3 +1,4 @@
+import { adminPersonSection } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { ButtonLoading } from '@repo/ui/button-loading';
 import { useMutation } from '@tanstack/react-query';
@@ -28,7 +29,7 @@ export function SettingsManaged({ section, children }: SettingsManagedProps) {
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{m.settings_managed()}</p>
-        {team.isAdvanced ? (
+        {team.isAdvanced && adminPersonSection.safeParse(section).success ? (
           <ButtonLoading
             loading={override.isPending}
             size="sm"

@@ -33,6 +33,7 @@ export function AdminSectionBack({ userId, section, onOpenChange }: AdminSection
   const limit = match(section.id)
     .with('models', () => m.admin_section_back_models_limit())
     .with('sources', () => m.admin_section_back_sources_limit())
+    .with('secrets', () => m.admin_section_back_secrets_limit())
     .otherwise(() => null);
 
   const details = match(preview.status)
@@ -68,6 +69,7 @@ export function AdminSectionBack({ userId, section, onOpenChange }: AdminSection
               {match(group.kind)
                 .with('removed', () => m.admin_section_back_removed())
                 .with('changed', () => m.admin_section_back_changed())
+                .with('replaced', () => m.admin_section_back_replaced())
                 .with('added', () => m.admin_section_back_added())
                 .exhaustive()}
             </h3>

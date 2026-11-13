@@ -1,5 +1,5 @@
 import { match } from 'ts-pattern';
-import { globalClients, globalSerial } from './global.utils';
+import { globalClients } from './global.utils';
 import type * as GlobalTypes from '../../types/global.types';
 
 export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { user, section }: GlobalTypes.GlobalCopyParams): Promise<void> {
@@ -23,17 +23,13 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
       });
     })
     .with('secrets', async () => {
-      const [settings, wanted, current] = await Promise.all([
+      const [settings, secrets] = await Promise.all([
         template.secrets.settings(),
         template.secrets.export(),
-        person.secrets.list(),
       ]);
 
-      const names = new Set(wanted.map(({ name }) => name));
-
       await person.secrets.configure(settings);
-      await globalSerial(current.filter((rule) => !names.has(rule.name)), async ({ name }) => person.secrets.remove({ name }));
-      await globalSerial(wanted, async (secret) => person.secrets.save(secret));
+      await person.secrets.import(secrets);
     })
     .with('sources', async () => {
       const [skills, instructions, plugins, mcp, files] = await Promise.all([

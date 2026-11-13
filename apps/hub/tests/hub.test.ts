@@ -105,7 +105,6 @@ const it = test.extend<HubTestFixtures>({
       modelProvider: 'anthropic',
       modelId: 'claude-opus-5-5',
       thinkingLevel: 'medium',
-      permission: 'full',
     });
 
     await hubTestRpc(tokens.alice, 'bots/create', bot('Alicebot'), hubTestAuth(alice.device));

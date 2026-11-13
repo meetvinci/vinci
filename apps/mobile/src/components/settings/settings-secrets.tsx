@@ -62,17 +62,19 @@ export function SettingsSecrets() {
             </ItemMedia>
             <ItemContent>
               <ItemTitle numberOfLines={1}>{secret.name}</ItemTitle>
-              <ItemDescription>{secret.hosts.join(', ')}</ItemDescription>
+              <ItemDescription>{secret.isGlobal ? `${m.settings_secrets_global()} · ` : ''}{secret.hosts.join(', ')}</ItemDescription>
             </ItemContent>
-            <Button
-              accessibilityLabel={m.settings_secrets_remove({ name: secret.name })}
-              disabled={secrets.isPending}
-              size="icon-sm"
-              variant="ghost"
-              onPress={() => secrets.remove(secret.name)}
-            >
-              <Icon icon={Trash2} size="sm" />
-            </Button>
+            {secret.isGlobal ? null : (
+              <Button
+                accessibilityLabel={m.settings_secrets_remove({ name: secret.name })}
+                disabled={secrets.isPending}
+                size="icon-sm"
+                variant="ghost"
+                onPress={() => secrets.remove(secret.name)}
+              >
+                <Icon icon={Trash2} size="sm" />
+              </Button>
+            )}
           </Item>
         ))}
       </ItemGroup>

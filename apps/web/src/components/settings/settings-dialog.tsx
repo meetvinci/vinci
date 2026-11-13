@@ -64,6 +64,8 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
     return <Navigate {...scope.settings.section('general')} />;
   }
 
+  const isInert = frame?.isLocked === true && section !== 'secrets';
+
   return (
     <SectionDialog
       description={m.settings_description()}
@@ -81,14 +83,15 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
       >
         {frame?.notice}
         <div
-          className={cn('flex flex-col gap-10', frame?.isLocked && 'opacity-60')}
-          inert={frame?.isLocked}
+          className={cn('flex flex-col gap-10', isInert && 'opacity-60')}
+          inert={isInert}
           key={frame?.isLocked ? 'locked' : 'open'}
         >
           <Suspense fallback={<Skeleton className="h-48 w-full" />}>
             <SettingsDialogSection
               connection={connection}
               deviceId={deviceId}
+              isLocked={frame?.isLocked ?? false}
               modelKey={modelKey}
               providerId={providerId}
               section={section}
@@ -179,10 +182,11 @@ interface SettingsDialogSectionProps {
   modelKey: string | undefined
   deviceId: string | undefined
   providerId: string | undefined
+  isLocked: boolean
   onBack: () => void
 }
 
-function SettingsDialogSection({ connection, section, view, modelKey, deviceId, providerId, onBack }: SettingsDialogSectionProps) {
+function SettingsDialogSection({ connection, section, view, modelKey, deviceId, providerId, isLocked, onBack }: SettingsDialogSectionProps) {
   const scope = useSectionScope();
   const team = useTeam();
 
@@ -206,7 +210,13 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
       </SettingsManaged>
     )))
     .with('tools', () => <SettingsManaged section="tools"><SettingsTools /></SettingsManaged>)
-    .with('secrets', () => <SettingsManaged section="secrets"><SettingsSecrets isModeVisible={!team.isTeam} /></SettingsManaged>)
+    .with('secrets', () => (
+      <SettingsSecrets
+        canRemoveGlobal={scope.isAdmin ? !isLocked : false}
+        isModeLocked={isLocked}
+        isModeVisible={!team.isTeam}
+      />
+    ))
     .with('sources', () => <SettingsManaged section="sources"><SettingsSources /></SettingsManaged>)
     .with('server', () => <SettingsServer />)
     .with('devices', () => (

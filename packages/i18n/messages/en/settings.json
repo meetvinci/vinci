@@ -60,6 +60,7 @@
   "settings_secrets": "Secrets",
   "settings_secrets_empty": "No secrets yet. A bot asks for one when it needs it.",
   "settings_secrets_remove": "Remove {name}",
+  "settings_secrets_global": "From your admin",
   "settings_secrets_mode": "How bots use secrets",
   "settings_secrets_mode_proxy": "Built-in proxy",
   "settings_secrets_mode_varlock": "Varlock proxy",

@@ -190,16 +190,17 @@ export const contract = {
   },
   credentials: {
     list: ocAuth.output(credentialsList),
-    set: ocAuth.input(credentialsSet).output(credentialsSetResult),
+    set: ocAuth.errors(ocTeam).input(credentialsSet).output(credentialsSetResult),
   },
   secrets: {
     list: ocAuth.output(secretRules),
-    save: ocAuth.input(secretSave).output(secretVoid),
-    remove: ocAuth.input(secretRemove).output(secretVoid),
+    save: ocAuth.errors(ocTeam).input(secretSave).output(secretVoid),
+    remove: ocAuth.errors(ocTeam).input(secretRemove).output(secretVoid),
     settings: ocAuth.output(secretSettings),
     configure: ocAuth.errors(ocTeam).input(secretConfigure).output(secretSettings),
 
     export: ocAdmin.output(secretExport),
+    import: ocAdmin.input(secretExport).output(secretVoid),
   },
   artifacts: {
     blocks: ocAuth.output(artifactBlocks),

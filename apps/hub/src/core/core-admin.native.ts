@@ -14,7 +14,7 @@ import type { z } from 'zod';
 
 const API_PREFIX = '/admin/api/';
 const RELAY_PATH = /^[A-Za-z\d]+(?:\/[A-Za-z\d]+)*$/u;
-const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/export$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
+const RELAY_REFUSED = /^(?:pairing(?:\/|$)|providers\/(?:export|import)$|secrets\/(?:export|import)$|tools\/export$|workspace\/|bots\/(?:exportFiles|importFiles)$|attachments\/)/iu;
 const RELAY_READS = /^(?:conversation\/(?:list|history|search|reactions)|routines\/list|todos\/list)$/iu;
 const RELAY_UNAUDITED = /^conversation\/reactions$/iu;
 const RELAY_QUIET = /^(?:[A-Za-z]+\/(?:list|get|catalog|settings|discover|shared|local|state|info|status|session)|tools\/alwaysAllowed)$/u;
