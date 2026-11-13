@@ -463,6 +463,11 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
   const serverUrl = new URL(env.WEB_PUBLIC_URL).origin;
   let timer: Timer | undefined;
 
+  if (env.DAEMON_TEAM) {
+    process.stdout.write('\nNo pairing PIN at startup: the team hub pairs this daemon\'s devices.\n\n');
+    return () => undefined;
+  }
+
   if (env.DAEMON_PUBLIC_URLS.length > 0) {
     process.stdout.write('\nNo pairing PIN at startup: this daemon has public addresses. To pair a device, run `orbs pair` where this daemon runs (in its container: docker exec <container> orbs pair).\n\n');
     return () => undefined;
@@ -472,7 +477,7 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
     const devices = await services.auth.queries.devices();
 
     if (devices.length > 0) {
-      process.stdout.write(`\n${devices.length} paired device(s). To pair another one, run:\n\nDATA_DIR=${env.DATA_DIR} bun run --cwd apps/daemon start pair --url ${serverUrl}\n\n`);
+      process.stdout.write(`\n${devices.length} paired device(s). To pair another one, run \`orbs pair --url ${serverUrl}\` where this daemon runs (in its container: docker exec <container> orbs pair --url ${serverUrl}).\n\n`);
       return;
     }
 

@@ -372,7 +372,7 @@ Skill and instruction changes show up within about 30 seconds. Files must be own
 
 ### Always approved tools
 
-When someone answers **Always approve** on a request, that bot stops asking for that tool. A bot's **Tools** tab lists those tools, in the app for the person and under **Users → person → Bots** in the panel for you. **Remove** puts one back to asking, **Remove all** (after a confirmation) all of them; the bot asks again the next time it wants to use one. A removal in the panel is a change in **Activity**, with the bot; opening the list writes nothing.
+When someone answers **Always approve** on a request, that bot stops asking for that tool. A bot's **Tools** tab lists those tools, in the app for the person (on the iPhone app, under **Always approved** in the bot's settings) and under **Users → person → Bots** in the panel for you. **Remove** puts one back to asking, **Remove all** (after a confirmation) all of them; the bot asks again the next time it wants to use one. A removal in the panel is a change in **Activity**, with the bot; opening the list writes nothing.
 
 ### Create a bot for someone
 

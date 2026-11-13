@@ -1,30 +1,13 @@
 import { toolInputTexts, toolOutputText, toolPresentation, toolPreview, toolReadableName } from '@repo/client/client';
 import { m } from '@repo/i18n/client';
-import { AlarmClock, Bot, Cpu, FileText, KeyRound, LayoutDashboard, ListTodo, MessageCircleQuestion, Plug, Search, SquarePen, Terminal, Wrench } from 'lucide-react-native';
 import { View } from 'react-native';
 import { Event, EventContent, EventDetails, EventItem, EventItems, EventLabel, EventList, EventName, EventTrigger } from '@/components/ui/event';
 import { Icon } from '@/components/ui/icon';
 import { MessageCode } from '@/components/ui/message';
 import { Text } from '@/components/ui/text';
+import { CHAT_TOOL_ICONS } from '@/services/chat/chat.constants';
 import type { EventStatus } from '@/components/ui/event';
-import type { ToolIconKind, ToolPart } from '@repo/client/client';
-import type { LucideIcon } from 'lucide-react-native';
-
-const CHAT_TOOL_ICONS = {
-  terminal: Terminal,
-  file: FileText,
-  edit: SquarePen,
-  search: Search,
-  bot: Bot,
-  model: Cpu,
-  question: MessageCircleQuestion,
-  secret: KeyRound,
-  routine: AlarmClock,
-  todo: ListTodo,
-  artifact: LayoutDashboard,
-  mcp: Plug,
-  tool: Wrench,
-} satisfies Record<ToolIconKind, LucideIcon>;
+import type { ToolPart } from '@repo/client/client';
 
 const CHAT_TOOL_STATUS = {
   'input-streaming': 'running',
