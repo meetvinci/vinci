@@ -21,14 +21,14 @@ export function coreRefusalPage({ email, reason }: CoreTypes.CoreRefusal): Respo
   const [title, ...lines] = match(reason)
     .with('not-admin', () => [
       'This page is for admins',
-      `You are signed in as ${who}, which is not an admin of this Orbs workspace.`,
+      `You are signed in as ${who}, which is not an admin of this MeetVinci workspace.`,
       'Ask one of its admins to add you in the admin panel, under Admins.',
       `<a href="/">Open your own workspace</a> · <a href="${SIGN_OUT}">Sign out</a>`,
     ])
     .with('no-user', () => [
       'No workspace for this email',
-      `You are signed in as ${who}, but this Orbs workspace has no user with that email.`,
-      'Ask your team\'s Orbs admin to add you in the admin panel. If you have another email for work, sign out and sign in with that one.',
+      `You are signed in as ${who}, but this MeetVinci workspace has no user with that email.`,
+      'Ask your team\'s MeetVinci admin to add you in the admin panel. If you have another email for work, sign out and sign in with that one.',
       `<a href="${SIGN_OUT}">Sign out</a>`,
     ])
     .exhaustive();

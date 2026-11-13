@@ -2,7 +2,7 @@
 # Not a Compose file of its own: never list it in COMPOSE_FILE.
 services:
   daemon:
-    image: orbs-daemon:${ORBS_TAG:?set ORBS_TAG in .env}
+    image: meetvinci-daemon:${MEETVINCI_TAG:?set MEETVINCI_TAG in .env}
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=256m
@@ -18,8 +18,8 @@ services:
       start_period: 30s
       start_interval: 1s
     environment:
-      DAEMON_PUBLIC_URLS: https://${ORBS_PUBLIC_HOST:?set ORBS_PUBLIC_HOST in .env}
-      WEB_PUBLIC_URL: https://${ORBS_PUBLIC_HOST}
+      DAEMON_PUBLIC_URLS: https://${MEETVINCI_PUBLIC_HOST:?set MEETVINCI_PUBLIC_HOST in .env}
+      WEB_PUBLIC_URL: https://${MEETVINCI_PUBLIC_HOST}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # A team install: the public door refuses permission levels, approval rules and timeout, the secrets mode,
       # MCP servers with a command or env, and limits for every device. The owner socket (admin) keeps them.

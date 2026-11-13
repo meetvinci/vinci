@@ -1,5 +1,5 @@
 ---
-name: orbs-review
+name: meetvinci-review
 description: "Review code with three modes: `simplify` (behavior-preserving cuts), `code` (findings on correctness, security, project standards and spec), `blast` (what breaks beyond the diff, proven by running code), or all three in order. Scopes: worktree diff, staged, a ref or commit, a folder, or the whole repo; optional two-reviewer mode. Use when asked to review, simplify or audit code, to look over a diff, branch or PR, or to find what a change could break. Not for designing a module's interface (codebase-design)."
 ---
 

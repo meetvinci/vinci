@@ -210,7 +210,7 @@ async function coreServerOverride(services: CoreTypes.CoreServices, context: Cor
   const isJson = /^application\/json(?:;|$)/iu.test(request.headers.get('content-type') ?? '');
 
   if (request.headers.get('origin') !== publicUrl.origin || !(isJson || request.headers.has(SERVER_PROTOCOL.versionHeader))) {
-    throw new Errors.FORBIDDEN({ internal: 'A section override without a same-origin Origin and a JSON or Orbs header' });
+    throw new Errors.FORBIDDEN({ internal: 'A section override without a same-origin Origin and a JSON or MeetVinci header' });
   }
 
   const section = adminSectionId.safeParse(encoded);

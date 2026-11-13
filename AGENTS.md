@@ -1,4 +1,4 @@
-# Orbs
+# MeetVinci
 
 A bot backend. Each native daemon serves one owner and runs each bot as a persistent Pi Durable agent; the web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) clients pair with it and talk over oRPC. A team installation runs one daemon per user behind a hub (`apps/hub`) that takes identity from Cloudflare Access.
 
@@ -8,13 +8,13 @@ A bot backend. Each native daemon serves one owner and runs each bot as a persis
 - For daemon, RPC, storage and Pi behavior, read `.agents/references/api.md`.
 - Before UI changes, read `DESIGN.md`.
 - For team installations (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/team-workspace/` current when that work changes.
-- To install, operate or tear down a team installation on a server, use the `orbs-deploy` skill.
+- To install, operate or tear down a team installation on a server, use the `meetvinci-deploy` skill.
 - For Pi Durable work, read `packages/runtime/node_modules/@earendil-works/pi-durable/README.md` first.
 
 ## Rules
 
 - Follow nearby code. Keep changes direct; add no compatibility shims or speculative abstractions.
-- Prefer library features to custom infrastructure. For Pi Durable, check its tools, extensions, hooks, documents, tasks, watches and recovery before adding app tables, queues, registries or wait mechanisms. Name the concrete API gap before writing a replacement; Orbs keeps only product policy and host integration.
+- Prefer library features to custom infrastructure. For Pi Durable, check its tools, extensions, hooks, documents, tasks, watches and recovery before adding app tables, queues, registries or wait mechanisms. Name the concrete API gap before writing a replacement; MeetVinci keeps only product policy and host integration.
 - Store application secrets as encrypted entries in the shared `credentials` table through the credentials service. Pi provider authentication stays in Pi's own auth store.
 - Each daemon has one owner, and devices get access only through pairing: no users, organizations, roles or password login inside a daemon. A team installation gives each user their own daemon; the hub maps Cloudflare Access identities to daemons. Paired devices issue grants through authenticated RPC; the local CLI uses the owner-only daemon socket. Public transport cannot issue local grants. CLI commands reuse running services; only startup opens stores.
 - `apps/daemon` is startup, composition, transport and shutdown only. Product logic belongs in server, Pi integration in runtime, and native implementations in their owning package. Follow the ownership table in the architecture reference; fix conflicting code rather than the rules.
@@ -25,7 +25,7 @@ A bot backend. Each native daemon serves one owner and runs each bot as a persis
 - To pair a device with the running dev daemon, run `bun run dev:pair`. It prints a PIN and a connect link for `http://localhost:47190`; pass `--url <origin>` (for example the machine's Tailscale address on port 47190) to link another web origin.
 - A new native dependency on mobile needs a rebuild of the iOS dev app before its JavaScript can load; say so when you add one.
 - Add tests only when the user asks.
-- After a substantial set of code changes, run the `orbs-review` skill in full (simplify, code, blast), fix its findings within the task, and rerun the affected checks before reporting completion.
+- After a substantial set of code changes, run the `meetvinci-review` skill in full (simplify, code, blast), fix its findings within the task, and rerun the affected checks before reporting completion.
 
 ## Validation
 

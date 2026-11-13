@@ -56,12 +56,12 @@ import type { RPCHandlerOptions } from '@orpc/server/fetch';
 import type { Server } from 'bun';
 
 const HELP = `Usage:
-  orbs start [--detach]
-  orbs pair [--url <origin>]
-  orbs service register
-  orbs service unregister
-  orbs backup create <new-directory>
-  orbs backup restore <backup-directory>
+  meetvinci start [--detach]
+  meetvinci pair [--url <origin>]
+  meetvinci service register
+  meetvinci service unregister
+  meetvinci backup create <new-directory>
+  meetvinci backup restore <backup-directory>
 
 Without a command, the daemon starts in the foreground.
 Service commands change startup at the next macOS login, not the running daemon.
@@ -469,7 +469,7 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
   }
 
   if (env.DAEMON_PUBLIC_URLS.length > 0) {
-    process.stdout.write('\nNo pairing PIN at startup: this daemon has public addresses. To pair a device, run `orbs pair` where this daemon runs (in its container: docker exec <container> orbs pair).\n\n');
+    process.stdout.write('\nNo pairing PIN at startup: this daemon has public addresses. To pair a device, run `meetvinci pair` where this daemon runs (in its container: docker exec <container> meetvinci pair).\n\n');
     return () => undefined;
   }
 
@@ -477,7 +477,7 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
     const devices = await services.auth.queries.devices();
 
     if (devices.length > 0) {
-      process.stdout.write(`\n${devices.length} paired device(s). To pair another one, run \`orbs pair --url ${serverUrl}\` where this daemon runs (in its container: docker exec <container> orbs pair --url ${serverUrl}).\n\n`);
+      process.stdout.write(`\n${devices.length} paired device(s). To pair another one, run \`meetvinci pair --url ${serverUrl}\` where this daemon runs (in its container: docker exec <container> meetvinci pair --url ${serverUrl}).\n\n`);
       return;
     }
 

@@ -205,7 +205,7 @@ async function encode(page: Page, png: Buffer, padTop: number): Promise<Buffer> 
 }
 
 async function screenshots() {
-  const temp = mkdtempSync(path.join(tmpdir(), 'orbs-screenshots-'));
+  const temp = mkdtempSync(path.join(tmpdir(), 'meetvinci-screenshots-'));
   const [mockPort, daemonPort, webPort] = [freePort(), freePort(), freePort()];
   const web = `http://localhost:${webPort}`;
   const daemonLog = path.join(temp, 'daemon.log');

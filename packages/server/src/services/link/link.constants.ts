@@ -6,7 +6,7 @@ export const LINK = {
   maxDescriptionLength: 300,
   maxCodePoint: 0x10FFFF,
   entities: new Map([['amp', '&'], ['lt', '<'], ['gt', '>'], ['quot', '"'], ['apos', "'"], ['nbsp', ' ']]),
-  userAgent: 'Mozilla/5.0 (compatible; OrbsLinkPreview/1.0)',
+  userAgent: 'Mozilla/5.0 (compatible; MeetVinciLinkPreview/1.0)',
   privateSubnets: [
     ['0.0.0.0', 8, 'ipv4'],
     ['10.0.0.0', 8, 'ipv4'],

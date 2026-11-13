@@ -17,8 +17,8 @@
           "fill" : "automatic",
           "glass" : true,
           "hidden" : false,
-          "image-name" : "orbs-blob-shaded.svg",
-          "name" : "orbs-blob-shaded",
+          "image-name" : "meetvinci-blob-shaded.svg",
+          "name" : "meetvinci-blob-shaded",
           "position" : {
             "scale" : 4.31,
             "translation-in-points" : [

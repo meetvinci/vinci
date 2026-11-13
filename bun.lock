@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "orbs",
+      "name": "meetvinci",
       "dependencies": {
         "@expo/fingerprint": "catalog:mobile",
       },
@@ -31,7 +31,7 @@
       "name": "@repo/daemon",
       "version": "0.1.6",
       "bin": {
-        "orbs": "./src/entry.native.ts",
+        "meetvinci": "./src/entry.native.ts",
       },
       "dependencies": {
         "@orpc/client": "catalog:",

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Orbs container images: one build stage, then the hub, web, daemon, provisioner and firewall targets.
+# MeetVinci container images: one build stage, then the hub, web, daemon, provisioner and firewall targets.
 # Build from the repo root: bun run build:images (see scripts/deploy.ts).
 # Every image runs as uid 1000 under tini and works with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
 # Bundles run with --no-install: an unresolved optional import must fail, not download a package from npm at runtime.
@@ -55,7 +55,7 @@ FROM ${BUN_IMAGE}-slim AS daemon
 RUN apt-get update && apt-get install -y --no-install-recommends gpg gpg-agent && rm -rf /var/lib/apt/lists/*
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=build /src/apps/desktop/dist/server/daemon /app/daemon
-COPY --chmod=755 deploy/docker/orbs.sh /usr/local/bin/orbs
+COPY --chmod=755 deploy/docker/meetvinci.sh /usr/local/bin/meetvinci
 COPY --chmod=755 deploy/docker/firewall-wait.sh /usr/local/bin/firewall-wait
 # A fresh named volume copies these directories with their owner, so the daemon can write them. data/ipc exists so
 # a nested mount of the owner-socket folder there does not make Docker create data/ as root.
@@ -66,20 +66,20 @@ ENV DATA_DIR=/data HOME=/data/home PI_CODING_AGENT_DIR=/data/pi DAEMON_HOST=0.0.
 EXPOSE 47191
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD ["bun", "-e", "process.exit((await fetch(`http://127.0.0.1:${process.env.DAEMON_PORT}/health`)).ok ? 0 : 1)"]
-ENTRYPOINT ["tini", "--", "orbs"]
+ENTRYPOINT ["tini", "--", "meetvinci"]
 
 FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 
 # The provisioner: adds and removes people for the hub by running scripts/deploy.ts apply with the Docker CLI and
 # Compose, the same code path as by hand. It holds the Docker socket, so it serves nothing but its narrow API.
-# Root without capabilities: it reads root's /opt/orbs/.env and the Docker socket as their owner.
+# Root without capabilities: it reads root's /opt/meetvinci/.env and the Docker socket as their owner.
 FROM ${BUN_IMAGE}-distroless AS provisioner
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker-cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
 COPY scripts/deploy.ts /app/deploy.ts
 USER 0:0
-WORKDIR /opt/orbs
+WORKDIR /opt/meetvinci
 ENV HOME=/tmp PROVISIONER_PORT=47193
 EXPOSE 47193
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \

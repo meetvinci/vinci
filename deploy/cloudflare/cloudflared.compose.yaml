@@ -1,13 +1,13 @@
 # The tunnel connector of a team installation; deploy/compose includes this service.
 # `bun scripts/deploy.ts cloudflare apply` creates the tunnel and its routes in Cloudflare (a remotely managed tunnel),
-# so this container needs only TUNNEL_TOKEN from /opt/orbs/.env and no config file. The routes send the team
+# so this container needs only TUNNEL_TOKEN from /opt/meetvinci/.env and no config file. The routes send the team
 # hostname to http://hub:47192 and, if SSH is set up, the SSH hostname to the host's sshd.
 services:
   cloudflared:
     image: cloudflare/cloudflared:2026.10.7
     command: [tunnel, --no-autoupdate, --metrics, 127.0.0.1:20241, run]
     environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in /opt/orbs/.env with bun scripts/deploy.ts cloudflare apply --env-out}
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in /opt/meetvinci/.env with bun scripts/deploy.ts cloudflare apply --env-out}
     user: '65532:65532'
     read_only: true
     cap_drop: [ALL]

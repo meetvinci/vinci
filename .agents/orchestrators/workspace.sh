@@ -70,7 +70,7 @@ setup_main() {
 | Tool | $TOOL |
 | Web | <http://localhost:47190> |
 | Daemon | <http://localhost:47191> |
-| Data | \`~/.config/orbs-dev\` |
+| Data | \`~/.config/meetvinci-dev\` |
 
 Dev ports are fixed, so only one worktree can run \`dev\` at a time.
 

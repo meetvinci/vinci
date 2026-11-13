@@ -1,18 +1,18 @@
-# Orbs for a team
+# MeetVinci for a team
 
-Orbs normally runs on one person's computer. The team workspace runs it on one server for a small team, about 3 to 7 people.
+MeetVinci normally runs on one person's computer. The team workspace runs it on one server for a small team, about 3 to 7 people.
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
-> Until the hardening phase, a bot has full control of its own user's Orbs: it can read that person's keys and give itself access as them. Keeping it away from other people's Orbs depends on the hub's checks and on each person's Orbs being reachable only by the hub. Use this only with people you trust.
+> Until the hardening phase, a bot has full control of its own user's MeetVinci: it can read that person's keys and give itself access as them. Keeping it away from other people's MeetVinci depends on the hub's checks and on each person's MeetVinci being reachable only by the hub. Use this only with people you trust.
 
 ## What it is
 
-- Every person gets their own Orbs, with their own bots, chats, files and model keys.
-- Each person's Orbs runs in its own locked-down container on the server. In the app, people only ever see their own bots and data.
+- Every person gets their own MeetVinci, with their own bots, chats, files and model keys.
+- Each person's MeetVinci runs in its own locked-down container on the server. In the app, people only ever see their own bots and data.
 - Everyone uses one web address, for example `https://acme.example.com`. They open it in a browser or add it to their home screen.
-- Cloudflare handles the login. A person types their email and gets a one-time code. There are no Orbs passwords.
-- After login, Orbs sends each person to their own bots automatically. The first visit pairs the browser on its own: no PIN, no questions.
+- Cloudflare handles the login. A person types their email and gets a one-time code. There are no MeetVinci passwords.
+- After login, MeetVinci sends each person to their own bots automatically. The first visit pairs the browser on its own: no PIN, no questions.
 - The server has no open ports. Cloudflare Tunnel connects it to the internet from the inside.
 
 ## The picture
@@ -22,9 +22,9 @@ flowchart TB
   People["team members<br/>browser or home-screen app"] --> Cloudflare["Cloudflare<br/>login with email code"]
   Cloudflare -->|"tunnel"| Hub
   subgraph Server["your server"]
-    Hub["hub<br/>knows who is who"] --> A["Alice's Orbs"]
-    Hub --> B["Bob's Orbs"]
-    Hub --> C["Carol's Orbs"]
+    Hub["hub<br/>knows who is who"] --> A["Alice's MeetVinci"]
+    Hub --> B["Bob's MeetVinci"]
+    Hub --> C["Carol's MeetVinci"]
     Hub --> Web["web app"]
   end
   A --> Models["AI providers<br/>Anthropic, OpenAI and others"]

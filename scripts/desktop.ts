@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dir, '..');
 const desktop = path.join(root, 'apps/desktop');
-const name = process.env.APP_NAME ?? 'Orbs';
+const name = process.env.APP_NAME ?? 'MeetVinci';
 const entitlements = ['allow-jit', 'allow-unsigned-executable-memory', 'disable-library-validation'];
 const isDarwin = process.platform === 'darwin';
 // The in-app updater only updates stable Apple silicon builds; Electrobun names its files after this prefix.

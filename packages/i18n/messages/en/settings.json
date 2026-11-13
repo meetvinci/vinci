@@ -1,6 +1,6 @@
 {
   "settings_title": "Settings",
-  "settings_description": "Change how Orbs looks, connects and runs your bots.",
+  "settings_description": "Change how MeetVinci looks, connects and runs your bots.",
   "settings_sections": "Settings sections",
   "settings_saved": "Settings saved",
   "settings_save_failed": "Couldn't save the setting.",
@@ -171,7 +171,7 @@
   "settings_mcp_callback_failed_title": "Login did not finish",
   "settings_mcp_callback_failed_body": "Something went wrong while signing in. Close this window and try again from the app.",
   "settings_mcp_callback_expired_body": "This login link expired or was already used. Start the login again from the app.",
-  "settings_general_hint": "Notifications and how Orbs looks.",
+  "settings_general_hint": "Notifications and how MeetVinci looks.",
   "settings_models_hint": "Sign in to model providers, and change the models your bots use.",
   "settings_models_in_use": "Used by your bots",
   "settings_tools_hint": "What bots may run on their own, and when they ask you first.",

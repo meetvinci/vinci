@@ -1,9 +1,9 @@
 #!/bin/bash
-# The first step of a daemon in a team install (orbs.sh, when deploy.ts apply sets ORBS_WAIT_FOR_FIREWALL): waits
+# The first step of a daemon in a team install (meetvinci.sh, when deploy.ts apply sets MEETVINCI_WAIT_FOR_FIREWALL): waits
 # until the firewall confines this container, so no bot runs before the rules exist. Compose starts daemons after the
 # firewall, but after a reboot or a Docker restart Docker starts every container at once.
 # The test: a TCP connection to the network's gateway (the server itself) on the discard port. Without the firewall
-# the server refuses it (Connection refused), answers, or another host firewall drops or rejects it; ORBS-DAEMONS-HOST
+# the server refuses it (Connection refused), answers, or another host firewall drops or rejects it; MEETVINCI-DAEMONS-HOST
 # alone rejects it with ICMP "protocol unreachable", which the kernel reports as ENOPROTOOPT (Protocol not available).
 # The firewall adds that jump after the one in DOCKER-USER, in the same pass. Bash, not Bun: Bun reports every failed
 # connect as ECONNREFUSED.

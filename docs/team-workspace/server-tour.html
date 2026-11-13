@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbs Server Tour</title>
+<title>MeetVinci Server Tour</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
 <style>
 html { color-scheme: light; }
@@ -98,17 +98,17 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 <main>
 <header>
   <div class="kicker">Test server [REDACTED] · read 12 Nov 2026, 11:09 UTC</div>
-  <h1>What runs on the Orbs team server, and how to change a bot by hand</h1>
-  <p class="lede">Six levels, from the machine down to one line of a bot's instructions. Every terminal block is real output from the test install with the first admin panel version (<code>7c0f545</code>). Emails are shown as &lt;email&gt; and secrets are masked. Since the global settings upgrade the server also runs <code>orbs-daemon-template-1</code>, and the demo person <code>tourdemo</code> and the <code>tour-capture</code> container are gone; to try the editing examples, add a throwaway person in the admin panel and use its id.</p>
+  <h1>What runs on the MeetVinci team server, and how to change a bot by hand</h1>
+  <p class="lede">Six levels, from the machine down to one line of a bot's instructions. Every terminal block is real output from the test install with the first admin panel version (<code>7c0f545</code>). Emails are shown as &lt;email&gt; and secrets are masked. Since the global settings upgrade the server also runs <code>meetvinci-daemon-template-1</code>, and the demo person <code>tourdemo</code> and the <code>tour-capture</code> container are gone; to try the editing examples, add a throwaway person in the admin panel and use its id.</p>
   <div class="term"><div class="bar"><span>your Mac</span><button class="copy" type="button">Copy</button></div><pre><span class="c">ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes root@[REDACTED]
-cd /opt/orbs</span></pre></div>
-  <p class="note">Every server command below runs as root in <code>/opt/orbs</code>. SSH is allowed only from your current IP address.</p>
+cd /opt/meetvinci</span></pre></div>
+  <p class="note">Every server command below runs as root in <code>/opt/meetvinci</code>. SSH is allowed only from your current IP address.</p>
 </header>
 
 <section id="server">
   <h2><span class="n">1</span>The server</h2>
-  <p>The server is an Ubuntu 24.04 machine with Docker. Everything Orbs-related runs in containers. Bun is installed on the host only to run <code>deploy.ts</code>, the script that applies changes, backs up and restores.</p>
-  <p>Nothing Orbs-related listens on a public address. The Cloudflare connector dials out, so the tunnel is the only way in. The two <code>172.17.0.1</code> lines are test-only stand-ins for a model provider, reachable only from containers on this machine.</p>
+  <p>The server is an Ubuntu 24.04 machine with Docker. Everything MeetVinci-related runs in containers. Bun is installed on the host only to run <code>deploy.ts</code>, the script that applies changes, backs up and restores.</p>
+  <p>Nothing MeetVinci-related listens on a public address. The Cloudflare connector dials out, so the tunnel is the only way in. The two <code>172.17.0.1</code> lines are test-only stand-ins for a model provider, reachable only from containers on this machine.</p>
   <div class="term"><div class="bar"><span>what listens</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ss -ltnH | awk '{print $4}'</span>
 127.0.0.54:53       <span class="d"># local DNS resolver</span>
 172.17.0.1:48291    <span class="d"># tour-capture (test only)</span>
@@ -116,7 +116,7 @@ cd /opt/orbs</span></pre></div>
 127.0.0.53%lo:53    <span class="d"># local DNS resolver</span>
 0.0.0.0:22          <span class="d"># sshd</span>
 [::]:22</pre></div>
-  <h3>The files in /opt/orbs</h3>
+  <h3>The files in /opt/meetvinci</h3>
   <div class="tablewrap"><table>
     <tr><th>File</th><th>What it is for</th><th>Who writes it</th></tr>
     <tr><td><code>users.yaml</code></td><td>The one list of people and admins.</td><td>You, or the admin panel through the provisioner</td></tr>
@@ -150,19 +150,19 @@ admins:
 
 <section id="containers">
   <h2><span class="n">2</span>The containers</h2>
-  <p>Each person gets one daemon: their own Orbs, with their bots, database and files. Around the daemons sit four shared containers.</p>
+  <p>Each person gets one daemon: their own MeetVinci, with their bots, database and files. Around the daemons sit four shared containers.</p>
   <div class="term"><div class="bar"><span>what runs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}"</span>
 SERVICE           IMAGE                              STATUS
 cloudflared       cloudflare/cloudflared:2026.10.7   Up 10 hours (healthy)
-daemon-owner      orbs-daemon:7c0f545                Up 10 hours (healthy)
-daemon-second     orbs-daemon:7c0f545                Up 10 hours (healthy)
-daemon-tourdemo   orbs-daemon:7c0f545                Up About an hour (healthy)
-hub               orbs-hub:7c0f545                   Up 10 hours (healthy)
-provisioner       orbs-provisioner:7c0f545           Up 10 hours (healthy)
-web               orbs-web:7c0f545                   Up 10 hours (healthy)</pre></div>
+daemon-owner      meetvinci-daemon:7c0f545                Up 10 hours (healthy)
+daemon-second     meetvinci-daemon:7c0f545                Up 10 hours (healthy)
+daemon-tourdemo   meetvinci-daemon:7c0f545                Up About an hour (healthy)
+hub               meetvinci-hub:7c0f545                   Up 10 hours (healthy)
+provisioner       meetvinci-provisioner:7c0f545           Up 10 hours (healthy)
+web               meetvinci-web:7c0f545                   Up 10 hours (healthy)</pre></div>
   <div class="tablewrap"><table>
     <tr><th>Container</th><th>Role</th></tr>
-    <tr><td><code>daemon-&lt;id&gt;</code></td><td>One person's Orbs: bots, database, files. Reachable only on that person's own network.</td></tr>
+    <tr><td><code>daemon-&lt;id&gt;</code></td><td>One person's MeetVinci: bots, database, files. Reachable only on that person's own network.</td></tr>
     <tr><td><code>hub</code></td><td>The front door. Checks the Cloudflare login, sends each person to their own daemon, and relays the admin panel to the private doors.</td></tr>
     <tr><td><code>web</code></td><td>The shared web app, including the admin panel pages. Talks only to the hub.</td></tr>
     <tr><td><code>provisioner</code></td><td>Creates and removes people's containers for the admin panel. The only container that can control Docker; it answers only the hub.</td></tr>
@@ -170,27 +170,27 @@ web               orbs-web:7c0f545                   Up 10 hours (healthy)</pre>
   </table></div>
   <h3>Who can talk to whom</h3>
   <p>The hub is the only container on every network. Each daemon sits alone with the hub on its own <code>user-&lt;id&gt;</code> network, so daemons cannot reach each other. The <code>web</code> and <code>provisioner</code> networks are internal: no internet.</p>
-  <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^orbs_); do printf "%-20s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
-orbs_egress          internal=false orbs-provisioner-1
-orbs_provisioner     internal=true  orbs-provisioner-1 orbs-hub-1
-orbs_tunnel          internal=false orbs-hub-1 orbs-cloudflared-1
-orbs_user-owner      internal=false orbs-hub-1 orbs-daemon-owner-1
-orbs_user-second     internal=false orbs-daemon-second-1 orbs-hub-1
-orbs_user-tourdemo   internal=false orbs-daemon-tourdemo-1 orbs-hub-1
-orbs_web             internal=true  orbs-hub-1 orbs-web-1</pre></div>
+  <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^meetvinci_); do printf "%-20s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
+meetvinci_egress          internal=false meetvinci-provisioner-1
+meetvinci_provisioner     internal=true  meetvinci-provisioner-1 meetvinci-hub-1
+meetvinci_tunnel          internal=false meetvinci-hub-1 meetvinci-cloudflared-1
+meetvinci_user-owner      internal=false meetvinci-hub-1 meetvinci-daemon-owner-1
+meetvinci_user-second     internal=false meetvinci-daemon-second-1 meetvinci-hub-1
+meetvinci_user-tourdemo   internal=false meetvinci-daemon-tourdemo-1 meetvinci-hub-1
+meetvinci_web             internal=true  meetvinci-hub-1 meetvinci-web-1</pre></div>
   <div class="term"><div class="bar"><span>memory and CPU, idle</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"</span>
 NAME                     MEM USAGE / LIMIT     CPU %
-orbs-daemon-owner-1      138.3MiB / 512MiB     0.27%
-orbs-daemon-tourdemo-1   126.5MiB / 512MiB     0.20%
-orbs-daemon-second-1     103.4MiB / 512MiB     0.24%
-orbs-web-1               103.3MiB / 256MiB     0.10%
-orbs-provisioner-1       65.82MiB / 256MiB     0.07%
-orbs-cloudflared-1       37.58MiB / 256MiB     0.39%
-orbs-hub-1               19.02MiB / 256MiB     0.26%
+meetvinci-daemon-owner-1      138.3MiB / 512MiB     0.27%
+meetvinci-daemon-tourdemo-1   126.5MiB / 512MiB     0.20%
+meetvinci-daemon-second-1     103.4MiB / 512MiB     0.24%
+meetvinci-web-1               103.3MiB / 256MiB     0.10%
+meetvinci-provisioner-1       65.82MiB / 256MiB     0.07%
+meetvinci-cloudflared-1       37.58MiB / 256MiB     0.39%
+meetvinci-hub-1               19.02MiB / 256MiB     0.26%
 test-mock-model          3.871MiB / 64MiB      0.00%
 tour-capture             3.543MiB / 3.725GiB   0.00%</pre></div>
   <p>Each daemon is locked down. This is one line per container:</p>
-  <div class="term"><div class="bar"><span>hardening of one daemon</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker inspect orbs-daemon-second-1 --format "readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} user={{.Config.User}} memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}}"</span>
+  <div class="term"><div class="bar"><span>hardening of one daemon</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker inspect meetvinci-daemon-second-1 --format "readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} user={{.Config.User}} memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}}"</span>
 readonly=true capdrop=[ALL] user=1000:1000 memory=536870912 pids=256 ports={}</pre></div>
   <h3>Logs</h3>
   <p>The hub logs logins, pairing and every admin action with the admin's email. It does not log each ordinary request.</p>
@@ -208,16 +208,16 @@ hub-1  |   └─ users: 3</pre></div>
 
 <section id="workspace">
   <h2><span class="n">3</span>One person's workspace</h2>
-  <p>Everything that belongs to a person lives in one Docker volume, <code>orbs_data-&lt;id&gt;</code>, mounted at <code>/data</code> inside their daemon.</p>
-  <div class="term"><div class="bar"><span>volumes</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker volume ls --format "{{.Name}}" | grep orbs_</span>
-orbs_data-owner
-orbs_data-second
-orbs_data-tourdemo
-orbs_ipc</pre></div>
+  <p>Everything that belongs to a person lives in one Docker volume, <code>meetvinci_data-&lt;id&gt;</code>, mounted at <code>/data</code> inside their daemon.</p>
+  <div class="term"><div class="bar"><span>volumes</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker volume ls --format "{{.Name}}" | grep meetvinci_</span>
+meetvinci_data-owner
+meetvinci_data-second
+meetvinci_data-tourdemo
+meetvinci_ipc</pre></div>
   <p>The safe way to look inside is a throwaway container with the volume mounted read-only and no network. It cannot change anything, and it disappears when the command ends.</p>
-  <div class="term"><div class="bar"><span>the workspace of "second"</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ TAG=$(sed -n 's/^ORBS_TAG=//p' .env)
-$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
-    --entrypoint sh orbs-daemon:$TAG -c 'find /data -maxdepth 4 | sort'</span>
+  <div class="term"><div class="bar"><span>the workspace of "second"</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ TAG=$(sed -n 's/^MEETVINCI_TAG=//p' .env)
+$ docker run --rm --network none --user 1000:1000 -v meetvinci_data-second:/data:ro \
+    --entrypoint sh meetvinci-daemon:$TAG -c 'find /data -maxdepth 4 | sort'</span>
 /data
 /data/agents
 /data/agents/af735362-ce91-412c-a39d-51da35ee8273
@@ -245,20 +245,20 @@ $ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
     <tr><td><code>data/daemon.lock</code></td><td>The lock the daemon holds while it runs.</td></tr>
     <tr><td><code>data/bots/&lt;botId&gt;/runtime.sql</code></td><td>That bot's conversations, routines, todos and pending approvals.</td></tr>
     <tr><td><code>data/bots/&lt;botId&gt;/telemetry.sql</code></td><td>Model and tool timings, kept 14 days.</td></tr>
-    <tr><td><code>data/ipc/rpc.sock</code></td><td>The private door. It lives in the shared <code>orbs_ipc</code> volume, which is why the folder looks empty here.</td></tr>
+    <tr><td><code>data/ipc/rpc.sock</code></td><td>The private door. It lives in the shared <code>meetvinci_ipc</code> volume, which is why the folder looks empty here.</td></tr>
     <tr><td><code>pi/models.json</code>, <code>pi/auth.json</code></td><td>Model provider settings and logins.</td></tr>
     <tr><td><code>home/</code></td><td>The person's shared files that all their bots can inherit: <code>~/.agents/skills/</code>, <code>~/.agents/mcp.json</code>.</td></tr>
   </table></div>
   <p>On this test server <code>pi/models.json</code> is why the app shows Anthropic as "Connected": it points that provider at the mock model with a fake key.</p>
-  <div class="term"><div class="bar"><span>provider settings, key masked</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
-    --entrypoint cat orbs-daemon:$TAG /data/pi/models.json | sed -E 's/("apiKey" *: *")[^"]*/\1***/'</span>
+  <div class="term"><div class="bar"><span>provider settings, key masked</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v meetvinci_data-second:/data:ro \
+    --entrypoint cat meetvinci-daemon:$TAG /data/pi/models.json | sed -E 's/("apiKey" *: *")[^"]*/\1***/'</span>
 {"providers":{"anthropic":{"baseUrl":"http://172.17.0.1:48290","apiKey":"***"}}}</pre></div>
 </section>
 
 <section id="bot">
   <h2><span class="n">4</span>A bot by hand</h2>
   <p>Everything the bot form shows lives in exactly one place. Part is rows in the database, part is plain files in the bot's folder. That split decides what you can edit by hand.</p>
-  <div class="term"><div class="bar"><span>the row behind the bot form</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro --entrypoint bun orbs-daemon:$TAG -e \
+  <div class="term"><div class="bar"><span>the row behind the bot form</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v meetvinci_data-second:/data:ro --entrypoint bun meetvinci-daemon:$TAG -e \
   'const { Database } = require("bun:sqlite"); console.log(new Database("/data/data/app.sqlite", { readonly: true }).query("select name, handle, model_provider, model_id, thinking_level, permission from bot").all())'</span>
 [
   {
@@ -294,7 +294,7 @@ $ docker run --rm --network none --user 1000:1000 -v orbs_data-second:/data:ro \
 
   <h3>Edit a file</h3>
   <p>Write as user 1000, the user the daemon runs as, so the daemon can still read the file. The daemon reads the instructions file before every message, so the change applies at once.</p>
-  <div class="term"><div class="bar"><span>change the instructions file, then chat</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v orbs_data-tourdemo:/data --entrypoint sh orbs-daemon:$TAG -c \
+  <div class="term"><div class="bar"><span>change the instructions file, then chat</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker run --rm --network none --user 1000:1000 -v meetvinci_data-tourdemo:/data --entrypoint sh meetvinci-daemon:$TAG -c \
   'printf "# Tour instructions\n\nAlways greet with MARKER_EDIT_102041.\n" &gt; /data/agents/&lt;botId&gt;/AGENTS.md'</span>
 <span class="d">you&gt;</span> hello after editing AGENTS.md
 <span class="d">tour-bot&gt;</span> capture via claude-haiku-5-5 ... MARKER_EDIT_102041</pre></div>
@@ -344,10 +344,10 @@ $ door tourdemo bots/list</span>
     <div class="hop"><b>Cloudflare Access</b><small>emailed code; signs the person's email</small></div><span class="arrow">→</span>
     <div class="hop"><b>cloudflared</b><small>outbound tunnel on the server</small></div><span class="arrow">→</span>
     <div class="hop key"><b>hub</b><small>checks the signature, looks up the email</small></div><span class="arrow">→</span>
-    <div class="hop"><b>daemon-&lt;id&gt;</b><small>that person's Orbs only</small></div>
+    <div class="hop"><b>daemon-&lt;id&gt;</b><small>that person's MeetVinci only</small></div>
   </div>
   <p>The hub sends the app's data paths (<code>/rpc</code>, <code>/files</code>, <code>/avatars</code> and a few more) to the person's daemon and every other path to the shared web app. Without a valid Cloudflare signature it answers 401:</p>
-  <div class="term"><div class="bar"><span>asking the hub directly, with no login</span></div><pre><span class="c">$ docker run --rm --network orbs_tunnel --entrypoint bun orbs-hub:$TAG -e 'for (const p of ["/rpc", "/admin", "/hub/health", "/favicon.ico"]) { const r = await fetch("http://hub:47192" + p, { redirect: "manual" }); console.log(p.padEnd(14), r.status) }'</span>
+  <div class="term"><div class="bar"><span>asking the hub directly, with no login</span></div><pre><span class="c">$ docker run --rm --network meetvinci_tunnel --entrypoint bun meetvinci-hub:$TAG -e 'for (const p of ["/rpc", "/admin", "/hub/health", "/favicon.ico"]) { const r = await fetch("http://hub:47192" + p, { redirect: "manual" }); console.log(p.padEnd(14), r.status) }'</span>
 /rpc           401
 /admin         401
 /hub/health    200
@@ -363,18 +363,18 @@ $ door tourdemo bots/list</span>
 
 <section id="cheat">
   <h2><span class="n">+</span>Cheat sheet</h2>
-  <div class="term"><div class="bar"><span>on the server, in /opt/orbs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">docker compose ps</span>                              <span class="d"># containers and health</span>
+  <div class="term"><div class="bar"><span>on the server, in /opt/meetvinci</span><button class="copy" type="button">Copy</button></div><pre><span class="c">docker compose ps</span>                              <span class="d"># containers and health</span>
 <span class="c">docker stats --no-stream</span>                       <span class="d"># memory and CPU</span>
 <span class="c">docker compose logs hub --since 1h</span>             <span class="d"># logins, pairing, admin actions</span>
-<span class="c">docker compose logs daemon-&lt;id&gt; -f</span>             <span class="d"># one person's Orbs, live</span>
-<span class="c">docker volume ls | grep orbs_data-</span>             <span class="d"># one volume per person</span>
-<span class="c">TAG=$(sed -n 's/^ORBS_TAG=//p' .env)</span>           <span class="d"># the image tag, without printing .env</span>
+<span class="c">docker compose logs daemon-&lt;id&gt; -f</span>             <span class="d"># one person's MeetVinci, live</span>
+<span class="c">docker volume ls | grep meetvinci_data-</span>             <span class="d"># one volume per person</span>
+<span class="c">TAG=$(sed -n 's/^MEETVINCI_TAG=//p' .env)</span>           <span class="d"># the image tag, without printing .env</span>
 
 <span class="d"># look inside a workspace, read-only</span>
-<span class="c">docker run --rm --network none --user 1000:1000 -v orbs_data-&lt;id&gt;:/data:ro --entrypoint sh orbs-daemon:$TAG -c 'find /data'</span>
+<span class="c">docker run --rm --network none --user 1000:1000 -v meetvinci_data-&lt;id&gt;:/data:ro --entrypoint sh meetvinci-daemon:$TAG -c 'find /data'</span>
 
 <span class="d"># edit a file in a workspace as the daemon's user</span>
-<span class="c">docker run --rm -it --network none --user 1000:1000 -v orbs_data-&lt;id&gt;:/data --entrypoint sh orbs-daemon:$TAG</span>
+<span class="c">docker run --rm -it --network none --user 1000:1000 -v meetvinci_data-&lt;id&gt;:/data --entrypoint sh meetvinci-daemon:$TAG</span>
 
 <span class="d"># the private door: bots/list, bots/update, bots/catalog, secrets/list, routines/list</span>
 <span class="c">docker compose exec -T daemon-&lt;id&gt; bun -e 'const r = await fetch("http://localhost/rpc/bots/list", { method: "POST", unix: "/data/data/ipc/rpc.sock", headers: { "content-type": "application/json", "x-bots-protocol": "1" }, body: JSON.stringify({ json: {} }) }); console.log(r.status, await r.text())'</span>
