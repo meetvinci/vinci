@@ -10,9 +10,10 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/orbs`. Keep as is. |
 | `ORBS_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
-| `ORBS_TAG` | `v0.2.0` | The tag of the `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` images. Change it to upgrade or roll back. |
+| `ORBS_TAG` | `v0.2.0` | The tag of the `orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner` and `orbs-firewall` images. Change it to upgrade or roll back. |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
 | `LOG_LEVEL` | `info` | Log detail for every container. |
+| `ORBS_INTERNAL_ALLOW` | empty | Internal destinations every person's Orbs may still reach, `<IPv4>:<port>` (TCP), comma separated, such as `172.17.0.1:48290`. Empty: none. See [what a bot can reach](admin.md#what-a-bot-can-reach). |
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's Orbs gets as environment variables. Every person's bots can read them. |
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
@@ -78,6 +79,16 @@ Adds, disables and removes people for the admin panel by running `bun deploy.ts 
 
 It runs as root with every Linux capability dropped, a read-only system, no published port, 256 MB of memory, and `/opt/orbs` mounted at the same path so Compose finds the same files as on the server. Root lets it read `.env` and the Docker socket as their owner; without capabilities it can write only files root owns or that are group root, which is why the `hub` folder is owned by uid 1000, group root, mode 770.
 
+## Firewall (one per server)
+
+Keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-reach)) with two named iptables chains for people's networks (bridges named `orbs-d<9 hex>`): `ORBS-DAEMONS`, jumped from the first rule of Docker's `DOCKER-USER`, and `ORBS-DAEMONS-HOST`, jumped from the first rule of `INPUT`. It lets the hub open each person's port 47191, rejects the rest between containers on a person's network, and rejects private, link-local, shared (`100.64.0.0/10`), loopback, multicast and reserved addresses and anything on the server itself, except `ORBS_INTERNAL_ALLOW`. It changes no policy and no other rule, checks the chains every 30 seconds and rewrites them when they are missing or different.
+
+| Setting | Value in a team install | What it does |
+| --- | --- | --- |
+| `ORBS_INTERNAL_ALLOW` | from `.env` (set by Compose) | Destinations let through before the rejects. `apply` refuses a value that is not `<IPv4>:<port>` (no hostnames, ranges or leading zeros) before the firewall sees it. |
+
+It runs on the host network as root with only `NET_ADMIN`, a read-only system, no port and 128 MB of memory. It uses `iptables-nft` only, and refuses to start when Docker's `DOCKER-USER` chain is not there (Docker on `iptables-legacy`, its nftables backend, or `"iptables": false`). `bun deploy.ts firewall remove`, on the server, stops it and deletes the chains and jumps.
+
 ## Files
 
 | File | Where | What it holds |
@@ -115,9 +126,9 @@ Nothing is published on the server's network interfaces. Docker Compose creates:
 | `orbs_web` | the hub and the web app | no |
 | `orbs_provisioner` | the hub and the provisioner | no |
 | `orbs_egress` | the provisioner only | yes: the Cloudflare API, used only with `CLOUDFLARE_API_TOKEN` |
-| `orbs_user-<id>` | one person's container and the hub | yes: bots need model providers, MCP servers and the web |
+| `orbs_user-<id>` | one person's container and the hub; bridge `orbs-d<9 hex>`, no traffic between containers but the hub to port 47191, no IPv6 | yes, public addresses only: bots need model providers, MCP servers and the web |
 
-A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It can reach the internet, and nothing stops it from trying the server's own addresses: on the test server every person's container could open the host's SSH port and read the cloud provider's metadata service (`169.254.169.254`, including the server's user-data). Never put secrets in the server's user-data or cloud-init, and keep host services off `0.0.0.0` unless they need to be public. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to an `orbs_user-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
+A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It reaches the internet and nothing internal: not the hub, the server itself or its SSH, the cloud provider's metadata service (`169.254.169.254`) or private addresses, unless `ORBS_INTERNAL_ALLOW` names one ([what a bot can reach](admin.md#what-a-bot-can-reach)). Still never put secrets in the server's user-data or cloud-init. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to an `orbs_user-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
 
 ## Container limits
 

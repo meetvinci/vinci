@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Orbs container images: one build stage, then the hub, web, daemon and provisioner targets.
+# Orbs container images: one build stage, then the hub, web, daemon, provisioner and firewall targets.
 # Build from the repo root: bun run build:images (see scripts/deploy.ts).
 # Every image runs as uid 1000 under tini and works with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
 # Bundles run with --no-install: an unresolved optional import must fail, not download a package from npm at runtime.
@@ -82,3 +82,14 @@ EXPOSE 47193
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD ["bun", "-e", "process.exit((await fetch(`http://127.0.0.1:${process.env.PROVISIONER_PORT}/health`, { headers: { authorization: `Bearer ${process.env.PROVISIONER_TOKEN}` } })).ok ? 0 : 1)"]
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/deploy.ts", "provisioner"]
+
+# The firewall: keeps bots off the server's internal addresses with iptables rules for every daemon bridge, set by
+# scripts/deploy.ts firewall and checked every 30 s. Runs on the host network with NET_ADMIN only; it serves nothing
+# and holds no secret. It uses Debian's iptables-nft, next to Docker's chains.
+FROM ${BUN_IMAGE}-slim AS firewall
+RUN apt-get update && apt-get install -y --no-install-recommends iptables && rm -rf /var/lib/apt/lists/*
+COPY --from=tini /usr/bin/tini-static /usr/bin/tini
+COPY scripts/deploy.ts /app/deploy.ts
+USER 0:0
+ENV HOME=/tmp
+ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/deploy.ts", "firewall"]

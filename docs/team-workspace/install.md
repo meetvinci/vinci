@@ -66,16 +66,16 @@ Build the images on your own computer, not on the server: building needs a lot o
 ```sh
 TAG=$(git rev-parse --short HEAD)
 bun run build:images --tag $TAG
-docker image inspect orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG --format '{{.RepoTags}} {{.Architecture}}'
+docker image inspect orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG orbs-firewall:$TAG --format '{{.RepoTags}} {{.Architecture}}'
 ```
 
-The last command must print `amd64` four times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
+The last command must print `amd64` five times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
 
 ```sh
-docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
+docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG orbs-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
 ```
 
-Expected: four `Loaded image:` lines. It takes a minute or two on a home connection (about 250 MB).
+Expected: five `Loaded image:` lines. It takes a minute or two on a home connection (about 250 MB).
 
 Copy the deployment files into `/opt/orbs`. Only the first time, also copy the settings template as `.env`:
 
@@ -95,7 +95,7 @@ Expected: a Bun version such as `1.4.2`.
 
 **Give this to your agent:**
 
-> In my Orbs checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `orbs-daemon:$TAG`, `orbs-web:$TAG`, `orbs-hub:$TAG` and `orbs-provisioner:$TAG`. Load them on `root@<server>` with `docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/orbs` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/orbs/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat orbs-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> In my Orbs checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `orbs-daemon:$TAG`, `orbs-web:$TAG`, `orbs-hub:$TAG`, `orbs-provisioner:$TAG` and `orbs-firewall:$TAG`. Load them on `root@<server>` with `docker save orbs-daemon:$TAG orbs-web:$TAG orbs-hub:$TAG orbs-provisioner:$TAG orbs-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/orbs` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/orbs/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat orbs-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -249,7 +249,7 @@ Start everything:
 ssh root@<server> 'cd /opt/orbs && bun deploy.ts apply'
 ```
 
-This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
+This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, the firewall that keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-reach)), one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
 
 Check it:
 
@@ -257,7 +257,7 @@ Check it:
 ssh root@<server> 'cd /opt/orbs && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `orbs-hub-1`, `orbs-provisioner-1`, `orbs-web-1`, `orbs-cloudflared-1`, `orbs-firewall-1` (`Up`, no health check), `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
 The hub creates `hub/audit.sqlite` on its first start: the admin panel's [audit trail](admin.md#activity). `ssh root@<server> 'ls -l /opt/orbs/hub/audit.sqlite'` shows it owned by uid 1000 with mode `-rw-------`.
 
@@ -272,7 +272,7 @@ If it differs:
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines. Report the provisioner's `listening` log line: it must say `Access sync on` if I chose a list of emails and gave a small token.
+> On `root@<server>`, in `/opt/orbs`: set `ORBS_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared, the firewall, `orbs-daemon-template-1` and one `orbs-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines. Report the provisioner's `listening` log line: it must say `Access sync on` if I chose a list of emails and gave a small token.
 
 ## 8. Check it works
 
@@ -292,7 +292,7 @@ ssh root@<server> 'ss -tlnp'
 ssh root@<server> 'cd /opt/orbs && ids=$(docker compose ps --format "{{.Service}}" | sed -n "s/^daemon-//p"); for a in $ids; do for b in $ids; do [ $a = $b ] && continue; ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" orbs-daemon-$b-1); printf "%s -> %s: " $a $b; docker exec orbs-daemon-$a-1 bun -e "fetch(\"http://$ip:47191/health\",{signal:AbortSignal.timeout(3000)}).then(()=>console.log(\"REACHABLE: not isolated\"),()=>console.log(\"blocked\"))" 2>/dev/null; done; printf "hub -> %s: " $a; docker exec orbs-hub-1 bun -e "fetch(\"http://daemon-$a:47191/health\").then(r=>console.log(r.status),e=>console.log(\"unreachable\"))" 2>/dev/null; done'
 ```
 
-Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair.
+Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair. Then run the check in [what a bot can reach](admin.md#what-a-bot-can-reach) for one person: the internet answers and the server, the hub, the metadata service and private addresses are blocked.
 
 Then log in:
 
@@ -305,7 +305,7 @@ Then log in:
 
 **Give this to your agent:**
 
-> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
+> Check the Orbs install on `root@<server>`, in `/opt/orbs`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`; then the check in the "What a bot can reach" section of `docs/team-workspace/admin.md` for one person: public 200, the rest blocked. Confirm `/opt/orbs/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
 
 ## 9. Turn on nightly backups
 

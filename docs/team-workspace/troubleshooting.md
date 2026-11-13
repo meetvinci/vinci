@@ -31,6 +31,10 @@ Your email is not in `/opt/orbs/hub/admins.json`, or the file is invalid (the hu
 
 ## A person gets an error page (502) instead of their bots
 
+When everyone gets it at once, check the firewall first: people's networks let the hub through only while its rules are in place. `docker compose ps firewall` must be `Up` and `docker compose logs firewall` must end with `Firewall on`. A message such as `No DOCKER-USER chain in iptables-nft` means Docker does not manage iptables through `iptables-nft` (`iptables-legacy`, its nftables backend, or `"iptables": false` in `/etc/docker/daemon.json`). If `apply` says `… predate the firewall`, the one-time `docker compose rm -sf …` step of [Upgrades](admin.md#upgrades) was skipped or run for the hub only: run it, then `bun deploy.ts apply`.
+
+When it is one person:
+
 The hub checks that each person's Orbs has the ID it saw the first time. If the ID changed, it refuses to forward. That happens when someone's Orbs was reset on purpose, or when two people's settings point at the same Orbs.
 
 - If you reset that person's Orbs on purpose: stop the hub (`docker compose stop hub`), delete their line in `/opt/orbs/hub/pins.json`, and start it (`docker compose start hub`). The hub keeps pins in memory and would write the old line back.
@@ -157,10 +161,16 @@ Each person's Orbs is limited to 512 MB. On a 4 GB x86 server, an idle person's 
 
 Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades and backups in `/opt/orbs/backups/`.
 
-- Fix: remove old Orbs image tags by name, `docker rmi orbs-daemon:<old tag> orbs-web:<old tag> orbs-hub:<old tag> orbs-provisioner:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
+- Fix: remove old Orbs image tags by name, `docker rmi orbs-daemon:<old tag> orbs-web:<old tag> orbs-hub:<old tag> orbs-provisioner:<old tag> orbs-firewall:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
 
 > On `root@<server>`, show `docker system df`, `docker images` and `ls -la /opt/orbs/backups`. Suggest which old `orbs-*` tags (not the `ORBS_TAG` in `/opt/orbs/.env`) and which backups can go, and remove only the ones I confirm, by name. Never use a prune command.
 
+## A bot cannot reach a service on the server or the private network
+
+On purpose: bots reach the public internet only ([what a bot can reach](admin.md#what-a-bot-can-reach)). If every person really needs one internal service, add its `<IPv4>:<port>` to `ORBS_INTERNAL_ALLOW` in `/opt/orbs/.env` and run `bun deploy.ts apply`; `docker compose logs firewall` then names it after `except`. Name the address the bot connects to: for a service on the server itself, its address on Docker's bridge (`172.17.0.1`) or the person's gateway, and the service must listen there.
+
+> On `root@<server>`, bots must reach `<address>:<port>`. Add it to `ORBS_INTERNAL_ALLOW` in `/opt/orbs/.env` (comma separated, keep existing entries), run `bun deploy.ts apply`, and confirm `docker compose logs firewall | tail -1` lists it. Change nothing else.
+
 ## What a bot can do
 
-Until the hardening phase, a bot that can run commands has full control of its own person's Orbs: it can read that person's model key and saved secrets, and give itself access as that person. Everything the admin can change through a person's private door (settings, keys, bots, devices), that person's bots can change too. It can also tamper with the folder the hub uses to pair that person's browser. The hub refuses anything there that is not a real socket, but a bot can still swap the socket at the exact moment the hub uses it. What really keeps a bot away from other people's Orbs is that each person's Orbs sits on its own network that only the hub can reach (set up by the deployment files). Only invite people you trust, and give bots the read-only or ask permission mode when they don't need more.
+Until the hardening phase, a bot that can run commands has full control of its own person's Orbs: it can read that person's model key and saved secrets, and give itself access as that person. Everything the admin can change through a person's private door (settings, keys, bots, devices), that person's bots can change too. It can also tamper with the folder the hub uses to pair that person's browser. The hub refuses anything there that is not a real socket, but a bot can still swap the socket at the exact moment the hub uses it. What really keeps a bot away from other people's Orbs is that each person's Orbs sits on its own network that only the hub can reach (set up by the deployment files), and the firewall keeps it off the server and every internal address ([what a bot can reach](admin.md#what-a-bot-can-reach)). Only invite people you trust, and give bots the read-only or ask permission mode when they don't need more.

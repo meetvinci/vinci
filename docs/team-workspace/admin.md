@@ -391,6 +391,44 @@ Don't pair a device of your own into someone's Orbs instead: it can read and act
 
 > On `root@<server>`, in `/opt/orbs`, create a bot named `<name>` with handle `<handle>` and model `<provider>/<model>` for Orbs user `<id>`. Use `docker compose exec daemon-<id> bun -e` with `fetch` to `http://localhost/rpc/bots/create` over the unix socket `/data/data/ipc/rpc.sock`, headers `content-type: application/json` and `x-bots-protocol: 1`, body `{"json": {...}}` with `thinkingLevel` set. Don't pair a device. Confirm the reply is 200 and the bot appears in `bots/list`.
 
+## What a bot can reach
+
+A bot runs its commands and web requests inside its person's Orbs. From there it reaches the public internet (model providers, web pages, MCP servers over https) and DNS, and nothing internal:
+
+| From a person's Orbs | Reachable |
+| --- | --- |
+| Public internet and DNS | yes |
+| The hub, on any of its networks | no: the hub opens connections to each person's Orbs, never the other way |
+| The web app, the provisioner, cloudflared | no |
+| Other people's Orbs and the template workspace | no |
+| The server itself: SSH, Docker's gateway addresses, its public address, any other service on it | no |
+| The cloud metadata service (`169.254.169.254`) | no |
+| Private and internal ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10` (Tailscale), link-local, multicast | no |
+| IPv6 | no: people's networks have IPv6 off, so only public IPv4 goes out |
+| A destination listed in `ORBS_INTERNAL_ALLOW` | yes, that address and port only |
+
+The `firewall` container keeps this. It adds two named rule sets for people's networks to the server's firewall, `ORBS-DAEMONS` (in Docker's `DOCKER-USER`) and `ORBS-DAEMONS-HOST` (in `INPUT`); it changes no policy and no other rule, so it cannot lock you out of SSH. It checks them every 30 seconds and puts back anything missing, and starts again with Docker after a restart or a reboot. A person you add gets the same protection with no extra step. The rules stay in place when the container stops; they are gone only after a reboot until it starts again (about 0.2 s after Docker starts the containers), or after `firewall remove`. Without them people's Orbs are not filtered, but nobody can use them: their networks drop traffic between containers except the hub reaching a person's Orbs through the firewall, so the hub cannot reach anyone (`docker compose ps firewall` and `docker compose logs firewall` then show why). Work a bot already had running, such as a turn that resumes after a reboot, is not stopped by this.
+
+To let every person's Orbs reach one internal service anyway, such as a model server on your private network, name it in `/opt/orbs/.env` as `<IPv4>:<port>` (TCP), comma-separated for more than one, and run `bun deploy.ts apply`:
+
+```sh
+ORBS_INTERNAL_ALLOW=10.0.0.5:8080
+```
+
+Only the firewall restarts. It is empty by default. Allow only what every person may use: everything allowed is open to every bot.
+
+To check from inside a person's Orbs (it should print `public: 200`, then `blocked` for the metadata service, the server's SSH on the person's gateway address, the hub and a private address):
+
+```sh
+docker compose exec daemon-<id> bun -e 'const gw = (await Bun.file("/proc/net/route").text()).split("\n").map((l) => l.split("\t")).find((f) => f[1] === "00000000")[2].match(/../g).reverse().map((h) => parseInt(h, 16)).join("."); const tcp = (host, port) => Promise.race([Bun.connect({ hostname: host, port, socket: { data() {} } }).then((s) => (s.end(), "REACHABLE"), () => "blocked"), Bun.sleep(3000).then(() => "blocked")]); console.log("public:", (await fetch("https://example.com")).status); for (const [host, port] of [["169.254.169.254", 80], [gw, 22], ["hub", 47192], ["10.0.0.1", 80]]) console.log(`${host}:${port}`, await tcp(host, port)); process.exit(0)'
+```
+
+`bun deploy.ts firewall remove` stops the firewall and deletes both rule sets and their jumps. Use it only when tearing Orbs down (see [Tear down](#tear-down)): the next `apply` puts them back.
+
+**Give this to your agent:**
+
+> On `root@<server>`, in `/opt/orbs`, check what bots can reach: `docker compose ps firewall` must be running and `docker compose logs firewall` must show `Firewall on`; `iptables -S DOCKER-USER` and `iptables -S INPUT` must each start with a jump to `ORBS-DAEMONS` / `ORBS-DAEMONS-HOST` for `-i orbs-d+`, and the `INPUT` policy must be unchanged. From one person's container, run the check in the "What a bot can reach" section of `docs/team-workspace/admin.md`: public 200, everything else blocked. Don't change `ORBS_INTERNAL_ALLOW` unless I name an address.
+
 ## Backups
 
 **Backups hold every secret.** Each person's backup has their encryption key (`credentials.key`), their model keys (`auth.json`), their secrets and their chats; the deployment files have `.env` with the tunnel token, the provisioner token and the shared model keys. Anyone with a backup folder can read all of it. Keep backups readable by root only, and copy them only to a place you trust as much as the server.
@@ -523,7 +561,7 @@ bun deploy.ts apply
 
 ## Upgrades
 
-New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun orbs-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
+New images arrive with a new tag. Build and load all five (`orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner`, `orbs-firewall`) as in [install, step 3](install.md#3-get-orbs-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun orbs-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
 
 1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Orbs as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version.
 2. Set the new tag in `/opt/orbs/.env`, for example `ORBS_TAG=v0.2.0`, and run:
@@ -543,17 +581,25 @@ New images arrive with a new tag. Build and load all four (`orbs-daemon`, `orbs-
 4. Check: `docker compose ps` shows the new tag on the hub, the provisioner, web, `orbs-daemon-template-1` and every person's daemon, all healthy. From the version with the [audit trail](#activity) on, `ls -ln hub/audit.sqlite` shows the file owned by `1000 1000` with mode `-rw-------`: the hub creates it on its first start. The hub log may show `The provisioner did not take the admin list yet; trying again` once, because the provisioner restarts at the same moment; it is harmless when no error line follows. If someone has Orbs open during the restart, the hub may also log one or two `ERROR … 502` `Request refused` for `/health` with `The daemon of <id> did not answer /health`: their app asked while their Orbs was restarting, and it reconnects on its own. Only the same line again after the containers are healthy means a problem. From the version with the **Advanced user** switch on, every Orbs is marked as part of a team: `for c in $(docker compose ps --format '{{.Name}}' | grep daemon-); do echo "$c $(docker inspect $c -f '{{range .Config.Env}}{{println .}}{{end}}' | grep DAEMON_TEAM)"; done` prints `DAEMON_TEAM=true` for every person and the template, and after the first upgrade to it nobody is advanced until you switch them on (`grep -c advanced users.yaml` prints `0`).
 5. On the first upgrade to the version where people keep their own secrets (and after a rollback past it and a new upgrade): open **Global settings** in the admin panel and press **Sync now** once, as soon as step 4 is done. Until then the secrets the older hub copied look like each person's own (see below). Check: the sync status shows no *failed* section, and a person who follows global for Secrets sees those secrets marked *From your admin*.
 
+The first upgrade to a version with the [firewall](#what-a-bot-can-reach) needs one more command, once, between step 2 and step 3. It moves every person's network to the firewall's settings, which Docker can only do by recreating the network, so the hub and every person's Orbs must be recreated with it (they just restarted in step 2 anyway):
+
+```sh
+docker compose rm -sf $(docker compose ps --services | grep -e '^hub$' -e '^daemon-')
+```
+
+Then step 3's `apply` creates them again on the new networks. Without it, or with only the hub removed, `apply` (and the admin panel's add, change and remove) refuses with `orbs_user-<id> … predate the firewall` and changes nothing; an `apply` from before this check stopped every person's Orbs and then failed, and the hub answered 502 for everyone. Nobody's data is at risk: `rm -sf` removes containers, never volumes, and `hub/` stays on disk. `iptables -S DOCKER-USER` must then show the jump to `ORBS-DAEMONS`. If bots use a service on the server or your private network (such as a test model on `172.17.0.1:48290`), set `ORBS_INTERNAL_ALLOW` in `.env` before step 2 ([what a bot can reach](#what-a-bot-can-reach)), or their turns fail after the upgrade.
+
 The first upgrade to a version with the admin panel needs three more things, once, before step 2: add `admins:` with your email to `users.yaml`, and `HUB_ADMIN_EMAILS` and `PROVISIONER_TOKEN` to `.env` (the two commands in [install, step 7](install.md#7-start-orbs)). The `apply` in step 3 then lets the provisioner write the hub's user list (the `hub` folder becomes group root, mode 770); without it every change in the admin panel fails.
 
 **The first upgrade to a version with global settings changes nobody's settings.** People who were there before start with every section *overridden*: they keep their own keys, secrets, chat and tool settings and `~/.agents` files, and get nothing from Global settings. Before you switch a section of theirs to *global*, set that section in Global settings, and know that the switch replaces their values with the global ones: for Secrets only a secret with a global secret's name, for Sources it replaces their `~/.agents` folder, for Models it signs out API keys the template doesn't have. The panel lists what each switch removes before you confirm. Back them up first. People you add in the panel after the upgrade follow every section.
 
 **After the upgrade to the version where people keep their own secrets**, secrets the hub copied earlier are not yet marked as global: until the next copy they show as the person's own, and removing one is undone by that copy. **Sync now** (step 5) marks them; do it again after you roll back and upgrade again, because the older version drops the marks. Nothing else changes, and nobody loses a secret. A rollback to an older version keeps every secret, but its next sync removes the own secrets of everyone whose Secrets follow global, as before; override their Secrets first if they must keep them.
 
-To roll back, copy the old version's deployment files into `/opt/orbs` again (from a checkout of that version), set the old tag, and run `docker compose up -d --wait` and then `bun deploy.ts apply`, as for an upgrade. Both steps matter: an older hub may refuse the newer `hub/users.json` and let nobody in (a rollback from global settings to the first admin panel version logged `unrecognized_keys` and *Users file … invalid: every request is refused*), and only the old `deploy.ts apply` writes the file it expects. Rolling back past global settings removes the template container and keeps its volume, so a later upgrade finds the global settings and suggested bots again. Rolling back past the **Advanced user** switch works the same way: until the old `apply` runs, the old hub refuses a `hub/users.json` that has `"advanced": true` for anyone (`unrecognized_keys`, *every request is refused*), and the old `apply` writes it without that key. The old `apply` also rewrites `users.yaml` without `advanced`, so after upgrading again everyone starts with the switch off: note who was advanced before you roll back and turn their switch on again in the panel. If the new version changed someone's data, restore their backup from before the upgrade.
+To roll back, copy the old version's deployment files into `/opt/orbs` again (from a checkout of that version), set the old tag, and run `docker compose up -d --wait` and then `bun deploy.ts apply`, as for an upgrade. Both steps matter: an older hub may refuse the newer `hub/users.json` and let nobody in (a rollback from global settings to the first admin panel version logged `unrecognized_keys` and *Users file … invalid: every request is refused*), and only the old `deploy.ts apply` writes the file it expects. Rolling back past global settings removes the template container and keeps its volume, so a later upgrade finds the global settings and suggested bots again. Rolling back past the **Advanced user** switch works the same way: until the old `apply` runs, the old hub refuses a `hub/users.json` that has `"advanced": true` for anyone (`unrecognized_keys`, *every request is refused*), and the old `apply` writes it without that key. The old `apply` also rewrites `users.yaml` without `advanced`, so after upgrading again everyone starts with the switch off: note who was advanced before you roll back and turn their switch on again in the panel. Rolling back past the firewall: first, with the new files still in place, run `bun deploy.ts firewall remove`; after copying the old files, run the same `docker compose rm -sf …` command as for the upgrade before the old `apply`, which puts people's networks back without the firewall's settings. If the new version changed someone's data, restore their backup from before the upgrade.
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub` and `orbs-provisioner` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly` and confirm `bun deploy.ts nightly status` says `ok`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` included, and the hub log shows no error. Don't switch anyone's settings sections to global. If this is the first upgrade to the version where people keep their own secrets, tell me to press **Sync now** in Global settings once (step 5 of Upgrades): you can't, it needs my Access login. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Orbs in `/opt/orbs` to image tag `<tag>`: confirm `docker images` lists `orbs-daemon`, `orbs-web`, `orbs-hub`, `orbs-provisioner` and (from the version with the firewall) `orbs-firewall` with that tag, and that `/opt/orbs` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly` and confirm `bun deploy.ts nightly status` says `ok`, set `ORBS_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then only on the first upgrade to the version with the firewall, the `docker compose rm -sf …` command from the Upgrades section, then `bun deploy.ts apply`. Confirm every container is healthy on the new tag, `orbs-daemon-template-1` and the firewall included, and the hub log shows no error. Don't switch anyone's settings sections to global. If this is the first upgrade to the version where people keep their own secrets, tell me to press **Sync now** in Global settings once (step 5 of Upgrades): you can't, it needs my Access login. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ## Status and logs
 
@@ -573,11 +619,13 @@ docker compose logs daemon-<id> -f       # one person's Orbs, live
 
 Removes the team's Orbs from the server and Cloudflare. Back up everyone first if anything may be needed later. Do the steps in this order: the connector must stop before Cloudflare deletes the tunnel.
 
-1. On the server, stop and remove the containers and networks. Volumes stay:
+1. On the server, stop and remove the containers and networks, then remove the firewall's rules. Volumes stay:
 
    ```sh
-   cd /opt/orbs && docker compose down
+   cd /opt/orbs && docker compose down && bun deploy.ts firewall remove
    ```
+
+   Expected: `Removed ORBS-DAEMONS and its jump from DOCKER-USER` and the same for `ORBS-DAEMONS-HOST` and `INPUT`.
 
 2. On your computer, in the Orbs repository, list what the Cloudflare script would delete. Use the same `--zone`, `--hostname`, `--name` and, if you set up SSH, `--ssh-hostname` as at install:
 
@@ -591,7 +639,7 @@ Removes the team's Orbs from the server and Cloudflare. Back up everyone first i
 
    ```sh
    docker volume rm orbs_ipc $(docker volume ls -q --filter name=^orbs_data-)
-   docker rmi orbs-daemon:<tag> orbs-web:<tag> orbs-hub:<tag> orbs-provisioner:<tag>
+   docker rmi orbs-daemon:<tag> orbs-web:<tag> orbs-hub:<tag> orbs-provisioner:<tag> orbs-firewall:<tag>
    rm -rf /opt/orbs
    ```
 
@@ -599,4 +647,4 @@ Removes the team's Orbs from the server and Cloudflare. Back up everyone first i
 
 **Give this to your agent:**
 
-> Tear down the Orbs team install on `root@<server>`: run `docker compose down` in `/opt/orbs`. Then in my Orbs checkout, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the command, run `bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name orbs-<team>` (add `--ssh-hostname <team>-ssh.<domain>` if SSH was set up), show me the list, and check that every object carries `orbs-<team>` or `<team>.<domain>`. Run it again with `--yes` only after I confirm. Keep the volumes and `/opt/orbs` unless I say to delete the data.
+> Tear down the Orbs team install on `root@<server>`: run `docker compose down`, then `bun deploy.ts firewall remove`, in `/opt/orbs`. Then in my Orbs checkout, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the command, run `bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name orbs-<team>` (add `--ssh-hostname <team>-ssh.<domain>` if SSH was set up), show me the list, and check that every object carries `orbs-<team>` or `<team>.<domain>`. Run it again with `--yes` only after I confirm. Keep the volumes and `/opt/orbs` unless I say to delete the data.

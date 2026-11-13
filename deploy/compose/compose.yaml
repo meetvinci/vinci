@@ -83,6 +83,26 @@ services:
       provisioner: {}
       egress: {}
 
+  # Keeps bots off the server's internal addresses: every daemon reaches the internet and DNS, the hub reaches each
+  # daemon's port, and nothing else (the hub, web, provisioner, other daemons, cloudflared, the host and its sshd,
+  # cloud metadata, private ranges). Named iptables chains for the daemon bridges (orbs-d*), in DOCKER-USER and INPUT;
+  # no policy and no other rule changes. The rules outlive this container; until it first writes them (at boot, about
+  # 0.2 s), daemons are unfiltered, and the hub cannot reach them because their networks drop traffic between
+  # containers. `bun deploy.ts firewall remove` deletes the rules.
+  firewall:
+    image: orbs-firewall:${ORBS_TAG}
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    pids_limit: 32
+    restart: unless-stopped
+    environment:
+      # Off by default: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach.
+      ORBS_INTERNAL_ALLOW: ${ORBS_INTERNAL_ALLOW:-}
+
   # One shared web app in hub mode: its server calls only the hub, never a daemon.
   web:
     image: orbs-web:${ORBS_TAG}

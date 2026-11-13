@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util';
 // It imports only Bun and node builtins, so the server needs Bun and Docker and nothing else.
 const root = path.resolve(import.meta.dir, '..');
 const dockerfile = path.join(root, 'deploy/docker/Dockerfile');
-const targets = ['daemon', 'web', 'hub', 'provisioner'];
+const targets = ['daemon', 'web', 'hub', 'provisioner', 'firewall'];
 const usersFile = 'users.yaml';
 const lockFile = 'users.yaml.lock';
 const lockStaleMs = 10 * 60 * 1000;
@@ -34,6 +34,20 @@ const cloudflareFaviconPath = '^/(?:img/favicon/[^/]+|favicon\\.ico)$';
 // The hub on the Compose `tunnel` network, and the host's sshd as cloudflared's container sees it.
 const cloudflareOrigin = 'http://hub:47192';
 const cloudflareSshOrigin = 'ssh://host.docker.internal:22';
+// Every daemon's network is a bridge named orbs-d<9 hex of its id>, so the firewall's rules match all of them, people added
+// later included, by the interface prefix alone. Linux allows 15 characters.
+const daemonBridgePrefix = 'orbs-d';
+const daemonPort = 47191;
+// What the firewall service keeps: a chain in Docker's DOCKER-USER (what daemons forward) and one jumped from INPUT
+// (what daemons send to the host itself), both only for packets that come in on a daemon bridge.
+const firewallChains = { forward: 'ORBS-DAEMONS', host: 'ORBS-DAEMONS-HOST' };
+const firewallParents = { forward: 'DOCKER-USER', host: 'INPUT' };
+const firewallCheckMs = 30 * 1000;
+// Addresses no bot reaches unless ORBS_INTERNAL_ALLOW names one: private, shared (CGNAT, Tailscale), link-local
+// (cloud metadata), loopback, benchmarking, multicast and reserved ranges.
+const internalRanges = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.168.0.0/16', '198.18.0.0/15', '224.0.0.0/3'];
+// No leading zeros: iptables reads 010.0.0.1 as octal, 8.0.0.1.
+const internalAllowPattern = /^(?<address>(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)):(?<port>\d{1,5})$/u;
 const backupsFolder = 'backups';
 // One nightly run: backups/<UTC time>/ with each volume, the hub folder, the deployment files and manifest.json.
 const nightlyFolder = /^\d{4}-\d{2}-\d{2}T\d{6}Z$/u;
@@ -272,6 +286,18 @@ function writeAtomic(file: string, content: string, mode: number) {
   renameSync(`${file}.tmp`, file);
 }
 
+// A daemon's network: its bridge name puts it under the firewall's rules, no traffic between containers on it
+// except what the firewall lets through (the hub to the daemon's port), and no IPv6.
+function daemonNetwork(id: string) {
+  return {
+    enable_ipv6: false,
+    driver_opts: {
+      'com.docker.network.bridge.name': `${daemonBridgePrefix}${createHash('sha256').update(id).digest('hex').slice(0, 9)}`,
+      'com.docker.network.bridge.enable_icc': 'false',
+    },
+  };
+}
+
 // The per-person part of the stack: a daemon, its network shared only with the hub, and its volume. The template
 // workspace gets the same, with the id `template`.
 function renderCompose(ids: string[]): string {
@@ -290,7 +316,7 @@ function renderCompose(ids: string[]): string {
     '# Written by `bun deploy.ts apply` from users.yaml. Do not edit: edit users.yaml and run apply again.',
     Bun.YAML.stringify({
       services: { ...services, hub },
-      networks: Object.fromEntries(ids.map((id) => [`user-${id}`, {}])),
+      networks: Object.fromEntries(ids.map((id) => [`user-${id}`, daemonNetwork(id)])),
       volumes: Object.fromEntries(ids.map((id) => [`data-${id}`, {}])),
     }, null, 2),
   ].join('\n');
@@ -340,6 +366,27 @@ async function connectHub(ids: string[]) {
     await docker(['network', 'disconnect', network, hub]);
     await docker(['network', 'rm', network]);
   }));
+}
+
+// A daemon network made before the firewall has Docker's own bridge name, and Docker renames a bridge only by
+// recreating its network: with containers still on it, Compose would stop every daemon, then fail on the hub's
+// endpoint, and everyone gets 502. Refuses before anything stops (gotcha 142).
+async function refuseOldNetworks(ids: string[]) {
+  const prefix = `${await project()}_user-`;
+  const existing = new Set((await docker(['network', 'ls', '--format', '{{.Name}}'])).split('\n'));
+  const networks = ids.map((id) => `${prefix}${id}`).filter((network) => existing.has(network));
+
+  if (networks.length === 0) {
+    return;
+  }
+
+  // Compose recreates an old network itself once nothing is attached to it.
+  const states = await docker(['network', 'inspect', '--format', '{{.Name}} {{len .Containers}} {{index .Options "com.docker.network.bridge.name"}}', ...networks]);
+  const old = states.split('\n').map((line) => line.split(' ')).filter(([, attached, bridge = '']) => attached !== '0' && !bridge.startsWith(daemonBridgePrefix)).map(([name]) => name);
+
+  if (old.length > 0) {
+    fail(`${old.join(', ')} predate the firewall. Once, run docker compose rm -sf $(docker compose ps --services | grep -e '^hub$' -e '^daemon-'), then apply again (admin.md, Upgrade). Nothing was changed.`);
+  }
 }
 
 // One change at a time between a by-hand apply and the provisioner, which share /opt/orbs. A lock older than ten
@@ -396,7 +443,10 @@ async function applyTeam(waitFor?: string[]) {
   const ids = enabledIds(current);
   const daemons = [templateId, ...ids];
 
+  // A bad value would leave the firewall restarting while apply reports success. Bun reads it from /opt/orbs/.env.
+  internalAllow();
   writeFileSync('users.compose.yaml', renderCompose(daemons));
+  await refuseOldNetworks(daemons);
   hubFolder();
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
   await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
@@ -1822,14 +1872,176 @@ async function provisioner() {
   console.log(`Provisioner listening on ${server.port}; Access sync ${config.access === undefined ? 'off (manual)' : 'on'}${rule}.`);
 }
 
-const commands = { images, cloudflare, apply, backup, nightly, restore, purge, provisioner };
+function iptables(binary: string, args: string[], input?: string) {
+  try {
+    const result = Bun.spawnSync([binary, ...args], {
+      stdin: input === undefined ? 'ignore' : Buffer.from(input),
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    return { ok: result.success, out: result.stdout.toString(), error: result.stderr.toString().trim() };
+  } catch (error) {
+    return { ok: false, out: '', error: errorMessage(error) };
+  }
+}
+
+function iptablesOk(binary: string, args: string[], input?: string) {
+  const { ok, error } = iptables(binary, args, input);
+
+  if (!ok) {
+    fail(`${binary} ${args.join(' ')} failed: ${error}`);
+  }
+}
+
+// iptables-nft only: it changes rules in kernel transactions and needs no NET_RAW. iptables-legacy rewrites whole
+// tables under a lock file this container does not share with the host, so it could undo a rule Docker writes at the
+// same moment, at boot for one.
+const iptablesNft = 'iptables-nft';
+
+// Docker's own chains must be there, so the rules sit next to Docker's.
+function iptablesBinary(): string {
+  return iptables(iptablesNft, ['-w', '-S', firewallParents.forward]).ok
+    ? iptablesNft
+    : fail(`No ${firewallParents.forward} chain in iptables-nft: Docker must manage iptables through iptables-nft (not iptables-legacy, not its nftables backend) before the firewall can start.`);
+}
+
+// ORBS_INTERNAL_ALLOW: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach, such as a test model on
+// the host. Empty by default.
+function internalAllow(): [string, string][] {
+  return (process.env.ORBS_INTERNAL_ALLOW ?? '').split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
+    const groups = internalAllowPattern.exec(entry)?.groups;
+    const port = Number(groups?.port);
+
+    return groups?.address !== undefined && port >= 1 && port <= 65535 ? [groups.address, String(port)] : fail(`ORBS_INTERNAL_ALLOW: "${entry}" is not <IPv4 address>:<port>.`);
+  });
+}
+
+// Matched only for packets that come in on a daemon bridge. Each rule carries a tag of the whole set, so a missing,
+// changed or hand-edited rule shows as a mismatch and the chain is rewritten in one iptables-restore.
+function firewallRules(allow: [string, string][]): Record<keyof typeof firewallChains, string[][]> {
+  const allowed = allow.map(([address, port]) => ['-d', `${address}/32`, '-p', 'tcp', '-m', 'tcp', '--dport', port, '-j', 'RETURN']);
+  const established = ['-m', 'conntrack', '--ctstate', 'RELATED,ESTABLISHED', '-j', 'RETURN'];
+  const reject = ['-j', 'REJECT', '--reject-with', 'icmp-admin-prohibited'];
+
+  return {
+    forward: [
+      // The hub opens the daemon's port on that person's own network; nothing else between containers there, so a
+      // daemon cannot open a connection to the hub.
+      ['-p', 'tcp', '-m', 'physdev', '--physdev-is-bridged', '-m', 'tcp', '--dport', String(daemonPort), '-m', 'conntrack', '--ctstate', 'NEW', '-j', 'ACCEPT'],
+      ['-m', 'physdev', '--physdev-is-bridged', '-m', 'conntrack', '--ctstate', 'NEW', '-j', 'DROP'],
+      // DNS needs no rule: Docker's resolver asks the host's resolvers from the host itself, not from the daemon bridge.
+      established,
+      ...allowed,
+      ...internalRanges.map((range) => ['-d', range, ...reject]),
+    ],
+    // Nothing on the host itself: sshd, Docker's gateways, any other listener.
+    host: [established, ...allowed, reject],
+  };
+}
+
+// Brings the chains and their jumps in line; true when something had to change. Each jump stays first in its parent,
+// ahead of rules such as ufw's that would accept the packet. Never touches a policy or any other rule.
+function firewallSync(binary: string, rules: Record<keyof typeof firewallChains, string[][]>): boolean {
+  const tag = `orbs:${createHash('sha256').update(JSON.stringify(rules)).digest('hex').slice(0, 12)}`;
+  const keys = Object.keys(firewallChains) as (keyof typeof firewallChains)[];
+
+  const listed = (chain: string) => {
+    const { ok, out } = iptables(binary, ['-w', '-S', chain]);
+
+    return ok ? out.split('\n').filter((line) => line.startsWith('-A ')) : undefined;
+  };
+
+  const stale = keys.filter((key) => {
+    const lines = listed(firewallChains[key]);
+
+    return lines === undefined || lines.length !== rules[key].length || lines.some((line) => !line.includes(tag));
+  });
+
+  if (stale.length > 0) {
+    const body = stale.flatMap((key) => [
+      `:${firewallChains[key]} - [0:0]`,
+      ...rules[key].map((rule) => {
+        const target = rule.indexOf('-j');
+
+        return ['-A', firewallChains[key], ...rule.slice(0, target), '-m', 'comment', '--comment', tag, ...rule.slice(target)].join(' ');
+      }),
+    ]);
+
+    iptablesOk(`${binary}-restore`, ['-w', '--noflush'], ['*filter', ...body, 'COMMIT', ''].join('\n'));
+  }
+
+  const moved = keys.filter((key) => {
+    const jump = ['-i', `${daemonBridgePrefix}+`, '-j', firewallChains[key]];
+
+    if (listed(firewallParents[key])?.[0] === ['-A', firewallParents[key], ...jump].join(' ')) {
+      return false;
+    }
+
+    while (iptables(binary, ['-w', '-C', firewallParents[key], ...jump]).ok) {
+      iptablesOk(binary, ['-w', '-D', firewallParents[key], ...jump]);
+    }
+
+    iptablesOk(binary, ['-w', '-I', firewallParents[key], '1', ...jump]);
+
+    return true;
+  });
+
+  return stale.length > 0 || moved.length > 0;
+}
+
+// `firewall remove`, as root on the server: stops the service, then deletes the chains and their jumps.
+async function firewallRemove() {
+  await docker(['compose', 'stop', 'firewall']);
+
+  for (const key of Object.keys(firewallChains) as (keyof typeof firewallChains)[]) {
+    const jump = [firewallParents[key], '-i', `${daemonBridgePrefix}+`, '-j', firewallChains[key]];
+
+    while (iptables(iptablesNft, ['-w', '-C', ...jump]).ok) {
+      iptablesOk(iptablesNft, ['-w', '-D', ...jump]);
+    }
+
+    if (iptables(iptablesNft, ['-w', '-S', firewallChains[key]]).ok) {
+      iptablesOk(iptablesNft, ['-w', '-F', firewallChains[key]]);
+      iptablesOk(iptablesNft, ['-w', '-X', firewallChains[key]]);
+      console.log(`Removed ${firewallChains[key]} and its jump from ${firewallParents[key]}.`);
+    }
+  }
+}
+
+// The firewall service (compose.yaml): keeps bots off the server's internal addresses. It sets the rules, then checks
+// them every 30 s, so a Docker restart or a reboot (which start this service again) or a lost rule heals by itself.
+async function firewall() {
+  if (process.argv[3] === 'remove') {
+    return firewallRemove();
+  }
+
+  const allow = internalAllow();
+  const rules = firewallRules(allow);
+  const binary = iptablesBinary();
+
+  firewallSync(binary, rules);
+  console.log(`Firewall on (${binary}): daemons reach the internet and DNS, not internal addresses${allow.length > 0 ? `, except ${allow.map((entry) => entry.join(':')).join(', ')}` : ''}.`);
+
+  setInterval(() => {
+    try {
+      if (firewallSync(binary, rules)) {
+        console.log('Firewall rules were missing or out of place; restored.');
+      }
+    } catch (error) {
+      console.error(errorMessage(error));
+    }
+  }, firewallCheckMs);
+}
+
+const commands = { images, cloudflare, apply, backup, nightly, restore, purge, provisioner, firewall };
 const command = process.argv[2] ?? '';
 
 try {
   if (!(command in commands)) {
     fail([
       'Usage:',
-      '  bun scripts/deploy.ts images [daemon|web|hub|provisioner ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
+      '  bun scripts/deploy.ts images [daemon|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
       '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
       'On the server, in /opt/orbs:',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
@@ -1840,8 +2052,11 @@ try {
       '  bun deploy.ts restore <id> <file|folder> replace one person\'s volume with a backup',
       '  bun deploy.ts restore <folder>          rebuild a whole install from a nightly folder on a fresh server',
       '  bun deploy.ts purge <id>                delete a removed person\'s data for good',
+      '  bun deploy.ts firewall remove           stop the firewall service and delete its rules (teardown)',
       'In the provisioner image:',
       '  bun deploy.ts provisioner               serve the hub\'s user API on PROVISIONER_PORT',
+      'In the firewall image:',
+      '  bun deploy.ts firewall                  keep daemons off internal addresses (ORBS_INTERNAL_ALLOW)',
     ].join('\n'));
   }
 
