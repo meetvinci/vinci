@@ -57,9 +57,17 @@ Development runs like a real install: your daemon behind a local hub. This start
 
 **3. Open it**
 
-Open http://localhost:47190. The dev door stands in for Cloudflare Access: it signs you in as `dev@example.com`, and the hub pairs the browser on its own, so you land in chat with no PIN. You are also the hub's admin: `/admin` is the admin panel. Bot permissions, approval rules, model settings and how bots use secrets are the admin's, as in a team install: change them in `/admin`.
+Open the login link `bun run dev:web` prints (`http://localhost:47190/cdn-cgi/access/login?secret=…`). The dev door stands in for Cloudflare Access: the link signs this browser in as `dev@example.com` for 30 days, across restarts, and the hub pairs the browser on its own, so you land in chat with no PIN. After that, http://localhost:47190 is enough; a new browser or private window needs the current run's link once. The door gives no identity by address alone: without the login it answers 401, also on localhost, because every container on your Mac reaches it as localhost. You are also the hub's admin: `/admin` is the admin panel. Bot permissions, approval rules, model settings and how bots use secrets are the admin's, as in a team install: change them in `/admin`.
 
 **What changed for developers:** there is no startup PIN and no `bun run dev:pair` any more, and the browser goes through the hub like a team install. Your dev data folder stays the same. `bun scripts/hub.ts dev --port <first port> --data <folder>` runs a second stack next to yours.
+
+**Bot tools in the sandbox:** `bun run dev:web --sandbox` runs bots' `read`, `write`, `edit`, `bash` and command MCP servers in the sandbox container, as in an install (Linux, uid 1000, Node, Python and uv). It needs OrbStack or Docker Desktop and the image, built once and again after a change to `deploy/docker/sandbox.sh` or the sandbox stage: `bun scripts/deploy.ts images sandbox --platform linux/arm64 --tag dev` (`linux/amd64` on an Intel Mac). The container starts in about a second and stops with the dev servers; the daemon still reloads on save. It uses ports 47194 and 47195 on 127.0.0.1, which only a connection that starts with the run's key gets past. Without `--sandbox`, tools run in the daemon, on your Mac.
+
+The dev sandbox is the install's image with its limits (uid 1000, read-only root, no capabilities, no keys in its environment, 512 MB, 1 CPU, 256 processes), but it is not an install's sandbox:
+
+- No firewall: bots reach the internet directly, not only through the secrets proxy, and every port of your Mac through `host.docker.internal`: the dev door answers them 401 (they have no login), but any other service you run on your Mac is open to them.
+- No disk quota: bot folders and the bots' home live in your dev data folder (`agents/`, `bot-home/`), where you can open them on the Mac.
+- Your `~/.agents` skills are mounted read only.
 
 **4. Connect a model**
 

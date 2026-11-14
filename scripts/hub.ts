@@ -1,6 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { connect, createServer } from 'node:net';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -9,6 +10,9 @@ import type { Server, ServerWebSocket, Subprocess } from 'bun';
 // `bun run dev:web`: the dev daemon, a local hub and Vite behind a dev door that plays Cloudflare Access with one
 // fixed identity. Development only: the hub image bundles apps/hub alone, and the hub has no switch for this door.
 // The hub trusts the door only because ACCESS_TEAM_DOMAIN points at it, which this script sets for its own hub.
+// The identity comes only from the login cookie that the run's printed link sets, never from where a request comes
+// from: every container on the Mac (a bot in the dev sandbox too) reaches this Mac's loopback ports through
+// host.docker.internal and arrives as 127.0.0.1.
 const DEV = {
   email: 'dev@example.com',
   user: 'dev',
@@ -17,17 +21,39 @@ const DEV = {
   kid: 'meetvinci-dev',
   port: 47190,
   data: '~/.config/meetvinci-dev',
-  tokenSeconds: 3600,
-  tokenRenewSeconds: 300,
   loginSeconds: 30 * 24 * 3600,
   certsPath: '/cdn-cgi/access/certs',
   loginPath: '/cdn-cgi/access/login',
   accessHeader: 'cf-access-jwt-assertion',
   accessCookie: 'CF_Authorization',
-  loopback: ['127.0.0.1', '::1', '::ffff:127.0.0.1'],
-  loopbackHosts: ['localhost', '127.0.0.1', '[::1]'],
   stopSignals: ['SIGINT', 'SIGTERM'],
   stopGraceMs: 3000,
+} as const;
+
+// `--sandbox`: bot tools run in the sandbox image, as in an install. A Unix socket does not cross the macOS-Linux VM
+// boundary of OrbStack or Docker Desktop, so the container makes its own exec.sock and proxy.sock in /run/sandbox and
+// relays them over TCP to loopback bridges here, which connect to the daemon's sockets. Every container on the Mac
+// reaches those ports through host.docker.internal, so each connection first sends this run's key: a connection
+// without it never reaches the daemon (exec.sock has no other check, and whoever holds it gets the bots' tool calls).
+// Development only.
+const SANDBOX = {
+  image: 'meetvinci-sandbox:dev',
+  sockets: ['exec.sock', 'proxy.sock'],
+  keyEnv: 'MEETVINCI_DEV_RELAY_KEY',
+  keyWaitMs: 5000,
+  // The container's relay: each connection to a socket in /run/sandbox becomes a TCP connection that starts with the key.
+  relay: `const net = require('net');
+for (const [socket, port] of JSON.parse(process.argv[1])) {
+  net.createServer((unix) => {
+    const tcp = net.connect(port, 'host.docker.internal');
+    const end = () => { unix.destroy(); tcp.destroy(); };
+    [unix, tcp].forEach((side) => side.on('error', end).on('close', end));
+    tcp.write(process.env.MEETVINCI_DEV_RELAY_KEY + '\\n');
+    unix.pipe(tcp).pipe(unix);
+  }).listen('/run/sandbox/' + socket);
+}`,
+  // No firewall confines a dev sandbox, so the image's firewall-wait would wait forever: this stands in for it.
+  firewallWait: '#!/bin/sh\n# Development (scripts/hub.ts --sandbox): no firewall confines this sandbox.\nexit 0\n',
 } as const;
 
 const root = path.resolve(import.meta.dir, '..');
@@ -43,6 +69,52 @@ interface DevSocket {
 function fail(message: string): never {
   console.error(message);
   process.exit(1);
+}
+
+// Each TCP connection from the sandbox that starts with this run's key becomes one connection to the daemon's socket;
+// any other is closed before the daemon sees it.
+function sandboxBridge(port: number, socketPath: string, key: Buffer) {
+  return createServer((tcp) => {
+    let head = Buffer.alloc(0);
+    const timer = setTimeout(() => tcp.destroy(), SANDBOX.keyWaitMs);
+
+    const sandboxBridgeKey = (chunk: Buffer) => {
+      head = Buffer.concat([head, chunk]);
+      const newline = head.indexOf(0x0a);
+
+      if (newline < 0) {
+        if (head.length > key.length) {
+          tcp.destroy();
+        }
+
+        return;
+      }
+
+      clearTimeout(timer);
+      tcp.off('data', sandboxBridgeKey);
+      const given = head.subarray(0, newline);
+
+      if (given.length !== key.length || !timingSafeEqual(given, key)) {
+        tcp.destroy();
+        return;
+      }
+
+      const unix = connect(socketPath);
+
+      const end = () => {
+        tcp.destroy();
+        unix.destroy();
+      };
+
+      unix.on('error', end).on('close', end);
+      tcp.on('close', end);
+      unix.write(head.subarray(newline + 1));
+      tcp.pipe(unix).pipe(tcp);
+    };
+
+    tcp.on('error', () => tcp.destroy()).on('close', () => clearTimeout(timer));
+    tcp.on('data', sandboxBridgeKey);
+  }).listen(port, '127.0.0.1');
 }
 
 function encode(value: object): string {
@@ -79,32 +151,47 @@ async function dev() {
       url: { type: 'string' },
       port: { type: 'string', default: String(DEV.port) },
       data: { type: 'string', default: DEV.data },
+      sandbox: { type: 'boolean', default: false },
     },
   });
 
   const base = Number(values.port);
 
-  if (!Number.isInteger(base) || base < 1 || base > 65532) {
-    fail(`--port takes the first of four free ports: ${values.port}`);
+  if (!Number.isInteger(base) || base < 1 || base > 65530) {
+    fail(`--port takes the first of six free ports: ${values.port}`);
   }
 
-  const ports = { door: base, daemon: base + 1, hub: base + 2, web: base + 3 };
+  const image = values.sandbox ? Bun.spawnSync(['docker', 'image', 'inspect', SANDBOX.image], { stdout: 'ignore', stderr: 'pipe' }) : null;
+
+  if (image && !image.success) {
+    const platform = process.arch === 'arm64' ? 'linux/arm64' : 'linux/amd64';
+
+    fail(image.stderr.toString().includes('No such image')
+      ? `--sandbox needs the ${SANDBOX.image} image: bun scripts/deploy.ts images sandbox --platform ${platform} --tag dev`
+      : `--sandbox needs Docker (OrbStack or Docker Desktop) running: ${image.stderr.toString().trim()}`);
+  }
+
+  const ports = { door: base, daemon: base + 1, hub: base + 2, web: base + 3, sandbox: [base + 4, base + 5] };
   const door = `http://127.0.0.1:${ports.door}`;
   const hub = `http://127.0.0.1:${ports.hub}`;
   const publicUrl = values.url ? URL.parse(values.url)?.origin ?? fail(`--url is not an address: ${values.url}`) : `http://localhost:${ports.door}`;
-  // A phone or another computer reaches the door only with --url; it then logs in once through the printed link.
+  // A phone or another computer reaches the door only with --url. Every browser logs in once through the printed link.
   const host = values.url ? '0.0.0.0' : '127.0.0.1';
-  const data = path.resolve(values.data.replace(/^~(?=\/|$)/u, homedir()));
-  const hubData = path.join(data, 'hub');
-  const secret = values.url ? crypto.randomUUID() : null;
+  const requested = path.resolve(values.data.replace(/^~(?=\/|$)/u, homedir()));
 
-  await mkdir(hubData, { recursive: true, mode: 0o700 });
+  await mkdir(path.join(requested, 'hub'), { recursive: true, mode: 0o700 });
+
+  // The hub refuses an owner socket below a symlinked folder (/tmp on macOS is one), so every path uses the real one.
+  const data = await realpath(requested);
+  const hubData = path.join(data, 'hub');
+  const secret = crypto.randomUUID();
+  const sandboxDir = values.sandbox ? path.join(data, 'sandbox') : undefined;
+
   await writeFile(path.join(hubData, 'users.json'), JSON.stringify({
     users: { [DEV.email]: { id: DEV.user, name: DEV.name, daemonUrl: `http://127.0.0.1:${ports.daemon}`, socketPath: path.join(data, 'data/ipc/rpc.sock') } },
   }));
 
   const key = await devKey(path.join(hubData, 'dev-access-key.json'));
-  let token = { value: '', expiresAt: 0 };
 
   async function mint(seconds: number): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
@@ -130,30 +217,17 @@ async function dev() {
     return `${header}.${claims}.${Buffer.from(signature).toString('base64url')}`;
   }
 
-  async function loopbackToken(): Promise<string> {
-    if (token.expiresAt - Date.now() < DEV.tokenRenewSeconds * 1000) {
-      token = { value: await mint(DEV.tokenSeconds), expiresAt: Date.now() + DEV.tokenSeconds * 1000 };
-    }
-
-    return token.value;
-  }
-
   async function forward(request: Request, server: Server<DevSocket>): Promise<Response | undefined> {
     const url = new URL(request.url);
     const target = new URL(`${url.pathname}${url.search}`, hub);
     const headers = new Headers(request.headers);
 
-    // The Host check keeps a DNS-rebinding page (evil.example resolving to 127.0.0.1) in this Mac's browser from getting the identity.
-    const isLoopback = (DEV.loopback as readonly string[]).includes(server.requestIP(request)?.address ?? '')
-      && (DEV.loopbackHosts as readonly string[]).includes(url.hostname);
-
     headers.delete('host');
     headers.delete(DEV.accessHeader);
 
-    if (isLoopback) {
-      headers.set(DEV.accessHeader, await loopbackToken());
-    } else if (!request.headers.get('cookie')?.includes(`${DEV.accessCookie}=`)) {
-      return new Response('Not logged in: open the login link that `bun run dev:web --url` printed, once on this device.\n', { status: 401 });
+    // The hub checks the cookie's signature; without one there is nothing to check.
+    if (!request.headers.get('cookie')?.includes(`${DEV.accessCookie}=`)) {
+      return new Response('Not logged in: open the login link that `bun run dev:web` printed, once in this browser.\n', { status: 401 });
     }
 
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
@@ -187,7 +261,7 @@ async function dev() {
   async function login(url: URL): Promise<Response> {
     const given = Buffer.from(url.searchParams.get('secret') ?? '');
 
-    if (!secret || given.length !== secret.length || !timingSafeEqual(given, Buffer.from(secret))) {
+    if (given.length !== secret.length || !timingSafeEqual(given, Buffer.from(secret))) {
       return new Response(null, { status: 403 });
     }
 
@@ -248,6 +322,7 @@ async function dev() {
         DAEMON_HOST: host,
         DAEMON_PORT: String(ports.daemon),
         DAEMON_TEAM: 'true',
+        DAEMON_SANDBOX_DIR: sandboxDir,
         DAEMON_ALLOWED_ORIGINS: publicUrl,
         WEB_PUBLIC_URL: publicUrl,
       },
@@ -283,9 +358,42 @@ async function dev() {
     })],
   ];
 
-  const opening = secret ? `Log in once on each device: ${publicUrl}${DEV.loginPath}?secret=${secret} (this run only).` : `Open ${publicUrl}`;
+  const sandboxName = `meetvinci-dev-sandbox-${ports.door}`;
+  const relayKey = randomBytes(32).toString('hex');
+  const relayPorts = SANDBOX.sockets.map((socket, index) => [socket, ports.sandbox[index]] as const);
+  const bridges = sandboxDir ? relayPorts.map(([socket, port]) => sandboxBridge(port, path.join(sandboxDir, socket), Buffer.from(relayKey))) : [];
 
-  console.log(`\nDev hub: ${opening} You are ${DEV.email}, an admin of this hub; /admin is the admin panel.\n`);
+  if (sandboxDir) {
+    const skills = path.join(homedir(), '.agents');
+    const firewallWait = path.join(data, 'dev-firewall-wait');
+    const folders = [path.join(data, 'agents'), path.join(data, 'bot-home'), sandboxDir];
+
+    await Promise.all(folders.map((folder) => mkdir(folder, { recursive: true, mode: 0o700 })));
+    await writeFile(firewallWait, SANDBOX.firewallWait, { mode: 0o755 });
+    // A run killed before it could stop its container leaves it behind under this run's name.
+    Bun.spawnSync(['docker', 'rm', '--force', sandboxName], { stdout: 'ignore', stderr: 'ignore' });
+
+    // Like deploy/compose/sandbox.yaml, without the firewall and the disk: the bot folders and the daemon's folder at
+    // the daemon's own paths (pi-env and the secrets proxy's files use them), the bots' home, shared skills read only.
+    // Only the relay gets the key in its environment. A bot could still read it from /proc (same uid), which gives it
+    // nothing: it reaches /run/sandbox/exec.sock directly, as in an install.
+    children.push(['sandbox', Bun.spawn([
+      'docker', 'run', '--rm', '--name', sandboxName, '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
+      '--memory', '512m', '--memory-swap', '512m', '--cpus', '1', '--pids-limit', '256',
+      '--tmpfs', '/tmp:rw,nosuid,nodev,size=256m', '--tmpfs', '/run/sandbox:uid=1000,gid=1000,mode=0700',
+      '--volume', `${folders[0]}:${folders[0]}`, '--volume', `${folders[1]}:/home/bot`, '--volume', `${sandboxDir}:${sandboxDir}:ro`,
+      '--volume', `${firewallWait}:/usr/local/bin/firewall-wait:ro`, ...(existsSync(skills) ? ['--volume', `${skills}:${skills}:ro`] : []),
+      '--env', SANDBOX.keyEnv, '--entrypoint', '/usr/bin/tini', SANDBOX.image, '--', '/bin/sh', '-c',
+      `node -e "$1" "$2" & unset ${SANDBOX.keyEnv}; exec /usr/local/bin/sandbox`, 'relay', SANDBOX.relay, JSON.stringify(relayPorts),
+    ], {
+      env: { ...process.env, [SANDBOX.keyEnv]: relayKey },
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })]);
+  }
+
+  console.log(`\nDev hub: ${publicUrl}. Log in once in each browser with ${publicUrl}${DEV.loginPath}?secret=${secret} (this run's link; the`
+    + ` login lasts 30 days, across restarts). You are ${DEV.email}, an admin of this hub; /admin is the admin panel.\n`);
 
   const exited = await Promise.race([
     new Promise<string>((done) => {
@@ -299,6 +407,11 @@ async function dev() {
   // `bun --watch` keeps a process whose script has returned (the hub's does on a signal) waiting for file changes.
   await Promise.all(children.map(([, child]) => Promise.race([child.exited, Bun.sleep(DEV.stopGraceMs)]).then(() => child.kill('SIGKILL'))));
   await Promise.all(children.map(([, child]) => child.exited));
+  bridges.forEach((bridge) => bridge.close());
+
+  if (sandboxDir) {
+    Bun.spawnSync(['docker', 'rm', '--force', sandboxName], { stdout: 'ignore', stderr: 'ignore' });
+  }
   await server.stop(true);
 }
 
@@ -306,7 +419,7 @@ const commands = { dev };
 const command = process.argv[2] ?? '';
 
 if (!(command in commands)) {
-  fail('Usage: bun scripts/hub.ts dev [--url <origin>] [--port <first port>] [--data <directory>]');
+  fail('Usage: bun scripts/hub.ts dev [--url <origin>] [--port <first port>] [--data <directory>] [--sandbox]');
 }
 
 await commands[command as keyof typeof commands]();

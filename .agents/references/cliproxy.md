@@ -36,4 +36,4 @@ To try logins or a proxy setup without touching your own Pi config, run a second
 PI_CODING_AGENT_DIR=~/.config/meetvinci-test/pi bun --env-file=.env scripts/hub.ts dev --port 47290 --data ~/.config/meetvinci-test
 ```
 
-Open http://localhost:47290 in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/meetvinci-test/pi/auth.json`; delete `~/.config/meetvinci-test` to start over.
+Open the login link it prints (`http://localhost:47290/cdn-cgi/access/login?secret=…`) in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/meetvinci-test/pi/auth.json`; delete `~/.config/meetvinci-test` to start over.
