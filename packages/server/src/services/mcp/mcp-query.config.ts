@@ -39,9 +39,10 @@ export async function mcpQueryConfig(
       .otherwise((value) => value));
 
     try {
-      const files = await mcpFiles(source);
+      // SAFETY: a bot's own MCP file may link anywhere (another bot's owned file in data/, /dev/zero): not even resolved.
+      const files = deps.isSandboxed && isBotLocal ? [source] : await mcpFiles(source);
 
-      const documents = await Promise.all(files.map((file) => (deps.isSandboxed && mcpFilesIsInside(join(root, 'agents'), file)
+      const documents = await Promise.all(files.map((file) => (deps.isSandboxed && (isBotLocal || mcpFilesIsInside(join(root, 'agents'), file))
         ? Promise.resolve({
           source: file,
           servers: {},

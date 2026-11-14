@@ -16,7 +16,9 @@ export const workspaceFile = z.object({
 });
 
 export const workspaceFiles = z.object({ files: z.array(workspaceFile).max(WORKSPACE.maxFiles) });
+export const workspaceExport = workspaceFiles.extend({ skipped: z.array(z.string()) });
 export const workspaceImportResult = z.void();
 
 export type WorkspaceFile = z.infer<typeof workspaceFile>;
 export type WorkspaceFiles = z.infer<typeof workspaceFiles>;
+export type WorkspaceExport = z.infer<typeof workspaceExport>;

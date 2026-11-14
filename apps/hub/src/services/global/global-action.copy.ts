@@ -1,3 +1,4 @@
+import { log } from '@repo/logger/server';
 import { match } from 'ts-pattern';
 import { globalClients } from './global.utils';
 import type * as GlobalTypes from '../../types/global.types';
@@ -40,7 +41,7 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
       await person.secrets.import(secrets);
     })
     .with('sources', async () => {
-      const [skills, instructions, plugins, mcp, files] = await Promise.all([
+      const [skills, instructions, plugins, mcp, { files, skipped }] = await Promise.all([
         template.skills.settings(),
         template.instructions.settings(),
         template.plugins.settings(),
@@ -48,7 +49,16 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
         template.workspace.export(),
       ]);
 
-      await person.workspace.import(files);
+      match(skipped)
+        .with([], () => undefined)
+        .otherwise(() => log.warn({
+          tag: 'hub',
+          message: 'Shared folder copied without its links and special files',
+          user: user.id,
+          skipped,
+        }));
+
+      await person.workspace.import({ files });
       await person.skills.configure(skills);
       await person.instructions.configure(instructions);
       await person.plugins.configure(plugins);

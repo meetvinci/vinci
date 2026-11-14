@@ -3,5 +3,5 @@ import { workspaceFilesIsBotFile, workspaceFilesWrite } from './workspace-files.
 import type { WorkspaceBotFilesParams, WorkspaceServiceDeps } from '../../types/workspace.types';
 
 export function workspaceActionBotFiles({ root }: WorkspaceServiceDeps, { botId, files }: WorkspaceBotFilesParams): Promise<void> {
-  return workspaceFilesWrite(join(root, 'agents', botId), files, workspaceFilesIsBotFile);
+  return workspaceFilesWrite({ roots: [join(root, 'agents')], folder: join(root, 'agents', botId) }, files, workspaceFilesIsBotFile);
 }

@@ -1,54 +1,56 @@
 import { Errors } from '@repo/errors/universal';
-import { constants } from 'node:fs';
-import { open } from 'node:fs/promises';
-import { dirname } from 'node:path';
-import { match } from 'ts-pattern';
-import { attachmentStorageDirectory, attachmentStoragePath, attachmentStorageRange, attachmentStorageReadFully } from './attachment-storage.utils';
+import { closeSync, fstatSync } from 'node:fs';
+import { match, P } from 'ts-pattern';
+import { runtimeBotFilesOpen, runtimeBotFilesReadInto } from '@repo/runtime/native';
+import { attachmentStorageAgents, attachmentStoragePath, attachmentStorageRange } from './attachment-storage.utils';
 import type { AttachmentStorageDeps, AttachmentStorageReadParams } from '../../types/attachment-storage.types';
 
 export async function attachmentStorageQueryRead(deps: AttachmentStorageDeps, params: AttachmentStorageReadParams) {
   const path = await attachmentStoragePath(deps, params);
+  let descriptor: number;
 
   try {
-    await attachmentStorageDirectory(dirname(path));
-    const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-
-    try {
-      const stat = await file.stat();
-      match(stat.isFile() && stat.size === params.attachment.size)
-        .with(true, () => undefined)
-        .with(false, () => {
-          throw new Errors.NOT_FOUND({ resource: 'attachment' });
-        })
-        .exhaustive();
-
-      const range = attachmentStorageRange(params.range, stat.size);
-
-      const [start, length] = match(range)
-        .with({ kind: 'partial' }, (part) => [part.start, part.end - part.start + 1])
-        .with({ kind: 'unsatisfiable' }, () => [0, 0])
-        .with({ kind: 'full' }, () => [0, stat.size])
-        .exhaustive();
-
-      const bytes = new Uint8Array(length);
-
-      await attachmentStorageReadFully(file, bytes, start);
-
-      return {
-        file: new File([bytes], params.attachment.name, { type: params.attachment.mediaType }),
-        range,
-        size: stat.size,
-      };
-    } finally {
-      await file.close();
-    }
+    descriptor = runtimeBotFilesOpen([await attachmentStorageAgents(deps)], path, params.attachment.size);
   } catch (error) {
     return match(error)
-      .with({ code: 'ENOENT' }, () => {
+      .with({ code: P.union('ENOENT', 'VALIDATION_ERROR') }, () => {
         throw new Errors.NOT_FOUND({ resource: 'attachment' });
       })
       .otherwise(() => {
         throw error;
       });
+  }
+
+  try {
+    const { size } = fstatSync(descriptor);
+
+    match(size === params.attachment.size)
+      .with(true, () => undefined)
+      .with(false, () => {
+        throw new Errors.NOT_FOUND({ resource: 'attachment' });
+      })
+      .exhaustive();
+
+    const range = attachmentStorageRange(params.range, size);
+
+    const [start, length] = match(range)
+      .with({ kind: 'partial' }, (part) => [part.start, part.end - part.start + 1])
+      .with({ kind: 'unsatisfiable' }, () => [0, 0])
+      .with({ kind: 'full' }, () => [0, size])
+      .exhaustive();
+
+    const bytes = new Uint8Array(length);
+
+    if (runtimeBotFilesReadInto(descriptor, bytes, start) < length) {
+      throw new Errors.NOT_FOUND({ resource: 'file' });
+    }
+
+    return {
+      file: new File([bytes], params.attachment.name, { type: params.attachment.mediaType }),
+      range,
+      size,
+    };
+  } finally {
+    closeSync(descriptor);
   }
 }

@@ -197,7 +197,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
 
   const services = await makeServices({
     database,
-    attachmentStorage: makeAttachmentStorageService({ root: paths.root }),
+    attachmentStorage: makeAttachmentStorageService({ root: paths.root, isSandboxed }),
     avatarImages: makeAvatarImageService({ root: join(paths.data, 'avatars') }),
     credentials,
     secrets,

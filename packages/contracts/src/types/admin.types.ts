@@ -109,6 +109,7 @@ export const adminBotCopy = z.object({
   from: z.uuid(),
   botId: z.uuid().nullable(),
   error: z.string().optional(),
+  skipped: z.array(z.string()).optional(),
 });
 
 export const adminBotCopyResult = z.object({ bots: z.array(adminBotCopy) });

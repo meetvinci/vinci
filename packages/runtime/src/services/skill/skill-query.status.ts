@@ -1,11 +1,10 @@
 import { getAgentDir, loadSkills, parseFrontmatter } from '@earendil-works/pi-coding-agent';
-import { readFileSync } from 'node:fs';
 import { match, P } from 'ts-pattern';
-import { skillSharedPaths } from './skill.utils';
+import { skillRead, skillSharedPaths } from './skill.utils';
 import type { SkillLoaderServiceDeps, SkillStatusParams } from '../../types/skill.types';
 import type { SkillSkipReason, SkillStatus } from '@repo/contracts/universal';
 
-export function skillQueryStatus({ root }: Pick<SkillLoaderServiceDeps, 'root'>, { directories }: SkillStatusParams): SkillStatus {
+export function skillQueryStatus({ root, isSandboxed }: Pick<SkillLoaderServiceDeps, 'root' | 'isSandboxed'>, { directories }: SkillStatusParams): SkillStatus {
   const agentDir = getAgentDir();
 
   const { skills, diagnostics } = loadSkills({
@@ -34,7 +33,7 @@ export function skillQueryStatus({ root }: Pick<SkillLoaderServiceDeps, 'root'>,
     let content: string;
 
     try {
-      content = readFileSync(path, 'utf-8');
+      content = skillRead({ root, isSandboxed }, directories, path);
     } catch {
       return 'other';
     }

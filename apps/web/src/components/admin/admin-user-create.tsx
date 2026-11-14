@@ -14,7 +14,7 @@ import { AdminBotChecklist } from '@/components/admin/admin-bot-checklist';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useAdminTemplateBots } from '@/hooks/use-admin-template-bots';
 import { adminCreateUser, adminUsersQuery } from '@/services/admin/admin.client';
-import { adminBotCopyProblem, adminProblem } from '@/services/admin/admin.utils';
+import { adminBotCopyProblem, adminBotCopySkipped, adminProblem } from '@/services/admin/admin.utils';
 import type { AdminUser } from '@repo/contracts/universal';
 
 interface AdminUserCreateProps {
@@ -41,9 +41,14 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
     onSuccess: async ({ access, bots: copies = [], ...user }) => {
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
       const failed = adminBotCopyProblem({ copies, bots: suggested });
+      const leftOut = adminBotCopySkipped({ copies, bots: suggested });
 
       if (failed) {
         toasty(failed, '⚠️');
+      }
+
+      if (leftOut) {
+        toasty(leftOut, '⚠️');
       }
 
       notice({

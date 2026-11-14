@@ -20,7 +20,6 @@ export type McpSandboxSpawn = (command: RuntimeSandboxCommand) => Promise<Socket
 export interface McpContentTarget {
   root: string;
   botId: string;
-  isSandboxed: boolean;
 }
 
 export interface McpContentFile {
@@ -30,8 +29,8 @@ export interface McpContentFile {
 }
 
 export interface McpContentWriteTarget {
+  roots: string[];
   directory: string;
-  agents: string | undefined;
   base: string;
   extension: string;
   bytes: Buffer;

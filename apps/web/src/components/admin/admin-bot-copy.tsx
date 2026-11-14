@@ -10,7 +10,7 @@ import { AdminBotChecklist } from '@/components/admin/admin-bot-checklist';
 import { useAdminTemplateBots } from '@/hooks/use-admin-template-bots';
 import { adminCopyBots } from '@/services/admin/admin.client';
 import { ADMIN } from '@/services/admin/admin.constants';
-import { adminBotCopyProblem, adminProblem, adminRpcPrefix } from '@/services/admin/admin.utils';
+import { adminBotCopyProblem, adminBotCopySkipped, adminProblem, adminRpcPrefix } from '@/services/admin/admin.utils';
 import IconCopyPlus from '~icons/lucide/copy-plus';
 
 interface AdminBotCopyProps {
@@ -31,6 +31,11 @@ export function AdminBotCopy({ userId }: AdminBotCopyProps) {
     onSuccess: async ({ bots }) => {
       await queryClient.invalidateQueries({ queryKey: [adminRpcPrefix(userId)] });
       const failed = adminBotCopyProblem({ copies: bots, bots: suggested });
+      const skipped = adminBotCopySkipped({ copies: bots, bots: suggested });
+
+      if (skipped) {
+        toasty(skipped, '⚠️');
+      }
 
       setSelected(bots.filter((bot) => bot.botId === null).map((bot) => bot.from));
       setProblem(failed);

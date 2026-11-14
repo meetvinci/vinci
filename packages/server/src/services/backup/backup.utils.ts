@@ -1,11 +1,12 @@
 import { Errors } from '@repo/errors/universal';
 import { createHash } from 'node:crypto';
-import { constants } from 'node:fs';
+import { closeSync, constants, createReadStream, fstatSync } from 'node:fs';
 import { chmod, lstat, mkdir, open, readdir, readFile, realpath, rename, rm, rmdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { pipeline } from 'node:stream/promises';
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
+import { runtimeBotFilesList, runtimeBotFilesOpen } from '@repo/runtime/native';
 import { backupManifest } from '../../types/backup.types';
 import { BACKUP } from './backup.constants';
 import type { BackupManifest, BackupManifestFile, BackupWalkManifest } from '../../types/backup.types';
@@ -326,6 +327,7 @@ async function backupManifestEntry(relativePath: string, path: string): Promise<
   }
 }
 
+// SAFETY: a bot controls agents/ and may still run in its sandbox: links, hard links and special files are skipped.
 async function backupWalk(
   root: string,
   source: string,
@@ -333,7 +335,9 @@ async function backupWalk(
   relativePath: string,
   manifest: BackupWalkManifest,
 ) {
-  await backupSerial(await readdir(source, { withFileTypes: true }), async (entry) => {
+  const agents = [join(root, BACKUP.directories.agents)];
+
+  await backupSerial(runtimeBotFilesList(agents, source), async (entry) => {
     const next = backupAllowedPath(`${relativePath}/${entry.name}`);
     const to = join(destination, entry.name);
 
@@ -341,16 +345,55 @@ async function backupWalk(
       .with({ isDirectory: true }, async () => {
         await mkdir(to, { recursive: true, mode: BACKUP.modes.directory });
         manifest.directories.push(next);
-        await backupWalk(root, await backupContained(root, next), to, next, manifest);
+        await backupWalk(root, join(source, entry.name), to, next, manifest);
       })
       .with({ isFile: true }, async () => {
-        await backupCopyFile(await backupContained(root, next), to);
-        manifest.files.push(await backupManifestEntry(next, to));
+        const isCopied = await backupCopyBotFile(agents, join(source, entry.name), to);
+
+        await match(isCopied)
+          .with(true, async () => {
+            manifest.files.push(await backupManifestEntry(next, to));
+          })
+          .with(false, async () => {
+            manifest.skipped.push(next);
+          })
+          .exhaustive();
       })
       .otherwise(() => {
         manifest.skipped.push(next);
       });
   });
+}
+
+async function backupCopyBotFile(roots: string[], source: string, destination: string): Promise<boolean> {
+  let descriptor: number;
+
+  try {
+    descriptor = runtimeBotFilesOpen(roots, source, Number.MAX_SAFE_INTEGER);
+  } catch (error) {
+    return match(error)
+      .with({ code: P.union('FORBIDDEN', 'ENOENT') }, () => false)
+      .otherwise(() => {
+        throw error;
+      });
+  }
+
+  try {
+    const { mode } = fstatSync(descriptor);
+    const to = await open(destination, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, BACKUP.modes.file);
+
+    try {
+      await pipeline(createReadStream('', { fd: descriptor, autoClose: false }), to.createWriteStream());
+    } finally {
+      await to.close();
+    }
+
+    await chmod(destination, mode & constants.S_IXUSR ? BACKUP.modes.exec : BACKUP.modes.file);
+
+    return true;
+  } finally {
+    closeSync(descriptor);
+  }
 }
 
 async function backupWriteManifest(directory: string, { files, directories, skipped }: BackupWalkManifest) {

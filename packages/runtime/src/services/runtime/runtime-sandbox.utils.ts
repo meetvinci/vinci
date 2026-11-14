@@ -1,11 +1,10 @@
 import { Connection, RemoteExecutionEnv } from '@earendil-works/pi-env';
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
-import { closeSync, constants, fstatSync, openSync, readFileSync, realpathSync, rmSync } from 'node:fs';
-import { open } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import { match } from 'ts-pattern';
 import { RUNTIME_SANDBOX } from './runtime-sandbox.constants';
 import type { RuntimeSandboxCommand, RuntimeSandboxParams, RuntimeSandboxState } from '../../types/runtime-sandbox.types';
@@ -54,49 +53,6 @@ export function runtimeSandboxNative({ root, folder }: RuntimeSandboxParams) {
       }
     },
   };
-}
-
-export function runtimeSandboxRead(path: string, folders: string[]): string {
-  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
-
-  try {
-    // SAFETY: the opened file as the kernel names it (Linux), so a link a bot swaps in after any earlier check is caught.
-    const opened = realpathSync(`/proc/self/fd/${descriptor}`);
-
-    if (!runtimeSandboxIsInside(opened, folders) || !fstatSync(descriptor).isFile()) {
-      throw new Errors.FORBIDDEN({ internal: `${path} opens ${opened}, outside ${folders.join(', ')}` });
-    }
-
-    return readFileSync(descriptor, 'utf8');
-  } finally {
-    closeSync(descriptor);
-  }
-}
-
-export async function runtimeSandboxCreate(path: string, bytes: Buffer, folders: string[]): Promise<void> {
-  const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
-
-  try {
-    // SAFETY: the created file as the kernel names it (Linux): checked before a byte is written.
-    const opened = realpathSync(`/proc/self/fd/${file.fd}`);
-
-    if (!runtimeSandboxIsInside(opened, folders)) {
-      rmSync(opened, { force: true });
-      throw new Errors.FORBIDDEN({ internal: `${path} created ${opened}, outside ${folders.join(', ')}` });
-    }
-
-    await file.writeFile(bytes);
-  } finally {
-    await file.close();
-  }
-}
-
-function runtimeSandboxIsInside(opened: string, folders: string[]): boolean {
-  return folders.some((folder) => {
-    const inner = relative(realpathSync(folder), opened);
-
-    return inner !== '' && !isAbsolute(inner) && inner.split(sep)[0] !== '..';
-  });
 }
 
 function runtimeSandboxListen(server: Server, path: string) {

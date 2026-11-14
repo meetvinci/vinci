@@ -134,7 +134,7 @@ import {
   toolPending,
   toolSettings,
 } from '../types/tool.types';
-import { workspaceFiles, workspaceImportResult } from '../types/workspace.types';
+import { workspaceExport, workspaceFiles, workspaceImportResult } from '../types/workspace.types';
 
 const oc = baseContract.errors({
   RATE_LIMITED: errorSchemas.RATE_LIMITED,
@@ -324,7 +324,7 @@ export const contract = {
   },
 
   workspace: {
-    export: ocAdmin.output(workspaceFiles),
+    export: ocAdmin.output(workspaceExport),
 
     import: ocAdmin.input(workspaceFiles).output(workspaceImportResult),
   },

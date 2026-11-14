@@ -2,8 +2,11 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { workspaceFilesRead } from './workspace-files.utils';
 import { WORKSPACE } from './workspace.constants';
-import type { WorkspaceFiles } from '@repo/contracts/universal';
+import type { WorkspaceExport } from '@repo/contracts/universal';
 
-export async function workspaceQueryExport(): Promise<WorkspaceFiles> {
-  return { files: await workspaceFilesRead(join(homedir(), WORKSPACE.sharedFolder), () => true) };
+// SAFETY: read only to bots, but a bot could link inside it before the sandbox existed.
+export function workspaceQueryExport(): Promise<WorkspaceExport> {
+  const folder = join(homedir(), WORKSPACE.sharedFolder);
+
+  return workspaceFilesRead({ roots: [folder], folder }, () => true);
 }

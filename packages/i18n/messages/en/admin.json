@@ -164,6 +164,7 @@
   "admin_bots_copied": "Bots added",
   "admin_bots_copy_failed": "Couldn't add the bots. Try again.",
   "admin_bots_copy_partial": "Couldn't copy {bots}.",
+  "admin_bots_copy_skipped": "Copied without files that are links or special files, which are never copied: {files}.",
   "admin_conversations_title": "Conversations",
   "admin_conversations_hint": "Read this person's conversations with their bots. Reading leaves no trace in their app: nothing is marked read and they get no notification.",
   "admin_conversations_search": "Search conversations (press Enter)",

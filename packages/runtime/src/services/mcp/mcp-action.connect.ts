@@ -19,7 +19,6 @@ export async function mcpActionConnect(deps: McpClientServiceDeps, { botId, entr
   const target = {
     root: deps.root,
     botId,
-    isSandboxed: deps.executionEnv.spawn !== undefined,
   };
 
   // SAFETY: stored OAuth tokens are keyed by server URL, so a bot-local file naming a shared URL must not get them.

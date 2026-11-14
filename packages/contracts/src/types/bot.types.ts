@@ -6,7 +6,7 @@ import { mcpCatalog, mcpOwned } from './mcp.types';
 import { modelSelection, modelThinkingLevel } from './model.types';
 import { pluginCatalog } from './plugin.types';
 import { skill } from './skill.types';
-import { workspaceFiles } from './workspace.types';
+import { workspaceExport, workspaceFiles } from './workspace.types';
 
 export const BOT_FIELDS = {
   maxInstructions: 64_000,
@@ -75,8 +75,8 @@ export const botDeleteResult = z.void();
 
 export const botOpenResult = z.void();
 
-export const botFiles = workspaceFiles.extend({ mcp: mcpOwned });
-export const botFilesImport = botFiles.extend(botGet.shape);
+export const botFiles = workspaceExport.extend({ mcp: mcpOwned });
+export const botFilesImport = workspaceFiles.extend({ mcp: mcpOwned }).extend(botGet.shape);
 export const botFilesImportResult = z.void();
 
 export const botCatalog = z.object({

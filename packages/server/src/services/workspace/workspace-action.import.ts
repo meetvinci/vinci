@@ -14,7 +14,7 @@ export async function workspaceActionImport({ files }: WorkspaceFiles): Promise<
 
   try {
     await mkdir(draft, { recursive: true, mode: WORKSPACE.directoryMode });
-    await workspaceFilesWrite(draft, files, () => true);
+    await workspaceFilesWrite({ roots: [draft], folder: draft }, files, () => true);
 
     const hadPrevious = await rename(target, previous).then(() => true).catch((error: unknown) => match(error)
       .with({ code: 'ENOENT' }, () => false)

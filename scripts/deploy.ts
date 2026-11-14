@@ -402,8 +402,16 @@ async function tools(script: string, args: string[], { volumes = [], ...options 
 // new volume gets them from the daemon image, which starts first; an older volume may lack them. Docker
 // follows a link inside a subpath, so a link a bot planted there before the sandbox (its bash ran in the daemon then,
 // with the whole volume) or that came back with a restore would give the sandbox what it points to, such as data/
-// with the credentials key: such a link is replaced by an empty folder, and prints `replaced`. Run in the volume's root.
-const sandboxFoldersScript = 'for p in agents home home/.agents bot-home; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done; mkdir -p agents home/.agents bot-home && chown 1000:1000 agents home home/.agents bot-home';
+// with the credentials key: such a link is replaced by an empty folder, and prints `replaced`. A hard link from those
+// folders to one of the daemon's own files (data/, pi/, the rest of home/) shares the file itself, so it is removed: a
+// sandbox can no longer make one (it sees no daemon file), but one made before or restored with an old backup would
+// stay readable and live. GNU find deletes by inode inside the bot folders, never following a link. Run in the volume's root.
+const sandboxFoldersScript = [
+  'for p in agents home home/.agents bot-home; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done',
+  'mkdir -p agents home/.agents bot-home',
+  'for i in $(find . -xdev \\( -path ./agents -o -path ./home/.agents -o -path ./bot-home \\) -prune -o -type f -links +1 -printf "%i\\n" | sort -u); do find agents home/.agents bot-home -xdev -type f -inum "$i" -printf "Removed %p: a hard link to a daemon file outside the bot folders.\\n" -delete >&2; done',
+  'chown 1000:1000 agents home home/.agents bot-home',
+].join('; ');
 
 // A running sandbox keeps the folders it mounted at its start, so one whose links were replaced is removed; the
 // apply's `up` then starts it on the real folders.
@@ -617,9 +625,10 @@ async function stopDaemon(id: string, person: Person) {
 
 // Copies one person's whole volume (database, credentials key, bots, Pi settings, home, the bots' home) except the bots'
 // download caches (bot-home/.cache), which the tools fill again. Their daemon must be stopped, so no SQLite file is
-// copied mid-write.
+// copied mid-write. tar archives a bot's links, FIFOs and devices as entries without following or opening them;
+// --sparse stores a sparse file's holes as holes, so a bot's 5 GB sparse file costs neither time nor space here.
 async function copyVolume(id: string, file: string) {
-  await tools('tar -C /data --anchored --exclude=./bot-home/.cache -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
+  await tools('tar -C /data --sparse --anchored --exclude=./bot-home/.cache -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
 }
 
 // Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed

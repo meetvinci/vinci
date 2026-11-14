@@ -95,6 +95,16 @@ export function adminBotCopyProblem({ copies, bots }: AdminTypes.AdminBotCopyPro
   return failed.length > 0 ? m.admin_bots_copy_partial({ bots: failed.join(', ') }) : null;
 }
 
+export function adminBotCopySkipped({ copies, bots }: AdminTypes.AdminBotCopyProblemParams): string | null {
+  const skipped = copies.filter((copy) => copy.skipped !== undefined && copy.skipped.length > 0).map((copy) => {
+    const name = bots.find((bot) => bot.id === copy.from)?.name ?? copy.from;
+
+    return `${name} (${copy.skipped?.join(', ') ?? ''})`;
+  });
+
+  return skipped.length > 0 ? m.admin_bots_copy_skipped({ files: skipped.join('; ') }) : null;
+}
+
 export function adminSectionLabel(section: UniversalTypes.SettingsSection): string {
   return SETTINGS_NAV.find((item) => item.id === section)?.label() ?? section;
 }

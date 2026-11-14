@@ -3,6 +3,7 @@ import type { Attachment } from '@repo/contracts/universal';
 
 export interface AttachmentStorageDeps {
   root: string;
+  isSandboxed: boolean;
 }
 
 export interface AttachmentStorageParams {

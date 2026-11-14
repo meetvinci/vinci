@@ -4,7 +4,8 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { match, P } from 'ts-pattern';
-import { runtimeSandboxRead } from '../runtime/runtime-sandbox.utils';
+import { RUNTIME_BOT_FILES } from '../runtime/runtime-bot-files.constants';
+import { runtimeBotFilesRead } from '../runtime/runtime-bot-files.utils';
 import { INSTRUCTION } from './instruction.constants';
 import type { InstructionLoaderServiceDeps, InstructionLoadParams, InstructionLoadResult } from '../../types/instruction.types';
 
@@ -121,18 +122,18 @@ export async function instructionQueryLoad(
     try {
       const canonical = await realpath(path);
 
-      // SAFETY: a sandboxed bot can swap its instruction file for a link to the daemon's files between two reads.
-      return await match(isSandboxed && path.startsWith(`${botDirectory}${sep}`))
+      // SAFETY: a sandboxed bot can swap its instruction file for a link to the daemon's files, a FIFO or a huge file.
+      return await match(isSandboxed && path.startsWith(`${join(root, 'agents')}${sep}`))
         .with(true, () => {
           try {
-            return [{ path: canonical, content: runtimeSandboxRead(path, [join(root, 'agents')]) }];
+            return [{ path: canonical, content: runtimeBotFilesRead([join(root, 'agents')], path, RUNTIME_BOT_FILES.textMaxBytes).toString('utf8') }];
           } catch (error) {
             return match(error)
-              .with({ code: 'FORBIDDEN' }, () => {
+              .with({ code: P.union('FORBIDDEN', 'VALIDATION_ERROR') }, () => {
                 log.warn({
                   tag: 'instructions',
                   botId,
-                  message: 'Skipped a bot instruction file that links outside the bot folders',
+                  message: 'Skipped a bot instruction file that links outside the bot folders, is not a plain file or is over 1 MiB',
                   path,
                 });
                 return [];

@@ -27,7 +27,7 @@ export async function globalActionBots(deps: GlobalTypes.GlobalServiceDeps, { id
     await globalSerial(bots, async (from) => {
       const copy = await (async () => {
         const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, avatar, ...fields } = await template.bots.get({ botId: from });
-        const { files, mcp } = await template.bots.exportFiles({ botId: from });
+        const { files, skipped, mcp } = await template.bots.exportFiles({ botId: from });
 
         const copied = await person.bots.create({
           ...fields,
@@ -46,13 +46,16 @@ export async function globalActionBots(deps: GlobalTypes.GlobalServiceDeps, { id
           throw error;
         });
 
-        return { from, botId: copied.id };
+        return match(skipped)
+          .with([], () => ({ from, botId: copied.id }))
+          .otherwise(() => ({ from, botId: copied.id, skipped }));
       })().catch((error: unknown) => ({
         from,
         botId: null,
         error: match(error)
           .with({ code: 'CONFLICT' }, () => 'This user already has a bot with that handle')
           .with({ data: { fields: { files: { message: 'validation_workspace_too_large' } } } }, () => 'The bot\'s own files are too large to copy (over 2000 files or 6 MiB)')
+          .with({ code: 'FORBIDDEN' }, () => 'A folder of the new bot links outside its bot folders; nothing was written there')
           .with(P.instanceOf(Error), ({ message }) => message)
           .otherwise(String)
           .slice(0, GLOBAL.errorMaxLength),

@@ -7,3 +7,14 @@ export interface WorkspaceServiceDeps {
 export interface WorkspaceBotFilesParams extends BotGetInput {
   files: WorkspaceFile[];
 }
+
+export interface WorkspaceFolder {
+  roots: string[];
+  folder: string;
+  names?: readonly string[];
+}
+
+export interface WorkspaceListing {
+  files: string[];
+  skipped: string[];
+}
