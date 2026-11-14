@@ -1,7 +1,8 @@
 import { notificationItemKey } from '@repo/runtime/server';
+import { notificationQueryDevices } from './notification-query.devices';
 import { notificationQuerySettings } from './notification-query.settings';
 import { NOTIFICATION } from './notification.constants';
-import { notificationActiveAt } from './notification.utils';
+import { notificationActiveAt, notificationIsOpen } from './notification.utils';
 import type { NotificationServiceDeps, NotificationTargetParams } from '../../types/notification.types';
 
 export function notificationQueryTarget(deps: NotificationServiceDeps, { item }: NotificationTargetParams) {
@@ -14,7 +15,7 @@ export function notificationQueryTarget(deps: NotificationServiceDeps, { item }:
 
   const target = (async () => {
     const now = Date.now();
-    const open = [...deps.presences.values()].filter((presence) => presence.isOpen && now - presence.seenAt < NOTIFICATION.openMs);
+    const open = [...deps.presences.values()].filter((presence) => notificationIsOpen(presence, now));
 
     const active = open
       .filter((presence) => now - notificationActiveAt(presence) < NOTIFICATION.idleMs)
@@ -26,14 +27,13 @@ export function notificationQueryTarget(deps: NotificationServiceDeps, { item }:
     }
 
     const { prefer } = await notificationQuerySettings(deps);
-    const devices = await deps.database.db.selectFrom('device').select('id').where('pushToken', 'is not', null).execute();
+    const notificationSeenAt = (id: string) => deps.presences.get(id)?.seenAt ?? 0;
+    const devices = (await notificationQueryDevices(deps)).sort((left, right) => notificationSeenAt(right.id) - notificationSeenAt(left.id));
 
-    const phone = devices
-      .map((device) => device.id)
-      .sort((left, right) => (deps.presences.get(right)?.seenAt ?? 0) - (deps.presences.get(left)?.seenAt ?? 0))
-      .at(0);
+    const phone = devices.find((device) => device.pushToken !== null || device.webPush?.platform === 'phone')?.id;
 
-    const computer = open.filter((presence) => presence.platform === 'computer').sort((left, right) => right.seenAt - left.seenAt).at(0)?.deviceId;
+    const computer = open.filter((presence) => presence.platform === 'computer').sort((left, right) => right.seenAt - left.seenAt).at(0)?.deviceId
+      ?? devices.find((device) => device.pushToken === null && device.webPush?.platform === 'computer')?.id;
 
     return (prefer === 'phone' ? phone ?? computer : computer ?? phone) ?? null;
   })();

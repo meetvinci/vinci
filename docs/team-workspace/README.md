@@ -59,6 +59,7 @@ Shared logins from a Claude or ChatGPT subscription are not supported: the provi
 ## Guides
 
 - [Install](install.md): set up the server and Cloudflare.
+- [Install the app on your phone and computer](install-app.md): for everyone on the team: home screen or dock, and notifications.
 - [Admin tasks](admin.md): the admin panel, global settings and suggested bots, people, keys, bots, backups, upgrades.
 - [Configuration](configuration.md): every setting and file.
 - [Troubleshooting](troubleshooting.md): known problems and fixes.

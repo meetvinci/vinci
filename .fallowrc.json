@@ -6,6 +6,7 @@
     "apps/mobile/app.config.ts",
     "apps/web/src/application/server.tanstack.ts",
     "apps/web/src/application/server.bun.ts",
+    "apps/web/public/sw.js",
     "apps/web/src/application/start.ts",
     "apps/web/src/application/routes.ts",
     "apps/web/src/application/router.tsx",

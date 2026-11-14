@@ -57,6 +57,7 @@ export interface DatabaseSchema {
     createdAt: number;
     pushToken: string | null;
     pushUrl: string | null;
+    webPush: string | null;
   };
   pairingGrant: {
     pinHash: string;

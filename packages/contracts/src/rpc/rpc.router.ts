@@ -93,7 +93,7 @@ import {
 } from '../types/mcp-auth.types';
 import { mcpCatalog, mcpCatalogServer, mcpConfigure, mcpDiscover, mcpServerAdd, mcpServerRemove, mcpSettings, mcpShared } from '../types/mcp.types';
 import { modelList, modelSettings } from '../types/model.types';
-import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid } from '../types/notification.types';
+import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid, notificationWebPush, notificationWebPushKey } from '../types/notification.types';
 import { onboardingState } from '../types/onboarding.types';
 import { pluginCatalog, pluginConfigure, pluginDiscover, pluginSettings } from '../types/plugin.types';
 import {
@@ -457,5 +457,9 @@ export const contract = {
     presence: ocAuth.input(notificationPresence).output(notificationVoid),
 
     push: ocAuth.input(notificationPush).output(notificationVoid),
+
+    webPushKey: ocAuth.output(notificationWebPushKey),
+
+    webPush: ocAuth.input(notificationWebPush).output(notificationVoid),
   },
 };

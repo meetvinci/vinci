@@ -5,7 +5,7 @@ import { match, P } from 'ts-pattern';
 import { LayoutRootDocument, LayoutRootError, LayoutRootNotFound } from '@/components/layout/layout-root';
 import { connectionForget, connectionLearn, connectionRead } from '@/services/connection/connection.client';
 import { rpc } from '@/services/rpc/rpc.client';
-import { SEO_METADATA_DEFAULTS } from '@/services/seo/seo.constants';
+import { SEO_METADATA_DEFAULTS, SEO_THEME_COLOR } from '@/services/seo/seo.constants';
 import appCss from '../application/styles.css?url';
 import type { RouterContext } from '@/types/router.types';
 
@@ -48,6 +48,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       ...createMetadata({ defaults: SEO_METADATA_DEFAULTS }),
+      { name: 'theme-color', content: SEO_THEME_COLOR.light, media: '(prefers-color-scheme: light)' },
+      { name: 'theme-color', content: SEO_THEME_COLOR.dark, media: '(prefers-color-scheme: dark)' },
       { httpEquiv: 'Content-Security-Policy', content: "frame-src 'none'" },
     ],
     links: [

@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useEffectEvent, useRef } from 'react';
 import { match } from 'ts-pattern';
+import { pushPlatform, pushShow } from '@/services/push/push.client';
 import { roomsLink } from '@/services/rooms/rooms.client';
 import { rpc } from '@/services/rpc/rpc.client';
 import type { NotificationItem } from '@repo/contracts/universal';
@@ -21,13 +22,16 @@ export function useRoomsNotify() {
     const desktop = window.__electrobunSendToHost;
     const browser = Object.hasOwn(globalThis, 'Notification') && Notification.permission === 'granted';
 
-    if ((!desktop && !browser) || !chat || chat.isMuted) {
+    const isHiddenPhone = pushPlatform() === 'phone' && document.visibilityState !== 'visible';
+
+    if ((!desktop && !browser) || !chat || chat.isMuted || isHiddenPhone) {
       return;
     }
 
     const link = roomsLink({ handle: chat.handle });
+    const path = router.buildLocation(link).pathname;
 
-    if (document.visibilityState === 'visible' && document.hasFocus() && router.buildLocation(link).pathname === router.state.location.pathname) {
+    if (document.visibilityState === 'visible' && document.hasFocus() && path === router.state.location.pathname) {
       return;
     }
 
@@ -43,11 +47,33 @@ export function useRoomsNotify() {
       return;
     }
 
-    const notification = new Notification(chat.name, {
+    const icon = `${AVATAR.pathPrefix}bots/${chat.botId}.png`;
+
+    const payload = {
+      kind: item.kind,
+      botId: chat.botId,
+      title: chat.name,
       body,
-      icon: `${AVATAR.pathPrefix}bots/${chat.botId}.png`,
-      silent: true,
-      tag: chat.botId,
+      path,
+    };
+
+    void pushShow({ payload, icon }).then((isShown) => {
+      if (isShown) {
+        return;
+      }
+
+      const notification = new Notification(chat.name, {
+        body,
+        icon,
+        silent: true,
+        tag: chat.botId,
+      });
+
+      notification.addEventListener('click', () => {
+        window.focus();
+        void router.navigate(link);
+        notification.close();
+      });
     });
 
     const audio = new AudioContext();
@@ -66,12 +92,6 @@ export function useRoomsNotify() {
     }
 
     setTimeout(() => void audio.close(), ROOMS.chime.closeMs);
-
-    notification.addEventListener('click', () => {
-      window.focus();
-      void router.navigate(link);
-      notification.close();
-    });
   });
 
   useEffect(() => {

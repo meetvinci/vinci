@@ -39,6 +39,7 @@ export async function conversationQueryWatchNotifications(
       unwatch();
       unsubscribeBots();
       unsubscribe();
+      void notifications.actions.leave({ deviceId });
 
       return end;
     });

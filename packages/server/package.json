@@ -11,6 +11,7 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/web-push": "catalog:",
     "typescript": "catalog:"
   },
   "exports": {
@@ -37,6 +38,7 @@
     "@earendil-works/pi-coding-agent": "catalog:",
     "@repo/i18n": "workspace:*",
     "takumi-js": "catalog:",
-    "@repo/avatar-blobs": "workspace:*"
+    "@repo/avatar-blobs": "workspace:*",
+    "web-push": "catalog:"
   }
 }

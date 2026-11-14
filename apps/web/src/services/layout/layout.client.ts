@@ -10,9 +10,13 @@ const layoutCookies = createIsomorphicFn()
   })
   .client(() => Promise.resolve(document.cookie));
 
-export function layoutShowInstallPrompt(): boolean {
-  const ios = /iPad|iPhone|iPod/u.test(navigator.userAgent)
+export function layoutIsIos(): boolean {
+  return /iPad|iPhone|iPod/u.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+export function layoutShowInstallPrompt(): boolean {
+  const ios = layoutIsIos();
 
   const safari = /Version\/.+Safari\//u.test(navigator.userAgent)
     && !/CriOS|FxiOS|EdgiOS|OPiOS/u.test(navigator.userAgent);

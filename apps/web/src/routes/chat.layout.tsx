@@ -11,6 +11,7 @@ import { RoomsDetails } from '@/components/rooms/rooms-details';
 import { RoomsSearch } from '@/components/rooms/rooms-search';
 import { useDesktopUpdateToast } from '@/hooks/use-desktop-update-toast';
 import { useLayoutShortcuts } from '@/hooks/use-layout-shortcuts';
+import { usePush } from '@/hooks/use-push';
 import { useRoomsNotify } from '@/hooks/use-rooms-notify';
 import { layoutSidebarsOpen } from '@/services/layout/layout.client';
 import { rpc } from '@/services/rpc/rpc.client';
@@ -59,6 +60,7 @@ export const Route = createFileRoute('/_chat')({
 function RoomsLayout() {
   useChatListSync();
   useRoomsNotify();
+  usePush();
   useDesktopUpdateToast();
   useRoomsPresence();
   useLayoutShortcuts();

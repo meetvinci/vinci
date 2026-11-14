@@ -1,6 +1,7 @@
 import { env } from '@repo/env/server';
 import { initNativeLogger, log } from '@repo/logger/server';
 import { join, posix, sep } from 'node:path';
+import { match } from 'ts-pattern';
 import { CONNECTION } from '@/services/connection/connection.constants';
 import { connectionAccessHeaders, connectionFileHeaders, connectionHasAddresses, connectionTarget } from '@/services/connection/connection.utils';
 import type { RpcProxySocket } from '@/types/rpc.types';
@@ -15,6 +16,7 @@ const DOWNLOAD_EXTENSIONS = ['.zip', '.tar', '.gz'];
 const PRELOAD_MAX_BYTES = 5 * 1024 * 1024;
 const LOOPBACK_HOSTS = ['127.0.0.1', '::1', 'localhost'];
 const LOCAL_DAEMON = `http://127.0.0.1:${env.DAEMON_PORT}`;
+const HUB_PUBLIC_PATH = '/img/favicon/site.webmanifest';
 
 try {
   initNativeLogger(env.LOG_LEVEL);
@@ -53,7 +55,11 @@ try {
       continue;
     }
 
-    const cacheControl = route.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+    const cacheControl = match(route)
+      .when((value) => value.startsWith('/assets/'), () => 'public, max-age=31536000, immutable')
+      .with('/sw.js', () => 'no-cache')
+      .otherwise(() => 'public, max-age=3600');
+
     const raw = new Uint8Array(await file.arrayBuffer());
     const etag = `W/"${Bun.hash(raw).toString(16)}-${String(raw.byteLength)}"`;
 
@@ -121,7 +127,7 @@ try {
         return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
       }
 
-      if (env.WEB_HUB_URL && Object.keys(connectionAccessHeaders(request.headers)).length === 0) {
+      if (env.WEB_HUB_URL && pathname !== HUB_PUBLIC_PATH && Object.keys(connectionAccessHeaders(request.headers)).length === 0) {
         return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
       }
 

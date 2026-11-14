@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
+import { match } from 'ts-pattern';
+import { pushEnable, pushState } from '@/services/push/push.client';
 import type { NotificationPlatform } from '@repo/contracts/universal';
 
 const SETTINGS_NOTIFY_PREFER = {
@@ -17,26 +19,35 @@ const SETTINGS_NOTIFY_PREFER = {
 
 function SettingsGeneralNotifications() {
   const id = useId();
+  const [state, setState] = useState(pushState);
 
-  const [permission, setPermission] = useState(() =>
-    Object.hasOwn(globalThis, 'Notification') && !window.__electrobunSendToHost ? Notification.permission : 'granted',
-  );
+  const description = match(state)
+    .with({ status: 'on', background: true }, () => m.settings_general_notifications_background())
+    .with({ status: 'on' }, () => m.settings_general_notifications_open_only())
+    .with({ status: 'off' }, () => m.settings_general_notifications_off())
+    .with({ status: 'blocked' }, () => m.settings_general_notifications_blocked())
+    .with({ status: 'install' }, () => m.settings_general_notifications_install())
+    .with({ status: 'unsupported' }, () => m.settings_general_notifications_unsupported())
+    .with({ status: 'desktop' }, () => null)
+    .exhaustive();
 
   return (
     <PanelRow>
       <PanelContent>
         <Label htmlFor={id}>{m.settings_general_notifications()}</Label>
-        {permission === 'denied' ? <PanelDescription>{m.settings_general_notifications_blocked()}</PanelDescription> : null}
+        {description ? <PanelDescription>{description}</PanelDescription> : null}
       </PanelContent>
-      <Button
-        disabled={permission !== 'default'}
-        id={id}
-        size="sm"
-        variant="outline"
-        onClick={() => void Notification.requestPermission().then(setPermission)}
-      >
-        {permission === 'granted' ? m.settings_general_notifications_on() : m.settings_general_notifications_enable()}
-      </Button>
+      {state.status === 'off' || state.status === 'on' || state.status === 'desktop' ? (
+        <Button
+          disabled={state.status !== 'off'}
+          id={id}
+          size="sm"
+          variant="outline"
+          onClick={() => void pushEnable().then(setState, () => setState(pushState()))}
+        >
+          {state.status === 'off' ? m.settings_general_notifications_enable() : m.settings_general_notifications_on()}
+        </Button>
+      ) : null}
     </PanelRow>
   );
 }

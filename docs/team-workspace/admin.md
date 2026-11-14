@@ -272,6 +272,10 @@ Every read is recorded with your email, the person, the bot and the conversation
 
 > On the MeetVinci team install at `https://<team host>`, I'm an admin. Open `/admin`, add user `<name>` with email `<email>`, then on their page create a bot called `<bot>` with model `<model>` and these instructions: `<text>`. If the panel says they can't sign in yet, run the `cloudflare emails` step from the "Add a person" section of `docs/team-workspace/admin.md` in my checkout. Confirm the bot appears in their Bots tab.
 
+## The app on phones and computers
+
+People install the web app themselves and turn notifications on in **Settings → General → Notifications**; send them [Install the app on your phone and computer](install-app.md). There is nothing to set up: each person's MeetVinci makes its own Web Push key the first time a browser asks for notifications and keeps it encrypted in its own data, and it sends notifications to the browsers' push services (Google, Apple, Mozilla, Microsoft) over the public internet, which daemons already reach. A backup and restore keeps the key, so installed apps keep their notifications.
+
 ## What people see
 
 The app a person opens is simpler than the one a single owner gets: it hides what most people never need. Hiding is not a permission; the panel always shows you everything, whatever a person sees.

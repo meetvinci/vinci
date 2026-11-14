@@ -3,7 +3,7 @@ import { NOTIFICATION_PRESENCE } from '../services/notification/notification.con
 import { useRpc } from './use-rpc';
 import type { NotificationPresenceParams } from '../types/notification.types';
 
-export function useNotificationPresence({ platform, isOpen, idleMs }: NotificationPresenceParams) {
+export function useNotificationPresence({ platform, isOpen, idleMs, received }: NotificationPresenceParams) {
   const { client } = useRpc();
 
   const report = useEffectEvent(() => {
@@ -19,5 +19,5 @@ export function useNotificationPresence({ platform, isOpen, idleMs }: Notificati
     const timer = setInterval(report, NOTIFICATION_PRESENCE.heartbeatMs);
 
     return () => clearInterval(timer);
-  }, [isOpen]);
+  }, [isOpen, received]);
 }

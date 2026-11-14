@@ -96,6 +96,7 @@ export async function makeServices({
     runtime.actions.registerAttachmentTools({ attachments });
 
     const notifications = makeNotificationService({
+      credentials,
       database,
       runtime,
       bots,

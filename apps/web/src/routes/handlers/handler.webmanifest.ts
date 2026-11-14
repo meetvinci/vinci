@@ -1,5 +1,6 @@
 import { env } from '@repo/env/client';
 import { createFileRoute } from '@tanstack/react-router';
+import { SEO_THEME_COLOR } from '@/services/seo/seo.constants';
 
 export const Route = createFileRoute('/img/favicon/site.webmanifest')({
   server: {
@@ -10,12 +11,14 @@ export const Route = createFileRoute('/img/favicon/site.webmanifest')({
         id: '/',
         start_url: '/',
         scope: '/',
-        icons: [
-          { src: '/img/favicon/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
-          { src: '/img/favicon/web-app-manifest-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        icons: [192, 512].flatMap((size) => ['any', 'maskable'].map((purpose) => ({
+          src: `/img/favicon/web-app-manifest-${size}x${size}.png`,
+          sizes: `${size}x${size}`,
+          type: 'image/png',
+          purpose,
+        }))),
+        theme_color: SEO_THEME_COLOR.light,
+        background_color: SEO_THEME_COLOR.light,
         display: 'standalone',
       }, { headers: { 'content-type': 'application/manifest+json' } }),
     },

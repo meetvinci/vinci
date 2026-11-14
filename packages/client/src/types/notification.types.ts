@@ -4,4 +4,5 @@ export interface NotificationPresenceParams {
   platform: NotificationPlatform;
   isOpen: boolean;
   idleMs: () => number;
+  received?: string;
 }

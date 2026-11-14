@@ -1,5 +1,10 @@
+import { notificationActionRelease } from './notification-action.release';
 import type { NotificationPresenceParams, NotificationServiceDeps } from '../../types/notification.types';
 
-export function notificationActionPresence({ presences }: NotificationServiceDeps, presence: NotificationPresenceParams) {
-  presences.set(presence.deviceId, { ...presence, seenAt: Date.now() });
+export async function notificationActionPresence(deps: NotificationServiceDeps, presence: NotificationPresenceParams) {
+  deps.presences.set(presence.deviceId, { ...presence, seenAt: Date.now() });
+
+  if (!presence.isOpen) {
+    await notificationActionRelease(deps, { deviceId: presence.deviceId, isDue: () => true });
+  }
 }

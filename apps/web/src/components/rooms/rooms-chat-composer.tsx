@@ -16,6 +16,7 @@ import { match, P } from 'ts-pattern';
 import { RoomsChatContext } from '@/components/rooms/rooms-chat-context';
 import { RoomsMention } from '@/components/rooms/rooms-mention';
 import { RoomsMentionOption } from '@/components/rooms/rooms-mention-option';
+import { pushAskOnce } from '@/services/push/push.client';
 import { rpc } from '@/services/rpc/rpc.client';
 import IconPaperclip from '~icons/lucide/paperclip';
 import type * as ClientTypes from '@repo/client/client';
@@ -155,9 +156,7 @@ export function RoomsChatComposer({
             return false;
           }
 
-          if (Object.hasOwn(globalThis, 'Notification') && Notification.permission === 'default' && !window.__electrobunSendToHost) {
-            void Notification.requestPermission();
-          }
+          pushAskOnce();
 
           const reset = chatResetCommand(value);
 

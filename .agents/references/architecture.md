@@ -29,6 +29,7 @@ flowchart TB
   end
   Runtime --> Models["model providers"]
   Server -->|"push"| Expo["Expo push service"]
+  Server -->|"Web Push"| WebPush["browser push services"]
 ```
 
 ### Team installation
@@ -388,6 +389,7 @@ Before adding infrastructure, inspect the installed library API and official exa
 ### Routing and screens
 
 - Every screen, panel and dialog is a route, so back, reload, deep links and notification targets work. Web routes live in `application/routes.ts`; mobile screens are Expo Router files registered in `app/_layout.tsx`.
+- The web app has one service worker, `apps/web/public/sw.js`, plain JavaScript: it shows Web Push messages and turns a notification tap into that chat's path (opening the app, or posting the path to an open page). It caches nothing and has no fetch handler, so pages, assets and the Access login always come from the network. Web notifications shown by an open page go through it too (`services/push/push.client.ts`).
 - What a view shows is a path segment (`/rooms/direct/$handle/routines`), not a search param. Search params carry transient options of one view, such as a message to focus or a handoff, validated by a contracts schema.
 - A dialog is a child route of the view that opens it. Web renders it through that view's `<Outlet />` and closes with `useDialogNavigation` back to the parent path; mobile sets `transparentModal` for confirmations or `formSheet` for sheets in `_layout.tsx`. Nest a dialog under the panel that opens it, so the panel stays matched behind it.
 - A panel in a fixed region, such as the web chat sidebar, is a child route; the region picks its content with `useMatchRoute`, because a route has one outlet.

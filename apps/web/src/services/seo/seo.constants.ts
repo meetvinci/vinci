@@ -3,6 +3,8 @@ import type { TanstackMetadata } from '@repo/tanstack-helpers/universal';
 
 const SEO_APP_NAME = env.VITE_APP_NAME;
 
+export const SEO_THEME_COLOR = { light: '#fafafa', dark: '#1f1f1f' } as const;
+
 export const SEO_METADATA_DEFAULTS: TanstackMetadata = {
   charSet: 'utf-8',
   title: SEO_APP_NAME,
@@ -13,6 +15,8 @@ export const SEO_METADATA_DEFAULTS: TanstackMetadata = {
     'initial-scale': '1',
     'viewport-fit': 'cover',
   },
+  appleWebAppCapable: true,
+  appleWebAppTitle: SEO_APP_NAME,
   appleWebAppStatusBarStyle: 'black-translucent',
   applicationName: SEO_APP_NAME,
   openGraph: {
