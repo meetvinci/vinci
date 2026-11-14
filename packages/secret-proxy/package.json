@@ -15,7 +15,7 @@
     "lint:fix": "oxlint src/ -c ../../oxlint.config.ts --tsconfig tsconfig.json --disable-nested-config --fix"
   },
   "dependencies": {
-    "mockttp": "catalog:",
+    "@peculiar/x509": "catalog:",
     "ts-pattern": "catalog:"
   },
   "devDependencies": {

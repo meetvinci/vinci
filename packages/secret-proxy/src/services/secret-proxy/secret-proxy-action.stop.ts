@@ -1,12 +1,15 @@
 import type { SecretProxyServiceDeps } from '../../types/secret-proxy.types';
 
-export async function secretProxyActionStop({ state }: SecretProxyServiceDeps) {
+export function secretProxyActionStop({ state }: SecretProxyServiceDeps) {
   state.bridge?.close();
   state.bridge = null;
-  await state.server?.stop();
-  state.forward?.closeAllConnections();
-  state.forward?.close();
+
+  for (const server of [state.server, state.tunnels]) {
+    server?.closeAllConnections();
+    server?.close();
+  }
+
   state.server = null;
-  state.forward = null;
+  state.tunnels = null;
   state.starting = null;
 }

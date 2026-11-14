@@ -1,18 +1,17 @@
 import { join } from 'node:path';
 import { SECRET_PROXY } from './secret-proxy.constants';
-import { secretProxyPassword, secretProxyPlaceholder } from './secret-proxy.utils';
+import { secretProxyPlaceholder } from './secret-proxy.utils';
 import type { SecretProxyServiceDeps } from '../../types/secret-proxy.types';
 
 export async function secretProxyQueryEnv({ source, state, folder, sandboxDir }: SecretProxyServiceDeps): Promise<Record<string, string>> {
   const rules = await source.queries.rules();
-  const { server } = state;
 
-  if (!server) {
+  if (!state.server) {
     return {};
   }
 
-  const port = sandboxDir ? SECRET_PROXY.sandboxPort : server.port;
-  const proxyUrl = `http://metadata:${secretProxyPassword(state.token)}@127.0.0.1:${port}`;
+  const port = sandboxDir ? SECRET_PROXY.sandboxPort : state.port;
+  const proxyUrl = `http://${SECRET_PROXY.user}:${state.token}@${SECRET_PROXY.host}:${String(port)}`;
   const bundlePath = join(sandboxDir ?? folder, SECRET_PROXY.bundleFile);
 
   return {

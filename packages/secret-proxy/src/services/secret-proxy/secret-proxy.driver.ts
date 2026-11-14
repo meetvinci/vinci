@@ -1,9 +1,10 @@
-import { timingSafeEqual } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
+import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import { TLSSocket } from 'node:tls';
 import { createBrotliDecompress, createGunzip, createInflate, createZstdDecompress } from 'node:zlib';
 import { match } from 'ts-pattern';
 import { secretProxyScrubForms, secretProxyScrubStream, secretProxyScrubText } from './secret-proxy-scrub.utils';
@@ -12,12 +13,36 @@ import { secretProxyAllows, secretProxyIsInternal, secretProxyPlaceholder } from
 import type * as SecretProxyTypes from '../../types/secret-proxy.types';
 import type * as NodeHttpTypes from 'node:http';
 import type { RequestOptions } from 'node:https';
-import type { Transform } from 'node:stream';
+import type { Duplex } from 'node:stream';
 
 const secretProxyDriverDropped = new Set<string>(SECRET_PROXY.dropHeaders);
 
-function secretProxyDriverRefuse(response: NodeHttpTypes.ServerResponse, statusCode: number, message: string) {
-  response.writeHead(statusCode, { 'content-type': 'text/plain; charset=utf-8' }).end(`${message}\n`);
+export function secretProxyDriverRefuse(
+  response: NodeHttpTypes.ServerResponse,
+  statusCode: number,
+  message: string,
+  headers: NodeHttpTypes.OutgoingHttpHeaders = {},
+) {
+  response.writeHead(statusCode, { ...headers, 'content-type': 'text/plain; charset=utf-8' }).end(`${message}\n`);
+}
+
+export function secretProxyDriverRefuseSocket(socket: Duplex, status: string, message: string, headers = '') {
+  socket.end(`HTTP/1.1 ${status}\r\ncontent-type: text/plain; charset=utf-8\r\nconnection: close\r\n${headers}\r\n${message}\n`);
+}
+
+export function secretProxyDriverTunnel({ socket, head, secureContext }: SecretProxyTypes.SecretProxyTunnelParams) {
+  socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+
+  if (head.length) {
+    socket.unshift(head);
+  }
+
+  const tlsSocket = new TLSSocket(socket, { isServer: true, secureContext });
+
+  tlsSocket.on('error', () => tlsSocket.destroy());
+  socket.once('end', () => socket.destroy());
+
+  return tlsSocket;
 }
 
 function secretProxyDriverDecoder(encoding: string): Transform | null {
@@ -29,7 +54,7 @@ function secretProxyDriverDecoder(encoding: string): Transform | null {
     .otherwise(() => null);
 }
 
-function secretProxyDriverKeep(headers: NodeHttpTypes.IncomingHttpHeaders, dropped: string[]) {
+function secretProxyDriverKeep(headers: NodeHttpTypes.IncomingHttpHeaders, dropped: readonly string[]) {
   return Object.entries(headers).filter(([name]) => !secretProxyDriverDropped.has(name) && !name.startsWith(':') && !dropped.includes(name));
 }
 
@@ -58,7 +83,19 @@ async function secretProxyDriverResolve(
   return first ? { address: first } : { address: null, statusCode: 502, message: `The proxy could not resolve ${hostname}.` };
 }
 
-async function secretProxyDriverRespond({ upstreamResponse, response, forms, hasBody }: SecretProxyTypes.SecretProxyRespondParams) {
+function secretProxyDriverPace(socket: Duplex | null) {
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      if (socket?.writableNeedDrain) {
+        socket.once('drain', () => callback(null, chunk));
+      } else {
+        callback(null, chunk);
+      }
+    },
+  });
+}
+
+async function secretProxyDriverRespond({ upstreamResponse, response, forms, hasBody, pace }: SecretProxyTypes.SecretProxyRespondParams) {
   const statusCode = upstreamResponse.statusCode ?? 502;
 
   const encodings = [upstreamResponse.headers['content-encoding'], upstreamResponse.headers['transfer-encoding']].join(',').split(',')
@@ -70,7 +107,7 @@ async function secretProxyDriverRespond({ upstreamResponse, response, forms, has
   const secretProxyDriverScrub = (text: string) => secretProxyScrubText(forms, text);
   const lowered = forms.map((form) => ({ ...form, match: Buffer.from(form.match.toString('latin1').toLowerCase(), 'latin1') }));
 
-  const secretProxyDriverScrubHeaders = (headers: NodeHttpTypes.IncomingHttpHeaders, dropped: string[]) => Object.fromEntries(
+  const secretProxyDriverScrubHeaders = (headers: NodeHttpTypes.IncomingHttpHeaders, dropped: readonly string[]) => Object.fromEntries(
     secretProxyDriverKeep(headers, dropped).map(([name, value]) => [
       secretProxyScrubText(lowered, name),
       Array.isArray(value) ? value.map(secretProxyDriverScrub) : secretProxyDriverScrub(value ?? ''),
@@ -89,24 +126,14 @@ async function secretProxyDriverRespond({ upstreamResponse, response, forms, has
   response.writeHead(statusCode, secretProxyDriverScrub(upstreamResponse.statusMessage ?? ''), headers);
 
   await (isScrubbed
-    ? pipeline(upstreamResponse, ...decoders.filter((decoder) => decoder !== null), secretProxyScrubStream(forms), response)
-    : pipeline(upstreamResponse, response));
+    ? pipeline(upstreamResponse, ...decoders.filter((decoder) => decoder !== null), secretProxyScrubStream(forms), secretProxyDriverPace(pace), response)
+    : pipeline(upstreamResponse, secretProxyDriverPace(pace), response));
 }
 
 export async function secretProxyDriverForward(
   deps: SecretProxyTypes.SecretProxyServiceDeps,
-  { request, response }: SecretProxyTypes.SecretProxyForwardParams,
+  { request, response, target, headers: swapped, pace }: SecretProxyTypes.SecretProxyForwardParams,
 ) {
-  const key = Buffer.from(String(request.headers[SECRET_PROXY.forwardKeyHeader] ?? ''));
-  const expected = Buffer.from(deps.state.forwardKey);
-
-  if (key.length !== expected.length || !timingSafeEqual(key, expected)) {
-    secretProxyDriverRefuse(response, 403, 'Proxy authorization required.');
-
-    return;
-  }
-
-  const target = new URL(String(request.headers[SECRET_PROXY.forwardTargetHeader]));
   const hostname = target.hostname.replace(/^\[(.*)\]$/u, '$1');
   const isHttps = target.protocol === 'https:';
   const port = Number(target.port || (isHttps ? 443 : 80));
@@ -121,14 +148,8 @@ export async function secretProxyDriverForward(
   }
 
   const forms = await secretProxyDriverForms(deps, hostname);
-  const kept = secretProxyDriverKeep(request.headers, ['content-length', ...(forms.length ? SECRET_PROXY.scrubbedDropHeaders : [])]);
-  const length = request.headers[SECRET_PROXY.forwardLengthHeader]?.toString();
-
+  const kept = secretProxyDriverKeep(swapped, forms.length ? SECRET_PROXY.scrubbedDropHeaders : []);
   const headers: NodeHttpTypes.OutgoingHttpHeaders = { ...Object.fromEntries(kept), host: target.host };
-
-  if (length !== undefined) {
-    headers['content-length'] = length;
-  }
 
   const options: RequestOptions = {
     host: resolved.address,
@@ -172,6 +193,7 @@ export async function secretProxyDriverForward(
       response,
       forms,
       hasBody: request.method !== 'HEAD',
+      pace,
     }).catch(() => response.destroy());
   });
 
