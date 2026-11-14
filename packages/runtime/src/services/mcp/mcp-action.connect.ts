@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { match, P } from 'ts-pattern';
 import { mcpTools } from './mcp-tools.utils';
 import { mcpTransportSandbox } from './mcp-transport.utils';
+import { MCP } from './mcp.constants';
 import { mcpFingerprint } from './mcp.utils';
 import type { McpClientServiceDeps, McpConnection, McpConnectParams } from '../../types/mcp.types';
 
@@ -45,7 +46,9 @@ export async function mcpActionConnect(deps: McpClientServiceDeps, { botId, entr
       const client = new McpClient({
         name: 'bots',
         version: '1.0.0',
-        requestTimeoutMs: 10_000,
+        requestTimeoutMs: match(entry.config)
+          .with({ command: P.string }, () => MCP.commandRequestTimeoutMs)
+          .otherwise(() => MCP.requestTimeoutMs),
         roots: [{ uri: pathToFileURL(directory).href, name: botId }],
       });
 

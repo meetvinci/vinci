@@ -323,8 +323,8 @@ const firewallFirst = {
 
 // The per-person part of the stack: a daemon, its network shared only with the hub, and its volume; and the sandbox
 // where their bots' tools run, alone on a network of its own (a daemon bridge to the firewall), seeing only the bot
-// folders and shared skills of that volume and, read only, the folder the daemon shares with it. The template
-// workspace gets the same, with the id `template`.
+// folders, shared skills and the bots' home of that volume and, read only, the folder the daemon shares with it. The
+// template workspace gets the same, with the id `template`.
 function renderCompose(ids: string[]): string {
   const services = Object.fromEntries(ids.flatMap((id) => [[`daemon-${id}`, {
     extends: { file: 'daemon.yaml', service: 'daemon' },
@@ -334,6 +334,9 @@ function renderCompose(ids: string[]): string {
       `data-${id}:/data`,
       { type: 'volume', source: 'ipc', target: '/data/data/ipc', volume: { subpath: id } },
       `sandbox-${id}:/run/sandbox`,
+      // The bots' home is theirs alone: the daemon sees an empty read-only folder there, so it never reads it or
+      // follows a link into it.
+      { type: 'tmpfs', target: '/data/bot-home', read_only: true, tmpfs: { size: 4096 } },
     ],
   }], [`sandbox-${id}`, {
     extends: { file: 'sandbox.yaml', service: 'sandbox' },
@@ -344,6 +347,7 @@ function renderCompose(ids: string[]): string {
     volumes: [
       { type: 'volume', source: `data-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },
       { type: 'volume', source: `data-${id}`, target: '/data/home/.agents', read_only: true, volume: { subpath: 'home/.agents' } },
+      { type: 'volume', source: `data-${id}`, target: '/home/bot', volume: { subpath: 'bot-home' } },
       { type: 'volume', source: `sandbox-${id}`, target: '/run/sandbox', read_only: true },
     ],
   }]]));
@@ -394,12 +398,12 @@ async function tools(script: string, args: string[], { volumes = [], ...options 
   return docker(['compose', 'run', '--rm', '--no-TTY', '--quiet-pull', ...mount, 'tools', script, 'tools', ...args], { ...options, env: { COMPOSE_IGNORE_ORPHANS: 'true' } });
 }
 
-// Each sandbox mounts agents/ and home/.agents of its person's volume, and Docker refuses a missing subpath. A new
-// volume gets both from the daemon image, which starts first; a volume made before the sandbox may lack them. Docker
+// Each sandbox mounts agents/, home/.agents and bot-home of its person's volume, and Docker refuses a missing subpath. A
+// new volume gets them from the daemon image, which starts first; an older volume may lack them. Docker
 // follows a link inside a subpath, so a link a bot planted there before the sandbox (its bash ran in the daemon then,
 // with the whole volume) or that came back with a restore would give the sandbox what it points to, such as data/
 // with the credentials key: such a link is replaced by an empty folder, and prints `replaced`. Run in the volume's root.
-const sandboxFoldersScript = 'for p in agents home home/.agents; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done; mkdir -p agents home/.agents && chown 1000:1000 agents home home/.agents';
+const sandboxFoldersScript = 'for p in agents home home/.agents bot-home; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done; mkdir -p agents home/.agents bot-home && chown 1000:1000 agents home home/.agents bot-home';
 
 // A running sandbox keeps the folders it mounted at its start, so one whose links were replaced is removed; the
 // apply's `up` then starts it on the real folders.
@@ -611,10 +615,11 @@ async function stopDaemon(id: string, person: Person) {
   }
 }
 
-// Copies one person's whole volume (database, credentials key, bots, Pi settings, home). Their daemon must be stopped,
-// so no SQLite file is copied mid-write.
+// Copies one person's whole volume (database, credentials key, bots, Pi settings, home, the bots' home) except the bots'
+// download caches (bot-home/.cache), which the tools fill again. Their daemon must be stopped, so no SQLite file is
+// copied mid-write.
 async function copyVolume(id: string, file: string) {
-  await tools('tar -C /data -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
+  await tools('tar -C /data --anchored --exclude=./bot-home/.cache -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
 }
 
 // Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed

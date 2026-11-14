@@ -111,7 +111,7 @@ export function secretProxyActionStart(deps: SecretProxyServiceDeps) {
     const bundle = [authority.caCert.toString('pem'), ...rootCertificates].join('\n');
 
     await mkdir(deps.folder, { recursive: true, mode: 0o700 });
-    await writeFile(join(deps.folder, SECRET_PROXY.bundleFile), bundle, { mode: 0o644 });
+    await secretProxyTrustFiles(deps.folder, bundle);
 
     server.listen(0, SECRET_PROXY.host);
     await once(server, 'listening');
@@ -123,9 +123,14 @@ export function secretProxyActionStart(deps: SecretProxyServiceDeps) {
     deps.state.tunnels = tunnels;
 
     if (deps.sandboxDir) {
-      await writeFile(join(deps.sandboxDir, SECRET_PROXY.bundleFile), bundle, { mode: 0o644 });
+      await secretProxyTrustFiles(deps.sandboxDir, bundle);
       deps.state.bridge = await secretProxyBridge(join(deps.sandboxDir, SECRET_PROXY.sandboxSocket), deps.state.port);
     }
+  }
+
+  async function secretProxyTrustFiles(folder: string, bundle: string) {
+    await writeFile(join(folder, SECRET_PROXY.bundleFile), bundle, { mode: 0o644 });
+    await writeFile(join(folder, SECRET_PROXY.wgetrcFile), `ca_certificate = ${join(folder, SECRET_PROXY.bundleFile)}\n`, { mode: 0o644 });
   }
 
   async function secretProxyBridge(path: string, port: number) {

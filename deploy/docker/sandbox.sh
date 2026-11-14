@@ -12,8 +12,15 @@
 #   As soon as the daemon claims a connection, the script opens the next spare.
 # - proxy.sock: the daemon's secrets proxy. Commands here reach it at 127.0.0.1:47195 (SECRET_PROXY.sandboxPort in
 #   packages/secret-proxy) with the token the daemon puts in their environment.
+# - $HOME (/home/bot): bot-home of the person's volume, shared by their bots; the daemon never mounts it.
 # - `sandbox health`, the image's health check: this container holds a connection to its daemon.
 set -eu
+
+# The bots' PATH starts with folders of their home, which they write and which persist: a program left there named
+# `ls`, `timeout` or `firewall-wait` would run at the next start, before the firewall confines this container. This
+# script, firewall-wait and the health check use only the image's programs; pi-env gets the bots' PATH back.
+export SANDBOX_BOTS_PATH="${SANDBOX_BOTS_PATH:-$PATH}"
+export PATH=/usr/local/bin:/usr/bin:/bin
 
 dir=/run/sandbox
 linked=/tmp/.sandbox-linked
@@ -123,7 +130,7 @@ case "${1:-}" in
       "$line" | '' | *[!0-9a-f]*) refuse ;;
     esac
 
-    exec pi-env serve --token "$token"
+    exec /usr/bin/env -u SANDBOX_BOTS_PATH PATH="$SANDBOX_BOTS_PATH" /usr/local/bin/pi-env serve --token "$token"
     ;;
   health)
     if [ -e "$linked" ]; then
@@ -135,6 +142,13 @@ case "${1:-}" in
     exit 1
     ;;
 esac
+
+# The bots' home persists in the person's volume. An empty one (a new person, or the upgrade that added it) gets the
+# image's starting files: Debian's shell files and a git config with no identity. Under a per-person file from before
+# the home (an upgrade between `up` and `apply`) it is the image's read-only folder: tools still run, installs fail.
+if [ -z "$(ls -A "$HOME")" ] && ! cp -R /etc/skel/. "$HOME"/ 2>/dev/null; then
+  echo "sandbox: $HOME is not writable, so bots cannot install anything: run bun deploy.ts apply" >&2
+fi
 
 # In a team install no bot command runs before the firewall confines this container (set by deploy.ts apply).
 if [ "${MEETVINCI_WAIT_FOR_FIREWALL:-}" = true ]; then

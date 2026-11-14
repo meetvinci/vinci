@@ -160,9 +160,9 @@ Skills are picked up within about 30 seconds. They must sit in the person's volu
 
 > On `root@<server>`, check that `/data/home/.agents/skills/<skill>/SKILL.md` exists in MeetVinci user `<name>`'s volume and is owned by uid 1000.
 
-## A bot cannot install software, or git and curl are missing
+## A bot cannot install software
 
-Containers are locked down: no root, read-only system files. `apt`, `npm -g` and `pip` installs fail. Bots' commands run in the sandbox, which has Bun, git and curl but no Python or Node, and a home folder in `/tmp` that a restart empties. MeetVinci itself ships without ffmpeg, so videos get no preview thumbnail. This is on purpose for now.
+Containers are locked down: no root, read-only system files, so `apt` fails and so does installing into the system. Bots' commands run in the sandbox, which has Bun, Node with npm, Python with pip and uv, git, curl and the usual tools ([what a bot can do](admin.md#what-a-bot-can-do-and-reach)). Bots install into their home folder instead: `npm i -g`, `pip install --user`, `uv tool install` and `bun add -g` work and survive restarts. A package that compiles code while installing fails: there is no compiler. If every install fails with a read-only error, `docker compose logs sandbox-<id>` says `is not writable`: run `bun deploy.ts apply`. MeetVinci itself ships without ffmpeg, so videos get no preview thumbnail.
 
 ## Memory runs low
 
@@ -172,7 +172,7 @@ Each person's MeetVinci is limited to 512 MB, and so is their sandbox, where bot
 
 ## The disk fills up
 
-Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades and backups in `/opt/meetvinci/backups/`.
+Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades, backups in `/opt/meetvinci/backups/`, and what bots keep: their folders and their home with its download caches (there is no per-person disk limit yet). `du -sh /var/lib/docker/volumes/meetvinci_data-*/_data/agents /var/lib/docker/volumes/meetvinci_data-*/_data/bot-home/.cache` shows each person's; a cache folder (`bot-home/.cache`) can be deleted at any time, tools fill it again.
 
 - Fix: remove old MeetVinci image tags by name, `docker rmi meetvinci-daemon:<old tag> meetvinci-sandbox:<old tag> meetvinci-web:<old tag> meetvinci-hub:<old tag> meetvinci-provisioner:<old tag> meetvinci-firewall:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
 
@@ -180,13 +180,13 @@ Images are built on your computer, so the server has no build cache. What grows 
 
 ## A bot cannot reach a service on the server or the private network
 
-On purpose: bots reach the public internet only ([what a bot can reach](admin.md#what-a-bot-can-reach)). If every person really needs one internal service, add its `<IPv4>:<port>` to `MEETVINCI_INTERNAL_ALLOW` in `/opt/meetvinci/.env` and run `bun deploy.ts apply`; `docker compose logs firewall` then names it after `except`. Name the address the bot connects to: for a service on the server itself, its address on Docker's bridge (`172.17.0.1`) or the person's gateway, and the service must listen there.
+On purpose: bots reach the public internet only ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). If every person really needs one internal service, add its `<IPv4>:<port>` to `MEETVINCI_INTERNAL_ALLOW` in `/opt/meetvinci/.env` and run `bun deploy.ts apply`; `docker compose logs firewall` then names it after `except`. Name the address the bot connects to: for a service on the server itself, its address on Docker's bridge (`172.17.0.1`) or the person's gateway, and the service must listen there.
 
 > On `root@<server>`, bots must reach `<address>:<port>`. Add it to `MEETVINCI_INTERNAL_ALLOW` in `/opt/meetvinci/.env` (comma separated, keep existing entries), run `bun deploy.ts apply`, and confirm `docker compose logs firewall | tail -1` lists it. Change nothing else.
 
 ## What a bot can do
 
-A bot's commands and file tools run in its person's sandbox, not in their MeetVinci ([what a bot can reach](admin.md#what-a-bot-can-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. Stdio MCP servers set by an admin still run inside the person's MeetVinci for now. Give bots the read-only or ask permission mode when they don't need more.
+A bot's commands and file tools run in its person's sandbox, not in their MeetVinci ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, install programs into the home folder all of that person's bots share, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. Stdio MCP servers set by an admin still run inside the person's MeetVinci for now. Give bots the read-only or ask permission mode when they don't need more.
 
 ## Bots say "Bot tools are off"
 
@@ -203,7 +203,8 @@ The person's sandbox is not running, so their MeetVinci refuses every tool call 
 MCP servers that run a command run in the person's sandbox (see [What a bot can reach](admin.md#what-a-bot-can-reach)), never in their MeetVinci.
 
 - *MCP servers that run a command are off: the sandbox … is not running*: the same cause and fix as *Bot tools are off* above. Bots that used the server's tools get the same sentence when they call one. The next message after `apply` starts the server again.
-- *The command … is not installed in the sandbox where this MCP server runs*: the sandbox has no such program (today `npx`, `uvx` and `bunx` servers don't start). Install the package into a folder under the bot's own folder with `bun add` and run its entry file with `bun`, or wait for the sandbox's tool set.
+- *The command … is not installed in the sandbox where this MCP server runs*: the sandbox has no such program. `npx`, `uvx`, `node`, `python3` and `bun` are there ([tools](admin.md#what-a-bot-can-do-and-reach)); for anything else, install the package into a folder under the bot's own folder and run its entry file.
+- *Cannot connect to MCP server.* for an `npx` server that worked before, with `npm error enoent Could not read package.json … /home/bot/.cache/npm/_npx/…` when the same command runs in the sandbox: an install was cut off (the sandbox restarted during the first download) and left a broken npx cache, which the persistent home keeps. Delete it and connect again: `docker compose exec sandbox-<id> rm -rf /home/bot/.cache/npm/_npx` (a bot can do the same).
 - *The MCP server stopped during this call*: the server exited or its sandbox restarted mid-call; the effect of that call is unknown, and the bot's next message starts the server again.
 - A server that blocks the person's bot tools (*Resource temporarily unavailable*): it filled the sandbox's process or memory limit. Remove or turn it off in the bot's MCP tab; everything it started stops with it.
 

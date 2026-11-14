@@ -5,4 +5,6 @@ export const MCP = {
   maxPendingWrites: 1_000,
   maxToolPages: 4,
   closeTimeoutMs: 2_000,
+  requestTimeoutMs: 10_000,
+  commandRequestTimeoutMs: 60_000,
 } as const;

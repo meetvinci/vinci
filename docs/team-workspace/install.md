@@ -249,7 +249,7 @@ Start everything:
 ssh root@<server> 'cd /opt/meetvinci && bun deploy.ts apply'
 ```
 
-This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, the firewall that keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-reach)), one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
+This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, the firewall that keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)), one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
 
 Check it:
 
@@ -292,7 +292,7 @@ ssh root@<server> 'ss -tlnp'
 ssh root@<server> 'cd /opt/meetvinci && ids=$(docker compose ps --format "{{.Service}}" | sed -n "s/^daemon-//p"); for a in $ids; do for b in $ids; do [ $a = $b ] && continue; ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" meetvinci-daemon-$b-1); printf "%s -> %s: " $a $b; docker exec meetvinci-daemon-$a-1 bun -e "fetch(\"http://$ip:47191/health\",{signal:AbortSignal.timeout(3000)}).then(()=>console.log(\"REACHABLE: not isolated\"),()=>console.log(\"blocked\"))" 2>/dev/null; done; printf "hub -> %s: " $a; docker exec meetvinci-hub-1 bun -e "fetch(\"http://daemon-$a:47191/health\").then(r=>console.log(r.status),e=>console.log(\"unreachable\"))" 2>/dev/null; done'
 ```
 
-Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair. Then run the check in [what a bot can reach](admin.md#what-a-bot-can-reach) for one person: the internet answers and the server, the hub, the person's own MeetVinci, the metadata service and private addresses are blocked. `bun deploy.ts status` on the server prints every person's MeetVinci and sandbox as `running (healthy)`.
+Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair. Then run the check in [what a bot can reach](admin.md#what-a-bot-can-do-and-reach) for one person: the internet answers and the server, the hub, the person's own MeetVinci, the metadata service and private addresses are blocked. `bun deploy.ts status` on the server prints every person's MeetVinci and sandbox as `running (healthy)`.
 
 Then log in:
 
