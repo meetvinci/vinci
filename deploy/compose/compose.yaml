@@ -103,7 +103,13 @@ services:
       CLOUDFLARE_ACCESS_DOMAINS: ${CLOUDFLARE_ACCESS_DOMAINS:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - .:/opt/meetvinci
+      # rslave: a sandbox disk unmounted on the host is unmounted here too. A plain bind keeps a copy of every disk
+      # mounted when it started, which holds the image's loop device after umount, purge or a disk replacement.
+      - type: bind
+        source: .
+        target: /opt/meetvinci
+        bind:
+          propagation: rslave
     networks:
       provisioner: {}
       egress: {}

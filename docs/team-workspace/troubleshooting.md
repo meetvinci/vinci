@@ -199,16 +199,29 @@ The person's sandbox disk is full: `bun deploy.ts status` shows `disk FULL` for 
 
 ```sh
 e2fsck -fy disks/<id>.img            # repairs; if it says the superblock is bad: e2fsck -fy -b 32768 disks/<id>.img
-bun deploy.ts disks mount && docker compose up -d
+bun deploy.ts disks mount && ls -A disks/<id>
+docker compose up -d
 ```
 
-If it cannot be repaired, give the person a new disk and put their bot folders back from the last backup: `mv disks/<id>.img disks/<id>.img.broken`, `bun deploy.ts apply` (a new, empty disk), then `bun deploy.ts restore <id> <their latest backup>` ([backups](admin.md#backups)). Delete `disks/<id>.img.broken` once the person has what they need.
+The boot check repairs some damage by itself (a zeroed first superblock was repaired from a backup copy and the person started normally). It says `clean` for a disk marked clean even when its contents are damaged; the mount then fails with `Structure needs cleaning`, which is this case too.
+
+`ls -A disks/<id>` must list `agents` and `bot-home`. If it lists only `lost+found` (the repair could not keep the top folder, so it moved the person's folders there), or the repair fails, give the person a new disk and put their bot folders back from the last backup. Stop them and unmount the old disk first; otherwise `apply` stops with `… is mounted from … .img.broken, not … .img`:
+
+```sh
+docker compose stop daemon-<id> sandbox-<id>
+umount disks/<id>                                # if it is mounted
+mv disks/<id>.img disks/<id>.img.broken
+bun deploy.ts apply                              # a new, empty disk
+bun deploy.ts restore <id> <their latest backup>
+```
+
+([backups](admin.md#backups)). Delete `disks/<id>.img.broken` once the person has what they need.
 
 > On `root@<server>`, in `/opt/meetvinci`, the sandbox disk of user `<id>` does not mount. Report `bun deploy.ts status` and `e2fsck -n disks/<id>.img`. Change nothing; tell me whether `e2fsck -fy` can repair it.
 
 ## What a bot can do
 
-A bot's commands and file tools run in its person's sandbox, not in their MeetVinci ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, install programs into the home folder all of that person's bots share, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. Stdio MCP servers set by an admin still run inside the person's MeetVinci for now. Give bots the read-only or ask permission mode when they don't need more.
+A bot's commands and file tools run in its person's sandbox, not in their MeetVinci ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, install programs into the home folder all of that person's bots share, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. MCP servers that run a command run in the same sandbox, so the person's bots can read their `env`. Give bots the read-only or ask permission mode when they don't need more.
 
 ## Bots say "Bot tools are off"
 

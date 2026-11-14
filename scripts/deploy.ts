@@ -345,7 +345,9 @@ const disksMountScript = 'failed=0; for img in "$1"/*.img; do [ -e "$img" ] || c
 // it, grows it online when SANDBOX_DISK grew, and trims it so space bots freed goes back to the server (`discard` does
 // that only in part). Prints `new <id>` for a disk without bot folders yet, `larger <id>` for one bigger than
 // SANDBOX_DISK (shrinking is not done: it needs the disk offline). A disk that is not mounted is checked first, as at
-// boot; one e2fsck cannot repair stops apply with its name. Only `new` and `larger` lines go to stdout.
+// boot; one e2fsck cannot repair stops apply with its name. A disk mounted from another file (an image renamed while
+// mounted, as when replacing a broken one) stops apply too: the person would otherwise run on the old file until the
+// next boot. Only `new` and `larger` lines go to stdout.
 const disksScript = [
   'set -eu',
   'dir=$1; bytes=$2; shift 2',
@@ -358,9 +360,11 @@ const disksScript = [
   '    { e2fsck -p "$img" >&2 || [ $? -lt 4 ]; } || { echo "The sandbox disk of $id has errors e2fsck -p cannot repair: see troubleshooting.md, A sandbox disk does not mount." >&2; exit 1; }',
   '    mount -o loop,nosuid,nodev,discard "$img" "$mnt"',
   '  fi',
+  '  dev=$(findmnt -n -o SOURCE --mountpoint "$mnt")',
+  '  losetup -j "$img" | grep -q "^$dev:" || { echo "$mnt is mounted from $(losetup -n -O BACK-FILE "$dev"), not $img: stop daemon-$id and sandbox-$id, umount $mnt, then run apply again (troubleshooting.md, A sandbox disk does not mount)." >&2; exit 1; }',
   `  [ -e "$mnt/${diskMarker}" ] || touch "$mnt/${diskMarker}"`,
   '  size=$(stat -c %s "$img")',
-  '  if [ "$size" -lt "$bytes" ]; then truncate -s "$bytes" "$img"; dev=$(findmnt -n -o SOURCE --mountpoint "$mnt"); losetup -c "$dev"; resize2fs -f "$dev" > /dev/null; fi',
+  '  if [ "$size" -lt "$bytes" ]; then truncate -s "$bytes" "$img"; losetup -c "$dev"; resize2fs -f "$dev" > /dev/null; fi',
   '  if [ "$size" -gt "$bytes" ]; then echo "larger $id"; fi',
   '  fstrim "$mnt" > /dev/null 2>&1 || true',
   '  if [ ! -d "$mnt/agents" ] || [ ! -d "$mnt/bot-home" ]; then echo "new $id"; fi',
@@ -799,18 +803,27 @@ async function copyVolume(id: string, file: string) {
 }
 
 // Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed
-// midway still stops the container). Returns how long they were down.
-async function backupVolume(id: string, person: Person, file: string): Promise<number> {
+// midway still stops the container). A failed copy fails. A good copy whose person then does not come back healthy (a
+// daemon that cannot start, for example) returns the start's error instead, so the nightly still backs up everyone
+// after them. Returns how long they were down.
+async function backupVolume(id: string, person: Person, file: string): Promise<{ downtimeMs: number; startError: Error | null }> {
   const stopped = Date.now();
 
   try {
     await stopDaemon(id, person);
     await copyVolume(id, file);
-  } finally {
-    await startDaemon(id, person);
+  } catch (error) {
+    await startDaemon(id, person).catch(() => undefined);
+    throw error;
   }
 
-  return Date.now() - stopped;
+  const startError = await startDaemon(id, person).then(() => null, (error: unknown) => (error instanceof Error ? error : new Error(String(error))));
+
+  return { downtimeMs: Date.now() - stopped, startError };
+}
+
+function backupNotBack(id: string, error: Error) {
+  return `The MeetVinci of ${id} did not come back healthy after its copy (${error.message}). Its backup is complete; bun deploy.ts status and docker compose logs daemon-${id} show why.`;
 }
 
 function backupStamp(): string {
@@ -822,8 +835,12 @@ async function backup() {
   const file = path.join(backupsFolder, `${id}-${backupStamp()}.tar.gz`);
 
   backupsRoot();
-  await locked(() => backupVolume(id, person, file));
+  const { startError } = await locked(() => backupVolume(id, person, file));
   console.log(`Backed up ${id} to ${file}. It contains their keys: keep it secret.`);
+
+  if (startError) {
+    fail(backupNotBack(id, startError));
+  }
 }
 
 // Unpacks a backup into the person's volume and, when they have a disk, moves its bot folders and bots' home onto the
@@ -892,7 +909,8 @@ interface NightlyManifest {
   project: string;
   startedAt: string;
   finishedAt: string;
-  people: { id: string; enabled: boolean; advanced: boolean; downtimeMs: number }[];
+  // `back` is false for someone who did not come back healthy after their (complete) copy.
+  people: { id: string; enabled: boolean; advanced: boolean; downtimeMs: number; back: boolean }[];
   hubDowntimeMs: number;
   files: Record<string, NightlyFile>;
 }
@@ -903,6 +921,8 @@ interface NightlyStatus {
   finishedAt?: string;
   result: 'running' | 'ok' | 'failed';
   error?: string;
+  // People of an `ok` run who did not come back healthy after their copy: the run fails and `nightly status` too.
+  notBack?: string[];
 }
 
 // The last upload to the bucket and the last failure, kept across runs for `nightly status`, with the bucket and
@@ -1005,12 +1025,16 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
 
     signal.throwIfAborted();
 
-    const downtimeMs = await backupVolume(id, person, path.join(folder, `${id}.tar.gz`));
+    const { downtimeMs, startError } = await backupVolume(id, person, path.join(folder, `${id}.tar.gz`));
 
     console.log(`Backed up ${id}${person.enabled ? `; their MeetVinci was stopped for ${(downtimeMs / 1000).toFixed(1)} s` : ' (disabled)'}`);
+
+    if (startError) {
+      console.error(backupNotBack(id, startError));
+    }
     utimesSync(lockFile, new Date(), new Date());
 
-    return [...done, { id, enabled: person.enabled, advanced: person.advanced, downtimeMs }];
+    return [...done, { id, enabled: person.enabled, advanced: person.advanced, downtimeMs, back: startError === null }];
   }, Promise.resolve([]));
 
   signal.throwIfAborted();
@@ -1282,6 +1306,7 @@ async function nightlyRun() {
     console.log(`Nightly backup ${folder}: ${manifest.people.length} workspaces, ${(bytes / 1024 / 1024).toFixed(1)} MiB. It holds every key: keep it secret.`);
     nightlyPrune(path.basename(folder));
     status.result = 'ok';
+    status.notBack = manifest.people.filter(({ back }) => !back).map(({ id }) => id);
 
     return nightlyOffsite();
   }, nightlyLockWaitMs).catch((error: unknown) => {
@@ -1297,6 +1322,14 @@ async function nightlyRun() {
   if (offsiteError !== undefined) {
     fail(`Off-site upload failed: ${offsiteError}. The backup on this server is kept; the next run tries again`);
   }
+
+  if (status.notBack?.length) {
+    fail(nightlyNotBack(status.notBack));
+  }
+}
+
+function nightlyNotBack(ids: string[]): string {
+  return `The backup is complete and kept, but the MeetVinci of ${ids.join(', ')} did not come back healthy after the copy: bun deploy.ts status and docker compose logs daemon-<id> show why`;
 }
 
 function ago(ms: number): string {
@@ -1355,6 +1388,10 @@ async function nightlyStatus() {
 
   if (status.result !== 'ok' || age > nightlyStaleMs) {
     fail(status.result === 'ok' ? 'The last nightly backup is more than a day and a half old: check the timer.' : 'The last nightly backup did not succeed.');
+  }
+
+  if (status.notBack?.length) {
+    fail(nightlyNotBack(status.notBack));
   }
 
   if (offsiteFailing) {

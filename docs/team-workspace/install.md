@@ -9,7 +9,7 @@ An agent can also do the whole install at once: see [the whole install in one pr
 You need:
 
 - **A server.** Ubuntu 24.04 on x86 (amd64), with root SSH access. It must run Docker Engine directly on Linux (step 2). Keeping each person's MeetVinci away from the others relies on Docker Engine's own network rules; OrbStack and other Mac or Windows Docker apps do not enforce them, so never run a team there.
-  - Memory: 4 GB for up to 5 people, 8 GB for up to about 13. The server also runs one workspace for the global settings, sized like a person. A "4 GB" server shows about 3.7 GiB in `free -h`; that is enough.
+  - Memory: 4 GB for up to 5 people, 8 GB for up to about 13. The server also runs one workspace for the global settings, sized like a person. A "4 GB" server shows about 3.7 GiB in `free -h`; that is enough. MCP servers that run a command (`npx`, `uvx`) cost more: each bot runs its own copy from the moment its person's MeetVinci starts, about 150 MiB per bot for one `npx` and one `uvx` server. With such servers in Global settings, plan 4 GB for about 3 people with two bots each ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)).
   - Disk: at least 40 GB.
   - The CPU must support AVX2. Most current servers do.
 - **A domain on Cloudflare**, for example `example.com`. The team gets one name under it, for example `acme.example.com`.
@@ -88,14 +88,14 @@ ssh root@<server> 'test -e /opt/meetvinci/.env' || { scp deploy/.env.example roo
 The deploy commands need Bun on the server. Take it from the image you just loaded, so it matches:
 
 ```sh
-ssh root@<server> "docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun && bun --version"
+ssh root@<server> "docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun && bun --version"
 ```
 
-Expected: a Bun version such as `1.4.4`.
+Expected: a Bun version such as `1.4.4`. The copy goes through `bun.new` because writing over a Bun that is running (a nightly backup during an upgrade, for example) fails with `Text file busy`.
 
 **Give this to your agent:**
 
-> In my MeetVinci checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `meetvinci-daemon:$TAG`, `meetvinci-sandbox:$TAG`, `meetvinci-web:$TAG`, `meetvinci-hub:$TAG`, `meetvinci-provisioner:$TAG` and `meetvinci-firewall:$TAG`. Load them on `root@<server>` with `docker save meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/meetvinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/meetvinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> In my MeetVinci checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `meetvinci-daemon:$TAG`, `meetvinci-sandbox:$TAG`, `meetvinci-web:$TAG`, `meetvinci-hub:$TAG`, `meetvinci-provisioner:$TAG` and `meetvinci-firewall:$TAG`. Load them on `root@<server>` with `docker save meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/meetvinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/meetvinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -104,6 +104,8 @@ Expected: a Bun version such as `1.4.4`.
 Under `admins:`, list the email of the first admin of the admin panel. An admin can log in at Cloudflare but gets no MeetVinci of their own unless they are also under `users:`. Later admins are added in the admin panel.
 
 To show a name in the admin panel instead of the id, use the long form for that person (`name:` and `email:` on their own lines, see [the user list](admin.md#the-user-list)). You can also list only yourself now and add everyone else later in the admin panel.
+
+People listed here start with every section of [Global settings](admin.md#global-settings-and-suggested-bots) *overridden*: what you set there in step 8 never reaches them until you switch each of their sections to global (**Back to global** on their page). People added in the panel after you set Global settings follow every section. For a new team, list only the admins here (and yourself if you are a user), set Global settings, then add people in the panel; or list everyone and switch their sections afterwards.
 
 ```sh
 ssh root@<server> 'cat > /opt/meetvinci/users.yaml' <<'LIST'
