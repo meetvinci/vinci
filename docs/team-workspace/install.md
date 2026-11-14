@@ -75,7 +75,7 @@ The last command must print `amd64` six times. The build makes amd64 images even
 docker save meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
 ```
 
-Expected: six `Loaded image:` lines. It takes a minute or two on a home connection (about 300 MB).
+Expected: six `Loaded image:` lines. It sends about 600 MB, so it takes a few minutes on a home connection.
 
 Copy the deployment files into `/opt/meetvinci`. Only the first time, also copy the settings template as `.env`:
 
@@ -251,7 +251,7 @@ Start everything:
 ssh root@<server> 'cd /opt/meetvinci && bun deploy.ts apply'
 ```
 
-This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, the firewall that keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)), one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), each with a sandbox and a sandbox disk for their bots' files and home ([disk limits](admin.md#disk-limits): `disks/` and the boot unit `meetvinci-disks.service`), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
+This writes the per-person files from `users.yaml`, then starts the web app, cloudflared, the firewall that keeps bots off the server's internal addresses ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)), one container per person and one more for the template workspace (`daemon-template`, which holds the admin panel's global settings and suggested bots; nobody logs into it), each with a sandbox and a sandbox disk for their bots' files and home ([disk limits](admin.md#disk-limits): `disks/` and the boot unit `meetvinci-disks.service`), then the hub and the provisioner, and waits until all are healthy. It takes about 15 seconds and ends with `Applied 2 users: alice, bob (and the template workspace)`. The first time, it also downloads the cloudflared image from Docker Hub, so the server needs to reach Docker Hub. Every container restarts on its own after a crash or a reboot. Nothing listens on the server's network: only cloudflared connects out.
 
 Check it:
 
