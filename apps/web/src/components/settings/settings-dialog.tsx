@@ -66,7 +66,7 @@ export function SettingsDialog({ variant, connection, section, view, modelKey, d
   }
 
   const isInert = frame?.isLocked === true && section !== 'secrets';
-  const description = current.id === 'chat' && team.isTeam && !team.isAdvanced ? m.settings_chat_hint_basic() : current.description();
+  const description = current.id === 'chat' && !team.isAdvanced ? m.settings_chat_hint_basic() : current.description();
 
   return (
     <SectionDialog
@@ -125,7 +125,7 @@ function SettingsDialogNav({ section, sections }: SettingsDialogNavProps) {
   return (
     <SectionDialogNav
       activeKey={section}
-      footer={scope.isAdmin || team.isTeam ? undefined : (
+      footer={scope.isAdmin || !import.meta.env.DEV ? undefined : (
         <>
           <Button
             asChild
@@ -217,7 +217,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
       <SettingsSecrets
         canRemoveGlobal={scope.isAdmin ? !isLocked : false}
         isModeLocked={isLocked}
-        isModeVisible={!team.isTeam}
+        isModeVisible={scope.isAdmin}
       />
     ))
     .with('sources', () => <SettingsManaged section="sources"><SettingsSources /></SettingsManaged>)

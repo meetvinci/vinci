@@ -11,6 +11,7 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsToolsRules } from '@repo/ui/settings/settings-tools-rules';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
+import { useSectionScope } from '@/hooks/use-section-scope';
 import { useTeam } from '@/hooks/use-team';
 
 interface SettingsToolsProps {
@@ -20,6 +21,7 @@ interface SettingsToolsProps {
 export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
   const { rpc } = useRpc();
   const { data: settings } = useSuspenseQuery(rpc.tools.settings.queryOptions());
+  const scope = useSectionScope();
   const team = useTeam();
 
   const form = useForm({
@@ -45,15 +47,15 @@ export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
     </SettingsGroup>
   );
 
-  if (team.isTeam && team.followsGlobal('tools')) {
+  if (team.followsGlobal('tools')) {
     return jevStatus;
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(team.isTeam ? save.saveJev : save.save)}>
+      <form onSubmit={form.handleSubmit(scope.isAdmin ? save.save : save.saveJev)}>
         <fieldset className="flex flex-col gap-4" disabled={save.isPending}>
-          {team.isTeam ? null : (
+          {scope.isAdmin ? (
             <>
               <SettingsGroup title={m.settings_tools_rules()}>
                 <PanelRow className="items-start">
@@ -91,7 +93,7 @@ export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
                 </PanelRow>
               </SettingsGroup>
             </>
-          )}
+          ) : null}
           {isReadOnly ? jevStatus : (
             <SettingsGroup title={m.settings_tools_jev()}>
               <PanelRow className="items-start">

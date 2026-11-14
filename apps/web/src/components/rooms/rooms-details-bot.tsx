@@ -1,6 +1,6 @@
-import { BOT_PERMISSION_LABELS, BOT_THINKING_LEVEL_LABELS, ROOMS_SEND_MODE_DEFAULT, ROOMS_SEND_MODES } from '@repo/client/client';
-import { useBotUpdate, useChatSettings } from '@repo/client/react';
-import { botFields, conversationWhenBusy } from '@repo/contracts/universal';
+import { BOT_THINKING_LEVEL_LABELS, ROOMS_SEND_MODE_DEFAULT, ROOMS_SEND_MODES } from '@repo/client/client';
+import { useChatSettings } from '@repo/client/react';
+import { conversationWhenBusy } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { Item, ItemActions, ItemContent, ItemGroup, ItemLink, ItemMedia, ItemTitle, ItemValue } from '@repo/ui/item';
 import { RoomsDetailsSection } from '@repo/ui/rooms/rooms-details-section';
@@ -8,12 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SettingsProviderLogo } from '@repo/ui/settings/settings-provider-logo';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useTeam } from '@/hooks/use-team';
 import { rpc } from '@/services/rpc/rpc.client';
 import IconChevronRight from '~icons/lucide/chevron-right';
 import IconListOrdered from '~icons/lucide/list-ordered';
 import IconSettings2 from '~icons/lucide/settings-2';
-import IconShieldCheck from '~icons/lucide/shield-check';
 import type { RoomsChat } from '@repo/client/client';
 import type { Bot } from '@repo/contracts/universal';
 
@@ -26,8 +24,6 @@ export function RoomsDetailsBot({ bot, chat }: RoomsDetailsBotProps) {
   const { data: models = [] } = useQuery({ ...rpc.models.list.queryOptions(), retry: false });
   const model = models.find((item) => item.provider === bot.modelProvider && item.id === bot.modelId);
   const settings = useChatSettings(bot.id);
-  const update = useBotUpdate();
-  const team = useTeam();
 
   return (
     <RoomsDetailsSection title={m.bots_settings()}>
@@ -72,34 +68,6 @@ export function RoomsDetailsBot({ bot, chat }: RoomsDetailsBotProps) {
             </Select>
           </ItemActions>
         </Item>
-        {team.isTeam ? null : (
-          <Item size="sm">
-            <ItemMedia>
-              <IconShieldCheck />
-            </ItemMedia>
-            <ItemContent className="min-w-0">
-              <ItemTitle>{m.rooms_bot_permission()}</ItemTitle>
-            </ItemContent>
-            <ItemActions>
-              <Select
-                disabled={update.isPending}
-                value={bot.permission}
-                onValueChange={(value) => update.mutate({ botId: bot.id, permission: botFields.shape.permission.parse(value) })}
-              >
-                <SelectTrigger
-                  aria-label={m.rooms_bot_permission()}
-                  className="-mr-2 h-6"
-                  variant="ghost"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent align="end">
-                  {botFields.shape.permission.options.map((option) => <SelectItem key={option} value={option}>{BOT_PERMISSION_LABELS[option]()}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </ItemActions>
-          </Item>
-        )}
         <Item size="sm">
           <ItemMedia>
             <IconSettings2 />

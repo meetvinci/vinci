@@ -25,7 +25,6 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
   const hydrated = useHydrated();
   const server = useQuery(rpc.server.info.queryOptions());
   const { data: team } = useQuery(teamQuery());
-  const host = new URL((connection.addresses.find((address) => address.kind !== 'loopback') ?? connection.addresses[0]).url).host;
 
   const status = match(server)
     .with({ isError: true }, () => 'destructive' as const)
@@ -51,12 +50,7 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
                 </span>
               </span>
               <div className="grid flex-1 text-left text-sm/tight group-data-[collapsible=icon]:sr-only">
-                {team ? <span className="truncate font-semibold">{team.name ?? team.email}</span> : (
-                  <>
-                    <span className="truncate font-semibold">{env.VITE_APP_NAME}</span>
-                    <span className="truncate text-xxs text-muted-foreground">{host}</span>
-                  </>
-                )}
+                <span className="truncate font-semibold">{team ? team.name ?? team.email : env.VITE_APP_NAME}</span>
               </div>
               <LucideChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
             </Sidebar.SidebarMenuButton>

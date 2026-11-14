@@ -74,7 +74,7 @@ Then it downloads the manifest from `DESKTOP_UPDATE_URL` and fails if the addres
 
 ### Settings it cannot change for now
 
-Every MeetVinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it shows these controls as before, but saving answers "Your admin manages this.": a bot's permission level other than **Ask** (new or changed), a changed approval rule or timeout, how bots use secrets, an MCP server that runs a command, the default model, and rate limits. Its bots cannot add an MCP server that runs a command either. Pairing, chat, bots on **Ask**, secrets, web MCP servers and the other settings work as before.
+Every MeetVinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it hides those controls, as for a person in a team: a bot's permission level (new bots are on **Ask**), approval rules and the approval timeout, and how bots use secrets. The default model and rate limits were never in the app. Its bots cannot add an MCP server that runs a command. Pairing (including **Pair a device** for a phone), **Settings → Server**, chat, secrets, web MCP servers, models, sources and the Jev key work as before.
 
 ## What the check protects against
 

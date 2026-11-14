@@ -18,7 +18,6 @@ import { BotEdit } from '@/components/bots/bot-edit';
 import { BotFormModel } from '@/components/bots/bot-form-model';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
-import { useTeam } from '@/hooks/use-team';
 import IconChevronLeft from '~icons/lucide/chevron-left';
 import type { BotDialogView } from '@/types/bot.types';
 import type { BotForm } from '@repo/contracts/universal';
@@ -69,7 +68,6 @@ function BotDialogCreate() {
   const { rpc } = useRpc();
   const navigate = useNavigate();
   const scope = useSectionScope();
-  const team = useTeam();
   const { data: models } = useQuery({ ...rpc.models.list.queryOptions(), retry: false });
   const { data: modelSettings } = useQuery({ ...rpc.models.settings.queryOptions(), retry: false });
   const settings = models ? botNewModel({ models, defaultModel: modelSettings?.defaultModel ?? null }) : null;
@@ -86,7 +84,7 @@ function BotDialogCreate() {
       modelId: settings?.modelId ?? '',
       thinkingLevel: settings?.thinkingLevel ?? 'medium',
       permission: 'ask',
-      inherit: scope.isAdmin || team.isTeam ? ['skills', 'agentsFile', 'mcp', 'plugins'] : ['skills', 'mcp', 'plugins'],
+      inherit: ['skills', 'agentsFile', 'mcp', 'plugins'],
       sharedSkills: null,
       sharedMcp: null,
       disabledSkills: null,
