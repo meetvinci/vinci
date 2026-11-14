@@ -55,6 +55,7 @@ export async function globalActionBots(deps: GlobalTypes.GlobalServiceDeps, { id
         error: match(error)
           .with({ code: 'CONFLICT' }, () => 'This user already has a bot with that handle')
           .with({ data: { fields: { files: { message: 'validation_workspace_too_large' } } } }, () => 'The bot\'s own files are too large to copy (over 2000 files or 6 MiB)')
+          .with({ code: 'DISK_FULL' }, () => 'This user\'s bots\' disk is full; free space on it and copy again')
           .with({ code: 'FORBIDDEN' }, () => 'A folder of the new bot links outside its bot folders; nothing was written there')
           .with(P.instanceOf(Error), ({ message }) => message)
           .otherwise(String)

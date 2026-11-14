@@ -32,6 +32,9 @@ export async function botActionCreate(deps: BotServiceDeps, { canStart, ...param
       .with(false, () => undefined)
       .exhaustive();
 
+    // SAFETY: the folder is made before the row commits, so a full disk never leaves a bot without one.
+    await deps.workspace.actions.prepareDirectory({ botId: id });
+
     return id;
   });
 

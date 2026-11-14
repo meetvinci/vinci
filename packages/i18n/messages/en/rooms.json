@@ -13,6 +13,7 @@
   "rooms_bot_instructions": "Instructions",
   "rooms_bot_instructions_placeholder": "Personality, role and tone. For example: a calm reviewer who answers in short bullet points.",
   "rooms_bot_create_error": "Could not create the bot. Check the fields and use an available handle.",
+  "rooms_bot_create_disk_full": "No space left on your disk, so the bot was not created. Delete files your bots no longer need, or ask your admin for more room.",
   "rooms_bot_thinking_level": "Reasoning",
   "rooms_bot_thinking_level_off": "Off",
   "rooms_bot_thinking_level_low": "Low",

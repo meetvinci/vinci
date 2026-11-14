@@ -47,10 +47,16 @@ export async function workspaceFilesWrite({ roots, folder }: WorkspaceFolder, fi
     throw new Errors.VALIDATION_ERROR({ fields: { files: { message: 'validation_workspace_path' } }, internal: `Refused ${refused.path}` });
   }
 
-  for (const { path, content, isExecutable } of files) {
-    runtimeBotFilesWrite(roots, join(folder, path), Buffer.from(content, 'base64'), {
-      mode: match(isExecutable).with(true, () => WORKSPACE.executableMode).otherwise(() => WORKSPACE.fileMode),
-    });
+  try {
+    for (const { path, content, isExecutable } of files) {
+      runtimeBotFilesWrite(roots, join(folder, path), Buffer.from(content, 'base64'), {
+        mode: match(isExecutable).with(true, () => WORKSPACE.executableMode).otherwise(() => WORKSPACE.fileMode),
+      });
+    }
+  } catch (error) {
+    throw match(error)
+      .with({ code: P.union('ENOSPC', 'EDQUOT') }, () => new Errors.DISK_FULL({ cause: error }))
+      .otherwise(() => error);
   }
 }
 
