@@ -5,7 +5,6 @@ import { m } from '@repo/i18n/client';
 import { RoomsSectionDeleteDialog } from '@repo/ui/rooms/rooms-section-delete-dialog';
 import { RoomsSectionDialog } from '@repo/ui/rooms/rooms-section-dialog';
 import { createFileRoute, Outlet, redirect, useMatch } from '@tanstack/react-router';
-import { match } from 'ts-pattern';
 import { LayoutShellDashboard } from '@/components/layout/layout-shell-dashboard';
 import { RoomsDetails } from '@/components/rooms/rooms-details';
 import { RoomsSearch } from '@/components/rooms/rooms-search';
@@ -21,26 +20,10 @@ import { teamQuery } from '@/services/team/team.client';
 export const Route = createFileRoute('/_chat')({
   head: () => seoHead({ title: m.rooms_meta_title() }),
   validateSearch: chatSearch,
-  beforeLoad: async ({ context, location }) => {
+  beforeLoad: ({ context }) => {
     if (!context.connection) {
       throw redirect({ to: '/connect' });
     }
-
-    const [onboarding, team] = await Promise.all([
-      context.queryClient.ensureQueryData(rpc.onboarding.state.queryOptions()),
-      context.queryClient.ensureQueryData(teamQuery()),
-    ]);
-
-    const isOnboarding = location.pathname.startsWith('/onboarding/');
-
-    match({ isDone: onboarding.completedAt !== null || team !== null, isOnboarding })
-      .with({ isDone: false, isOnboarding: false }, () => {
-        throw redirect({ to: '/onboarding/$step', params: { step: 'welcome' } });
-      })
-      .with({ isDone: true, isOnboarding: true }, () => {
-        throw redirect({ to: '/rooms' });
-      })
-      .otherwise(() => undefined);
 
     return { connection: context.connection };
   },
@@ -50,6 +33,7 @@ export const Route = createFileRoute('/_chat')({
       context.queryClient.ensureQueryData(rpc.conversation.list.queryOptions()),
       context.queryClient.ensureQueryData(rpc.bots.list.queryOptions()),
       context.queryClient.ensureQueryData(rpc.models.list.queryOptions()),
+      context.queryClient.ensureQueryData(teamQuery()),
     ]);
 
     return { sidebars, connection: context.connection };

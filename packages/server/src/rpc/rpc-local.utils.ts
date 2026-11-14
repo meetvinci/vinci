@@ -5,7 +5,6 @@ import type { RpcLocalAllowlist, RpcLocalAuthorizeParams, RpcLocalRule } from '.
 
 const RPC_LOCAL_ALLOWLIST = {
   server: { info: true, configure: true },
-  onboarding: { state: true, complete: true },
   conversation: { settings: true, configure: true, list: true, history: true, search: true, reactions: true, questions: true },
   artifacts: { get: true, versions: true },
   attachments: { download: true, poster: true },

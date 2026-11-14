@@ -13,7 +13,6 @@ import { makeLimitService } from '../services/limit/limit.service';
 import { makeLinkService } from '../services/link/link.service';
 import { makeMcpAuthService } from '../services/mcp/mcp-auth.service';
 import { makeNotificationService } from '../services/notification/notification.service';
-import { makeOnboardingService } from '../services/onboarding/onboarding.service';
 import { makePluginService } from '../services/plugin/plugin.service';
 import { makeRoutineService } from '../services/routine/routine.service';
 import { makeServerService } from '../services/server/server.service';
@@ -113,7 +112,6 @@ export async function makeServices({
       artifacts: makeArtifactService({ bots, runtime }),
       notifications,
       server,
-      onboarding: makeOnboardingService({ settings }),
       limits,
       links: makeLinkService({ resolver: linkResolver }),
       providers,

@@ -94,7 +94,6 @@ import {
 import { mcpCatalog, mcpCatalogServer, mcpConfigure, mcpDiscover, mcpServerAdd, mcpServerRemove, mcpSettings, mcpShared } from '../types/mcp.types';
 import { modelList, modelSettings } from '../types/model.types';
 import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid, notificationWebPush, notificationWebPushKey } from '../types/notification.types';
-import { onboardingState } from '../types/onboarding.types';
 import { pluginCatalog, pluginConfigure, pluginDiscover, pluginSettings } from '../types/plugin.types';
 import {
   providerCancelResult,
@@ -257,11 +256,6 @@ export const contract = {
     info: ocAuth.output(serverInfo),
 
     configure: ocAuth.input(serverConfigure).output(serverInfo),
-  },
-
-  onboarding: {
-    state: ocAuth.output(onboardingState),
-    complete: ocAuth.output(onboardingState),
   },
 
   models: {

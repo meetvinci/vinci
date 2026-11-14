@@ -24,7 +24,6 @@ export * from './types/mcp.types';
 export * from './types/model.types';
 export * from './types/notification.types';
 export * from './types/gif.types';
-export * from './types/onboarding.types';
 export * from './types/plugin.types';
 export * from './types/preferences.types';
 export * from './types/provider.types';

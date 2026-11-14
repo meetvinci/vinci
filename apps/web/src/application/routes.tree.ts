@@ -26,7 +26,6 @@ import { Route as artifactsArtifactsDotindexRouteImport } from "./../routes/arti
 import { Route as botsBotsDotindexRouteImport } from "./../routes/bots/bots.index";
 import { Route as botsBotsDotbotIdRouteImport } from "./../routes/bots/bots.$botId";
 import { Route as botsBotsDotcreateRouteImport } from "./../routes/bots/bots.create";
-import { Route as onboardingOnboardingDotstepRouteImport } from "./../routes/onboarding/onboarding.$step";
 import { Route as roomsRoomsDotindexRouteImport } from "./../routes/rooms/rooms.index";
 import { Route as settingsSettingsDotindexRouteImport } from "./../routes/settings/settings.index";
 import { Route as settingsSettingsDottabRouteImport } from "./../routes/settings/settings.$tab";
@@ -166,12 +165,6 @@ const botsBotsDotcreateRoute = botsBotsDotcreateRouteImport.update({
   path: "/create",
   getParentRoute: () => botsBotsRoute,
 } as any);
-const onboardingOnboardingDotstepRoute =
-  onboardingOnboardingDotstepRouteImport.update({
-    id: "/onboarding/$step",
-    path: "/onboarding/$step",
-    getParentRoute: () => chatDotlayoutRoute,
-  } as any);
 const roomsRoomsDotindexRoute = roomsRoomsDotindexRouteImport.update({
   id: "/rooms/",
   path: "/rooms/",
@@ -509,7 +502,6 @@ export interface FileRoutesByFullPath {
   "/admin/": typeof adminAdminDotindexRoute;
   "/bots/$botId": typeof botsBotsDotbotIdRouteWithChildren;
   "/bots/create": typeof botsBotsDotcreateRoute;
-  "/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/settings/$tab": typeof settingsSettingsDottabRoute;
   "/admin/users/$userId": typeof adminAdminDotusersDotuserIdRouteWithChildren;
   "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
@@ -576,7 +568,6 @@ export interface FileRoutesByTo {
   "/lab/chat": typeof labLabDotchatRoute;
   "/admin": typeof adminAdminDotindexRoute;
   "/bots/create": typeof botsBotsDotcreateRoute;
-  "/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/settings/$tab": typeof settingsSettingsDottabRoute;
   "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
   "/img/favicon/site.webmanifest": typeof handlersHandlerDotwebmanifestRoute;
@@ -646,7 +637,6 @@ export interface FileRoutesById {
   "/admin/": typeof adminAdminDotindexRoute;
   "/_chat/bots/$botId": typeof botsBotsDotbotIdRouteWithChildren;
   "/_chat/bots/create": typeof botsBotsDotcreateRoute;
-  "/_chat/onboarding/$step": typeof onboardingOnboardingDotstepRoute;
   "/_chat/settings/$tab": typeof settingsSettingsDottabRoute;
   "/admin/users/$userId": typeof adminAdminDotusersDotuserIdRouteWithChildren;
   "/admin/users/create": typeof adminAdminDotusersDotcreateRoute;
@@ -720,7 +710,6 @@ export interface FileRouteTypes {
     | "/admin/"
     | "/bots/$botId"
     | "/bots/create"
-    | "/onboarding/$step"
     | "/settings/$tab"
     | "/admin/users/$userId"
     | "/admin/users/create"
@@ -787,7 +776,6 @@ export interface FileRouteTypes {
     | "/lab/chat"
     | "/admin"
     | "/bots/create"
-    | "/onboarding/$step"
     | "/settings/$tab"
     | "/admin/users/create"
     | "/img/favicon/site.webmanifest"
@@ -856,7 +844,6 @@ export interface FileRouteTypes {
     | "/admin/"
     | "/_chat/bots/$botId"
     | "/_chat/bots/create"
-    | "/_chat/onboarding/$step"
     | "/_chat/settings/$tab"
     | "/admin/users/$userId"
     | "/admin/users/create"
@@ -1044,13 +1031,6 @@ declare module "@tanstack/react-router" {
       fullPath: "/bots/create";
       preLoaderRoute: typeof botsBotsDotcreateRouteImport;
       parentRoute: typeof botsBotsRoute;
-    };
-    "/_chat/onboarding/$step": {
-      id: "/_chat/onboarding/$step";
-      path: "/onboarding/$step";
-      fullPath: "/onboarding/$step";
-      preLoaderRoute: typeof onboardingOnboardingDotstepRouteImport;
-      parentRoute: typeof chatDotlayoutRoute;
     };
     "/_chat/rooms/": {
       id: "/_chat/rooms/";
@@ -1592,7 +1572,6 @@ interface chatDotlayoutRouteChildren {
   artifactsArtifactsRoute: typeof artifactsArtifactsRouteWithChildren;
   botsBotsRoute: typeof botsBotsRouteWithChildren;
   settingsSettingsRoute: typeof settingsSettingsRouteWithChildren;
-  onboardingOnboardingDotstepRoute: typeof onboardingOnboardingDotstepRoute;
   roomsRoomsDotindexRoute: typeof roomsRoomsDotindexRoute;
   roomsRoomsDotdirectDothandleRoute: typeof roomsRoomsDotdirectDothandleRouteWithChildren;
 }
@@ -1601,7 +1580,6 @@ const chatDotlayoutRouteChildren: chatDotlayoutRouteChildren = {
   artifactsArtifactsRoute: artifactsArtifactsRouteWithChildren,
   botsBotsRoute: botsBotsRouteWithChildren,
   settingsSettingsRoute: settingsSettingsRouteWithChildren,
-  onboardingOnboardingDotstepRoute: onboardingOnboardingDotstepRoute,
   roomsRoomsDotindexRoute: roomsRoomsDotindexRoute,
   roomsRoomsDotdirectDothandleRoute:
     roomsRoomsDotdirectDothandleRouteWithChildren,

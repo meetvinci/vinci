@@ -27,8 +27,6 @@ export async function pairingActionGrant(deps: PairingTypes.PairingServiceDeps, 
     throw new Errors.SERVER_MISMATCH({ internal: `The owner socket of ${user.id} belongs to another daemon` });
   }
 
-  await socket.onboarding.complete();
-
   log.info({
     tag: 'hub',
     message: 'Pairing grant issued through the hub',

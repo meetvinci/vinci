@@ -284,7 +284,7 @@ The app a person opens is simpler than the one a single owner gets: it hides wha
 
 **Only an advanced user sees:** **Settings → Chat**'s workspace settings (new messages while a bot works, hiding tool calls and thinking, GIFs); **Settings → Models** (adding a provider key, subscription sign-in, sign-out, *Replace a model across bots*); the Jev key in **Settings → Tools**, only while you have overridden their Tools (to give one person their own key, override their Tools in the panel and set it there); **Settings → Sources**.
 
-**Nobody sees (you set these in the panel):** a bot's permission level; approval rules and the approval timeout; how bots use secrets; **Settings → Server**; the desktop app's connection settings; onboarding; *Create pairing PIN*; the avatar and chat lab links.
+**Nobody sees (you set these in the panel):** a bot's permission level; approval rules and the approval timeout; how bots use secrets; **Settings → Server**; the desktop app's connection settings; *Create pairing PIN*; the avatar and chat lab links.
 
 New bots a person creates start at **Ask first**, the app's default.
 
@@ -343,7 +343,7 @@ The template workspace is a full MeetVinci: 90-130 MiB of memory idle, like a pe
 - **Suggested bots** are bots you create in Global settings with the usual bot form. In a team install that form has **Also read the shared instructions** (the bot's Instructions tab) on for a new bot, and so does a bot a person creates: every bot reads the shared instruction files in Sources unless someone turns it off. A copy keeps the switch as the suggested bot has it, so turn it on in each suggested bot made before this change; bots people already have are not changed. Creating or editing a bot in the panel never starts it (no model call): it starts the first time the person opens its chat. **Add user** lists them, all ticked; the ticked ones are copied to the new person. On a person's **Bots**, **Add from suggested bots** copies more later. Copies are independent: changing a suggested bot later does not change anyone's copy.
 - **Sync status** shows, per person, which sections they override and whether the last copy failed. A person whose sign-in is off shows *Sign-in off* instead of *Syncing*: their sections catch up when sign-in is turned on. **Sync now** copies every global section again.
 
-**First setup, in this order:** in Global settings add a model provider's API key under Models (people then need no sign-in of their own), set the other sections, create the suggested bots, then add people with the bots each should start with. People see no onboarding steps, so whatever you set is what they get.
+**First setup, in this order:** in Global settings add a model provider's API key under Models (people then need no sign-in of their own), set the other sections, create the suggested bots, then add people with the bots each should start with. Whatever you set is what people get.
 
 **Give this to your agent:**
 

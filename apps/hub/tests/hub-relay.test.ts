@@ -54,15 +54,13 @@ describe('admin relay to the private door', () => {
     expect(leaked).toEqual([]);
   });
 
-  it('completes onboarding with the first-visit grant, so a provisioned person is never asked to configure anything', async ({ tokens }) => {
-    const state = () => hubAdminTestWrite(tokens.root, '/admin/api/users/bob/rpc/onboarding/state', { headers: { 'x-bots-protocol': '1' } });
-    const before = await state();
-    const handoff = await hubAdminTestGet('/connect', tokens.bob);
-    const after = await state();
+  it('lets a first visit straight into chat: the grant redeems and the chat layout loads, with no onboarding left on the daemon', async ({ tokens }) => {
+    const person = await hubAdminTestPerson(tokens.bob);
+    const lists = [await person.conversation.list(), await person.bots.list(), await person.models.list()];
+    const onboarding = await hubAdminTestWrite(tokens.root, '/admin/api/users/bob/rpc/onboarding/state', { headers: { 'x-bots-protocol': '1' } });
 
-    expect(before.json).toEqual({ json: { completedAt: null } });
-    expect(handoff.status).toBe(303);
-    expect(after.json).toEqual({ json: { completedAt: expect.any(Number) } });
+    expect(lists.map(Array.isArray)).toEqual([true, true, true]);
+    expect(onboarding.status).toBe(404);
   });
 
   it("serves a user's bot avatars to admins only, from that user's own daemon", async ({ tokens }) => {
