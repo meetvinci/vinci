@@ -11,13 +11,9 @@ import { env } from '@repo/env/server';
 import { Errors, errorStatusMap, isAppError } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { embedFile, embedPage } from '@repo/ui/native';
-import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { realpathSync } from 'node:fs';
-import { chmod, lstat, mkdir, open, rm, unlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, unlink } from 'node:fs/promises';
 import { isIP } from 'node:net';
-import { homedir } from 'node:os';
-import { dirname, extname, join, resolve } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { match, P } from 'ts-pattern';
 import { renderUnicodeCompact } from 'uqr';
@@ -39,7 +35,6 @@ import {
   credentialsKeyNative,
   makeAttachmentStorageService,
   makeAvatarImageService,
-  makeBackupService,
   makeDatabaseService,
   makeLinkResolverService,
   makeMcpService,
@@ -56,21 +51,13 @@ import type { RPCHandlerOptions } from '@orpc/server/fetch';
 import type { Server } from 'bun';
 
 const HELP = `Usage:
-  meetvinci start [--detach]
+  meetvinci start
   meetvinci pair [--url <origin>]
-  meetvinci service register
-  meetvinci service unregister
-  meetvinci backup create <new-directory>
-  meetvinci backup restore <backup-directory>
 
 Without a command, the daemon starts in the foreground.
-Service commands change startup at the next macOS login, not the running daemon.
-Backup commands work on the data directory directly; stop the daemon first.
 `;
 
-const ENTRY = realpathSync(process.argv[1]);
 const ROOT = workspacePathsRootNative(env.DATA_DIR);
-const LOG = join(ROOT, 'data', 'daemon.log');
 const SOCKET = join(ROOT, 'data', 'ipc', 'rpc.sock');
 const STOP_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
 const OWNER_ONLY = 0o700;
@@ -83,7 +70,6 @@ export async function coreNativeCommand(): Promise<void> {
     args: process.argv.slice(2),
     allowPositionals: true,
     options: {
-      detach: { type: 'boolean' },
       url: { type: 'string' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -91,23 +77,12 @@ export async function coreNativeCommand(): Promise<void> {
 
   await match({
     command: positionals,
-    detach: values.detach,
     url: values.url,
     help: values.help,
   })
     .with({ help: true }, { command: ['help'] }, () => process.stdout.write(HELP))
-    .with({ command: [], url: undefined }, { command: ['start'], url: undefined }, () => (values.detach ? coreNativeDetach() : coreNativeRun()))
-    .with({ command: ['pair'], detach: undefined }, () => coreNativePair(values.url))
-    .with({
-      command: ['service', P.union('register', 'unregister')],
-      detach: undefined,
-      url: undefined,
-    }, ({ command }) => coreNativeService(command[1]))
-    .with({
-      command: ['backup', P.union('create', 'restore'), P.string],
-      detach: undefined,
-      url: undefined,
-    }, ({ command }) => coreNativeBackup(command[1], resolve(command[2])))
+    .with({ command: [], url: undefined }, { command: ['start'], url: undefined }, () => coreNativeRun())
+    .with({ command: ['pair'] }, () => coreNativePair(values.url))
     .otherwise(() => {
       throw new Errors.INTERNAL_ERROR({ internal: HELP });
     });
@@ -146,7 +121,6 @@ async function coreNativeRun(): Promise<void> {
   });
 
   resources.defer(coreNativeFirstPairing(services));
-  process.send?.('daemon:ready');
 
   await stopped;
   log.info({ tag: 'daemon', message: 'Daemon stopped' });
@@ -490,11 +464,6 @@ function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
     return () => undefined;
   }
 
-  if (env.DAEMON_PUBLIC_URLS.length > 0) {
-    process.stdout.write('\nNo pairing PIN at startup: this daemon has public addresses. To pair a device, run `meetvinci pair` where this daemon runs (in its container: docker exec <container> meetvinci pair).\n\n');
-    return () => undefined;
-  }
-
   async function issue(): Promise<void> {
     const devices = await services.auth.queries.devices();
 
@@ -537,96 +506,4 @@ function coreNativePairingText(qr: CoreTypes.CorePairingCode, serverUrl: string 
   const web = new URL(`/connect#code=${encodeURIComponent(qr.payload)}`, serverUrl).href;
 
   return `Web: ${web}\n\nApp: ${qr.link}\n\n${renderUnicodeCompact(qr.link)}\n`;
-}
-
-async function coreNativeDetach(): Promise<void> {
-  await mkdir(dirname(LOG), { recursive: true, mode: OWNER_ONLY });
-  const output = await open(LOG, 'a', 0o600);
-
-  try {
-    const child = spawn(process.execPath, [ENTRY, 'start'], {
-      detached: true,
-      stdio: ['ignore', output.fd, output.fd, 'ipc'],
-    });
-
-    await new Promise<void>((ready, reject) => {
-      child.once('error', reject);
-      child.once('exit', () => reject(new Errors.INTERNAL_ERROR({ internal: `Daemon failed to start. See ${LOG}` })));
-      child.once('message', (message) => (message === 'daemon:ready'
-        ? ready()
-        : reject(new Errors.INTERNAL_ERROR({ internal: `Unexpected daemon startup response. See ${LOG}` }))));
-    });
-
-    child.disconnect();
-    child.unref();
-    log.info({
-      tag: 'daemon',
-      message: 'Daemon started in the background',
-      pid: child.pid,
-      log: LOG,
-    });
-  } finally {
-    await output.close();
-  }
-}
-
-async function coreNativeService(command: 'register' | 'unregister'): Promise<void> {
-  if (process.platform !== 'darwin') {
-    throw new Errors.INTERNAL_ERROR({ internal: 'Login services are supported on macOS only.' });
-  }
-
-  const label = `bots.daemon.${createHash('sha256').update(ROOT).digest('hex').slice(0, 12)}`;
-  const path = join(homedir(), 'Library', 'LaunchAgents', `${label}.plist`);
-
-  if (command === 'unregister') {
-    await rm(path, { force: true });
-    log.info({
-      tag: 'daemon',
-      message: 'Login startup disabled; the running daemon is unchanged',
-      path,
-    });
-
-    return;
-  }
-
-  const agent = {
-    Label: label,
-    ProgramArguments: [process.execPath, ENTRY, 'start'],
-    WorkingDirectory: resolve(import.meta.dirname, '../..'),
-    EnvironmentVariables: {
-      ...Object.fromEntries(Object.entries(env).map(([key, value]) => [key, String(value)])),
-      DATA_DIR: ROOT,
-      PATH: process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin',
-    },
-    RunAtLoad: true,
-    StandardOutPath: LOG,
-    StandardErrorPath: LOG,
-    Umask: 0o077,
-  };
-
-  const result = Bun.spawnSync(['/usr/bin/plutil', '-convert', 'xml1', '-o', '-', '-'], { stdin: Buffer.from(JSON.stringify(agent)) });
-
-  if (result.exitCode !== 0) {
-    throw new Errors.INTERNAL_ERROR({ internal: result.stderr.toString() });
-  }
-
-  await mkdir(dirname(LOG), { recursive: true, mode: OWNER_ONLY });
-  await mkdir(dirname(path), { recursive: true, mode: OWNER_ONLY });
-  await writeFile(path, result.stdout, { mode: 0o600 });
-  log.info({
-    tag: 'daemon',
-    message: 'Login startup enabled for the next login; the running daemon is unchanged',
-    path,
-  });
-}
-
-async function coreNativeBackup(command: 'create' | 'restore', path: string): Promise<void> {
-  const backup = makeBackupService({ root: ROOT });
-
-  await (command === 'create' ? backup.actions.create({ destination: path }) : backup.actions.restore({ bundle: path }));
-  log.info({
-    tag: 'backup',
-    message: `Backup ${command} finished`,
-    path,
-  });
 }

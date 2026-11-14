@@ -117,16 +117,13 @@ step(['bun', 'scripts/desktop.ts', 'release'], build);
 
 const artifacts = path.join(build, 'apps/desktop/artifacts');
 const desktop = path.join(artifacts, `${name}-${version}-macos-arm64.zip`);
-const server = path.join(artifacts, `${name}-${version}-server.tar.gz`);
 
 if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'], { cwd: build }).exitCode === 0) {
   fail(`The server bundle contains ${homedir()}. Nothing was pushed.`);
 }
 
-run(['tar', '-czf', server, '-C', path.join(build, 'apps/desktop/dist'), 'server']);
-
 run(['git', 'push', '--atomic', 'origin', 'main', tag]);
-run(['gh', 'release', 'create', tag, desktop, server, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
+run(['gh', 'release', 'create', tag, desktop, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
 tagged = false;
 
 // Last, so installed apps see the update only once the tag and the release exist; a draft is not offered to them yet.

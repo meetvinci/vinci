@@ -88,13 +88,10 @@ Run `bun link` in `apps/daemon` once, then:
 
 ```bash
 meetvinci start                # Run in the foreground; Ctrl+C stops it
-meetvinci start --detach       # Run in the background
 meetvinci pair                 # Print a new pairing code, link and QR code
-meetvinci service register     # Start the daemon at every macOS login
-meetvinci service unregister   # Stop starting it at login
 ```
 
-`bun run --cwd apps/daemon backup` creates and restores backups. See the [API reference](.agents/references/api.md#daemon-and-storage) for details.
+The native daemon is for development. To back up a development data folder, stop the daemon and copy the folder. See the [API reference](.agents/references/api.md#daemon-and-storage) for details.
 
 ### Release
 
@@ -104,10 +101,9 @@ bun run release 0.2.0      # a specific version
 bun run release --draft    # publish the GitHub Release as a draft
 ```
 
-This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with two files, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
+This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with one file, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
 
 - `MeetVinci-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
-- `MeetVinci-<version>-server.tar.gz`: the daemon and web app for a Mac without the desktop app. Run `bun server/daemon/entry.native.js start` and `bun server/web/src/application/server.bun.js`.
 
 The iOS app ships through EAS and TestFlight, not GitHub: `bun run release:ios` builds it on this Mac and submits it to TestFlight; `bun run release:ios-expo` builds it on EAS instead. `bun run release:desktop` builds only the macOS app, without tagging.
 
