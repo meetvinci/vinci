@@ -10,11 +10,12 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/meetvinci`. Keep as is. |
 | `MEETVINCI_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
-| `MEETVINCI_TAG` | `v0.2.0` | The tag of the `meetvinci-daemon`, `meetvinci-web`, `meetvinci-hub`, `meetvinci-provisioner` and `meetvinci-firewall` images. Change it to upgrade or roll back. |
+| `MEETVINCI_TAG` | `v0.2.0` | The tag of the `meetvinci-daemon`, `meetvinci-sandbox`, `meetvinci-web`, `meetvinci-hub`, `meetvinci-provisioner` and `meetvinci-firewall` images. Change it to upgrade or roll back. |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
+| `SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_PIDS` | `512m`, `1`, `256` | Limits for each person's sandbox, where their bots' tools run. These are the defaults; idle it uses about 3 MB. A runaway command hits this limit, not their MeetVinci's. |
 | `LOG_LEVEL` | `info` | Log detail for every container. |
-| `MEETVINCI_INTERNAL_ALLOW` | empty | Internal destinations every person's MeetVinci may still reach, `<IPv4>:<port>` (TCP), comma separated, such as `172.17.0.1:48290`. Empty: none. The firewall and each person's secrets proxy both read it. See [what a bot can reach](admin.md#what-a-bot-can-reach). |
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's MeetVinci gets as environment variables. Every person's bots can read them. |
+| `MEETVINCI_INTERNAL_ALLOW` | empty | Internal destinations every person's MeetVinci and sandbox may still reach, `<IPv4>:<port>` (TCP), comma separated, such as `172.17.0.1:48290`. Empty: none. The firewall and each person's secrets proxy both read it. See [what a bot can reach](admin.md#what-a-bot-can-reach). |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's MeetVinci gets as environment variables. Bots cannot read them: their tools run in the sandbox, which does not have them. |
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
 | `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
@@ -38,6 +39,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `DAEMON_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. |
 | `DAEMON_PORT` | `47191` (set by the image) | Port inside the container. Never published to the internet. |
 | `DAEMON_PUBLIC_URLS` | `https://<team>.<domain>` (set by Compose) | The address people reach MeetVinci at, comma separated if more than one. The daemon tells apps only these addresses and accepts browser calls from them. Without it every browser call gets 403. |
+| `DAEMON_SANDBOX_DIR` | `/run/sandbox` (set by the image) | The folder this MeetVinci shares with the person's sandbox. Set in the daemon image itself, so no Compose file can leave it out. With it, bots' tools run only in the sandbox, every tool call is refused while no sandbox is connected, and plugins and MCP files inside a bot's folder are not loaded. Leave it out only for a MeetVinci outside Docker (development), where tools run inside it. |
 | `DAEMON_TEAM` | `true` (set by Compose) | Marks a team daemon: people's devices cannot change a bot's permission level, approval rules or timeout, how bots use secrets, rate limits, or add an MCP server that runs a command. The admin still can in the panel. Leave it out for a single-owner daemon. |
 | `MEETVINCI_INTERNAL_ALLOW` | from `.env` (set by Compose) | The firewall's exceptions, `<IPv4>:<port>` comma separated. The secrets proxy refuses every internal address but these; a daemon does not start with a value that is not `<IPv4>:<port>`. Empty outside Docker, so a daemon run by hand refuses all internal addresses through the proxy. |
 | `DAEMON_ALLOWED_ORIGINS` | empty | Extra browser addresses allowed to call the daemon. Not needed when `DAEMON_PUBLIC_URLS` is set. |
@@ -100,11 +102,11 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | --- | --- | --- |
 | `.env` | `/opt/meetvinci/` | Every setting above. Secret. |
 | `users.yaml` | `/opt/meetvinci/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
-| `compose.yaml`, `daemon.yaml` | `/opt/meetvinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the container every person gets. |
+| `compose.yaml`, `daemon.yaml`, `sandbox.yaml` | `/opt/meetvinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the two containers every person gets: their MeetVinci and the sandbox where their bots' tools run. |
 | `cloudflared.compose.yaml` | `/opt/meetvinci/`, copied from `deploy/cloudflare/` | The tunnel connector. |
-| `deploy.ts` | `/opt/meetvinci/`, copied from `scripts/deploy.ts` | `apply`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
+| `deploy.ts` | `/opt/meetvinci/`, copied from `scripts/deploy.ts` | `apply`, `status`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/meetvinci/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
-| `users.compose.yaml` | `/opt/meetvinci/` | One container, network and volume per person, plus the same for the template workspace (`daemon-template`). Written by `apply`; do not edit. |
+| `users.compose.yaml` | `/opt/meetvinci/` | Per person, plus the same for the template workspace (`daemon-template`, `sandbox-template`): their container, network and volume, and their sandbox with its own network and shared-folder volume (`sandbox-<id>`). Written by `apply`; do not edit. |
 | `hub/users.json` | `/opt/meetvinci/hub/`, `/data/` in the hub | Each enabled person's email, user id, daemon address (`http://daemon-<id>:47191`), owner socket (`/ipc/<id>/rpc.sock`) and `advanced: true` for an advanced user, and under `template` the template workspace's address and socket (no email). Written by `apply`; do not edit. |
 | `hub/global.json` | `/opt/meetvinci/hub/`, `/data/` in the hub | For each person and settings section: follows global or overridden, and whether the last copy worked. Written by the hub; `purge` removes a person's entry. If it is unreadable or invalid, the panel refuses section changes until it is fixed (reads keep working). |
 | `hub/admins.json` | `/opt/meetvinci/hub/`, `/data/` in the hub | `{"admins": ["<email>", ...]}`: who may open the admin panel at `/admin`. An admin does not need to be a user. Written by the hub when admins change in the panel; seeded from `HUB_ADMIN_EMAILS` while empty. If it is unreadable or invalid nobody is an admin until it is fixed. |
@@ -134,8 +136,9 @@ Nothing is published on the server's network interfaces. Docker Compose creates:
 | `meetvinci_provisioner` | the hub and the provisioner | no |
 | `meetvinci_egress` | the provisioner only | yes: the Cloudflare API, used only with `CLOUDFLARE_API_TOKEN` |
 | `meetvinci_user-<id>` | one person's container and the hub; bridge `mv-d<9 hex>`, no traffic between containers but the hub to port 47191, no IPv6 | yes, public addresses only: bots need model providers, MCP servers and the web |
+| `meetvinci_sandbox-<id>` | one person's sandbox only; a bridge `mv-d<9 hex>` like theirs, so the firewall treats it the same, no IPv6 | yes, public addresses only: bots' commands need the web |
 
-A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It reaches the internet and nothing internal: not the hub, the server itself or its SSH, the cloud provider's metadata service (`169.254.169.254`) or private addresses, unless `MEETVINCI_INTERNAL_ALLOW` names one ([what a bot can reach](admin.md#what-a-bot-can-reach)). Still never put secrets in the server's user-data or cloud-init. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to a `meetvinci_user-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
+A person's container cannot reach another person's container, the web app, cloudflared or the hub's files, and has no Docker socket. It reaches the internet and nothing internal: not the hub, the server itself or its SSH, the cloud provider's metadata service (`169.254.169.254`) or private addresses, unless `MEETVINCI_INTERNAL_ALLOW` names one ([what a bot can reach](admin.md#what-a-bot-can-reach)). Still never put secrets in the server's user-data or cloud-init. The hub joins each person's network while running, so adding someone never restarts it. Don't attach other containers to a `meetvinci_user-<id>` or `meetvinci_sandbox-<id>` network: it breaks that person's isolation, and removing the person then fails because their network is still in use.
 
 ## Container limits
 
@@ -146,6 +149,8 @@ Each person's container runs with:
 - a 256 MB `/tmp` in memory
 - restart on crash and on reboot
 - its own network, reachable only by the hub
+
+Each person's sandbox runs the same way (`SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_PIDS`), with a temporary home folder in `/tmp`, on a network of its own that nothing else joins. It sees only the person's bot folders, their shared skills and instructions (read only) and the folder their MeetVinci shares with it (read only). It holds no MeetVinci code: Bun, git, curl and pi-env, the small program that runs the tools for MeetVinci. Measured idle on an arm64 test machine: about 3 MB per sandbox; their MeetVinci holds a small link process of about 5 MB once a bot has used a tool.
 
 Measured idle on a 2 vCPU, 4 GB x86 server (`docker stats`): each daemon about 105-110 MB after a chat, the web app 35-55 MB, cloudflared 15-35 MB, the hub 12 MB; each under 0.5% CPU. The system and Docker took about 470 MB. On a Mac test a daemon reached about 190 MB after opening an artifact preview. Keep the 512 MB limit.
 

@@ -261,10 +261,11 @@ packages/
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
 ├── scripts/deploy.ts                   container images and deployment, a subcommand per step; `provisioner` serves apply to the hub
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
-├── deploy/docker/Dockerfile            hub, web, daemon and provisioner image targets built from one repo checkout
+├── deploy/docker/Dockerfile            hub, web, daemon, sandbox and provisioner image targets built from one repo checkout
 ├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's meetvinci CLI wrapper
 ├── deploy/compose/compose.yaml         the team stack: hub, provisioner, web app, networks and the one-off tools service
 ├── deploy/compose/daemon.yaml          the hardened daemon service each person's generated service extends
+├── deploy/compose/sandbox.yaml         the hardened sandbox service where each person's bot tools run
 ├── deploy/cloudflare/cloudflared.compose.yaml  the tunnel connector service the Compose stack includes; tunnel, Access and DNS come from scripts/deploy.ts cloudflare
 ├── deploy/.env.example                 the server's /opt/meetvinci/.env keys, one block per deploy area
 ├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace

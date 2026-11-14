@@ -55,6 +55,7 @@ export const pluginExtension = z.custom<Extension>((value) => pluginDefinition.s
 
 export interface PluginLoaderServiceDeps {
   root: string;
+  isSandboxed: boolean;
   imports: Map<string, Extension>;
   failures: Map<string, string>;
 }

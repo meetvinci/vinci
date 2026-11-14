@@ -2,15 +2,18 @@ import { getAgentDir } from '@earendil-works/pi-coding-agent';
 import { log } from '@repo/logger/server';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { match, P } from 'ts-pattern';
+import { runtimeSandboxRead } from '../runtime/runtime-sandbox.utils';
 import { INSTRUCTION } from './instruction.constants';
 import type { InstructionLoaderServiceDeps, InstructionLoadParams, InstructionLoadResult } from '../../types/instruction.types';
 
 export async function instructionQueryLoad(
-  { root }: InstructionLoaderServiceDeps,
+  { root, isSandboxed }: InstructionLoaderServiceDeps,
   { botId, paths, isInherited }: InstructionLoadParams,
 ): Promise<InstructionLoadResult> {
+  const botDirectory = join(root, 'agents', botId);
+
   const sources = [
     ...match(isInherited)
       .with(true, () => [
@@ -19,7 +22,7 @@ export async function instructionQueryLoad(
       ])
       .with(false, () => [])
       .exhaustive(),
-    { path: join(root, 'agents', botId), isOptional: true },
+    { path: botDirectory, isOptional: true },
   ];
 
   const results = await Promise.all(sources.map(async (source) => {
@@ -117,10 +120,33 @@ export async function instructionQueryLoad(
   ): Promise<InstructionLoadResult['files']> {
     try {
       const canonical = await realpath(path);
-      return [{
-        path: canonical,
-        content: await readFile(canonical, 'utf8'),
-      }];
+
+      // SAFETY: a sandboxed bot can swap its instruction file for a link to the daemon's files between two reads.
+      return await match(isSandboxed && path.startsWith(`${botDirectory}${sep}`))
+        .with(true, () => {
+          try {
+            return [{ path: canonical, content: runtimeSandboxRead(path, [join(root, 'agents')]) }];
+          } catch (error) {
+            return match(error)
+              .with({ code: 'FORBIDDEN' }, () => {
+                log.warn({
+                  tag: 'instructions',
+                  botId,
+                  message: 'Skipped a bot instruction file that links outside the bot folders',
+                  path,
+                });
+                return [];
+              })
+              .otherwise(() => {
+                throw error;
+              });
+          }
+        })
+        .with(false, async () => [{
+          path: canonical,
+          content: await readFile(canonical, 'utf8'),
+        }])
+        .exhaustive();
     } catch {
       issues.push({ path, message: INSTRUCTION.message });
       return [];

@@ -177,10 +177,15 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
   const secretProxy = makeSecretProxyService({
     source: secrets,
     folder: secretsFolder,
+    sandboxDir: env.DAEMON_SANDBOX_DIR,
     internalAllow: env.MEETVINCI_INTERNAL_ALLOW,
   });
 
   resources.defer(() => secretProxy.actions.stop());
+
+  const executionEnv = runtimeEnvNative({ root: paths.root, sandboxDir: env.DAEMON_SANDBOX_DIR });
+  const isSandboxed = env.DAEMON_SANDBOX_DIR !== undefined;
+  resources.defer(() => executionEnv.close());
 
   const mcpClients = makeMcpClientService({ root: paths.root, auth: mcpAuth });
   resources.defer(() => mcpClients.close());
@@ -193,11 +198,12 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
     secrets,
     settings,
     workspace: makeWorkspaceService({ root: paths.root }),
-    skillLoader: makeSkillLoaderService({ root: paths.root }),
-    instructionLoader: makeInstructionLoaderService({ root: paths.root }),
-    pluginLoader: makePluginLoaderService({ root: paths.root }),
+    skillLoader: makeSkillLoaderService({ root: paths.root, isSandboxed }),
+    instructionLoader: makeInstructionLoaderService({ root: paths.root, isSandboxed }),
+    pluginLoader: makePluginLoaderService({ root: paths.root, isSandboxed }),
     mcp: makeMcpService({
       root: paths.root,
+      isSandboxed,
       settings,
       clients: mcpClients,
       credentials,
@@ -218,7 +224,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
       storage: makeStorageService({ root: paths.bots }),
       alarm,
       models: providers.models,
-      env: runtimeEnvNative(paths.root),
+      env: executionEnv.env,
       images: await makeImageService(),
       secrets: makeSecretBrokerService({
         source: secrets,

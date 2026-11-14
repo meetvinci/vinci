@@ -162,11 +162,11 @@ Skills are picked up within about 30 seconds. They must sit in the person's volu
 
 ## A bot cannot install software, or git and curl are missing
 
-Containers are locked down: no root, read-only system files. `apt`, `npm -g` and `pip` installs fail. The image also ships without git, curl and ffmpeg, so videos get no preview thumbnail. This is on purpose for now.
+Containers are locked down: no root, read-only system files. `apt`, `npm -g` and `pip` installs fail. Bots' commands run in the sandbox, which has Bun, git and curl but no Python or Node, and a home folder in `/tmp` that a restart empties. MeetVinci itself ships without ffmpeg, so videos get no preview thumbnail. This is on purpose for now.
 
 ## Memory runs low
 
-Each person's MeetVinci is limited to 512 MB. On a 4 GB x86 server, an idle person's MeetVinci used 90-135 MB, the template workspace (global settings) about 106 MB, the web app 47-70 MB, cloudflared about 38 MB, the hub 14-21 MB and the provisioner 6-65 MB; the system and Docker about 470 MB. Count the template workspace as one more person. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 5 people on 4 GB, so that everyone and the template workspace can reach their limit at once, and about 13 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
+Each person's MeetVinci is limited to 512 MB, and so is their sandbox, where bots' commands use their memory (about 3 MB idle, plus about 5 MB in their MeetVinci once a bot has used a tool). On a 4 GB x86 server, an idle person's MeetVinci used 90-135 MB, the template workspace (global settings) about 106 MB, the web app 47-70 MB, cloudflared about 38 MB, the hub 14-21 MB and the provisioner 6-65 MB; the system and Docker about 470 MB. Count the template workspace as one more person. An artifact preview or a heavy tool run adds 100 MB or more. Plan up to 5 people on 4 GB, so that everyone and the template workspace can reach their limit at once, and about 13 on 8 GB. Don't build images on the server: building made Docker itself hold almost 800 MB.
 
 > On `root@<server>`, show memory use per MeetVinci container with `docker stats --no-stream` and the server's free memory with `free -h`. Suggest whether the server needs more memory.
 
@@ -174,7 +174,7 @@ Each person's MeetVinci is limited to 512 MB. On a 4 GB x86 server, an idle pers
 
 Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades and backups in `/opt/meetvinci/backups/`.
 
-- Fix: remove old MeetVinci image tags by name, `docker rmi meetvinci-daemon:<old tag> meetvinci-web:<old tag> meetvinci-hub:<old tag> meetvinci-provisioner:<old tag> meetvinci-firewall:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
+- Fix: remove old MeetVinci image tags by name, `docker rmi meetvinci-daemon:<old tag> meetvinci-sandbox:<old tag> meetvinci-web:<old tag> meetvinci-hub:<old tag> meetvinci-provisioner:<old tag> meetvinci-firewall:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
 
 > On `root@<server>`, show `docker system df`, `docker images` and `ls -la /opt/meetvinci/backups`. Suggest which old `meetvinci-*` tags (not the `MEETVINCI_TAG` in `/opt/meetvinci/.env`) and which backups can go, and remove only the ones I confirm, by name. Never use a prune command.
 
@@ -186,4 +186,14 @@ On purpose: bots reach the public internet only ([what a bot can reach](admin.md
 
 ## What a bot can do
 
-Until the hardening phase, a bot that can run commands has full control of its own person's MeetVinci: it can read that person's model key and saved secrets, and give itself access as that person. Everything the admin can change through a person's private door (settings, keys, bots, devices), that person's bots can change too. It can also tamper with the folder the hub uses to pair that person's browser. The hub refuses anything there that is not a real socket, but a bot can still swap the socket at the exact moment the hub uses it. What really keeps a bot away from other people's MeetVinci is that each person's MeetVinci sits on its own network that only the hub can reach (set up by the deployment files), and the firewall keeps it off the server and every internal address ([what a bot can reach](admin.md#what-a-bot-can-reach)). Only invite people you trust, and give bots the read-only or ask permission mode when they don't need more.
+A bot's commands and file tools run in its person's sandbox, not in their MeetVinci ([what a bot can reach](admin.md#what-a-bot-can-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. Stdio MCP servers set by an admin still run inside the person's MeetVinci for now. Give bots the read-only or ask permission mode when they don't need more.
+
+## Bots say "Bot tools are off"
+
+The person's sandbox is not running, so their MeetVinci refuses every tool call rather than run it itself. Chats and answers without tools still work.
+
+- `bun deploy.ts status` shows `sandbox exited` or `missing` for that person, or `running (unhealthy)` when the sandbox is up but has no connection to their MeetVinci.
+- Fix: `bun deploy.ts apply` starts every missing sandbox. `docker compose logs sandbox-<id>` shows why it stopped. A sandbox someone stopped with `docker stop` or `docker kill` stays stopped until then; one that crashed restarts by itself within seconds.
+- *The sandbox where bot tools run stopped during this tool call* means it stopped while a command ran: the next call reconnects.
+
+> On `root@<server>`, in `/opt/meetvinci`, bots of MeetVinci user `<id>` say "Bot tools are off". Report `bun deploy.ts status` and the last 20 lines of `docker compose logs sandbox-<id>` and `docker compose logs daemon-<id> | grep -A3 sandbox`, then run `bun deploy.ts apply` and confirm `bun deploy.ts status` exits 0.

@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util';
 // It imports only Bun and node builtins, so the server needs Bun and Docker and nothing else.
 const root = path.resolve(import.meta.dir, '..');
 const dockerfile = path.join(root, 'deploy/docker/Dockerfile');
-const targets = ['daemon', 'web', 'hub', 'provisioner', 'firewall'];
+const targets = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall'];
 const usersFile = 'users.yaml';
 const lockFile = 'users.yaml.lock';
 const lockStaleMs = 10 * 60 * 1000;
@@ -62,7 +62,7 @@ const nightlyManifest = 'manifest.json';
 const nightlyHubFile = 'hub.tar.gz';
 const nightlyDeploymentFile = 'deployment.tar.gz';
 // What a fresh server needs next to the volumes and the hub folder; COMPOSE_FILE in .env may name more.
-const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'cloudflared.compose.yaml', 'deploy.ts'];
+const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'sandbox.yaml', 'cloudflared.compose.yaml', 'deploy.ts'];
 // `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
 const nightlyStaleMs = 36 * 60 * 60 * 1000;
 // The timer's service is stopped after this long; `nightly status` counts a run still `running` after it as failed.
@@ -301,33 +301,52 @@ function writeAtomic(file: string, content: string, mode: number) {
   renameSync(`${file}.tmp`, file);
 }
 
-// A daemon's network: its bridge name puts it under the firewall's rules, no traffic between containers on it
-// except what the firewall lets through (the hub to the daemon's port), and no IPv6.
-function daemonNetwork(id: string) {
+// A daemon's or a sandbox's network: its bridge name puts it under the firewall's rules, no traffic between
+// containers on it except what the firewall lets through (the hub to the daemon's port), and no IPv6. A sandbox's key
+// is `sandbox:<id>`, which no person's id can be.
+function daemonNetwork(key: string) {
   return {
     enable_ipv6: false,
     driver_opts: {
-      'com.docker.network.bridge.name': `${daemonBridgePrefix}${createHash('sha256').update(id).digest('hex').slice(0, 9)}`,
+      'com.docker.network.bridge.name': `${daemonBridgePrefix}${createHash('sha256').update(key).digest('hex').slice(0, 9)}`,
       'com.docker.network.bridge.enable_icc': 'false',
     },
   };
 }
 
-// The per-person part of the stack: a daemon, its network shared only with the hub, and its volume. The template
+// Compose starts a daemon or sandbox only once the firewall is healthy. Docker ignores that order after a reboot or
+// its own restart, so each first waits until the firewall rejects it (deploy/docker/firewall-wait.sh).
+const firewallFirst = {
+  depends_on: { firewall: { condition: 'service_healthy' } },
+  environment: { MEETVINCI_WAIT_FOR_FIREWALL: 'true' },
+};
+
+// The per-person part of the stack: a daemon, its network shared only with the hub, and its volume; and the sandbox
+// where their bots' tools run, alone on a network of its own (a daemon bridge to the firewall), seeing only the bot
+// folders and shared skills of that volume and, read only, the folder the daemon shares with it. The template
 // workspace gets the same, with the id `template`.
 function renderCompose(ids: string[]): string {
-  const services = Object.fromEntries(ids.map((id) => [`daemon-${id}`, {
+  const services = Object.fromEntries(ids.flatMap((id) => [[`daemon-${id}`, {
     extends: { file: 'daemon.yaml', service: 'daemon' },
-    // Compose starts a daemon only once the firewall is healthy. Docker ignores that order after a reboot or its own
-    // restart, so the daemon itself first waits until the firewall rejects it (deploy/docker/firewall-wait.sh).
-    depends_on: { firewall: { condition: 'service_healthy' } },
-    environment: { MEETVINCI_WAIT_FOR_FIREWALL: 'true' },
+    ...firewallFirst,
     networks: { [`user-${id}`]: {} },
     volumes: [
       `data-${id}:/data`,
       { type: 'volume', source: 'ipc', target: '/data/data/ipc', volume: { subpath: id } },
+      `sandbox-${id}:/run/sandbox`,
     ],
-  }]));
+  }], [`sandbox-${id}`, {
+    extends: { file: 'sandbox.yaml', service: 'sandbox' },
+    // The daemon's image fills a new volume first, so the subpaths below exist, and it owns the shared folder.
+    depends_on: { ...firewallFirst.depends_on, [`daemon-${id}`]: { condition: 'service_started' } },
+    environment: firewallFirst.environment,
+    networks: { [`sandbox-${id}`]: {} },
+    volumes: [
+      { type: 'volume', source: `data-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },
+      { type: 'volume', source: `data-${id}`, target: '/data/home/.agents', read_only: true, volume: { subpath: 'home/.agents' } },
+      { type: 'volume', source: `sandbox-${id}`, target: '/run/sandbox', read_only: true },
+    ],
+  }]]));
 
   const hub = { networks: Object.fromEntries(ids.map((id) => [`user-${id}`, {}])) };
 
@@ -335,8 +354,8 @@ function renderCompose(ids: string[]): string {
     '# Written by `bun deploy.ts apply` from users.yaml. Do not edit: edit users.yaml and run apply again.',
     Bun.YAML.stringify({
       services: { ...services, hub },
-      networks: Object.fromEntries(ids.map((id) => [`user-${id}`, daemonNetwork(id)])),
-      volumes: Object.fromEntries(ids.map((id) => [`data-${id}`, {}])),
+      networks: Object.fromEntries(ids.flatMap((id) => [[`user-${id}`, daemonNetwork(id)], [`sandbox-${id}`, daemonNetwork(`sandbox:${id}`)]])),
+      volumes: Object.fromEntries(ids.flatMap((id) => [[`data-${id}`, {}], [`sandbox-${id}`, {}]])),
     }, null, 2),
   ].join('\n');
 }
@@ -368,11 +387,38 @@ function hubFolder() {
   }
 }
 
-// A one-off root job in the tools service (compose.yaml): no network, the ipc volume and at most one person's volume.
-async function tools(script: string, args: string[], { volume, ...options }: DockerOptions & { volume?: string } = {}): Promise<string> {
-  const mount = volume ? ['--volume', volume] : [];
+// A one-off root job in the tools service (compose.yaml): no network, the ipc volume and the given mounts.
+async function tools(script: string, args: string[], { volumes = [], ...options }: DockerOptions & { volumes?: string[] } = {}): Promise<string> {
+  const mount = volumes.flatMap((volume) => ['--volume', volume]);
 
   return docker(['compose', 'run', '--rm', '--no-TTY', '--quiet-pull', ...mount, 'tools', script, 'tools', ...args], { ...options, env: { COMPOSE_IGNORE_ORPHANS: 'true' } });
+}
+
+// Each sandbox mounts agents/ and home/.agents of its person's volume, and Docker refuses a missing subpath. A new
+// volume gets both from the daemon image, which starts first; a volume made before the sandbox may lack them. Docker
+// follows a link inside a subpath, so a link a bot planted there before the sandbox (its bash ran in the daemon then,
+// with the whole volume) or that came back with a restore would give the sandbox what it points to, such as data/
+// with the credentials key: such a link is replaced by an empty folder, and prints `replaced`. Run in the volume's root.
+const sandboxFoldersScript = 'for p in agents home home/.agents; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done; mkdir -p agents home/.agents && chown 1000:1000 agents home home/.agents';
+
+// A running sandbox keeps the folders it mounted at its start, so one whose links were replaced is removed; the
+// apply's `up` then starts it on the real folders.
+async function sandboxFolders(ids: string[]) {
+  const prefix = `${await project()}_data-`;
+  const volumes = new Set((await docker(['volume', 'ls', '--quiet'])).split('\n'));
+  const existing = ids.filter((id) => volumes.has(`${prefix}${id}`));
+
+  if (existing.length > 0) {
+    const replaced = await tools(`for id in "$@"; do cd "/people/$id" && r=$(${sandboxFoldersScript}) || exit 1; [ -z "$r" ] || echo "$id"; done`, existing, {
+      volumes: existing.map((id) => `${prefix}${id}:/people/${id}`),
+    });
+
+    const sandboxes = replaced.split('\n').filter(Boolean).map((id) => `sandbox-${id}`);
+
+    if (sandboxes.length > 0) {
+      await docker(['compose', 'rm', '--stop', '--force', ...sandboxes]);
+    }
+  }
 }
 
 // The hub joins each person's network without being recreated, so adding or removing someone keeps everyone else's
@@ -506,10 +552,11 @@ async function applyTeam(waitFor?: string[]) {
   hubFolder();
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
   await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
+  await sandboxFolders(daemons);
 
   const others = (await docker(['compose', 'config', '--services'])).split('\n').filter((service) => !singletons.includes(service));
 
-  const waited = (waitFor ?? []).filter((id) => ids.includes(id)).map((id) => `daemon-${id}`);
+  const waited = (waitFor ?? []).filter((id) => ids.includes(id)).flatMap((id) => [`daemon-${id}`, `sandbox-${id}`]);
 
   await docker(['compose', 'up', '--detach', ...(waitFor === undefined ? ['--wait'] : []), '--remove-orphans', ...others]);
   await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', ...singletons]);
@@ -541,25 +588,33 @@ function backupsRoot() {
   mkdirSync(backupsFolder, { recursive: true, mode: 0o700 });
 }
 
-// Starts the same container again: during an upgrade the new deployment files are in place before the new tag is set,
+// A person's containers: their daemon and, once an apply has rendered it, their sandbox, which mounts folders of the
+// same volume (a restore replaces them). An upgrade's backup runs before the new apply.
+async function personServices(id: string): Promise<string[]> {
+  const services = (await docker(['compose', 'config', '--services'])).split('\n');
+
+  return [`daemon-${id}`, `sandbox-${id}`].filter((service) => services.includes(service));
+}
+
+// Starts the same containers again: during an upgrade the new deployment files are in place before the new tag is set,
 // and recreating here would run the old image under the new daemon.yaml.
 async function startDaemon(id: string, person: Person) {
   if (person.enabled) {
-    await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', `daemon-${id}`]);
+    await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', ...await personServices(id)]);
   }
 }
 
 // A disabled person has no container to stop.
 async function stopDaemon(id: string, person: Person) {
   if (person.enabled) {
-    await docker(['compose', 'stop', `daemon-${id}`]);
+    await docker(['compose', 'stop', ...await personServices(id)]);
   }
 }
 
 // Copies one person's whole volume (database, credentials key, bots, Pi settings, home). Their daemon must be stopped,
 // so no SQLite file is copied mid-write.
 async function copyVolume(id: string, file: string) {
-  await tools('tar -C /data -czf - .', [], { volume: `${await volumeName(id)}:/data:ro`, output: file });
+  await tools('tar -C /data -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
 }
 
 // Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed
@@ -591,7 +646,7 @@ async function backup() {
 }
 
 async function fillVolume(id: string, file: string) {
-  await tools('find /data -mindepth 1 -delete && tar -C /data -xzpf -', [], { volume: `${await volumeName(id)}:/data`, input: file });
+  await tools(`find /data -mindepth 1 -delete && tar -C /data -xzpf - && cd /data && { ${sandboxFoldersScript}; } > /dev/null`, [], { volumes: [`${await volumeName(id)}:/data`], input: file });
 }
 
 // `restore <id> <file or nightly folder>` replaces one person's volume; `restore <nightly folder>` rebuilds a whole
@@ -770,7 +825,7 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
 
   try {
     await docker(['compose', 'stop', 'hub']);
-    await tools('tar -C /hub -czf - .', [], { volume: `${path.resolve(hubData)}:/hub:ro`, output: path.join(folder, nightlyHubFile) });
+    await tools('tar -C /hub -czf - .', [], { volumes: [`${path.resolve(hubData)}:/hub:ro`], output: path.join(folder, nightlyHubFile) });
   } finally {
     await docker(['compose', 'up', '--detach', '--wait', '--no-recreate', 'hub']);
   }
@@ -778,7 +833,7 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
   const hubDowntimeMs = Date.now() - hubStopped;
 
   console.log(`Backed up the hub folder; the hub was stopped for ${(hubDowntimeMs / 1000).toFixed(1)} s`);
-  await tools('tar -C /meetvinci -czf - "$@"', nightlyDeploymentFiles(), { volume: `${process.cwd()}:/meetvinci:ro`, output: path.join(folder, nightlyDeploymentFile) });
+  await tools('tar -C /meetvinci -czf - "$@"', nightlyDeploymentFiles(), { volumes: [`${process.cwd()}:/meetvinci:ro`], output: path.join(folder, nightlyDeploymentFile) });
 
   const names = readdirSync(folder).sort();
   const files = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await fileDigest(path.join(folder, name))] as const)));
@@ -1297,7 +1352,7 @@ async function restoreInstall(folder: string) {
   const files = await Promise.all([nightlyHubFile, ...manifest.people.map(({ id }) => `${id}.tar.gz`)].map((name) => nightlyVerified(folder, name)));
 
   mkdirSync(hubData, { recursive: true, mode: 0o770 });
-  await tools('tar -C /hub -xzpf -', [], { volume: `${path.resolve(hubData)}:/hub`, input: files[0] });
+  await tools('tar -C /hub -xzpf -', [], { volumes: [`${path.resolve(hubData)}:/hub`], input: files[0] });
   console.log(`Restored the hub folder from ${folder}.`);
 
   // Compose creates every volume with its own labels, disabled people's too (apply then removes their containers), so
@@ -1342,7 +1397,8 @@ async function purge() {
     fail(`${id} is still in users.yaml: remove them and run apply first.`);
   }
 
-  await docker(['volume', 'rm', '--force', await volumeName(id)]);
+  await docker(['volume', 'rm', '--force', await volumeName(id), `${await project()}_sandbox-${id}`]);
+  await docker(['network', 'rm', '--force', `${await project()}_sandbox-${id}`]);
   await tools('rm -rf "/ipc/$1"', [id]);
 
   const pinsFile = path.join(hubData, 'pins.json');
@@ -1364,7 +1420,7 @@ async function purge() {
   }
 
   await docker(['compose', 'start', 'hub']);
-  console.log(`Purged ${id}: volume, owner-socket folder, hub pin and global settings modes deleted.`);
+  console.log(`Purged ${id}: volume, sandbox volume and network, owner-socket folder, hub pin and global settings modes deleted.`);
 }
 
 async function cloudflareCall<T>(method: string, route: string, body?: unknown): Promise<CloudflareResponse<T>> {
@@ -1932,13 +1988,48 @@ function containerState(state: string, health: string): UserState {
   return ['created', 'exited', 'dead', 'paused', 'removing'].includes(state) ? 'stopped' : 'unknown';
 }
 
+interface ComposeRow {
+  Service: string;
+  State: string;
+  Health: string;
+}
+
+// Every service's container as `docker compose ps` sees it, one JSON object per line.
+async function composeRows(): Promise<ComposeRow[]> {
+  const output = await docker(['compose', 'ps', '--all', '--format', 'json']);
+
+  return output.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+}
+
 // Each daemon service's state; a user with no container (disabled, or not applied yet) is stopped.
 async function userStates(): Promise<Map<string, UserState>> {
-  // One JSON object per line.
-  const output = await docker(['compose', 'ps', '--all', '--format', 'json']);
-  const rows: { Service: string; State: string; Health: string }[] = output.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+  return new Map((await composeRows()).map((row) => [row.Service, containerState(row.State, row.Health)]));
+}
 
-  return new Map(rows.map((row) => [row.Service, containerState(row.State, row.Health)]));
+// `status`, on the server: each person's daemon and sandbox as Docker and their health checks see them. A sandbox is
+// healthy while it holds a connection to its daemon. Exits non-zero unless every one is running and healthy.
+async function stackStatus() {
+  const rows = new Map((await composeRows()).map((row) => [row.Service, row]));
+  const ids = [templateId, ...enabledIds(team())];
+  const width = Math.max(...ids.map((id) => id.length));
+
+  const shown = (service: string) => {
+    const row = rows.get(service);
+
+    return row === undefined ? 'missing' : `${row.State}${row.Health === '' ? '' : ` (${row.Health})`}`;
+  };
+
+  const lines = ids.map((id) => [id, shown(`daemon-${id}`), shown(`sandbox-${id}`)] as const);
+
+  for (const [id, daemon, sandbox] of lines) {
+    console.log(`${id.padEnd(width)}  daemon ${daemon.padEnd(19)}  sandbox ${sandbox}`);
+  }
+
+  const down = lines.filter(([, daemon, sandbox]) => daemon !== 'running (healthy)' || sandbox !== 'running (healthy)').map(([id]) => id);
+
+  if (down.length > 0) {
+    fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> shows why; bun deploy.ts apply starts what is missing.`);
+  }
 }
 
 function provisionerConfig() {
@@ -2417,17 +2508,18 @@ function firewallCheck(restored: string[], bypassed: string[]) {
   console.log('Firewall on: rules in place.');
 }
 
-const commands = { images, cloudflare, apply, backup, nightly, restore, purge, provisioner, firewall };
+const commands = { images, cloudflare, apply, status: stackStatus, backup, nightly, restore, purge, provisioner, firewall };
 const command = process.argv[2] ?? '';
 
 try {
   if (!(command in commands)) {
     fail([
       'Usage:',
-      '  bun scripts/deploy.ts images [daemon|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
+      '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
       '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
       'On the server, in /opt/meetvinci:',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
+      '  bun deploy.ts status                    each person\'s daemon and sandbox: running, starting or stopped',
       '  bun deploy.ts backup <id>               copy one person\'s volume to backups/',
       '  bun deploy.ts nightly                   back up everyone, the hub folder and the deployment files to backups/<time>/',
       '  bun deploy.ts nightly status            the last nightly run, its age and result',

@@ -1,8 +1,9 @@
 import { generateCACertificate, getLocal } from 'mockttp';
 import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { connect, createServer as createNetServer } from 'node:net';
 import { join } from 'node:path';
 import { rootCertificates } from 'node:tls';
 import { secretProxyActionSwap } from './secret-proxy-action.swap';
@@ -41,8 +42,10 @@ export function secretProxyActionStart(deps: SecretProxyServiceDeps) {
       maxBodySize: SECRET_PROXY.bufferedBodyMaxBytes,
     });
 
+    const bundle = [ca.cert, ...rootCertificates].join('\n');
+
     await mkdir(deps.folder, { recursive: true, mode: 0o700 });
-    await writeFile(join(deps.folder, SECRET_PROXY.bundleFile), [ca.cert, ...rootCertificates].join('\n'), { mode: 0o644 });
+    await writeFile(join(deps.folder, SECRET_PROXY.bundleFile), bundle, { mode: 0o644 });
 
     await server.forAnyRequest().always().thenPassThrough({
       beforeRequest: (request) => (secretProxyAuthorized(request) ? secretProxyActionSwap(deps, { request }) : refused),
@@ -52,6 +55,29 @@ export function secretProxyActionStart(deps: SecretProxyServiceDeps) {
     await server.start();
 
     deps.state.server = server;
+
+    if (deps.sandboxDir) {
+      await writeFile(join(deps.sandboxDir, SECRET_PROXY.bundleFile), bundle, { mode: 0o644 });
+      deps.state.bridge = await secretProxyBridge(join(deps.sandboxDir, SECRET_PROXY.sandboxSocket), server.port);
+    }
+  }
+
+  async function secretProxyBridge(path: string, port: number) {
+    await rm(path, { force: true });
+
+    const bridge = createNetServer((client) => {
+      const upstream = connect(port, '127.0.0.1');
+      client.pipe(upstream).pipe(client);
+      client.on('error', () => upstream.destroy());
+      upstream.on('error', () => client.destroy());
+    });
+
+    await new Promise<void>((done, failed) => {
+      bridge.once('error', failed);
+      bridge.listen(path, () => done());
+    });
+
+    return bridge;
   }
 
   deps.state.starting ??= secretProxyStart().catch((error: unknown) => {

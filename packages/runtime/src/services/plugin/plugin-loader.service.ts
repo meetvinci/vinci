@@ -2,9 +2,10 @@ import { pluginActionLoad } from './plugin-action.load';
 import { pluginQueryDiscover } from './plugin-query.discover';
 import type { PluginLoaderServiceDeps, PluginLoadParams } from '../../types/plugin.types';
 
-export function makePluginLoaderService({ root }: Pick<PluginLoaderServiceDeps, 'root'>) {
+export function makePluginLoaderService({ root, isSandboxed }: Pick<PluginLoaderServiceDeps, 'root' | 'isSandboxed'>) {
   const deps: PluginLoaderServiceDeps = {
     root,
+    isSandboxed,
     imports: new Map(),
     failures: new Map(),
   };

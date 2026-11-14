@@ -7,6 +7,7 @@ export const skillArgumentsSchema = z.record(z.string(), z.json()).parse(z.toJSO
 
 export interface SkillLoaderServiceDeps {
   root: string;
+  isSandboxed: boolean;
   catalogs: Map<string, SkillCatalogCache>;
 }
 

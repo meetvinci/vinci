@@ -4,12 +4,12 @@ MeetVinci normally runs on one person's computer. The team workspace runs it on 
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
-> Until the hardening phase, a bot has full control of its own user's MeetVinci: it can read that person's keys and give itself access as them. Keeping it away from other people's MeetVinci depends on the hub's checks and on each person's MeetVinci being reachable only by the hub. Use this only with people you trust.
+> Bots run their tools in a sandbox that cannot read keys or act as the person, but a bot with full permission can still read and send anything in that person's bot folders, and stdio MCP servers still run inside the person's MeetVinci. Use this only with people you trust.
 
 ## What it is
 
 - Every person gets their own MeetVinci, with their own bots, chats, files and model keys.
-- Each person's MeetVinci runs in its own locked-down container on the server. In the app, people only ever see their own bots and data.
+- Each person's MeetVinci runs in its own locked-down container on the server, and their bots' commands in a second one, their sandbox, which holds no keys. In the app, people only ever see their own bots and data.
 - Everyone uses one web address, for example `https://acme.example.com`. They open it in a browser or add it to their home screen.
 - Cloudflare handles the login. A person types their email and gets a one-time code. There are no MeetVinci passwords.
 - After login, MeetVinci sends each person to their own bots automatically. The first visit pairs the browser on its own: no PIN, no questions.

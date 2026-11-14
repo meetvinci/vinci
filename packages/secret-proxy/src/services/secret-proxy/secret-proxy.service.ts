@@ -17,7 +17,7 @@ export function makeSecretProxyService(params: SecretProxyTypes.SecretProxyServi
   const deps: SecretProxyTypes.SecretProxyServiceDeps = {
     ...params,
     internal,
-    state: { token: '', forwardKey: '', server: null, forward: null, forwardUrl: '', starting: null },
+    state: { token: '', forwardKey: '', server: null, forward: null, forwardUrl: '', bridge: null, starting: null },
   };
 
   return {

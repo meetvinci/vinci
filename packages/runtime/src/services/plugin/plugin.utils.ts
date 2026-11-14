@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { match } from 'ts-pattern';
 import { PLUGIN } from './plugin.constants';
 
@@ -8,6 +8,12 @@ export function pluginResolve(root: string, path: string) {
     .with('~', () => homedir())
     .when((value) => value.startsWith('~/'), (value) => join(homedir(), value.slice(2)))
     .otherwise((value) => value));
+}
+
+export function pluginIsInside(folder: string, path: string) {
+  const inner = relative(folder, path);
+
+  return inner !== '' && !isAbsolute(inner) && inner.split(sep)[0] !== '..';
 }
 
 export function pluginName(path: string) {

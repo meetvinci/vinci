@@ -106,6 +106,7 @@
   "ui_tool_bot_question_secret_invalid": "The secret needs an upper-case name such as STRIPE_API_KEY and one to ten public hosts such as api.stripe.com or *.example.com.",
   "ui_tool_bot_question_secret_saved": "The owner saved {name} for {hosts}. Read it as ${name} in commands, only for requests to those hosts, and never print it.",
   "ui_secret_prompt": "Stored secrets, with the hosts each may be sent to. Shell commands read each one as $NAME. Never print a secret or send it anywhere else; ask for a missing one with bot_secret.",
+  "ui_sandbox_lost": "The sandbox where bot tools run stopped during this tool call, so the call did not finish and its effect is unknown. The next tool call connects to it again.",
   "ui_tool_state_running": "Running",
   "ui_tool_state_approval": "Needs approval",
   "ui_tool_state_completed": "Completed",

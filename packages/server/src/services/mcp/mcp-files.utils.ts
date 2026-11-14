@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { match } from 'ts-pattern';
 import { mcpDocument } from '@repo/runtime/server';
 import { MCP } from './mcp.constants';
@@ -40,6 +40,12 @@ export async function mcpFiles(path: string, visited = new Set<string>()): Promi
         .exhaustive();
     })
     .exhaustive();
+}
+
+export function mcpFilesIsInside(folder: string, path: string) {
+  const inner = relative(folder, path);
+
+  return inner !== '' && !isAbsolute(inner) && inner.split(sep)[0] !== '..';
 }
 
 export function mcpFilesOwnedPath({ root }: Pick<McpServiceDeps, 'root'>, botId: string) {

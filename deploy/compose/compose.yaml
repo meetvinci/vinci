@@ -1,7 +1,8 @@
-# MeetVinci for a team: the hub and the web app. Lives in /opt/meetvinci next to .env, users.yaml, daemon.yaml and
-# cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (one daemon, network
-# and volume per person, each extending daemon.yaml) and hub/users.json from users.yaml. .env sets COMPOSE_FILE to
-# load this file, cloudflared.compose.yaml and users.compose.yaml together.
+# MeetVinci for a team: the hub and the web app. Lives in /opt/meetvinci next to .env, users.yaml, daemon.yaml,
+# sandbox.yaml and cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (per
+# person a daemon and a sandbox, each with its network and volume, extending daemon.yaml and sandbox.yaml) and
+# hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, cloudflared.compose.yaml and
+# users.compose.yaml together.
 # The provisioner runs the same apply for the hub's admin panel.
 # Nothing is published on a host interface: cloudflared is the only way in.
 name: meetvinci
@@ -85,9 +86,10 @@ services:
       provisioner: {}
       egress: {}
 
-  # Keeps bots off the server's internal addresses: every daemon reaches the internet and DNS, the hub reaches each
-  # daemon's port, and nothing else (the hub, web, provisioner, other daemons, cloudflared, the host and its sshd,
-  # cloud metadata, private ranges). Named iptables chains for the daemon bridges (mv-d*), in DOCKER-USER and INPUT;
+  # Keeps bots off the server's internal addresses: every daemon and sandbox reaches the internet and DNS, the hub
+  # reaches each daemon's port, and nothing else (the hub, web, provisioner, other daemons, cloudflared, the host and
+  # its sshd, cloud metadata, private ranges). Named iptables chains for the daemon and sandbox bridges (mv-d*), in
+  # DOCKER-USER and INPUT;
   # no policy and no other rule changes. The rules outlive this container; until it first writes them (at boot, about
   # 0.2 s), daemons are unfiltered, and the hub cannot reach them because their networks drop traffic between
   # containers. `bun deploy.ts firewall remove` deletes the rules.

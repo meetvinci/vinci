@@ -1,16 +1,25 @@
+import { log } from '@repo/logger/server';
 import { readdir, realpath, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { match } from 'ts-pattern';
 import { PLUGIN } from './plugin.constants';
-import { pluginIsModule, pluginName, pluginResolve } from './plugin.utils';
+import { pluginIsInside, pluginIsModule, pluginName, pluginResolve } from './plugin.utils';
 import type * as PluginTypes from '../../types/plugin.types';
 
-export async function pluginFilesScan({ root }: PluginTypes.PluginLoaderServiceDeps, params: PluginTypes.PluginLoadParams): Promise<PluginTypes.PluginScan> {
+export async function pluginFilesScan(
+  { root, isSandboxed }: PluginTypes.PluginLoaderServiceDeps,
+  params: PluginTypes.PluginLoadParams,
+): Promise<PluginTypes.PluginScan> {
   const directory = join(root, 'agents', params.botId);
-  const localPaths = [join(directory, '.pi/plugins'), join(directory, '.agents/plugins')];
+  const botFolders = join(root, 'agents');
+
+  const localPaths = match(isSandboxed)
+    .with(true, () => [])
+    .with(false, () => [join(directory, '.pi/plugins'), join(directory, '.agents/plugins')])
+    .exhaustive();
 
   const sharedPaths = match(params.isInherited)
-    .with(true, () => params.directories)
+    .with(true, () => params.directories.filter((source) => !isSandboxed || !pluginIsInside(botFolders, pluginResolve(root, source))))
     .with(false, () => [])
     .exhaustive();
 
@@ -25,13 +34,21 @@ export async function pluginFilesScan({ root }: PluginTypes.PluginLoaderServiceD
   const seen = new Set<string>();
 
   for (const path of sources.flatMap((source) => source.files)) {
-    match(seen.has(path))
-      .with(true, () => undefined)
-      .with(false, () => {
+    match({ isSeen: seen.has(path), isBotWritable: isSandboxed && pluginIsInside(botFolders, path) })
+      .with({ isSeen: true }, () => undefined)
+      .with({ isBotWritable: true }, () => {
+        seen.add(path);
+        log.warn({
+          tag: 'plugins',
+          botId: params.botId,
+          message: PLUGIN.messages.botFolder,
+          path,
+        });
+      })
+      .otherwise(() => {
         seen.add(path);
         plugins.push({ name: pluginName(path), path });
-      })
-      .exhaustive();
+      });
   }
 
   return { plugins, diagnostics };

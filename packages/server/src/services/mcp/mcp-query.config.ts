@@ -5,7 +5,8 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { match, P } from 'ts-pattern';
 import { mcpDocument, mcpServer } from '@repo/runtime/server';
-import { mcpFiles, mcpFilesOwnedPath } from './mcp-files.utils';
+import { mcpFiles, mcpFilesIsInside, mcpFilesOwnedPath } from './mcp-files.utils';
+import { MCP } from './mcp.constants';
 import type { McpConfigParams, McpServiceDeps } from '../../types/mcp.types';
 import type { McpCatalog } from '@repo/contracts/universal';
 import type { McpConfig, McpSource } from '@repo/runtime/server';
@@ -17,6 +18,7 @@ export async function mcpQueryConfig(
   const { root } = deps;
   const defaults = [join(getAgentDir(), 'mcp.json'), join(homedir(), '.agents/mcp.json')];
   const directory = join(root, 'agents', botId);
+
   const localPaths = [join(directory, '.agents/mcp.json'), join(directory, '.pi/mcp.json')];
 
   const sharedPaths = match(isInherited)
@@ -38,7 +40,14 @@ export async function mcpQueryConfig(
 
     try {
       const files = await mcpFiles(source);
-      const documents = await Promise.all(files.map(mcpQueryConfigRead));
+
+      const documents = await Promise.all(files.map((file) => (deps.isSandboxed && mcpFilesIsInside(join(root, 'agents'), file)
+        ? Promise.resolve({
+          source: file,
+          servers: {},
+          error: MCP.botFolderMessage,
+        })
+        : mcpQueryConfigRead(file))));
 
       return documents.map((document) => ({ ...document, isBotLocal, isOwned }));
     } catch {

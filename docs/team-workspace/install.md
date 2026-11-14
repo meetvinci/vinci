@@ -66,22 +66,22 @@ Build the images on your own computer, not on the server: building needs a lot o
 ```sh
 TAG=$(git rev-parse --short HEAD)
 bun run build:images --tag $TAG
-docker image inspect meetvinci-daemon:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG --format '{{.RepoTags}} {{.Architecture}}'
+docker image inspect meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG --format '{{.RepoTags}} {{.Architecture}}'
 ```
 
-The last command must print `amd64` five times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
+The last command must print `amd64` six times. The build makes amd64 images even on an Apple Silicon Mac. Then send them over SSH:
 
 ```sh
-docker save meetvinci-daemon:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
+docker save meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'
 ```
 
-Expected: five `Loaded image:` lines. It takes a minute or two on a home connection (about 250 MB).
+Expected: six `Loaded image:` lines. It takes a minute or two on a home connection (about 300 MB).
 
 Copy the deployment files into `/opt/meetvinci`. Only the first time, also copy the settings template as `.env`:
 
 ```sh
 ssh root@<server> 'install -d -m 700 /opt/meetvinci'
-scp deploy/compose/compose.yaml deploy/compose/daemon.yaml deploy/cloudflare/cloudflared.compose.yaml scripts/deploy.ts root@<server>:/opt/meetvinci/
+scp deploy/compose/compose.yaml deploy/compose/daemon.yaml deploy/compose/sandbox.yaml deploy/cloudflare/cloudflared.compose.yaml scripts/deploy.ts root@<server>:/opt/meetvinci/
 ssh root@<server> 'test -e /opt/meetvinci/.env' || { scp deploy/.env.example root@<server>:/opt/meetvinci/.env && ssh root@<server> 'chmod 600 /opt/meetvinci/.env'; }
 ```
 
@@ -95,7 +95,7 @@ Expected: a Bun version such as `1.4.4`.
 
 **Give this to your agent:**
 
-> In my MeetVinci checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `meetvinci-daemon:$TAG`, `meetvinci-web:$TAG`, `meetvinci-hub:$TAG`, `meetvinci-provisioner:$TAG` and `meetvinci-firewall:$TAG`. Load them on `root@<server>` with `docker save meetvinci-daemon:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/meetvinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/meetvinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> In my MeetVinci checkout, set `TAG=$(git rev-parse --short HEAD)`, run `bun run build:images --tag $TAG`, and confirm `docker image inspect` shows `amd64` for `meetvinci-daemon:$TAG`, `meetvinci-sandbox:$TAG`, `meetvinci-web:$TAG`, `meetvinci-hub:$TAG`, `meetvinci-provisioner:$TAG` and `meetvinci-firewall:$TAG`. Load them on `root@<server>` with `docker save meetvinci-daemon:$TAG meetvinci-sandbox:$TAG meetvinci-web:$TAG meetvinci-hub:$TAG meetvinci-provisioner:$TAG meetvinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'`. Create `/opt/meetvinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/meetvinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat meetvinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun && chmod 755 /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -257,7 +257,7 @@ Check it:
 ssh root@<server> 'cd /opt/meetvinci && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `meetvinci-hub-1`, `meetvinci-provisioner-1`, `meetvinci-web-1`, `meetvinci-cloudflared-1`, `meetvinci-firewall-1`, `meetvinci-daemon-template-1` and one `meetvinci-daemon-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `meetvinci-hub-1`, `meetvinci-provisioner-1`, `meetvinci-web-1`, `meetvinci-cloudflared-1`, `meetvinci-firewall-1`, `meetvinci-daemon-template-1` and `meetvinci-sandbox-template-1`, and one `meetvinci-daemon-<id>-1` and one `meetvinci-sandbox-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
 The hub creates `hub/audit.sqlite` on its first start: the admin panel's [audit trail](admin.md#activity). `ssh root@<server> 'ls -l /opt/meetvinci/hub/audit.sqlite'` shows it owned by uid 1000 with mode `-rw-------`.
 
@@ -272,7 +272,7 @@ If it differs:
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/meetvinci`: set `MEETVINCI_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared, the firewall, `meetvinci-daemon-template-1` and one `meetvinci-daemon-<id>-1` per person in `users.yaml`, all healthy, and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines. Report the provisioner's `listening` log line: it must say `Access sync on` if I chose a list of emails and gave a small token.
+> On `root@<server>`, in `/opt/meetvinci`: set `MEETVINCI_TAG=<tag>` in `.env`, and the model keys from `<where you keep them>` without printing secrets and without touching the Cloudflare block. Set `HUB_ADMIN_EMAILS=<first admin email>`, and, only if `PROVISIONER_TOKEN` has no value yet, set it to `openssl rand -hex 32` without printing it. Run `bun deploy.ts apply`. Confirm `docker compose ps` shows the hub, the provisioner, web, cloudflared, the firewall, `meetvinci-daemon-template-1`, `meetvinci-sandbox-template-1` and one `meetvinci-daemon-<id>-1` and `meetvinci-sandbox-<id>-1` per person in `users.yaml`, all healthy (`bun deploy.ts status` exits 0), and that `docker compose logs cloudflared` has at least 4 `Registered tunnel connection` lines. Report the provisioner's `listening` log line: it must say `Access sync on` if I chose a list of emails and gave a small token.
 
 ## 8. Check it works
 
@@ -292,7 +292,7 @@ ssh root@<server> 'ss -tlnp'
 ssh root@<server> 'cd /opt/meetvinci && ids=$(docker compose ps --format "{{.Service}}" | sed -n "s/^daemon-//p"); for a in $ids; do for b in $ids; do [ $a = $b ] && continue; ip=$(docker inspect -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}" meetvinci-daemon-$b-1); printf "%s -> %s: " $a $b; docker exec meetvinci-daemon-$a-1 bun -e "fetch(\"http://$ip:47191/health\",{signal:AbortSignal.timeout(3000)}).then(()=>console.log(\"REACHABLE: not isolated\"),()=>console.log(\"blocked\"))" 2>/dev/null; done; printf "hub -> %s: " $a; docker exec meetvinci-hub-1 bun -e "fetch(\"http://daemon-$a:47191/health\").then(r=>console.log(r.status),e=>console.log(\"unreachable\"))" 2>/dev/null; done'
 ```
 
-Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair. Then run the check in [what a bot can reach](admin.md#what-a-bot-can-reach) for one person: the internet answers and the server, the hub, the metadata service and private addresses are blocked.
+Expected: `ss` lists only sshd on port 22 and the local resolver on 127.0.0.53 and 127.0.0.54. Every `a -> b` line says `blocked`, and every `hub -> a` line says `200`. The template workspace is checked like a person, so even one person gives a `template -> <id>` pair. Then run the check in [what a bot can reach](admin.md#what-a-bot-can-reach) for one person: the internet answers and the server, the hub, the person's own MeetVinci, the metadata service and private addresses are blocked. `bun deploy.ts status` on the server prints every person's MeetVinci and sandbox as `running (healthy)`.
 
 Then log in:
 

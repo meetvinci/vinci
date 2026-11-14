@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# MeetVinci container images: one build stage, then the hub, web, daemon, provisioner and firewall targets.
+# MeetVinci container images: one build stage, then the hub, web, daemon, sandbox, provisioner and firewall targets.
 # Build from the repo root: bun run build:images (see scripts/deploy.ts).
 # Every image runs as uid 1000 under tini and works with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
 # Bundles run with --no-install: an unresolved optional import must fail, not download a package from npm at runtime.
@@ -17,6 +17,19 @@ RUN bun scripts/desktop.ts bundle
 
 FROM build AS hub-build
 RUN bun build apps/hub/src/entry.native.ts --target=bun --outdir=/out/hub
+
+# pi-env, the small remote-execution program Pi ships prebuilt for every platform: the sandbox needs only this
+# machine's. Checked against the SHA-256 of @earendil-works/pi-env 1.4.0's binaries; a new version needs new sums.
+FROM build AS pi-env
+ARG TARGETARCH
+RUN arch=$(echo "$TARGETARCH" | sed s/amd64/x64/) \
+ && case "$arch" in \
+      x64) sum=46dde0e25b5cf1a327a10ddcb25f746f85b783492f5b225dfaa1a0d84cf5b56a ;; \
+      arm64) sum=2a98a5576aed5f24b1b218e3025dcf6a2ea005ecbd8115aef63e443e6e8bffb8 ;; \
+      *) sum=unknown ;; \
+    esac \
+ && cp "packages/runtime/node_modules/@earendil-works/pi-env/bin/pi-env-linux-$arch/pi-env" /pi-env \
+ && echo "$sum  /pi-env" | sha256sum -c -
 
 # tini for every image, and an empty /data the distroless hub cannot create itself.
 FROM ${BUN_IMAGE}-slim AS tini
@@ -49,8 +62,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/web/src/application/server.bun.js"]
 
 # One daemon per user. All state, HOME and the Pi agent directory live on the /data volume.
-# Debian slim, not distroless: bots run their bash tool here. The product needs no other native tools; GnuPG is for
-# `deploy.ts`, which encrypts the off-site backup with this image.
+# Debian slim, not distroless: `deploy.ts` runs its tools service and GnuPG (the off-site backup) from this image. Bot
+# tools run in the person's sandbox (below), never here, in a team install.
 FROM ${BUN_IMAGE}-slim AS daemon
 RUN apt-get update && apt-get install -y --no-install-recommends gpg gpg-agent && rm -rf /var/lib/apt/lists/*
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
@@ -58,15 +71,38 @@ COPY --from=build /src/apps/desktop/dist/server/daemon /app/daemon
 COPY --chmod=755 deploy/docker/meetvinci.sh /usr/local/bin/meetvinci
 COPY --chmod=755 deploy/docker/firewall-wait.sh /usr/local/bin/firewall-wait
 # A fresh named volume copies these directories with their owner, so the daemon can write them. data/ipc exists so
-# a nested mount of the owner-socket folder there does not make Docker create data/ as root.
-RUN mkdir -p /data/home /data/pi /data/data/ipc && chown -R 1000:1000 /data
+# a nested mount of the owner-socket folder there does not make Docker create data/ as root. agents and home/.agents
+# exist for the sandbox's mounts of those subpaths; /run/sandbox is the folder the daemon shares with its sandbox.
+RUN mkdir -p /data/home/.agents /data/agents /data/pi /data/data/ipc /run/sandbox && chown -R 1000:1000 /data /run/sandbox
 USER 1000:1000
 WORKDIR /app
-ENV DATA_DIR=/data HOME=/data/home PI_CODING_AGENT_DIR=/data/pi DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191
+# DAEMON_SANDBOX_DIR here, not in daemon.yaml: every container of this image runs bot tools only in its sandbox, even
+# under a stale or overridden daemon.yaml.
+ENV DATA_DIR=/data HOME=/data/home PI_CODING_AGENT_DIR=/data/pi DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191 DAEMON_SANDBOX_DIR=/run/sandbox
 EXPOSE 47191
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD ["bun", "-e", "process.exit((await fetch(`http://127.0.0.1:${process.env.DAEMON_PORT}/health`)).ok ? 0 : 1)"]
 ENTRYPOINT ["tini", "--", "meetvinci"]
+
+# A person's sandbox: their bots' read, write, edit and bash run here through pi-env, never in the daemon. No
+# MeetVinci code, no keys, no app database, no owner socket: only the bot folders (/data/agents) and shared skills
+# (/data/home/.agents, read only) of that person's volume, and /run/sandbox, the daemon's folder, read only. Bun, git
+# and curl for ordinary bot work; socat links the sandbox to its daemon (deploy/docker/sandbox.sh). /run/sandbox is
+# owned by uid 1000 here too: Docker fills a new shared volume from whichever of the two containers it creates first.
+FROM ${BUN_IMAGE}-slim AS sandbox
+RUN apt-get update && apt-get install -y --no-install-recommends socat git curl ca-certificates && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /data/agents /data/home/.agents /run/sandbox && chown -R 1000:1000 /data /run/sandbox
+COPY --from=tini /usr/bin/tini-static /usr/bin/tini
+COPY --from=pi-env --chmod=755 /pi-env /usr/local/bin/pi-env
+COPY --chmod=755 deploy/docker/sandbox.sh /usr/local/bin/sandbox
+COPY --chmod=755 deploy/docker/firewall-wait.sh /usr/local/bin/firewall-wait
+USER 1000:1000
+WORKDIR /data/agents
+ENV HOME=/tmp
+# Healthy while it holds a connection to its daemon's exec.sock; probed every second while starting.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --start-interval=1s \
+  CMD ["sandbox", "health"]
+ENTRYPOINT ["tini", "--", "sandbox"]
 
 FROM ${DOCKER_CLI_IMAGE} AS docker-cli
 

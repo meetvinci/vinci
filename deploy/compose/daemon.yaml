@@ -26,7 +26,7 @@ services:
       DAEMON_TEAM: 'true'
       # The firewall's exceptions: the secrets proxy lets bots through to exactly these <IPv4>:<port> too.
       MEETVINCI_INTERNAL_ALLOW: ${MEETVINCI_INTERNAL_ALLOW:-}
-      # Model API keys from .env, the same for every person. Each person's bots can read them (risk 1).
+      # Model API keys from .env, the same for every person. Bots do not see them: the sandbox has none.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

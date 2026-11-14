@@ -1,12 +1,13 @@
 import type { SecretSource } from './secret.types';
 import type { CompletedRequest, Mockttp } from 'mockttp';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
-import type { BlockList } from 'node:net';
+import type { BlockList, Server as NetServer } from 'node:net';
 
 export interface SecretProxyServiceParams {
   source: SecretSource;
   folder: string;
   internalAllow: string[];
+  sandboxDir?: string;
 }
 
 export interface SecretProxyServiceDeps extends SecretProxyServiceParams {
@@ -20,6 +21,7 @@ export interface SecretProxyState {
   server: Mockttp | null;
   forward: Server | null;
   forwardUrl: string;
+  bridge: NetServer | null;
   starting: Promise<void> | null;
 }
 
