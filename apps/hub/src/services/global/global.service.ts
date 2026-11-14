@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
+import { globalActionAdopt } from './global-action.adopt';
 import { globalActionBots } from './global-action.bots';
 import { globalActionChanged } from './global-action.changed';
 import { globalActionCreate } from './global-action.create';
@@ -22,6 +23,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
     ...services,
     path: join(directory, GLOBAL.file),
     startPath: join(directory, GLOBAL.startFile),
+    newPath: join(directory, GLOBAL.newFile),
     state: {
       file: { users: {} },
       isBroken: false,
@@ -32,6 +34,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
       running: new Map(),
       dirty: new Set(),
       previewKey: randomBytes(32),
+      fresh: { mtimeMs: undefined, ids: [] },
     },
   };
 
@@ -60,6 +63,7 @@ export async function makeGlobalService({ directory, ...services }: GlobalTypes.
       mode: (params) => globalActionMode(deps, params),
       sync: (params) => globalActionSync(deps, params),
       start: ({ by }) => globalActionStart(deps, { by, attempts: GLOBAL.startAttempts }),
+      adopt: (params) => globalActionAdopt(deps, params),
       started: (params) => globalDriverStartWrite(deps.startPath, params),
       changed: (params) => globalActionChanged(deps, params),
       create: (params) => globalActionCreate(deps, params),

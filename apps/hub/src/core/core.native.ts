@@ -18,6 +18,8 @@ import type * as CoreTypes from '../types/core.types';
 
 const STOP_SIGNALS = ['SIGINT', 'SIGTERM'] as const;
 const START_BY = 'hub start';
+const ADOPT_BY = 'apply';
+const ADOPT_CHECK_MS = 2000;
 
 export async function coreNativeRun(): Promise<void> {
   const settings = {
@@ -77,6 +79,9 @@ export async function coreNativeRun(): Promise<void> {
 
   const server = coreServer(services, publicUrl);
 
+  const adopting = setInterval(() => void coreNativeGlobalAdopt(services), ADOPT_CHECK_MS);
+
+  void coreNativeGlobalAdopt(services);
   void coreNativeGlobalStart(services);
 
   log.info({
@@ -90,9 +95,18 @@ export async function coreNativeRun(): Promise<void> {
   });
 
   await stopped;
+  clearInterval(adopting);
   await server.stop(true);
   services.audit.actions.close();
   log.info({ tag: 'hub', message: 'Hub stopped' });
+}
+
+async function coreNativeGlobalAdopt(services: CoreTypes.CoreServices): Promise<void> {
+  await services.global.actions.adopt({ by: ADOPT_BY }).catch((error: unknown) => log.error({
+    tag: 'hub',
+    message: 'Making the people apply just created follow global settings failed; trying again',
+    error,
+  }));
 }
 
 async function coreNativeGlobalStart(services: CoreTypes.CoreServices): Promise<void> {

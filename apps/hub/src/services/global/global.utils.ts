@@ -18,6 +18,10 @@ export function globalSectionState(file: GlobalTypes.GlobalFile, id: string, sec
   return file.users[id]?.[section] ?? { mode: 'overridden', sync: 'in-sync' };
 }
 
+export function globalFollowing(): Partial<Record<AdminSectionId, GlobalTypes.GlobalSectionState>> {
+  return Object.fromEntries(GLOBAL.sections.map(({ id }) => [id, { mode: 'global', sync: 'pending' }]));
+}
+
 export function globalSections(file: GlobalTypes.GlobalFile, id: string): AdminSection[] {
   return GLOBAL.sections.map(({ id: section }) => ({ id: section, ...globalSectionState(file, id, section) }));
 }

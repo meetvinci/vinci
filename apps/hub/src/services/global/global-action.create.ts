@@ -2,6 +2,7 @@ import { globalActionApply } from './global-action.apply';
 import { globalActionBots } from './global-action.bots';
 import { globalActionSave } from './global-action.save';
 import { GLOBAL } from './global.constants';
+import { globalFollowing } from './global.utils';
 import type * as GlobalTypes from '../../types/global.types';
 import type { UserCreateParams } from '../../types/user.types';
 
@@ -11,7 +12,7 @@ export async function globalActionCreate(deps: GlobalTypes.GlobalServiceDeps, { 
 
   await globalActionSave(deps, {
     change: (file) => ({
-      users: { ...file.users, [created.id]: Object.fromEntries(sections.map((section) => [section, { mode: 'global', sync: 'pending' }])) },
+      users: { ...file.users, [created.id]: globalFollowing() },
     }),
   });
   await globalActionApply(deps, {

@@ -443,6 +443,36 @@ function renderUsers({ users }: Team, ids: string[]): string {
   return `${JSON.stringify({ users: Object.fromEntries(entries), template: daemon(templateId) }, null, 2)}\n`;
 }
 
+// The people this apply gives a new, empty data volume: the hub makes each follow every global section, as if added in
+// the panel (admin.md, Global settings), and then deletes the file, so a list never outlives the hub acting on it.
+// Someone whose volume already exists (data from before global settings) is never listed. A list the hub has not
+// consumed yet (it was down, or the apply failed before it started) is kept, so running apply again after a failure
+// still counts the people it created as new. Only apply writes this file; only the hub deletes it.
+function newUnread(file: string): string[] {
+  try {
+    const { users } = JSON.parse(readFileSync(file, 'utf8'));
+
+    return Array.isArray(users) ? users : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeNew(ids: string[]) {
+  const file = path.join(hubData, 'new-users.json');
+  const unread = newUnread(file);
+  const volumes = new Set((await docker(['volume', 'ls', '--quiet'])).split('\n'));
+  const prefix = `${await project()}_data-`;
+  const users = ids.filter((id) => !volumes.has(`${prefix}${id}`) || unread.includes(id));
+
+  if (users.length === 0) {
+    rmSync(file, { force: true });
+    return;
+  }
+
+  writeAtomic(file, `${JSON.stringify({ users })}\n`, 0o644);
+}
+
 // The hub (uid 1000) owns its folder. Group root lets the provisioner, root without capabilities, replace users.json.
 function hubFolder() {
   if (!existsSync(hubData)) {
@@ -710,6 +740,7 @@ async function applyTeam(waitFor?: string[]) {
   await moveOldNetworks(daemons, waitFor === undefined);
   hubFolder();
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
+  await writeNew(ids);
   await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
   await sandboxFolders(daemons);
   await disks(daemons);

@@ -3,6 +3,7 @@ import type { AdminSectionId } from '@repo/contracts/universal';
 export const GLOBAL = {
   file: 'global.json',
   startFile: 'start-sync.json',
+  newFile: 'new-users.json',
   socketOrigin: 'http://localhost',
   sections: [
     { id: 'models', procedures: ['providers/', 'models/'] },

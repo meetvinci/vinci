@@ -20,6 +20,8 @@ export const globalSyncInput = z.strictObject({ section: adminSectionId.optional
 
 export const globalBotsInput = z.strictObject({ bots: z.array(z.uuid()).min(1).max(50) });
 
+export const globalNewFile = z.strictObject({ users: z.array(userId) });
+
 export const globalStartRecord = z.strictObject({ version: z.string(), row: z.number().int().nullable() });
 
 export type GlobalFile = z.infer<typeof globalFile>;
@@ -36,6 +38,7 @@ export interface GlobalServiceParams {
 export interface GlobalServiceDeps extends Omit<GlobalServiceParams, 'directory'> {
   path: string;
   startPath: string;
+  newPath: string;
   state: GlobalState;
 }
 
@@ -49,6 +52,7 @@ export interface GlobalState {
   running: Map<UniversalTypes.AdminSectionId, Promise<void>>;
   dirty: Set<UniversalTypes.AdminSectionId>;
   previewKey: Uint8Array;
+  fresh: { mtimeMs: number | null | undefined; ids: string[] };
 }
 
 export interface GlobalUserParams {
@@ -125,9 +129,14 @@ export interface GlobalStartParams {
   attempts: number;
 }
 
-export interface GlobalStartRetryParams extends GlobalUserParams {
+export interface GlobalRetryParams extends GlobalUserParams {
   sections: UniversalTypes.AdminSectionId[];
+  by: string;
   attempts: number;
+}
+
+export interface GlobalAdoptParams {
+  by: string;
 }
 
 export interface GlobalChangedParams extends Pick<GlobalGuardParams, 'procedure'> {
@@ -174,6 +183,7 @@ export interface GlobalService {
     mode: (params: GlobalModeParams) => Promise<UniversalTypes.AdminSection>;
     sync: (params: GlobalSyncParams) => Promise<GlobalStatusUser[]>;
     start: (params: Pick<GlobalStartParams, 'by'>) => Promise<void>;
+    adopt: (params: GlobalAdoptParams) => Promise<void>;
     started: (params: GlobalStartRecord) => Promise<void>;
     changed: (params: GlobalChangedParams) => void;
     create: (params: UserTypes.UserCreateParams) => Promise<GlobalCreated>;

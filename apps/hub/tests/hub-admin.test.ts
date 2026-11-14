@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
@@ -268,5 +268,90 @@ describe('Cloudflare Access state', () => {
     expect(cached).not.toHaveProperty('accessDomains');
     expect(down.users).toMatchObject({ users: [{ id: 'alice', access: 'unknown' }, { id: 'bob', access: 'unknown' }], accessMode: 'unknown' });
     expect(down.admins).toMatchObject({ admins: [{ access: 'unknown' }, { access: 'unknown' }, { access: 'unknown' }] });
+  });
+});
+
+describe('people apply created', () => {
+  const relay = async (token: string, user: string, procedure: string, input?: object) => (await hubAdminTestWrite(token, `/admin/api/users/${user}/rpc/${procedure}`, {
+    body: { json: input ?? null },
+    headers: { 'x-bots-protocol': '1' },
+  })).json;
+
+  async function until(check: () => Promise<boolean>, deadline = Date.now() + 15_000): Promise<boolean> {
+    if (await check() || Date.now() > deadline) {
+      return check();
+    }
+
+    await sleep(250);
+
+    return until(check, deadline);
+  }
+
+  it('makes them follow every section and get a template key, and leaves people with data alone', async ({ fixture, tokens }) => {
+    const globalPath = join(fixture.hubData, 'global.json');
+    const newPath = join(fixture.hubData, 'new-users.json');
+    const sessionView = z.object({ json: z.object({ id: z.uuid(), prompt: z.object({ id: z.uuid() }).optional() }) });
+    const following = JSON.stringify(['chat', 'models', 'secrets', 'sources', 'tools'].map((section) => `${section}:global:in-sync`));
+    const state = async () => z.object({ users: z.record(z.string(), z.record(z.string(), z.object({ mode: z.string(), sync: z.string() }))) }).parse(JSON.parse(await readFile(globalPath, 'utf8'))).users;
+    const modes = async (id: string) => JSON.stringify(Object.entries((await state())[id] ?? {}).map(([section, { mode, sync }]) => `${section}:${mode}:${sync}`).sort());
+    const hasOpenai = async (id: string) => JSON.stringify(await relay(tokens.root, id, 'models/list')).includes('"provider":"openai"');
+    const session = async (id: string) => sessionView.parse(await relay(tokens.root, 'template', 'providers/session', { id })).json;
+
+    await writeFile(globalPath, JSON.stringify({ users: {} }));
+
+    const bobBefore = await relay(tokens.root, 'bob', 'conversation/settings');
+
+    await writeFile(newPath, JSON.stringify({ users: ['alice'] }));
+
+    const isAliceFollowing = await until(async () => (await modes('alice')) === following);
+    const login = sessionView.parse(await relay(tokens.root, 'template', 'providers/login', { providerId: 'openai', authType: 'api_key' })).json;
+    const isAsked = await until(async () => (await session(login.id)).prompt !== undefined);
+
+    await relay(tokens.root, 'template', 'providers/complete', {
+      id: login.id,
+      promptId: (await session(login.id)).prompt?.id,
+      answer: 'dummy-openai-template-key',
+    });
+
+    const aliceHasKey = await until(async () => hasOpenai('alice'));
+    const bob = { state: (await state()).bob, hasKey: await hasOpenai('bob'), settings: await relay(tokens.root, 'bob', 'conversation/settings') };
+
+    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/tools', { method: 'PUT', body: { mode: 'overridden' } });
+    await writeFile(newPath, JSON.stringify({ users: ['alice', 'bob'] }));
+
+    const isBobFollowing = await until(async () => (await modes('bob')) === following);
+    const bobHasKeyLater = await until(async () => hasOpenai('bob'));
+
+    expect([isAliceFollowing, isAsked, aliceHasKey]).toEqual([true, true, true]);
+    expect(bob).toEqual({
+      state: undefined,
+      hasKey: false,
+      settings: bobBefore,
+    });
+    expect([isBobFollowing, bobHasKeyLater]).toEqual([true, true]);
+    expect(await modes('alice')).toContain('tools:overridden:in-sync');
+  });
+
+  it('adopts a person once, so an older global.json never puts them back on global', async ({ fixture, tokens }) => {
+    const globalPath = join(fixture.hubData, 'global.json');
+    const newPath = join(fixture.hubData, 'new-users.json');
+    const models = async () => z.object({ users: z.object({ alice: z.object({ models: z.object({ mode: z.string() }) }).optional() }).loose() }).parse(JSON.parse(await readFile(globalPath, 'utf8'))).users.alice?.models.mode;
+
+    await writeFile(globalPath, JSON.stringify({ users: {} }));
+    await writeFile(newPath, JSON.stringify({ users: ['alice'] }));
+
+    const isAdopted = await until(async () => (await models()) === 'global');
+    const isConsumed = await until(async () => access(newPath).then(() => false, () => true));
+
+    await hubAdminTestWrite(tokens.root, '/admin/api/users/alice/sections/models', { method: 'PUT', body: { mode: 'overridden' } });
+
+    const overridden = await models();
+
+    await writeFile(globalPath, JSON.stringify({ users: {} }));
+    await sleep(4000);
+    await hubAdminTestWrite(tokens.root, '/admin/api/global/sync', { body: { section: 'chat' } });
+
+    expect([isAdopted, isConsumed, overridden]).toEqual([true, true, 'overridden']);
+    expect(await models()).toBeUndefined();
   });
 });

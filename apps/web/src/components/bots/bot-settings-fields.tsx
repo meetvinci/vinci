@@ -9,6 +9,7 @@ import { Label } from '@repo/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@repo/ui/select';
 import { useQuery } from '@tanstack/react-query';
 import { Fragment } from 'react';
+import { BotModelsEmpty } from '@/components/bots/bot-models-empty';
 import type { BotSettings } from '@repo/client/client';
 import type { Bot } from '@repo/contracts/universal';
 import type { ComboboxGroup } from '@repo/ui/combobox';
@@ -33,6 +34,16 @@ export function BotSettingsFields({ value, fallback, disabled = false, onChange,
 
   if (modelsQuery.isError) {
     return <p className="text-xs text-muted-foreground">{m.rooms_bot_models_error()}</p>;
+  }
+
+  const isEmpty = !loadingModels && models.length === 0;
+
+  if (isEmpty && !modelKey) {
+    return renderField ? renderField({
+      slot: 'primary',
+      label: null,
+      children: <BotModelsEmpty />,
+    }) : <BotModelsEmpty />;
   }
 
   const modelGroups: ComboboxGroup[] = [...new Set(models.map((model) => model.provider))].map((providerId) => ({
@@ -111,6 +122,7 @@ export function BotSettingsFields({ value, fallback, disabled = false, onChange,
               </Select>
             </div>
             {sharedReasoning ? <p className="text-xs text-muted-foreground">{m.rooms_bot_fallback_shared_reasoning()}</p> : null}
+            {isEmpty && slot === 'primary' ? <BotModelsEmpty /> : null}
           </>
         );
 

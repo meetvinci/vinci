@@ -105,7 +105,7 @@ Under `admins:`, list the email of the first admin of the admin panel. An admin 
 
 To show a name in the admin panel instead of the id, use the long form for that person (`name:` and `email:` on their own lines, see [the user list](admin.md#the-user-list)). You can also list only yourself now and add everyone else later in the admin panel.
 
-People listed here start with every section of [Global settings](admin.md#global-settings-and-suggested-bots) *overridden*: what you set there in step 8 never reaches them until you switch each of their sections to global (**Back to global** on their page). People added in the panel after you set Global settings follow every section. For a new team, list only the admins here (and yourself if you are a user), set Global settings, then add people in the panel; or list everyone and switch their sections afterwards.
+People listed here follow every section of [Global settings](admin.md#global-settings-and-suggested-bots), like people added in the panel: what you set there in step 8 reaches them within seconds. So does a line you add here later, once you run `apply`.
 
 ```sh
 ssh root@<server> 'cat > /opt/meetvinci/users.yaml' <<'LIST'
@@ -303,7 +303,7 @@ Then log in:
 3. MeetVinci opens for that person. The browser pairs itself; there is no PIN and no device name to type. MeetVinci shows no setup steps: the admin sets up keys and bots.
 4. Try an email that is not on the list. With a list of emails, Cloudflare should not send it a code. With a domain rule, an address at that domain gets a code and then a page saying it has no workspace and to ask an admin; an address at another domain gets no code.
 5. Log in as the first admin and open `https://<team>.<domain>/admin`. You should see **Users** with everyone from `users.yaml`, **Global settings**, and **Admins** with your email. A person who is not an admin gets 403 there. If you are an admin but not a user, opening `https://<team>.<domain>` takes you to `/admin`.
-6. Set up the team before people log in: in **Global settings**, add a model provider's API key under Models, set Chat, Tools, Secrets and Sources as you want everyone to start, and create the bots you want to offer under **Suggested bots**. Then give each person their bots (see [Global settings and suggested bots](admin.md#global-settings-and-suggested-bots)).
+6. Set up the team before people log in. First, in **Global settings → Models**, add a model provider's API key: until one is there, nobody's bot form has a model to pick, and it says so. Everyone in `users.yaml` follows Global settings, so the key reaches them within seconds, with no other click. Then set Chat, Tools, Secrets and Sources as you want everyone to start, and create the bots you want to offer under **Suggested bots**. Give each person their bots with **Add from suggested bots** on their **Bots** (see [Global settings and suggested bots](admin.md#global-settings-and-suggested-bots)).
 
 **Give this to your agent:**
 

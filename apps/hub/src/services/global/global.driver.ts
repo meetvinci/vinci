@@ -1,7 +1,7 @@
 import { makeHttpClient } from '@repo/client/client';
 import { Errors } from '@repo/errors/universal';
-import { readFile, rename, stat, writeFile } from 'node:fs/promises';
-import { globalFile, globalStartRecord } from '../../types/global.types';
+import { readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { globalFile, globalNewFile, globalStartRecord } from '../../types/global.types';
 import { GLOBAL } from './global.constants';
 import type { GlobalFile, GlobalStartRecord } from '../../types/global.types';
 
@@ -20,6 +20,16 @@ export async function globalDriverWrite(path: string, file: GlobalFile): Promise
   await rename(draft, path);
 
   return (await stat(path)).mtimeMs;
+}
+
+export async function globalDriverNewRead(path: string): Promise<string[]> {
+  return globalNewFile.parse(JSON.parse(await readFile(path, 'utf8'))).users;
+}
+
+export async function globalDriverNewRemove(path: string, mtimeMs: number): Promise<void> {
+  if ((await globalDriverModified(path)) === mtimeMs) {
+    await unlink(path);
+  }
 }
 
 export async function globalDriverStartRead(path: string): Promise<GlobalStartRecord | null> {
