@@ -321,7 +321,6 @@ async function dev() {
         MOBILE_SCHEME: 'meetvinci-dev',
         DAEMON_HOST: host,
         DAEMON_PORT: String(ports.daemon),
-        DAEMON_TEAM: 'true',
         DAEMON_SANDBOX_DIR: sandboxDir,
         DAEMON_ALLOWED_ORIGINS: publicUrl,
         WEB_PUBLIC_URL: publicUrl,

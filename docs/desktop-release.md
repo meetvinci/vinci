@@ -72,6 +72,10 @@ Then it downloads the manifest from `DESKTOP_UPDATE_URL` and fails if the addres
 3. It unpacks the bundle and checks that it holds exactly one app, signed through Apple with the same bundle ID and Developer ID team as the running app (checked by `codesign` itself, so it holds even with Gatekeeper turned off), that Gatekeeper accepts it (so Apple notarized it), and that its version is newer than the running one. Anything else is dropped and nothing is installed (a manual check says the check failed). The downloaded file is then replaced by a fresh tar of exactly the app that was checked, which is what gets installed.
 4. The tray menu and the app offer **Restart to Update**. Choosing it stops the local server, swaps the app and opens it again.
 
+### Settings it cannot change for now
+
+Every MeetVinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it shows these controls as before, but saving answers "Your admin manages this.": a bot's permission level other than **Ask** (new or changed), a changed approval rule or timeout, how bots use secrets, an MCP server that runs a command, the default model, and rate limits. Its bots cannot add an MCP server that runs a command either. Pairing, chat, bots on **Ask**, secrets, web MCP servers and the other settings work as before.
+
 ## What the check protects against
 
 The bucket is public, so anyone can read it. Only the bucket key can change it.

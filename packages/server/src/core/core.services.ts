@@ -38,7 +38,6 @@ export async function makeServices({
   network,
   linkResolver,
   appScheme,
-  isTeam,
   providers,
   runtime: runtimeOptions,
 }: CoreServicesParams) {
@@ -91,7 +90,7 @@ export async function makeServices({
       storage: attachmentStorage,
     });
 
-    runtime.actions.registerBotTools({ bots, isTeam });
+    runtime.actions.registerBotTools({ bots });
     runtime.actions.registerAttachmentTools({ attachments });
 
     const notifications = makeNotificationService({

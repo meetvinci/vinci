@@ -44,7 +44,6 @@ export interface RpcContext extends RequestHeadersPluginContext, ResponseHeaders
   credentials: CredentialsService;
   secrets: SecretService;
   isLocal: boolean;
-  isTeam: boolean;
   peerAddress: string | null;
   runtime: RuntimeService;
   tools: ToolService;
@@ -75,7 +74,7 @@ export interface RpcOwnerContext {
 }
 
 export interface RpcTeamRefuseParams {
-  context: Pick<RpcContext, 'isLocal' | 'isTeam'>;
+  context: Pick<RpcContext, 'isLocal'>;
   path: string;
   changes: () => boolean | Promise<boolean>;
 }

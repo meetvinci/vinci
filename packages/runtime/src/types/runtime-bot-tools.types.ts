@@ -19,7 +19,6 @@ export interface RuntimeBotToolsBots {
 
 export interface RuntimeBotToolsRegisterParams {
   bots: RuntimeBotToolsBots;
-  isTeam: boolean;
 }
 
 export interface RuntimeBotToolsDeps extends RuntimeBotToolsRegisterParams {

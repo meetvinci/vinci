@@ -179,7 +179,6 @@ async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'a
       DAEMON_PORT: String(config.ports[name]),
       WEB_PUBLIC_URL: config.publicOrigin,
       DAEMON_ALLOWED_ORIGINS: config.publicOrigin,
-      DAEMON_TEAM: 'true',
     }),
   });
 }

@@ -96,7 +96,7 @@ export function runtimeBotToolsExtension(deps: RuntimeBotToolsDeps) {
     execute: async (params, api, context) => {
       const input = botToolMcpAdd.parse(params);
 
-      if (deps.isTeam && input.command !== undefined) {
+      if (input.command !== undefined) {
         throw new Errors.TEAM_MANAGED({ internal: 'Managed by the admin in a team install: bot_mcp_add with a command' });
       }
 

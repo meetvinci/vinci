@@ -199,7 +199,6 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
     }),
     linkResolver: makeLinkResolverService(),
     appScheme: env.MOBILE_SCHEME,
-    isTeam: env.DAEMON_TEAM,
     providers,
     runtime: {
       appName: env.APP_NAME,
@@ -244,7 +243,7 @@ function coreNativeRpc(services: CoreTypes.CoreServices, isLocal: boolean) {
   })];
 
   return {
-    context: { ...services, isLocal, isTeam: env.DAEMON_TEAM, peerAddress: null },
+    context: { ...services, isLocal, peerAddress: null },
     http: new FetchRPCHandler(router, {
       plugins: [...plugins, cors],
       interceptors,

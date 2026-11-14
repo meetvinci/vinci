@@ -3,7 +3,7 @@ import { match } from 'ts-pattern';
 import { runtimeBotToolsExtension } from './runtime-bot-tools.extension';
 import type { RuntimeBotToolsRegisterDeps, RuntimeBotToolsRegisterParams } from '../../types/runtime-bot-tools.types';
 
-export function runtimeActionRegisterBotTools(deps: RuntimeBotToolsRegisterDeps, { bots, isTeam }: RuntimeBotToolsRegisterParams) {
+export function runtimeActionRegisterBotTools(deps: RuntimeBotToolsRegisterDeps, { bots }: RuntimeBotToolsRegisterParams) {
   match(deps.extensions.some((extension) => extension.name === 'bots.bot-tools'))
     .with(true, () => {
       throw new Errors.INTERNAL_ERROR({ internal: 'Bot tools are already registered.' });
@@ -13,7 +13,6 @@ export function runtimeActionRegisterBotTools(deps: RuntimeBotToolsRegisterDeps,
 
   const tools = runtimeBotToolsExtension({
     bots,
-    isTeam,
     models: deps.models,
   });
 
