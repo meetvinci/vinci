@@ -1,4 +1,6 @@
 export const HTML_FRAME = {
+  runKey: 'bots.html-run',
+  runLimit: 500,
   fonts: [
     {
       url: new URL('../../assets/fonts/inter-latin.woff2', import.meta.url).href,

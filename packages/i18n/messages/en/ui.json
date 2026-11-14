@@ -49,6 +49,8 @@
   "ui_html_preview": "HTML preview",
   "ui_html_page": "Page",
   "ui_html_left": "This page tried to open another address, so it was closed.",
+  "ui_html_held": "This page's code is off until you run it. Code can contact other websites, for example to learn when you opened it.",
+  "ui_html_run": "Run page",
   "ui_outside_off": "Outside content is off here. Loading it can be used for tracking, analytics and spying on who opens this.",
   "ui_outside_load": "Load outside content",
   "ui_tool_bot_status_prompt": "The owner sees a live status line while you work. Before each tool call other than bot_react and bot_gif, write one short line of 2 to 6 words saying what you are doing, ending with an ellipsis, such as \"Finding the best hotel…\" or \"Checking your calendar…\". It is shown as your status, not as a message, so never repeat it in your answer.",

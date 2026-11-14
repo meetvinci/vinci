@@ -36,17 +36,17 @@ export function htmlEmoji(html: string): string {
   return parsed.success ? parsed.data : ARTIFACT.emojiDefault;
 }
 
-export function htmlDocument(html: string, theme = '') {
+export function htmlDocument(html: string, theme = '', nonce = '') {
   return `<!doctype html><html><head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src ${nonce === '' ? '\'unsafe-inline\'' : `'nonce-${nonce}'`}; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <style>:root{color-scheme:light dark}
 html{background:var(--background,transparent);color:var(--foreground,inherit);font-family:Inter,system-ui,sans-serif;font-size:14px;line-height:1.375;letter-spacing:-0.01em;font-feature-settings:'cv11','salt','ss01','ss03','cv01','cv02','cv03','cv04','cv05','cv06','cv07','cv08','cv09','cv10';-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body{margin:0}*,*::before,*::after{box-sizing:border-box}img,svg,canvas{max-width:100%}
 :is(button,select,summary,[role=button],[role=tab],[role=option],[role=menuitem]):not(:disabled,[aria-disabled=true]){cursor:pointer}
 ${HTML_KIT}${theme}</style>
-<script>${HTML_BOOTSTRAP}</script>
+<script${nonce === '' ? '' : ` nonce="${nonce}"`}>${HTML_BOOTSTRAP}</script>
 </head><body>${html}</body></html>`;
 }
 

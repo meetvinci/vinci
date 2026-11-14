@@ -248,7 +248,7 @@ The viewer loads nothing from outside servers on its own. A picture in an artifa
 
 Press **Load outside content** only when you need to see it. The hub records the click first (one row, *Loaded outside content*, with the person, the bot and the conversation), then that one artifact or message loads as in the person's app: its pictures load, and a page runs its scripts in the app's sandbox (it still cannot make requests, open windows or post forms; only the WebRTC probe and sending its own frame to an address get out, and the panel then closes the page and says so). Nothing is remembered: closing the pane, picking another version or opening the chat again turns it off. If the hub cannot record the click, nothing loads and the panel shows an error.
 
-Without scripts a page can still be clicked: a plain link inside it opens in its frame, which is you choosing to visit that address (the panel then closes the page).
+Without scripts a page can still be clicked, but a link inside it no longer opens: the app refuses any address in a page's frame, so the panel closes the page instead.
 
 **What leaves no trace**
 
@@ -283,6 +283,8 @@ The app a person opens is simpler than the one a single owner gets: it hides wha
 **Nobody sees (you set these in the panel):** a bot's permission level; approval rules and the approval timeout; how bots use secrets; **Settings → Server**; the desktop app's connection settings; onboarding; *Create pairing PIN*; the avatar and chat lab links.
 
 New bots a person creates start at **Ask first**, the app's default.
+
+**A bot's page waits for one click.** An HTML page a bot makes (an artifact or a page in a reply) that has script shows without it, under *This page's code is off until you run it…*, until the person presses **Run page**; that browser then remembers that exact page, and a changed page asks again. Script in a page can tell an outside server that someone opened it (WebRTC and Chrome's early connections, which no content rule stops), and a bot tricked by a web page could write one. Artifacts built from blocks (charts, lists, checklists), pictures and GIFs load as before. On the web and in the desktop app; the phone app's pages still run at once. A page never reaches the app's cookies, storage or the hub, and since this change cannot open any address in its frame either.
 
 **Refused for everyone, advanced or not:** each person's MeetVinci itself refuses a few security settings from any of their devices, so these hold even in an old browser tab or the phone app: changing a bot's permission level, approval rules and the approval timeout, how bots use secrets, changing or removing a global secret, adding an MCP server that runs a command on the server (the presets are web addresses and work), and rate limits. They answer *Your admin manages this*. You change all of them in the panel (rate limits on the person's **Devices** page). A bot can't add a command MCP server for them either.
 

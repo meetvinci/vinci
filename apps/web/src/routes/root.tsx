@@ -46,7 +46,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     }
   },
   head: () => ({
-    meta: createMetadata({ defaults: SEO_METADATA_DEFAULTS }),
+    meta: [
+      ...createMetadata({ defaults: SEO_METADATA_DEFAULTS }),
+      { httpEquiv: 'Content-Security-Policy', content: "frame-src 'none'" },
+    ],
     links: [
       { rel: 'stylesheet', href: appCss },
       ...createFaviconLinks(),

@@ -13,3 +13,12 @@ export const htmlFrameMessageText = z.string().transform((text, context) => {
     return z.NEVER;
   }
 }).pipe(htmlFrameMessage);
+
+export const htmlPagesRun = z.string().transform((text, context) => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    context.addIssue({ code: 'custom', message: 'Expected a JSON list' });
+    return z.NEVER;
+  }
+}).pipe(z.array(z.string()));
