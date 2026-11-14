@@ -80,7 +80,8 @@ RUN mkdir -p /data/home/.agents /data/agents /data/bot-home /data/pi /data/data/
 USER 1000:1000
 WORKDIR /app
 # DAEMON_SANDBOX_DIR here, not in daemon.yaml: every container of this image runs bot tools only in its sandbox, even
-# under a stale or overridden daemon.yaml.
+# under a stale or overridden daemon.yaml. The entry (meetvinci.sh) refuses to start the daemon unless a volume is
+# mounted there, and waits for the firewall first; `meetvinci <command>` runs as given.
 ENV DATA_DIR=/data HOME=/data/home PI_CODING_AGENT_DIR=/data/pi DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191 DAEMON_SANDBOX_DIR=/run/sandbox
 EXPOSE 47191
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \

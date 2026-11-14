@@ -329,11 +329,8 @@ function daemonNetwork(key: string) {
 }
 
 // Compose starts a daemon or sandbox only once the firewall is healthy. Docker ignores that order after a reboot or
-// its own restart, so each first waits until the firewall rejects it (deploy/docker/firewall-wait.sh).
-const firewallFirst = {
-  depends_on: { firewall: { condition: 'service_healthy' } },
-  environment: { MEETVINCI_WAIT_FOR_FIREWALL: 'true' },
-};
+// its own restart, so each image's entry first waits until the firewall rejects it (deploy/docker/firewall-wait.sh).
+const firewallFirst = { firewall: { condition: 'service_healthy' } };
 
 // Mounts every disk in <folder> that is not mounted, at boot (the systemd unit `apply` installs, before Docker starts
 // anyone). Each is checked first as systemd checks its own disks (e2fsck -p: replays the journal after a crash, fixes
@@ -396,7 +393,7 @@ const disksMoveScript = [
 function renderCompose(ids: string[]): string {
   const services = Object.fromEntries(ids.flatMap((id) => [[`daemon-${id}`, {
     extends: { file: 'daemon.yaml', service: 'daemon' },
-    ...firewallFirst,
+    depends_on: firewallFirst,
     networks: { [`user-${id}`]: {} },
     volumes: [
       `data-${id}:/data`,
@@ -411,8 +408,7 @@ function renderCompose(ids: string[]): string {
     extends: { file: 'sandbox.yaml', service: 'sandbox' },
     // The daemon's image fills a new volume first, so home/.agents exists, and it owns the shared folder. agents/ is on
     // the person's disk, which apply creates before anything starts.
-    depends_on: { ...firewallFirst.depends_on, [`daemon-${id}`]: { condition: 'service_started' } },
-    environment: firewallFirst.environment,
+    depends_on: { ...firewallFirst, [`daemon-${id}`]: { condition: 'service_started' } },
     networks: { [`sandbox-${id}`]: {} },
     volumes: [
       { type: 'volume', source: `disk-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },

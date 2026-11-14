@@ -152,10 +152,8 @@ if [ -z "$(ls -A "$HOME")" ] && ! cp -R /etc/skel/. "$HOME"/ 2>/dev/null; then
   echo "sandbox: $HOME is not writable, so bots cannot install anything: run bun deploy.ts apply" >&2
 fi
 
-# In a team install no bot command runs before the firewall confines this container (set by deploy.ts apply).
-if [ "${MEETVINCI_WAIT_FOR_FIREWALL:-}" = true ]; then
-  firewall-wait
-fi
+# No bot command runs before the firewall confines this container.
+firewall-wait
 
 socat TCP-LISTEN:47195,bind=127.0.0.1,reuseaddr,fork "UNIX-CONNECT:$dir/proxy.sock" &
 
