@@ -48,6 +48,11 @@ jobs:
             turbo-${{ runner.os }}-${{ inputs.task }}-
             turbo-${{ runner.os }}-
 
+      # No automatic retries anywhere. A manual re-run keeps the earlier attempts and their logs; this warning puts that on the checks page.
+      - name: Note a re-run
+        if: github.run_attempt > 1
+        run: echo "::warning title=Re-run::This is attempt ${GITHUB_RUN_ATTEMPT}. Earlier attempts and their logs are at ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/1 (and later numbers)."
+
       - name: Run ${{ inputs.task }}
         env:
           TASK: ${{ inputs.task }}

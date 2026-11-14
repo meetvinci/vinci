@@ -12,7 +12,7 @@ export const envServerSchema = {
       .map((origin) => URL.parse(origin)?.origin ?? origin)),
   DAEMON_PUBLIC_URLS: z.string().trim().default('')
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
-    .pipe(z.array(z.url({ protocol: /^https?$/ }).refine((url) => new URL(url).pathname === '/', 'Use a bare origin without a path')))
+    .pipe(z.array(z.url({ protocol: /^https?$/ }).refine((url) => (URL.parse(url)?.pathname ?? '/') === '/', 'Use a bare origin without a path')))
     .transform((origins) => origins.map((origin) => new URL(origin).origin)),
   DAEMON_TEAM: z.stringbool().default(false),
   MEETVINCI_INTERNAL_ALLOW: z.string().trim().default('')

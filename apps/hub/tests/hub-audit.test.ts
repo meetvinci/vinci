@@ -17,6 +17,9 @@ describe('audit trail', () => {
   };
 
   it('is for admins only, read only, and not itself recorded', async ({ fixture, tokens }) => {
+    // The hub records its own sync at start in the background, after it answers health; wait for that row so it cannot land between the two reads.
+    await expect.poll(async () => (await audit(tokens.root)).page?.entries.some((entry) => entry.by === 'hub start'), { timeout: 30_000 }).toBe(true);
+
     const before = (await audit(tokens.root)).page?.entries.at(0)?.id;
 
     const refused = await Promise.all([

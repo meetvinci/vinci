@@ -10,7 +10,7 @@ bun run lint
 bun run lint:dead
 ```
 
-`check` and `lint` must finish without warnings or errors. `lint:dead` must exit cleanly; its remaining warnings are exported service types kept by the architecture convention. Run existing tests when affected; no application tests exist yet, and an empty test task is not coverage. Add tests only at the user's request.
+`check` and `lint` must finish without warnings or errors. `lint:dead` must exit cleanly; its remaining warnings are exported service types kept by the architecture convention. Run existing tests when affected: the hub's end-to-end suites (`bun run test` in `apps/hub`; how they run and what their fixture guarantees is in the team workspace reference, Design) are the only ones, and an empty test task is not coverage. Add tests only at the user's request.
 
 ## Review
 

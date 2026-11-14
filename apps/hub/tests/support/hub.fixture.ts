@@ -1,19 +1,17 @@
 import { serverHealth } from '@repo/contracts/universal';
-import { Errors } from '@repo/errors/universal';
-import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { createServer, request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { match, P } from 'ts-pattern';
+import { assert, inject } from 'vitest';
 import { z } from 'zod';
+import { hubFixtureEnv, hubFixtureExit, hubFixtureReady, hubFixtureSpawn } from './hub-process.fixture';
 import { hubFixtureProvisioner } from './hub-provisioner.fixture';
+import type { HubFixtureChild } from './hub-process.fixture';
 import type { HubFixtureCall } from './hub-provisioner.fixture';
-import type { ChildProcess } from 'node:child_process';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
-
-const ROOT = resolve(import.meta.dirname, '../../../..');
 
 function hubFixtureConfig(base: number) {
   const ports = {
@@ -44,15 +42,18 @@ function hubFixtureConfig(base: number) {
   };
 }
 
-export const HUB_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_PORT ?? 48690));
+// Each suite takes its own ten ports from the free block the global setup chose for this run (hub-ports.setup.ts).
+const HUB_PORT_BASE = inject('hubPortBase');
 
-export const HUB_ADMIN_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_ADMIN_PORT ?? 48610));
+export const HUB_FIXTURE = hubFixtureConfig(HUB_PORT_BASE);
 
-export const HUB_GLOBAL_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_GLOBAL_PORT ?? 48630));
+export const HUB_ADMIN_FIXTURE = hubFixtureConfig(HUB_PORT_BASE + 10);
 
-export const HUB_RELAY_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_RELAY_PORT ?? 48650));
+export const HUB_GLOBAL_FIXTURE = hubFixtureConfig(HUB_PORT_BASE + 20);
 
-export const HUB_AUDIT_FIXTURE = hubFixtureConfig(Number(process.env.HUB_TEST_AUDIT_PORT ?? 48670));
+export const HUB_RELAY_FIXTURE = hubFixtureConfig(HUB_PORT_BASE + 30);
+
+export const HUB_AUDIT_FIXTURE = hubFixtureConfig(HUB_PORT_BASE + 40);
 
 export type HubFixtureConfig = ReturnType<typeof hubFixtureConfig>;
 
@@ -73,6 +74,7 @@ export interface HubFixtureUser {
 }
 
 interface HubFixtureHubOptions {
+  label: string;
   port: number;
   data: string;
   extra: Record<string, string>;
@@ -88,7 +90,9 @@ export function hubFixtureEncode(value: object): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-function hubFixtureListen(port: number | string, handler: (request: IncomingMessage, response: ServerResponse, body: string) => void): Promise<Server> {
+type HubFixtureHandler = (request: IncomingMessage, response: ServerResponse, body: string) => void;
+
+function hubFixtureListen(label: string, port: number | string, handler: HubFixtureHandler): Promise<Server> {
   const server = createServer((request, response) => {
     const chunks: Buffer[] = [];
 
@@ -96,16 +100,18 @@ function hubFixtureListen(port: number | string, handler: (request: IncomingMess
     request.on('end', () => handler(request, response, Buffer.concat(chunks).toString('utf8')));
   });
 
+  // assert.fail, because vitest prints its message in full and the message of an app error not at all.
+  const listen = (address: string, start: (ready: () => void) => void) => new Promise<Server>((ready, fail) => {
+    server.once('error', fail);
+    start(() => ready(server));
+  }).catch((error: unknown) => assert.fail(`The ${label} stub could not listen on ${address}: ${String(error)}`));
+
   return match(port)
-    .with(P.number, (tcp) => new Promise<Server>((ready) => {
-      server.listen(tcp, '127.0.0.1', () => ready(server));
-    }))
+    .with(P.number, (tcp) => listen(`127.0.0.1:${tcp}`, (ready) => server.listen(tcp, '127.0.0.1', ready)))
     .otherwise(async (path) => {
       await mkdir(dirname(path), { recursive: true });
 
-      return new Promise<Server>((ready) => {
-        server.listen(path, () => ready(server));
-      });
+      return listen(path, (ready) => server.listen(path, ready));
     });
 }
 
@@ -147,28 +153,7 @@ function hubFixtureModelReply(body: string): string {
   return events.map(([event, data]) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`).join('');
 }
 
-async function hubFixtureWait(label: string, url: string, deadline = Date.now() + 90_000): Promise<void> {
-  const response = await fetch(url).catch(() => null);
-
-  if (response?.ok) {
-    return;
-  }
-
-  if (Date.now() > deadline) {
-    throw new Errors.INTERNAL_ERROR({ internal: `Timed out waiting for ${label}` });
-  }
-
-  await sleep(250);
-  await hubFixtureWait(label, url, deadline);
-}
-
-function hubFixtureEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
-  const kept = Object.entries(process.env).filter(([name]) => !name.endsWith('_API_KEY') && !['DATA_DIR', 'PI_CODING_AGENT_DIR', 'HOME'].includes(name));
-
-  return { ...Object.fromEntries(kept), LOG_LEVEL: 'warn', ...extra };
-}
-
-async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'alice' | 'bob' | 'template'): Promise<ChildProcess> {
+async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'alice' | 'bob' | 'template'): Promise<HubFixtureChild> {
   const data = join(root, name);
   const pi = join(data, 'pi');
 
@@ -181,9 +166,11 @@ async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'a
   await writeFile(join(pi, 'models.json'), JSON.stringify({ providers: { anthropic: { baseUrl: `http://127.0.0.1:${config.ports.model}` }, ...extra.providers } }));
   await writeFile(join(pi, 'auth.json'), JSON.stringify({ anthropic: { type: 'api_key', key: `hub-test-${name}` }, ...extra.auth }), { mode: 0o600 });
 
-  return spawn('bun', ['src/entry.native.ts'], {
-    cwd: join(ROOT, 'apps/daemon'),
-    stdio: 'ignore',
+  // A team daemon prints no pairing PIN, and its keys are dummies; hubFixtureReport still redacts both.
+  return hubFixtureSpawn({
+    label: `daemon ${name}`,
+    app: 'daemon',
+    health: `http://127.0.0.1:${config.ports[name]}/health`,
     env: hubFixtureEnv({
       HOME: data,
       DATA_DIR: data,
@@ -197,10 +184,11 @@ async function hubFixtureDaemon(config: HubFixtureConfig, root: string, name: 'a
   });
 }
 
-function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtureHubOptions): ChildProcess {
-  return spawn('bun', ['src/entry.native.ts'], {
-    cwd: join(ROOT, 'apps/hub'),
-    stdio: ['ignore', 'pipe', 'pipe'],
+function hubFixtureHub(config: HubFixtureConfig, { label, port, data, extra }: HubFixtureHubOptions): HubFixtureChild {
+  return hubFixtureSpawn({
+    label,
+    app: 'hub',
+    health: `http://127.0.0.1:${port}/hub/health`,
     env: hubFixtureEnv({
       HUB_HOST: '127.0.0.1',
       HUB_PORT: String(port),
@@ -212,17 +200,6 @@ function hubFixtureHub(config: HubFixtureConfig, { port, data, extra }: HubFixtu
       HUB_ADMIN_EMAILS: `${config.admin},${config.emails.alice}`,
       ...extra,
     }),
-  });
-}
-
-async function hubFixtureExit(child: ChildProcess | undefined): Promise<void> {
-  child?.kill('SIGTERM');
-  await new Promise((done) => {
-    if (child?.exitCode === null) {
-      child.once('exit', done);
-    } else {
-      done(null);
-    }
   });
 }
 
@@ -247,7 +224,7 @@ export function hubFixtureOwner(socketPath: string, path: string, headers: Recor
 export async function hubFixtureFakeSocket(path: string) {
   const requests: HubFixtureCall[] = [];
 
-  const server = await hubFixtureListen(path, (request, response, body) => {
+  const server = await hubFixtureListen('fake owner socket', path, (request, response, body) => {
     requests.push({
       method: request.method ?? '',
       url: request.url ?? '',
@@ -293,57 +270,88 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     await writeFile(join(directory, 'users.json'), JSON.stringify({ users, template }));
   }));
 
-  const servers = await Promise.all([
-    hubFixtureListen(config.ports.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
-    hubFixtureListen(config.ports.web, (request, response, body) => {
-      const relayed = Object.fromEntries(new URL(request.url ?? '/', config.web).searchParams);
-
-      response.writeHead(request.url?.startsWith('/relay') ? 302 : 200, { 'content-type': 'application/json', ...relayed }).end(JSON.stringify({
-        web: true,
-        path: request.url,
-        headers: request.headers,
-        body,
-      }));
-    }),
-    hubFixtureListen(config.ports.model, (_request, response, body) => response.writeHead(200, { 'content-type': 'text/event-stream' }).end(hubFixtureModelReply(body))),
-    hubFixtureListen(config.ports.provisioner, provisioner.handle),
-  ]);
-
-  const daemons = await Promise.all([
-    hubFixtureDaemon(config, root, 'alice'),
-    hubFixtureDaemon(config, root, 'bob'),
-    hubFixtureDaemon(config, root, 'template'),
-  ]);
-
-  await Promise.all(Object.entries({ ...config.daemons, template: config.template }).map(([name, url]) => hubFixtureWait(`daemon ${name}`, `${url}/health`)));
-
+  const children: HubFixtureChild[] = [];
+  const servers: Server[] = [];
+  const logs: string[] = [];
   const hubExtra = { PROVISIONER_URL: `http://127.0.0.1:${config.ports.provisioner}`, PROVISIONER_TOKEN: config.provisionerToken, LOG_LEVEL: 'info' };
 
-  const hubs = [
-    hubFixtureHub(config, {
+  // The main hub's output also goes to `logs`, which tests read.
+  const startHub = (extra: Record<string, string>) => {
+    const hub = hubFixtureHub(config, {
+      label: 'hub',
       port: config.ports.hub,
       data: hubData,
-      extra: hubExtra,
-    }),
-    hubFixtureHub(config, {
+      extra,
+    });
+
+    children.push(hub);
+    [hub.process.stdout, hub.process.stderr].forEach((stream) => stream?.on('data', (chunk: Buffer) => {
+      logs.push(chunk.toString());
+    }));
+
+    return hubFixtureReady(hub);
+  };
+
+  async function boot() {
+    const listened = await Promise.allSettled([
+      hubFixtureListen('Access keys', config.ports.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
+      hubFixtureListen('web app', config.ports.web, (request, response, body) => {
+        const relayed = Object.fromEntries(new URL(request.url ?? '/', config.web).searchParams);
+
+        response.writeHead(request.url?.startsWith('/relay') ? 302 : 200, { 'content-type': 'application/json', ...relayed }).end(JSON.stringify({
+          web: true,
+          path: request.url,
+          headers: request.headers,
+          body,
+        }));
+      }),
+      hubFixtureListen('model', config.ports.model, (_request, response, body) => response.writeHead(200, { 'content-type': 'text/event-stream' }).end(hubFixtureModelReply(body))),
+      hubFixtureListen('provisioner', config.ports.provisioner, provisioner.handle),
+    ]);
+
+    servers.push(...listened.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : [])));
+
+    const refused = listened.find((result) => result.status === 'rejected');
+
+    if (refused) {
+      throw refused.reason;
+    }
+
+    const daemons = await Promise.all((['alice', 'bob', 'template'] as const).map((name) => hubFixtureDaemon(config, root, name)));
+
+    children.push(...daemons);
+    await Promise.all(daemons.map((daemon) => hubFixtureReady(daemon)));
+
+    const byHand = hubFixtureHub(config, {
+      label: 'by-hand hub',
       port: config.ports.byHand,
       data: byHandData,
       extra: {},
-    }),
-  ];
+    });
 
-  const logs: string[] = [];
+    children.push(byHand);
 
-  const keepLogs = (child: ChildProcess) => [child.stdout, child.stderr].forEach((stream) => stream?.on('data', (chunk: Buffer) => {
-    logs.push(chunk.toString());
-  }));
+    const [hub] = await Promise.all([
+      startHub(hubExtra),
+      hubFixtureReady(byHand),
+    ]);
 
-  keepLogs(hubs[0]);
+    return { hub, serverIds: { alice: await hubFixtureServerId(config.daemons.alice), bob: await hubFixtureServerId(config.daemons.bob) } };
+  }
 
-  await hubFixtureWait('hub', `${config.hub}/hub/health`);
-  await hubFixtureWait('by-hand hub', `${config.byHand}/hub/health`);
+  async function stop(): Promise<void> {
+    await Promise.all(children.map(hubFixtureExit));
+    await Promise.all(servers.map((server) => new Promise((done) => {
+      server.close(done);
+    })));
+    await rm(root, { recursive: true, force: true });
+  }
 
-  const serverIds = { alice: await hubFixtureServerId(config.daemons.alice), bob: await hubFixtureServerId(config.daemons.bob) };
+  // A setup that fails stops whatever it started, so no daemon outlives the run.
+  const booted = await boot().catch(async (error: unknown) => {
+    await stop();
+    throw error;
+  });
 
   async function mint(claims: Record<string, string | number | string[]>, { key = keys.good.privateKey, kid = 'kid-good', alg = 'RS256' }: HubFixtureMintOptions = {}): Promise<string> {
     const now = Math.floor(Date.now() / 1000);
@@ -377,24 +385,8 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
   }
 
   async function restartHub(extra: Record<string, string>): Promise<void> {
-    await hubFixtureExit(hubs[0]);
-    hubs[0] = hubFixtureHub(config, {
-      port: config.ports.hub,
-      data: hubData,
-      extra: { ...hubExtra, ...extra },
-    });
-    keepLogs(hubs[0]);
-    await hubFixtureWait('hub', `${config.hub}/hub/health`);
-  }
-
-  async function stop(): Promise<void> {
-    const children = [...hubs, ...daemons];
-
-    await Promise.all(children.map(hubFixtureExit));
-    await Promise.all(servers.map((server) => new Promise((done) => {
-      server.close(done);
-    })));
-    await rm(root, { recursive: true, force: true });
+    await hubFixtureExit(booted.hub);
+    booted.hub = await startHub({ ...hubExtra, ...extra });
   }
 
   return {
@@ -402,7 +394,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     hubData,
     keys,
     users,
-    serverIds,
+    serverIds: booted.serverIds,
     provisioner: provisioner.calls,
     access: provisioner.access,
     logs,

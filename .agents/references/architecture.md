@@ -177,8 +177,10 @@ apps/hub/
 ├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page
 ├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner, global, audit
 ├── src/types/<domain>.types.ts         hub schemas, deps and service types
+├── vitest.config.ts                    only the global setup below
 ├── tests/<app>[-<part>].test.ts         Vitest end-to-end tests against real throwaway processes
-└── tests/support/<app>.fixture.ts      the processes, servers and helpers those tests start
+├── tests/support/<app>[-<part>].fixture.ts  the processes, servers and helpers those tests start
+└── tests/support/<app>-ports.setup.ts  Vitest global setup: one free port block per run, outside the ephemeral ranges
 ```
 
 ### apps/web
