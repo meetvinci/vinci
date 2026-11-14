@@ -2,7 +2,9 @@ import { Type } from '@earendil-works/pi-ai';
 import { defineTool } from '@earendil-works/pi-durable';
 import { McpConnectionClosedError } from '@earendil-works/pi-mcp';
 import * as m from '@repo/i18n/messages';
+import { match, P } from 'ts-pattern';
 import { mcpContent } from './mcp-content.utils';
+import { MCP } from './mcp.constants';
 import { mcpToolName } from './mcp.utils';
 import type { McpConnection, McpContentTarget } from '../../types/mcp.types';
 import type { JsonObject } from '@earendil-works/pi-durable';
@@ -27,7 +29,15 @@ export function mcpTools(connection: McpConnection, server: string, tools: Tool[
           onProgress: ({ progress, total }) => api.output(`MCP progress: ${progress}${total === undefined ? '' : `/${total}`}\n`),
         });
 
-        return { output: await mcpContent(target, result), isError: result.isError === true };
+        const diagnostics = match(result._meta?.[MCP.truncatedMeta])
+          .with({ droppedBytes: P.number, droppedLines: P.number }, ({ droppedBytes, droppedLines }) => [{
+            severity: 'warn' as const,
+            code: 'truncated',
+            message: `Output truncated to its beginning: ${droppedLines} lines, ${droppedBytes} bytes dropped`,
+          }])
+          .otherwise(() => undefined);
+
+        return { output: await mcpContent(target, result), isError: result.isError === true, diagnostics };
       } catch (error) {
         context.abortSignal?.throwIfAborted();
         const text = connection.error ?? (error instanceof McpConnectionClosedError ? m.ui_mcp_server_stopped() : 'MCP tool call failed.');

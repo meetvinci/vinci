@@ -4,7 +4,7 @@ import type { McpAuthService } from '../services/mcp-auth/mcp-auth.service';
 import type { runtimeEnvNative } from '../services/runtime/runtime-env.utils';
 import type { RuntimeSandboxCommand } from './runtime-sandbox.types';
 import type { ToolRegistration } from '@earendil-works/pi-durable';
-import type { AuthProvider, McpClient, Tool } from '@earendil-works/pi-mcp';
+import type * as PiMcpTypes from '@earendil-works/pi-mcp';
 import type { McpCatalog } from '@repo/contracts/universal';
 import type { Socket } from 'node:net';
 
@@ -13,6 +13,14 @@ export interface McpClientServiceDeps {
   auth: McpAuthService;
   executionEnv: ReturnType<typeof runtimeEnvNative>;
   connections: Map<string, McpConnection>;
+}
+
+export type McpMessageRead = Buffer | PiMcpTypes.JsonRpcMessage | undefined;
+
+export interface McpMessage {
+  push: (chunk: Buffer) => void;
+  end: () => McpMessageRead;
+  bytes: () => number;
 }
 
 export type McpSandboxSpawn = (command: RuntimeSandboxCommand) => Promise<Socket>;
@@ -53,10 +61,10 @@ export interface McpConfig {
 export interface McpConnection {
   fingerprint: string;
   sourceFingerprint: string;
-  client: McpClient;
-  authProvider?: AuthProvider;
+  client: PiMcpTypes.McpClient;
+  authProvider?: PiMcpTypes.AuthProvider;
   tools: ToolRegistration[];
-  definitions: Tool[];
+  definitions: PiMcpTypes.Tool[];
   catalog: McpCatalog['servers'][number]['tools'];
   ready: Promise<void>;
   hasToolChanges: boolean;

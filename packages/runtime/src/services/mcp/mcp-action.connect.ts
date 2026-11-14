@@ -4,6 +4,7 @@ import * as m from '@repo/i18n/messages';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { match, P } from 'ts-pattern';
+import { mcpMessageFetch } from './mcp-message.utils';
 import { mcpTools } from './mcp-tools.utils';
 import { mcpTransportSandbox } from './mcp-transport.utils';
 import { MCP } from './mcp.constants';
@@ -92,6 +93,7 @@ export async function mcpActionConnect(deps: McpClientServiceDeps, { botId, entr
               url: config.url,
               headers: config.headers,
               authProvider,
+              fetch: mcpMessageFetch,
             }));
 
           await client.connect(transport);

@@ -65,7 +65,9 @@ run() {
   shift
 
   # The environment entries are never set in this script: `env` gives them to the server only, so a name such as PATH
-  # cannot change how this script runs. As for a server the daemon starts, the server's PATH finds its command.
+  # cannot change how this script runs. The command is found in the image's PATH set at the top of this script (or in
+  # a PATH entry the admin gave the server), never in the bots' PATH: a program a bot leaves in its home named npx, uvx
+  # or node does not start an admin's server, and the server and its children run with the image's PATH too.
   search=$PATH
   index=0
 
