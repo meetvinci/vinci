@@ -16,6 +16,11 @@ services:
     mem_limit: 256m
     cpus: 0.5
     restart: unless-stopped
+    # At most 30 MB of Docker's log.
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
     healthcheck:
       test: [CMD, cloudflared, tunnel, --metrics, 127.0.0.1:20241, ready]
       interval: 30s

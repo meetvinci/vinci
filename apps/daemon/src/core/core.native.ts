@@ -17,7 +17,7 @@ import { realpathSync } from 'node:fs';
 import { chmod, lstat, mkdir, open, rm, unlink, writeFile } from 'node:fs/promises';
 import { isIP } from 'node:net';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, extname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { match, P } from 'ts-pattern';
 import { renderUnicodeCompact } from 'uqr';
@@ -183,7 +183,12 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
 
   resources.defer(() => secretProxy.actions.stop());
 
-  const executionEnv = runtimeEnvNative({ root: paths.root, sandboxDir: env.DAEMON_SANDBOX_DIR });
+  const executionEnv = runtimeEnvNative({
+    root: paths.root,
+    sandboxDir: env.DAEMON_SANDBOX_DIR,
+    bridge: join(dirname(Bun.main), `entry-sandbox-bridge.native${extname(Bun.main)}`),
+  });
+
   const isSandboxed = env.DAEMON_SANDBOX_DIR !== undefined;
   resources.defer(() => executionEnv.close());
 

@@ -1,6 +1,6 @@
 # The sandbox every person gets: where their bots' tools run. Each sandbox-<id> service in users.compose.yaml extends
-# this one and mounts only that person's bot folders, shared skills (read only) and the folder their daemon shares with
-# it (read only). Not a Compose file of its own: never list it in COMPOSE_FILE.
+# this one and mounts only that person's bot folders (from their sandbox disk, which caps what bots write), shared
+# skills (read only) and the folder their daemon shares with it (read only). Not a Compose file of its own: never list it in COMPOSE_FILE.
 services:
   sandbox:
     image: meetvinci-sandbox:${MEETVINCI_TAG:?set MEETVINCI_TAG in .env}
@@ -14,3 +14,8 @@ services:
     cpus: ${SANDBOX_CPUS:-1}
     pids_limit: ${SANDBOX_PIDS:-256}
     restart: unless-stopped
+    # At most 30 MB of Docker's log per container: what a bot prints there cannot fill the server.
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'

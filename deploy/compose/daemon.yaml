@@ -13,6 +13,11 @@ services:
     cpus: ${DAEMON_CPUS:-1}
     pids_limit: ${DAEMON_PIDS:-256}
     restart: unless-stopped
+    # At most 30 MB of Docker's log per container, so a chatty bot cannot fill the server through it.
+    logging:
+      options:
+        max-size: 10m
+        max-file: '3'
     # The image's health check, probed every second while starting, so `apply` does not wait 30 s per daemon.
     healthcheck:
       start_period: 30s

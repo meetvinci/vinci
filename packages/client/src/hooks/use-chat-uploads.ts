@@ -1,3 +1,4 @@
+import { ORPCError } from '@orpc/client';
 import { ATTACHMENT } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { useMutation } from '@tanstack/react-query';
@@ -34,28 +35,34 @@ export function useChatUploads<Source>({ botId, describe, preview, read, release
     setAttachments((items) => items.map((item) => (item.key === key ? { ...item, ...update } : item)));
   };
 
+  const store = async (item: RoomsSourcedAttachment<Source>) => {
+    try {
+      const saved = await upload.mutateAsync({ botId, file: await read(item.source) });
+
+      if (!kept.current.has(item.key)) {
+        discard.mutate({ botId, attachmentId: saved.id });
+        return;
+      }
+
+      change(item.key, {
+        id: saved.id,
+        name: saved.name,
+        status: 'ready',
+      });
+    } catch (error) {
+      change(item.key, { status: 'failed' });
+
+      if (error instanceof ORPCError && error.code === 'DISK_FULL') {
+        onProblem(m.rooms_files_disk_full());
+      } else {
+        onFailed?.(item);
+      }
+    }
+  };
+
   const send = (item: RoomsSourcedAttachment<Source>) => {
     change(item.key, { status: 'uploading' });
-    void read(item.source)
-      .then((file) => upload.mutateAsync({ botId, file }))
-      .then(
-        (saved) => {
-          if (!kept.current.has(item.key)) {
-            discard.mutate({ botId, attachmentId: saved.id });
-            return;
-          }
-
-          change(item.key, {
-            id: saved.id,
-            name: saved.name,
-            status: 'ready',
-          });
-        },
-        () => {
-          change(item.key, { status: 'failed' });
-          onFailed?.(item);
-        },
-      );
+    void store(item);
   };
 
   const add = (sources: Source[]) => {

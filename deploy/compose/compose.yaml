@@ -7,6 +7,12 @@
 # Nothing is published on a host interface: cloudflared is the only way in.
 name: meetvinci
 
+# At most 30 MB of Docker's log per container.
+x-logging: &logging
+  options:
+    max-size: 10m
+    max-file: '3'
+
 services:
   # One-off root jobs for `bun deploy.ts`: owner-socket folders, backups, restores and purges. No network.
   tools:
@@ -22,6 +28,20 @@ services:
     volumes:
       - ipc:/ipc
 
+  # One-off root jobs for `bun deploy.ts` that create, mount, grow and delete each person's sandbox disk (disks/<id>.img,
+  # mounted at disks/<id>) on the host. Docker's volume driver cannot mount a disk image, and the mount must be in the
+  # host's mount namespace, so this enters it (nsenter, PID 1) and runs the host's own mount, losetup, mkfs.ext4 and
+  # resize2fs: privileged, no network, nothing but deploy.ts's fixed scripts. The provisioner holds the Docker socket,
+  # so this gives it nothing it lacked.
+  disks:
+    profiles: [setup]
+    image: meetvinci-daemon:${MEETVINCI_TAG}
+    user: "0:0"
+    entrypoint: ["nsenter", "--target", "1", "--mount", "--", "sh", "-c"]
+    privileged: true
+    pid: host
+    network_mode: none
+
   # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
   # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
@@ -32,6 +52,7 @@ services:
     mem_limit: 256m
     pids_limit: 128
     restart: unless-stopped
+    logging: *logging
     # Probed every second while starting, so the nightly backup's hub stop ends as soon as the hub answers.
     healthcheck:
       start_period: 30s
@@ -71,6 +92,7 @@ services:
     mem_limit: 256m
     pids_limit: 128
     restart: unless-stopped
+    logging: *logging
     environment:
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
       # Optional: with a token, the provisioner keeps the Access allow policy in line with users.yaml.
@@ -103,6 +125,7 @@ services:
     mem_limit: 128m
     pids_limit: 32
     restart: unless-stopped
+    logging: *logging
     environment:
       # Off by default: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach.
       MEETVINCI_INTERNAL_ALLOW: ${MEETVINCI_INTERNAL_ALLOW:-}
@@ -118,6 +141,7 @@ services:
     mem_limit: 256m
     pids_limit: 128
     restart: unless-stopped
+    logging: *logging
     environment:
       WEB_HUB_URL: http://hub:47192
       WEB_PUBLIC_URL: https://${MEETVINCI_PUBLIC_HOST}

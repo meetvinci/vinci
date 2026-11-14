@@ -10,7 +10,7 @@ import { RUNTIME_SANDBOX } from './runtime-sandbox.constants';
 import type { RuntimeSandboxCommand, RuntimeSandboxParams, RuntimeSandboxState } from '../../types/runtime-sandbox.types';
 import type { Server, Socket } from 'node:net';
 
-export function runtimeSandboxNative({ root, folder }: RuntimeSandboxParams) {
+export function runtimeSandboxNative({ root, folder, bridge }: RuntimeSandboxParams) {
   const state: RuntimeSandboxState = {
     spares: [],
     waiters: new Set(),
@@ -30,9 +30,9 @@ export function runtimeSandboxNative({ root, folder }: RuntimeSandboxParams) {
       state.reserved?.destroy();
       state.reserved = await runtimeSandboxTake(state, Date.now() + RUNTIME_SANDBOX.waitMs);
 
-      return [process.execPath, '--no-install', '-e', RUNTIME_SANDBOX.bridge, state.bridgePath];
+      return [process.execPath, '--no-install', bridge, state.bridgePath];
     },
-    onLog: (text) => log.debug({ tag: 'sandbox', message: text.trim() }),
+    onLog: (text) => log.warn({ tag: 'sandbox', message: text.trim() }),
   });
 
   return {

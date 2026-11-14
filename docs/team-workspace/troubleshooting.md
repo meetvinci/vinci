@@ -172,7 +172,7 @@ Each person's MeetVinci is limited to 512 MB, and so is their sandbox, where bot
 
 ## The disk fills up
 
-Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades, backups in `/opt/meetvinci/backups/`, and what bots keep: their folders and their home with its download caches (there is no per-person disk limit yet). `du -sh /var/lib/docker/volumes/meetvinci_data-*/_data/agents /var/lib/docker/volumes/meetvinci_data-*/_data/bot-home/.cache` shows each person's; a cache folder (`bot-home/.cache`) can be deleted at any time, tools fill it again.
+Images are built on your computer, so the server has no build cache. What grows is old image tags after upgrades, backups in `/opt/meetvinci/backups/`, and people's sandbox disks in `/opt/meetvinci/disks/` (each at most `SANDBOX_DISK`; `bun deploy.ts status` shows them and the server's free space). `du -sh /opt/meetvinci/disks/*/agents /opt/meetvinci/disks/*/bot-home/.cache` shows what each person's bots keep; a cache folder (`bot-home/.cache`) can be deleted at any time, tools fill it again. Docker's logs are capped at 30 MB per container.
 
 - Fix: remove old MeetVinci image tags by name, `docker rmi meetvinci-daemon:<old tag> meetvinci-sandbox:<old tag> meetvinci-web:<old tag> meetvinci-hub:<old tag> meetvinci-provisioner:<old tag> meetvinci-firewall:<old tag>`, and old backups by file name. Nightly backups delete their own old runs; keep fewer with `BACKUP_KEEP_DAILY` and `BACKUP_KEEP_WEEKLY` in `.env`. Backups made by hand and the copies `restore` saves first (`backups/<id>-<time>.tar.gz`) stay until you delete them. Never run `docker system prune`, `docker volume prune` or `docker image prune`: they act on the whole server and can delete people's data or other services' images.
 
@@ -183,6 +183,28 @@ Images are built on your computer, so the server has no build cache. What grows 
 On purpose: bots reach the public internet only ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). If every person really needs one internal service, add its `<IPv4>:<port>` to `MEETVINCI_INTERNAL_ALLOW` in `/opt/meetvinci/.env` and run `bun deploy.ts apply`; `docker compose logs firewall` then names it after `except`. Name the address the bot connects to: for a service on the server itself, its address on Docker's bridge (`172.17.0.1`) or the person's gateway, and the service must listen there.
 
 > On `root@<server>`, bots must reach `<address>:<port>`. Add it to `MEETVINCI_INTERNAL_ALLOW` in `/opt/meetvinci/.env` (comma separated, keep existing entries), run `bun deploy.ts apply`, and confirm `docker compose logs firewall | tail -1` lists it. Change nothing else.
+
+## Bots say "No space left on device"
+
+The person's sandbox disk is full: `bun deploy.ts status` shows `disk FULL` for them. Their chats and settings keep working; files they send in the app are refused with *Your bots' disk is full*.
+
+- Fix: the person or their bot deletes files in the bot folders they no longer need, or raise `SANDBOX_DISK` in `.env` and run `bun deploy.ts apply`, which grows every disk at once ([disk limits](admin.md#disk-limits)).
+- `disk not mounted` instead: the server rebooted without mounting the disks (`systemctl status meetvinci-disks.service`), so that person's MeetVinci did not start. `bun deploy.ts disks mount`, then `docker compose up -d`; if the mount fails, see [a sandbox disk does not mount](#a-sandbox-disk-does-not-mount).
+
+> On `root@<server>`, in `/opt/meetvinci`, bots of user `<id>` say "No space left on device". Report `bun deploy.ts status` and `du -sh disks/<id>.img`, and list the 20 biggest files on their disk, bot folders and bots' home (`du -a disks/<id>/agents disks/<id>/bot-home | sort -n | tail -20`). Delete nothing; tell me what takes the space.
+
+## A sandbox disk does not mount
+
+`bun deploy.ts status` shows `disk not mounted` for one person after a reboot or a crash, `systemctl status meetvinci-disks.service` says `Could not mount disks/<id>.img`, or `apply` stops with *has errors e2fsck -p cannot repair*. The boot unit and `apply` check each disk the way the server checks its own (`e2fsck -p`) and mount everyone else's; this person's MeetVinci stays stopped, so nothing is written outside their disk, until you repair it. In `/opt/meetvinci`:
+
+```sh
+e2fsck -fy disks/<id>.img            # repairs; if it says the superblock is bad: e2fsck -fy -b 32768 disks/<id>.img
+bun deploy.ts disks mount && docker compose up -d
+```
+
+If it cannot be repaired, give the person a new disk and put their bot folders back from the last backup: `mv disks/<id>.img disks/<id>.img.broken`, `bun deploy.ts apply` (a new, empty disk), then `bun deploy.ts restore <id> <their latest backup>` ([backups](admin.md#backups)). Delete `disks/<id>.img.broken` once the person has what they need.
+
+> On `root@<server>`, in `/opt/meetvinci`, the sandbox disk of user `<id>` does not mount. Report `bun deploy.ts status` and `e2fsck -n disks/<id>.img`. Change nothing; tell me whether `e2fsck -fy` can repair it.
 
 ## What a bot can do
 
@@ -200,7 +222,7 @@ The person's sandbox is not running, so their MeetVinci refuses every tool call 
 
 ## An MCP server shows an error in the bot's MCP tab
 
-MCP servers that run a command run in the person's sandbox (see [What a bot can reach](admin.md#what-a-bot-can-reach)), never in their MeetVinci.
+MCP servers that run a command run in the person's sandbox (see [What a bot can reach](admin.md#what-a-bot-can-do-and-reach)), never in their MeetVinci.
 
 - *MCP servers that run a command are off: the sandbox … is not running*: the same cause and fix as *Bot tools are off* above. Bots that used the server's tools get the same sentence when they call one. The next message after `apply` starts the server again.
 - *The command … is not installed in the sandbox where this MCP server runs*: the sandbox has no such program. `npx`, `uvx`, `node`, `python3` and `bun` are there ([tools](admin.md#what-a-bot-can-do-and-reach)); for anything else, install the package into a folder under the bot's own folder and run its entry file.

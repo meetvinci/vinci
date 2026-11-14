@@ -305,6 +305,7 @@
   "rooms_files_too_big": "Files can be up to 10 MB.",
   "rooms_files_type": "Use images (PNG, JPEG, WebP, GIF) or PDF, text, Markdown, CSV or JSON files.",
   "rooms_files_too_many": "Up to {count} files per message.",
+  "rooms_files_disk_full": "Your bots' disk is full, so the file did not upload. Delete files your bots no longer need, or ask your admin for more room.",
   "rooms_routines": "Routines",
   "rooms_routines_empty_title": "No routines yet",
   "rooms_routines_error": "Routines could not be loaded.",

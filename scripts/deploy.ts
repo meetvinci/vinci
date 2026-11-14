@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -79,6 +79,20 @@ const offsitePassphraseLength = 20;
 // passphrase reaches gpg on fd 3 from the environment, never on a command line.
 const gpgOptions = '--homedir /tmp/gnupg --quiet --batch --no-tty --pinentry-mode loopback --passphrase-fd 3';
 const systemdFolder = '/etc/systemd/system';
+// Each person's sandbox disk: an ext4 file system in the sparse file disks/<id>.img, mounted at disks/<id> on the host,
+// so the kernel stops their bots' writes at SANDBOX_DISK. Only bot-writable folders live there: agents/, the bot
+// folders, which both the daemon and the sandbox mount from it, and bot-home/, the bots' home, which only the sandbox
+// mounts. The daemon's own data stays in its volume. The marker
+// file exists only on a mounted disk: Docker refuses a missing subpath, so a disk that is not mounted fails closed.
+const disksFolder = 'disks';
+const diskMarker = '.meetvinci-disk';
+const diskSizeDefault = '5g';
+const diskSizePattern = /^(?<amount>[1-9]\d{0,5})(?<unit>[mg])$/iu;
+// `status` calls a disk full from this share of its bytes or its files (inodes) used: ext4 keeps no room in reserve
+// (mkfs -m 0), and makes one inode per 8 KiB (mkfs -i 8192), about 650,000 files on 5 GiB.
+const diskFullShare = 0.95;
+// `status` calls the server's own disk low below this share free: people's disks, backups and the hub share it.
+const serverLowShare = 0.1;
 const timePattern = /^(?:[01]\d|2[0-3]):[0-5]\d$/u;
 
 interface CloudflareResponse<T> {
@@ -321,9 +335,59 @@ const firewallFirst = {
   environment: { MEETVINCI_WAIT_FOR_FIREWALL: 'true' },
 };
 
+// Mounts every disk in <folder> that is not mounted, at boot (the systemd unit `apply` installs, before Docker starts
+// anyone). Each is checked first as systemd checks its own disks (e2fsck -p: replays the journal after a crash, fixes
+// what is safe); a disk it cannot repair stays unmounted, so only that person stays stopped, and the rest still mount.
+// nosuid and nodev: a bot's files never gain privileges; exec stays allowed.
+const disksMountScript = 'failed=0; for img in "$1"/*.img; do [ -e "$img" ] || continue; mnt="$1/$(basename "$img" .img)"; mkdir -p "$mnt"; if ! mountpoint -q "$mnt"; then { e2fsck -p "$img" || [ $? -lt 4 ]; } && mount -o loop,nosuid,nodev,discard "$img" "$mnt" || { echo "Could not mount $img: see troubleshooting.md, A sandbox disk does not mount." >&2; failed=1; continue; }; fi; fstrim "$mnt" > /dev/null 2>&1 || true; done; exit $failed';
+
+// On the host, for <folder> <bytes> <id>...: creates each missing disk (sparse, so it takes only what is written), mounts
+// it, grows it online when SANDBOX_DISK grew, and trims it so space bots freed goes back to the server (`discard` does
+// that only in part). Prints `new <id>` for a disk without bot folders yet, `larger <id>` for one bigger than
+// SANDBOX_DISK (shrinking is not done: it needs the disk offline). A disk that is not mounted is checked first, as at
+// boot; one e2fsck cannot repair stops apply with its name. Only `new` and `larger` lines go to stdout.
+const disksScript = [
+  'set -eu',
+  'dir=$1; bytes=$2; shift 2',
+  'mkdir -p "$dir"; chmod 700 "$dir"',
+  'for id in "$@"; do',
+  '  img="$dir/$id.img"; mnt="$dir/$id"',
+  '  if [ ! -e "$img" ]; then rm -f "$img.new"; truncate -s "$bytes" "$img.new"; chmod 600 "$img.new"; mkfs.ext4 -q -F -m 0 -i 8192 -E lazy_itable_init=1,lazy_journal_init=1 "$img.new"; mv "$img.new" "$img"; fi',
+  '  mkdir -p "$mnt"',
+  '  if ! mountpoint -q "$mnt"; then',
+  '    { e2fsck -p "$img" >&2 || [ $? -lt 4 ]; } || { echo "The sandbox disk of $id has errors e2fsck -p cannot repair: see troubleshooting.md, A sandbox disk does not mount." >&2; exit 1; }',
+  '    mount -o loop,nosuid,nodev,discard "$img" "$mnt"',
+  '  fi',
+  `  [ -e "$mnt/${diskMarker}" ] || touch "$mnt/${diskMarker}"`,
+  '  size=$(stat -c %s "$img")',
+  '  if [ "$size" -lt "$bytes" ]; then truncate -s "$bytes" "$img"; dev=$(findmnt -n -o SOURCE --mountpoint "$mnt"); losetup -c "$dev"; resize2fs -f "$dev" > /dev/null; fi',
+  '  if [ "$size" -gt "$bytes" ]; then echo "larger $id"; fi',
+  '  fstrim "$mnt" > /dev/null 2>&1 || true',
+  '  if [ ! -d "$mnt/agents" ] || [ ! -d "$mnt/bot-home" ]; then echo "new $id"; fi',
+  'done',
+].join('\n');
+
+// In the tools service, with a person's volume at /data and their disk at /disk: the first time, moves their bot folders
+// (agents) and the bots' home (bot-home) from the volume, where they were before the disk, onto the disk, each through
+// <folder>.new so a failed copy leaves both as they were. cp -a keeps sparse files sparse. Run with the person's daemon
+// and sandbox stopped.
+const disksMoveScript = [
+  `[ -e /disk/${diskMarker} ] || { echo "The sandbox disk is not mounted." >&2; exit 1; }`,
+  'set -eu',
+  'for f in agents bot-home; do',
+  '  if [ ! -d "/disk/$f" ]; then',
+  '    rm -rf "/disk/$f.new"; mkdir "/disk/$f.new"',
+  '    if [ -d "/data/$f" ]; then cp -a "/data/$f/." "/disk/$f.new/"; fi',
+  '    chown 1000:1000 "/disk/$f.new"; chmod 755 "/disk/$f.new"; mv "/disk/$f.new" "/disk/$f"',
+  '    if [ -d "/data/$f" ]; then find "/data/$f" -mindepth 1 -delete; fi',
+  '  fi',
+  'done',
+].join('\n');
+
 // The per-person part of the stack: a daemon, its network shared only with the hub, and its volume; and the sandbox
 // where their bots' tools run, alone on a network of its own (a daemon bridge to the firewall), seeing only the bot
-// folders, shared skills and the bots' home of that volume and, read only, the folder the daemon shares with it. The
+// folders and the bots' home on their disk, the shared skills of that volume and, read only, the folder the daemon
+// shares with it. The
 // template workspace gets the same, with the id `template`.
 function renderCompose(ids: string[]): string {
   const services = Object.fromEntries(ids.flatMap((id) => [[`daemon-${id}`, {
@@ -333,6 +397,7 @@ function renderCompose(ids: string[]): string {
     volumes: [
       `data-${id}:/data`,
       { type: 'volume', source: 'ipc', target: '/data/data/ipc', volume: { subpath: id } },
+      { type: 'volume', source: `disk-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },
       `sandbox-${id}:/run/sandbox`,
       // The bots' home is theirs alone: the daemon sees an empty read-only folder there, so it never reads it or
       // follows a link into it.
@@ -340,14 +405,15 @@ function renderCompose(ids: string[]): string {
     ],
   }], [`sandbox-${id}`, {
     extends: { file: 'sandbox.yaml', service: 'sandbox' },
-    // The daemon's image fills a new volume first, so the subpaths below exist, and it owns the shared folder.
+    // The daemon's image fills a new volume first, so home/.agents exists, and it owns the shared folder. agents/ is on
+    // the person's disk, which apply creates before anything starts.
     depends_on: { ...firewallFirst.depends_on, [`daemon-${id}`]: { condition: 'service_started' } },
     environment: firewallFirst.environment,
     networks: { [`sandbox-${id}`]: {} },
     volumes: [
-      { type: 'volume', source: `data-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },
+      { type: 'volume', source: `disk-${id}`, target: '/data/agents', volume: { subpath: 'agents' } },
       { type: 'volume', source: `data-${id}`, target: '/data/home/.agents', read_only: true, volume: { subpath: 'home/.agents' } },
-      { type: 'volume', source: `data-${id}`, target: '/home/bot', volume: { subpath: 'bot-home' } },
+      { type: 'volume', source: `disk-${id}`, target: '/home/bot', volume: { subpath: 'bot-home' } },
       { type: 'volume', source: `sandbox-${id}`, target: '/run/sandbox', read_only: true },
     ],
   }]]));
@@ -359,7 +425,7 @@ function renderCompose(ids: string[]): string {
     Bun.YAML.stringify({
       services: { ...services, hub },
       networks: Object.fromEntries(ids.flatMap((id) => [[`user-${id}`, daemonNetwork(id)], [`sandbox-${id}`, daemonNetwork(`sandbox:${id}`)]])),
-      volumes: Object.fromEntries(ids.flatMap((id) => [[`data-${id}`, {}], [`sandbox-${id}`, {}]])),
+      volumes: Object.fromEntries(ids.flatMap((id) => [[`data-${id}`, {}], [`sandbox-${id}`, {}], [`disk-${id}`, diskVolume(id)]])),
     }, null, 2),
   ].join('\n');
 }
@@ -398,14 +464,95 @@ async function tools(script: string, args: string[], { volumes = [], ...options 
   return docker(['compose', 'run', '--rm', '--no-TTY', '--quiet-pull', ...mount, 'tools', script, 'tools', ...args], { ...options, env: { COMPOSE_IGNORE_ORPHANS: 'true' } });
 }
 
-// Each sandbox mounts agents/, home/.agents and bot-home of its person's volume, and Docker refuses a missing subpath. A
-// new volume gets them from the daemon image, which starts first; an older volume may lack them. Docker
-// follows a link inside a subpath, so a link a bot planted there before the sandbox (its bash ran in the daemon then,
-// with the whole volume) or that came back with a restore would give the sandbox what it points to, such as data/
-// with the credentials key: such a link is replaced by an empty folder, and prints `replaced`. A hard link from those
-// folders to one of the daemon's own files (data/, pi/, the rest of home/) shares the file itself, so it is removed: a
-// sandbox can no longer make one (it sees no daemon file), but one made before or restored with an old backup would
-// stay readable and live. GNU find deletes by inode inside the bot folders, never following a link. Run in the volume's root.
+// A person's disk as Docker sees it: a bind of its mount point on the host, so containers get the mounted file system.
+function diskVolume(id: string) {
+  return { driver: 'local', driver_opts: { type: 'none', o: 'bind', device: path.resolve(disksFolder, id) } };
+}
+
+// SANDBOX_DISK in .env, such as 5g or 500m.
+function diskBytes(): number {
+  const value = envValue('SANDBOX_DISK') ?? diskSizeDefault;
+  const { amount = '', unit = '' } = diskSizePattern.exec(value)?.groups ?? {};
+
+  if (amount === '') {
+    fail(`SANDBOX_DISK in .env must be a size such as 5g or 500m, not ${value}.`);
+  }
+
+  return Number(amount) * 1024 ** (unit.toLowerCase() === 'g' ? 3 : 2);
+}
+
+function hasDisk(id: string): boolean {
+  return existsSync(path.join(disksFolder, `${id}.img`));
+}
+
+// A one-off root job on the host for each person's disk, in the disks service (compose.yaml): Docker's own volume driver
+// cannot mount a disk image, and the provisioner has no other way onto the host.
+async function disksJob(script: string, args: string[]): Promise<string> {
+  return docker(['compose', 'run', '--rm', '--no-TTY', '--quiet-pull', 'disks', script, 'disks', ...args], { env: { COMPOSE_IGNORE_ORPHANS: 'true' } });
+}
+
+// Creates, mounts and grows the disks of these people, then moves the bot folders of anyone whose disk is new out of
+// their volume (stopping them first: the daemon and the sandbox must not write meanwhile). `up` then starts them on it.
+async function disks(ids: string[]) {
+  const reported = (await disksJob(disksScript, [path.resolve(disksFolder), String(diskBytes()), ...ids])).split('\n');
+  const fresh = reported.filter((line) => line.startsWith('new ')).map((line) => line.slice(4));
+
+  for (const id of reported.filter((line) => line.startsWith('larger ')).map((line) => line.slice(7))) {
+    console.log(`The sandbox disk of ${id} stays larger than SANDBOX_DISK: shrinking needs it offline (admin.md, Disk limits).`);
+  }
+
+  if (fresh.length === 0) {
+    return;
+  }
+
+  const prefix = `${await project()}_data-`;
+  const volumes = new Set((await docker(['volume', 'ls', '--quiet'])).split('\n'));
+
+  await docker(['compose', 'stop', ...fresh.flatMap((id) => [`daemon-${id}`, `sandbox-${id}`])]);
+
+  await fresh.reduce(async (previous, id) => {
+    await previous;
+
+    const data = volumes.has(`${prefix}${id}`) ? [`${prefix}${id}:/data`] : [];
+
+    await tools(disksMoveScript, [], { volumes: [...data, `${path.resolve(disksFolder, id)}:/disk`] }).catch((error: unknown) => {
+      fail(`Could not move the bot folders of ${id} onto their sandbox disk (${diskBytes() / 1024 ** 2} MiB): ${errorMessage(error)} Raise SANDBOX_DISK in .env and apply again; nothing was lost.`);
+    });
+
+    console.log(`Gave ${id} a sandbox disk of ${diskBytes() / 1024 ** 2} MiB${data.length > 0 ? ' and moved their bot folders onto it' : ''}.`);
+  }, Promise.resolve());
+}
+
+// Bytes the disks may still take from the server: what they may grow to, less what they already hold.
+function disksGrowth(ids: string[]): number {
+  return ids.reduce((sum, id) => {
+    const held = statSync(path.join(disksFolder, `${id}.img`), { throwIfNoEntry: false })?.blocks ?? 0;
+
+    return sum + Math.max(0, diskBytes() - held * 512);
+  }, 0);
+}
+
+// People's disks are sparse: together they may promise more than the server has. Warn, so the hub's audit trail and the
+// backups never run out of room because people filled their disks.
+function disksWarn(ids: string[]) {
+  const { bavail, bsize } = statfsSync('.');
+  const growth = disksGrowth(ids);
+
+  if (growth > bavail * bsize) {
+    console.log(`Warning: ${ids.length} sandbox disks of SANDBOX_DISK may still grow by ${(growth / 1024 ** 3).toFixed(1)} GiB, more than the ${(bavail * bsize / 1024 ** 3).toFixed(1)} GiB this server has free. Lower SANDBOX_DISK or add disk space (admin.md, Disk limits).`);
+  }
+}
+
+// Each sandbox mounts home/.agents of its person's volume, and the daemon mounts their disk over agents/ (and an empty
+// folder over bot-home); Docker refuses a missing subpath or mount point. A new volume gets them from the daemon image,
+// which starts first; an older volume may lack them. Docker follows a link inside a subpath, so a link a bot planted
+// there before the sandbox (its bash ran in the daemon then, with the whole volume) or that came back with a restore
+// would give the sandbox what it points to, such as data/ with the credentials key: such a link is replaced by an empty
+// folder, and prints `replaced`. A hard link from those folders to one of the daemon's own files (data/, pi/, the rest
+// of home/) shares the file itself, so it is removed: a sandbox can no longer make one (it sees no daemon file), but one
+// made before or restored with an old backup would stay readable and live. GNU find deletes by inode inside the bot
+// folders, never following a link. This runs before apply and restore move agents/ and bot-home/ onto the person's
+// disk, a separate file system no hard link can reach. Run in the volume's root.
 const sandboxFoldersScript = [
   'for p in agents home home/.agents bot-home; do if [ -L "$p" ]; then echo "Replaced the link $p -> $(readlink "$p") with an empty folder: the sandbox would have mounted what it points to." >&2; echo replaced; rm "$p"; fi; done',
   'mkdir -p agents home/.agents bot-home',
@@ -565,6 +712,12 @@ async function applyTeam(waitFor?: string[]) {
   writeAtomic(path.join(hubData, 'users.json'), renderUsers(current, ids), 0o644);
   await tools('for id in "$@"; do mkdir -p "/ipc/$id" && chown 1000:1000 "/ipc/$id" && chmod 700 "/ipc/$id"; done', daemons);
   await sandboxFolders(daemons);
+  await disks(daemons);
+  disksWarn(daemons);
+
+  if (waitFor === undefined) {
+    await disksUnit();
+  }
 
   const others = (await docker(['compose', 'config', '--services'])).split('\n').filter((service) => !singletons.includes(service));
 
@@ -623,12 +776,26 @@ async function stopDaemon(id: string, person: Person) {
   }
 }
 
-// Copies one person's whole volume (database, credentials key, bots, Pi settings, home, the bots' home) except the bots'
-// download caches (bot-home/.cache), which the tools fill again. Their daemon must be stopped, so no SQLite file is
-// copied mid-write. tar archives a bot's links, FIFOs and devices as entries without following or opening them;
-// --sparse stores a sparse file's holes as holes, so a bot's 5 GB sparse file costs neither time nor space here.
+// Copies one person's whole volume (database, credentials key, Pi settings, home) and what is on their disk (bot
+// folders, the bots' home), in one archive laid out as the volume was before disks (agents/ and bot-home/ at the top),
+// so any backup restores either way. The bots' download caches (bot-home/.cache) are left out: the tools fill them
+// again. tar archives a bot's links, FIFOs and devices as entries without following or opening them. Sparse files
+// stay sparse: a bot's 1 TB file of holes would otherwise be read whole and come back fully
+// written. Their daemon must be stopped, so no SQLite file is copied mid-write. A disk that is not mounted fails the
+// copy.
 async function copyVolume(id: string, file: string) {
-  await tools('tar -C /data --sparse --anchored --exclude=./bot-home/.cache -czf - .', [], { volumes: [`${await volumeName(id)}:/data:ro`], output: file });
+  const volumes = [`${await volumeName(id)}:/data:ro`];
+  const volumeOnly = 'tar -C /data --sparse --anchored --exclude=./bot-home/.cache -czf - .';
+
+  if (!hasDisk(id)) {
+    await tools(volumeOnly, [], { volumes, output: file });
+    return;
+  }
+
+  await tools(`[ -e /disk/${diskMarker} ] || { echo "The sandbox disk of ${id} is not mounted: run bun deploy.ts apply." >&2; exit 1; }; if [ -d /disk/agents ] && [ -d /disk/bot-home ]; then tar -C /data --sparse --anchored --exclude=./agents --exclude=./bot-home --exclude=bot-home/.cache -czf - . -C /disk agents bot-home; else ${volumeOnly}; fi`, [], {
+    volumes: [...volumes, `${path.resolve(disksFolder, id)}:/disk:ro`],
+    output: file,
+  });
 }
 
 // Stops the daemon for the copy and starts it again even when the stop or the copy failed (a `compose stop` killed
@@ -659,8 +826,21 @@ async function backup() {
   console.log(`Backed up ${id} to ${file}. It contains their keys: keep it secret.`);
 }
 
+// Unpacks a backup into the person's volume and, when they have a disk, moves its bot folders and bots' home onto the
+// disk in place of the ones there. Links at agents, home, home/.agents and bot-home are replaced first, so the move never
+// follows one.
 async function fillVolume(id: string, file: string) {
-  await tools(`find /data -mindepth 1 -delete && tar -C /data -xzpf - && cd /data && { ${sandboxFoldersScript}; } > /dev/null`, [], { volumes: [`${await volumeName(id)}:/data`], input: file });
+  const fill = `find /data -mindepth 1 -delete && tar -C /data -xzpf - && cd /data && { ${sandboxFoldersScript}; } > /dev/null`;
+
+  if (!hasDisk(id)) {
+    await tools(fill, [], { volumes: [`${await volumeName(id)}:/data`], input: file });
+    return;
+  }
+
+  await tools(`[ -e /disk/${diskMarker} ] || exit 1; ${fill} && rm -rf /disk/agents /disk/agents.new /disk/bot-home /disk/bot-home.new && { ${disksMoveScript}\n}`, [], {
+    volumes: [`${await volumeName(id)}:/data`, `${path.resolve(disksFolder, id)}:/disk`],
+    input: file,
+  });
 }
 
 // `restore <id> <file or nightly folder>` replaces one person's volume; `restore <nightly folder>` rebuilds a whole
@@ -1337,6 +1517,60 @@ async function nightlyRemove() {
   console.log(`Removed the ${unit} timer. The backups in ${path.resolve(backupsFolder)} stay.`);
 }
 
+// The boot unit for people's disks: it mounts them before Docker starts anyone, since Docker starts containers itself at
+// boot and a container whose disk is not mounted cannot start (its subpath is missing). Written by a by-hand `apply`;
+// the provisioner cannot reach systemd, and needs no new unit for a person it adds.
+async function disksUnit() {
+  if (process.getuid?.() !== 0 || !existsSync('/run/systemd/system') || !Bun.which('systemctl')) {
+    console.log('This server has no systemd: after a reboot, run `bun deploy.ts disks mount` and then `docker compose up -d`, or people\'s MeetVinci stay stopped.');
+    return;
+  }
+
+  if (![process.execPath, import.meta.path, process.cwd()].every((value) => /^[\w./-]+$/u.test(value))) {
+    fail(`Bun (${process.execPath}) and ${import.meta.path} must be on paths of letters, digits, dots, dashes and slashes for the disks unit.`);
+  }
+
+  const file = path.join(systemdFolder, `${await project()}-disks.service`);
+
+  const content = [
+    '# Written by `bun deploy.ts apply`: mounts each person\'s sandbox disk before Docker starts their containers.',
+    '[Unit]',
+    `Description=MeetVinci sandbox disks of ${process.cwd()}`,
+    'Before=docker.service',
+    `RequiresMountsFor=${process.cwd()}`,
+    '',
+    '[Service]',
+    'Type=oneshot',
+    'RemainAfterExit=yes',
+    `WorkingDirectory=${process.cwd()}`,
+    `ExecStart=${process.execPath} ${import.meta.path} disks mount`,
+    '',
+    '[Install]',
+    'WantedBy=docker.service',
+    '',
+  ].join('\n');
+
+  if (existsSync(file) && readFileSync(file, 'utf8') === content) {
+    return;
+  }
+
+  writeFileSync(file, content, { mode: 0o644 });
+  systemctl(['daemon-reload']);
+  systemctl(['enable', path.basename(file)]);
+  console.log(`Wrote ${file}: people's sandbox disks are mounted at every boot.`);
+}
+
+// `disks mount`, on the host as root (the boot unit runs it): mounts every disk in disks/.
+async function disksCommand() {
+  if (process.argv[3] !== 'mount') {
+    fail('Usage: bun deploy.ts disks mount');
+  }
+
+  if (existsSync(disksFolder) && !Bun.spawnSync(['sh', '-c', disksMountScript, 'disks', path.resolve(disksFolder)], { stdout: 'inherit', stderr: 'inherit' }).success) {
+    fail('Mounting the sandbox disks failed.');
+  }
+}
+
 async function nightly() {
   const actions = { run: nightlyRun, status: nightlyStatus, install: nightlyInstall, remove: nightlyRemove, fetch: nightlyFetch };
   const action = process.argv[3] ?? 'run';
@@ -1374,6 +1608,7 @@ async function restoreInstall(folder: string) {
   const daemons = manifest.people.map(({ id }) => id);
 
   writeFileSync('users.compose.yaml', renderCompose(daemons));
+  await disksJob(disksScript, [path.resolve(disksFolder), String(diskBytes()), ...daemons]);
   await docker(['compose', 'create', ...daemons.map((id) => `daemon-${id}`)]);
 
   await manifest.people.reduce(async (previous, { id }) => {
@@ -1411,8 +1646,9 @@ async function purge() {
     fail(`${id} is still in users.yaml: remove them and run apply first.`);
   }
 
-  await docker(['volume', 'rm', '--force', await volumeName(id), `${await project()}_sandbox-${id}`]);
+  await docker(['volume', 'rm', '--force', await volumeName(id), `${await project()}_sandbox-${id}`, `${await project()}_disk-${id}`]);
   await docker(['network', 'rm', '--force', `${await project()}_sandbox-${id}`]);
+  await disksJob('set -e; mnt="$1/$2"; if mountpoint -q "$mnt"; then umount "$mnt"; fi; rm -f "$mnt.img"; if [ -d "$mnt" ]; then rmdir "$mnt"; fi', [path.resolve(disksFolder), id]);
   await tools('rm -rf "/ipc/$1"', [id]);
 
   const pinsFile = path.join(hubData, 'pins.json');
@@ -1434,7 +1670,7 @@ async function purge() {
   }
 
   await docker(['compose', 'start', 'hub']);
-  console.log(`Purged ${id}: volume, sandbox volume and network, owner-socket folder, hub pin and global settings modes deleted.`);
+  console.log(`Purged ${id}: volume, sandbox disk, sandbox volume and network, owner-socket folder, hub pin and global settings modes deleted.`);
 }
 
 async function cloudflareCall<T>(method: string, route: string, body?: unknown): Promise<CloudflareResponse<T>> {
@@ -2020,8 +2256,32 @@ async function userStates(): Promise<Map<string, UserState>> {
   return new Map((await composeRows()).map((row) => [row.Service, containerState(row.State, row.Health)]));
 }
 
-// `status`, on the server: each person's daemon and sandbox as Docker and their health checks see them. A sandbox is
-// healthy while it holds a connection to its daemon. Exits non-zero unless every one is running and healthy.
+function gib(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
+}
+
+// A person's sandbox disk as the host sees it: how full, or why it is not there.
+function diskShown(id: string): [string, boolean] {
+  const mount = path.join(disksFolder, id);
+
+  if (!hasDisk(id)) {
+    return ['disk missing', false];
+  }
+
+  if (statSync(mount).dev === statSync(disksFolder).dev) {
+    return ['disk not mounted', false];
+  }
+
+  const { blocks, bavail, bsize, files, ffree } = statfsSync(mount);
+  const used = (blocks - bavail) * bsize;
+  const isFull = used >= blocks * bsize * diskFullShare || files - ffree >= files * diskFullShare;
+
+  return [`disk ${isFull ? 'FULL ' : ''}${gib(used)} of ${gib(blocks * bsize)}, ${Math.round(((files - ffree) * 100) / files)}% of files`, !isFull];
+}
+
+// `status`, on the server: each person's daemon, sandbox and sandbox disk as Docker, their health checks and the host
+// see them, and the server's own free space. A sandbox is healthy while it holds a connection to its daemon. Exits
+// non-zero unless every one is running and healthy, no disk is full or missing, and the server has room.
 async function stackStatus() {
   const rows = new Map((await composeRows()).map((row) => [row.Service, row]));
   const ids = [templateId, ...enabledIds(team())];
@@ -2033,16 +2293,30 @@ async function stackStatus() {
     return row === undefined ? 'missing' : `${row.State}${row.Health === '' ? '' : ` (${row.Health})`}`;
   };
 
-  const lines = ids.map((id) => [id, shown(`daemon-${id}`), shown(`sandbox-${id}`)] as const);
+  const lines = ids.map((id) => [id, shown(`daemon-${id}`), shown(`sandbox-${id}`), ...diskShown(id)] as const);
 
-  for (const [id, daemon, sandbox] of lines) {
-    console.log(`${id.padEnd(width)}  daemon ${daemon.padEnd(19)}  sandbox ${sandbox}`);
+  for (const [id, daemon, sandbox, disk] of lines) {
+    console.log(`${id.padEnd(width)}  daemon ${daemon.padEnd(19)}  sandbox ${sandbox.padEnd(19)}  ${disk}`);
   }
 
+  const { blocks, bavail, bsize } = statfsSync('.');
+  const isLow = bavail < blocks * serverLowShare;
+
+  console.log(`Server disk: ${gib(bavail * bsize)} free of ${gib(blocks * bsize)}${isLow ? ', LOW' : ''}`);
+
   const down = lines.filter(([, daemon, sandbox]) => daemon !== 'running (healthy)' || sandbox !== 'running (healthy)').map(([id]) => id);
+  const full = lines.filter(([, , , , isOk]) => !isOk).map(([id]) => id);
 
   if (down.length > 0) {
     fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> shows why; bun deploy.ts apply starts what is missing.`);
+  }
+
+  if (full.length > 0) {
+    fail(`Sandbox disk full or not there: ${full.join(', ')}. Their bots get "No space left on device"; see admin.md, Disk limits.`);
+  }
+
+  if (isLow) {
+    fail('The server\'s disk is almost full: the hub\'s audit trail and the backups need room. See troubleshooting.md, The disk fills up.');
   }
 }
 
@@ -2522,7 +2796,7 @@ function firewallCheck(restored: string[], bypassed: string[]) {
   console.log('Firewall on: rules in place.');
 }
 
-const commands = { images, cloudflare, apply, status: stackStatus, backup, nightly, restore, purge, provisioner, firewall };
+const commands = { images, cloudflare, apply, status: stackStatus, backup, nightly, restore, purge, provisioner, firewall, disks: disksCommand };
 const command = process.argv[2] ?? '';
 
 try {
@@ -2542,6 +2816,7 @@ try {
       '  bun deploy.ts restore <id> <file|folder> replace one person\'s volume with a backup',
       '  bun deploy.ts restore <folder>          rebuild a whole install from a nightly folder on a fresh server',
       '  bun deploy.ts purge <id>                delete a removed person\'s data for good',
+      '  bun deploy.ts disks mount               mount every person\'s sandbox disk (the boot unit apply installs runs it)',
       '  bun deploy.ts firewall status           the firewall\'s health and the last problems its checks found',
       '  bun deploy.ts firewall remove           stop the firewall service and delete its rules (teardown)',
       'In the provisioner image:',

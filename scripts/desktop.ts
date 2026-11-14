@@ -118,6 +118,13 @@ async function bundle() {
       target: 'bun',
       outdir: path.join(target, 'daemon'),
     }),
+    // pi-env's transport to a person's sandbox, its own small program next to the daemon (the daemon runs it per
+    // connection, so it must not load the whole daemon).
+    Bun.build({
+      entrypoints: [path.join(root, 'apps/daemon/src/entry-sandbox-bridge.native.ts')],
+      target: 'bun',
+      outdir: path.join(target, 'daemon'),
+    }),
   ]);
 
   const failed = builds.find((result) => !result.success);

@@ -49,6 +49,11 @@ export const errorSchemas = {
     status: 503,
     reportable: false,
   },
+  DISK_FULL: {
+    message: "Your bots' disk is full. Delete files your bots no longer need, or ask your admin for more room.",
+    status: 507,
+    reportable: false,
+  },
 
   NOT_FOUND: { message: 'Resource not found', status: 404, data: z.object({ resource: z.string().optional(), resourceId: z.union([z.string(), z.number()]).optional() }), reportable: false },
   VALIDATION_ERROR: {

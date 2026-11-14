@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "meetvinci": "./src/entry.native.ts"
+    "meetvinci": "./src/entry.native.ts",
+    "meetvinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts"
   },
   "scripts": {
     "dev": "DATA_DIR=$HOME/.config/meetvinci-dev MOBILE_SCHEME=meetvinci-dev DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191 WEB_PUBLIC_URL=http://localhost:47190 bun --env-file=../../.env --watch src/entry.native.ts",

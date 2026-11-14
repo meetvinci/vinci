@@ -32,6 +32,7 @@
       "version": "0.1.6",
       "bin": {
         "meetvinci": "./src/entry.native.ts",
+        "meetvinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts",
       },
       "dependencies": {
         "@orpc/client": "catalog:",

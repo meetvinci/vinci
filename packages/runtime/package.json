@@ -21,6 +21,10 @@
     "./native": {
       "types": "./src/entry.native.ts",
       "default": "./src/entry.native.ts"
+    },
+    "./sandbox-bridge": {
+      "types": "./src/entry-sandbox-bridge.native.ts",
+      "default": "./src/entry-sandbox-bridge.native.ts"
     }
   },
   "dependencies": {

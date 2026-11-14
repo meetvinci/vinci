@@ -84,11 +84,13 @@ flowchart TB
 | --- | --- | --- |
 | daemon `src/entry.native.ts` | Bun | the `meetvinci` CLI: start, pair, service; opens stores and starts the listener |
 | daemon `src/entry-backup.native.ts` | Bun | offline backup create and restore |
+| daemon `src/entry-sandbox-bridge.native.ts` | Bun | pi-env's transport to a person's sandbox, bundled next to the daemon entry; the daemon runs it per connection |
 | hub `src/entry.native.ts` | Bun | the team hub: verifies the Access identity and routes it to that user's daemon |
 | server `src/entry.server.ts` | any host | `makeServices`, `coreHandler` and portable product services |
 | server `src/entry.native.ts` | Bun | database, backup, workspace, MCP discovery and credential-key factories |
 | runtime `src/entry.server.ts` | any host | `makeRuntimeService` and the runtime port types |
 | runtime `src/entry.native.ts` | Bun | Pi storage, storage lock, loaders, MCP clients, provider auth |
+| runtime `src/entry-sandbox-bridge.native.ts` | Bun | only the sandbox bridge, so its bundle stays small |
 | contracts `src/entry.universal.ts` | any | the oRPC contract, schemas and public types |
 | client `src/entry.{client,react,web,native}.ts` | clients | RPC client; React hooks; DOM-only and Expo-only hooks |
 | web `src/application/server.bun.ts` | Bun | production web server: SSR and the `/rpc` proxy |
@@ -111,6 +113,7 @@ flowchart TB
 packages/<package>/src/
 ├── entry.server.ts                     portable exports, no Bun or file system; secret-proxy has none
 ├── entry.native.ts                     native factories the daemon injects
+├── entry-sandbox-bridge.native.ts      runtime only: the sandbox bridge alone, for its own small bundle
 ├── core/core.services.ts               server only: builds every service once from its deps
 ├── core/core.handler.ts                server only: the oRPC handler over every rpc file
 ├── rpc/rpc.<area>.ts                   server only: validates input, calls one service operation
@@ -163,6 +166,7 @@ packages/contracts/src/
 apps/daemon/src/
 ├── entry.native.ts                     the meetvinci CLI and daemon entry
 ├── entry-backup.native.ts              the backup CLI
+├── entry-sandbox-bridge.native.ts      the sandbox bridge program the daemon runs next to its own entry
 ├── core/core.native.ts                 startup composition and shutdown order
 ├── core/core-<part>.native.ts          one transport concern: server, rpc, local socket, pairing, command
 └── types/core.types.ts                 daemon composition types
