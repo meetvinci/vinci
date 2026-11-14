@@ -11,7 +11,7 @@
 
 ## 1. How MeetVinci works
 
-MeetVinci is a bot backend. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS clients pair with the daemon and talk to it over oRPC. A team installation runs one daemon per user, each in its own container, behind a hub that takes identity from Cloudflare Access and routes each user to their own daemon.
+MeetVinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
 
 ### System
 
@@ -19,9 +19,9 @@ MeetVinci is a bot backend. Each daemon serves one owner and runs each bot as a 
 flowchart TB
   Web["apps/web<br/>browser"] -->|"/rpc proxy, WebSocket"| Daemon
   Mobile["apps/mobile<br/>iOS"] -->|"WebSocket"| Daemon
-  Desktop["apps/desktop<br/>macOS"] -->|"starts or finds"| Daemon
+  Desktop["apps/desktop<br/>macOS"] -->|"embeds its own; becomes a window on the install (planned)"| Daemon
   Desktop --> Web
-  subgraph Host["Owner's computer"]
+  subgraph Host["One person's daemon"]
     Daemon["apps/daemon<br/>listener, composition"] --> Server["packages/server<br/>product services, RPC"]
     Server --> Runtime["packages/runtime<br/>Pi integration"]
     Runtime --> Stores["one Pi store per bot"]
@@ -83,12 +83,11 @@ flowchart TB
 
 | File | Runs on | Intent |
 | --- | --- | --- |
-| daemon `src/entry.native.ts` | Bun | the `meetvinci` CLI: start, pair, service; opens stores and starts the listener |
-| daemon `src/entry-backup.native.ts` | Bun | offline backup create and restore |
+| daemon `src/entry.native.ts` | Bun | the `meetvinci` CLI: start and pair; opens stores and starts the listener |
 | daemon `src/entry-sandbox-bridge.native.ts` | Bun | pi-env's transport to a person's sandbox, bundled next to the daemon entry; the daemon runs it per connection |
 | hub `src/entry.native.ts` | Bun | the team hub: verifies the Access identity and routes it to that user's daemon |
 | server `src/entry.server.ts` | any host | `makeServices`, `coreHandler` and portable product services |
-| server `src/entry.native.ts` | Bun | database, backup, workspace, MCP discovery and credential-key factories |
+| server `src/entry.native.ts` | Bun | database, workspace, MCP discovery and credential-key factories |
 | runtime `src/entry.server.ts` | any host | `makeRuntimeService` and the runtime port types |
 | runtime `src/entry.native.ts` | Bun | Pi storage, storage lock, loaders, MCP clients, provider auth |
 | runtime `src/entry-sandbox-bridge.native.ts` | Bun | only the sandbox bridge, so its bundle stays small |
@@ -96,7 +95,7 @@ flowchart TB
 | client `src/entry.{client,react,web,native}.ts` | clients | RPC client; React hooks; DOM-only and Expo-only hooks |
 | web `src/application/server.bun.ts` | Bun | production web server: SSR and the `/rpc` proxy |
 | mobile `src/app/_layout.tsx` | iOS | Expo Router root: providers, connection, push |
-| desktop `src/desktop.ts` | Electrobun | the macOS and Linux app: window, tray, local or remote server |
+| desktop `src/desktop.ts` | Electrobun | the macOS and Linux app: window, tray, updates, local or remote server; becomes a window on the install (planned) |
 
 ### Naming
 
@@ -166,7 +165,6 @@ packages/contracts/src/
 ```
 apps/daemon/src/
 ├── entry.native.ts                     the meetvinci CLI and daemon entry
-├── entry-backup.native.ts              the backup CLI
 ├── entry-sandbox-bridge.native.ts      the sandbox bridge program the daemon runs next to its own entry
 ├── core/core.native.ts                 startup composition and shutdown order
 ├── core/core-<part>.native.ts          one transport concern: server, rpc, local socket, pairing, command
@@ -347,7 +345,7 @@ export type SkillService = ReturnType<typeof makeSkillService>;
 
 - One implicit owner per independent daemon. Devices pair with revocable credentials. Inside a daemon there are no users, organizations, roles or password login.
 - A team installation runs one daemon per user behind the hub. Identity comes from Cloudflare Access at the hub, which routes by the verified email, never by a client-chosen address.
-- Pairing stores token hashes and atomically consumes grants with device creation. Issuing a grant requires an authenticated device or trusted local transport. CLI pairing uses the owner-only daemon socket before or after initial setup; public transport cannot acquire local authority. The daemon prints a startup pairing link while no device exists.
+- Pairing stores token hashes and atomically consumes grants with device creation. Issuing a grant requires an authenticated device or trusted local transport. CLI pairing uses the owner-only daemon socket before or after initial setup; public transport cannot acquire local authority.
 - App persistence uses `node:sqlite` and Kysely. SQL identifiers are snake_case; `CamelCasePlugin` maps TypeScript camelCase. Migrations preserve existing data.
 - The hub's audit trail is one append-only `bun:sqlite` table in `HUB_DATA_DIR/audit.sqlite`, opened directly, without Kysely or migrations.
 - Generic non-secret key/value data belongs to the shared `settings` service and table, with domain keys such as `skills.directories`, `mcp.paths` and `tools.approvalRules`.

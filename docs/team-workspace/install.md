@@ -1,6 +1,6 @@
 # Install
 
-Set up a server for one team, from a fresh Ubuntu server to a logged-in person. Do the steps in order. Each step ends with a prompt you can paste to an AI coding agent that has SSH access to the server and a checkout of this repository.
+Set up a server for one team, or for just you, from a fresh Ubuntu server to a logged-in person. Do the steps in order. Each step ends with a prompt you can paste to an AI coding agent that has SSH access to the server and a checkout of this repository.
 
 An agent can also do the whole install at once: see [the whole install in one prompt](#the-whole-install-in-one-prompt) at the end. Agents working in this repository have the `meetvinci-deploy` skill with the same procedure.
 
@@ -322,6 +322,16 @@ Expected: the two unit files written, one run of a few seconds per person, and `
 **Give this to your agent:**
 
 > On `root@<server>`, in `/opt/meetvinci`, run `bun deploy.ts nightly install`, then `bun deploy.ts nightly` once, then `bun deploy.ts nightly status`, and report its output and `systemctl list-timers meetvinci-backup.timer`. Never print `.env` or a backup's content.
+
+## Just me
+
+A person on their own installs the same thing as a team. There is no smaller version.
+
+- Follow steps 1 to 9 as written. You still need a Linux server with Docker, a domain on Cloudflare and Cloudflare's free Zero Trust plan. A Mac or Windows computer is not supported, not even with Docker on it ([why](#before-you-start)).
+- In step 4, put your own email under both `users:` and `admins:`. In step 7, use the same email for `HUB_ADMIN_EMAILS`. You are the only user and the only admin.
+- In step 5, let in only your own email.
+- Memory: the smallest server in [Before you start](#before-you-start) is plenty. You are one person, plus the template workspace for global settings.
+- You log in with an email code, and the hub pairs your browser. Your bots' security settings, model keys and shared sources live in the admin panel at `/admin`, on your own page. Global settings are there too; you need them only if you add people later.
 
 ## The whole install in one prompt
 

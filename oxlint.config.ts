@@ -5,6 +5,6 @@ export default preset({
   folders: {
     '.': { layout: { suffixes: ['prompts', 'driver', 'options', 'extension', 'task'] } },
     '.agents': { console: true },
-    'packages/server': { backend: { registry: { skip: ['backup'] } } },
+    'packages/server': { backend: { registry: { skip: [] } } },
   },
 });

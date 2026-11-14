@@ -1,6 +1,6 @@
-# MeetVinci for a team
+# Installing MeetVinci
 
-MeetVinci normally runs on one person's computer. The team workspace runs it on one server for a small team, about 3 to 7 people.
+MeetVinci installs one way: on one Linux server, with Docker, the hub and the admin panel. It serves a small team, about 3 to 7 people. A person on their own installs the same thing and is its only admin and only user: see [Just me](install.md#just-me).
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
@@ -58,7 +58,7 @@ Shared logins from a Claude or ChatGPT subscription are not supported: the provi
 
 ## Guides
 
-- [Install](install.md): set up the server and Cloudflare.
+- [Install](install.md): set up the server and Cloudflare, for a team or [just you](install.md#just-me).
 - [Install the app on your phone and computer](install-app.md): for everyone on the team: home screen or dock, and notifications.
 - [Admin tasks](admin.md): the admin panel, global settings and suggested bots, people, keys, bots, backups, upgrades.
 - [Configuration](configuration.md): every setting and file.

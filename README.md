@@ -1,39 +1,41 @@
 # 🤖 MeetVinci
 
-> Your own bots, on your own Mac. Chat with them from the web, your iPhone or the desktop app.
+> Your own bots, on your own server. For a small team, or just for you.
 
-MeetVinci runs a small daemon on your computer. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Your devices pair with the daemon once, then talk to it over your local network or Tailscale. A personal install has no accounts and no cloud service in between. A small team can also share one server: see [Team workspace](#-team-workspace).
+MeetVinci installs one way: on a Linux server, with Docker. Each person gets their own MeetVinci in its own container, and their bots' commands run in a second one, their sandbox. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Everyone uses one web address: Cloudflare Access handles the login, and a hub sends each person to their own bots. An admin panel adds people and sets up their keys, bots and settings. A person on their own installs the same thing and is its only admin and only user.
 
-## ⬇️ Download
+## ⬇️ Install
 
-**Download the macOS app** (Apple silicon) from this repository's GitHub Releases. Unzip it, move **MeetVinci** to Applications and open it. Choose **This Mac**, then connect a model provider such as Anthropic or OpenAI. The app runs the daemon for you and lives in the menu bar.
+Start with the [install overview](docs/team-workspace/README.md), then follow the [install guide](docs/team-workspace/install.md). You need a Linux server with Docker, a domain on Cloudflare and a model API key. On your own? See [Just me](docs/team-workspace/install.md#just-me).
+
+It is a first version, meant for people who trust each other: see the warning in the [overview](docs/team-workspace/README.md).
+
+People open the install's address in a browser, or add it to their phone's home screen and dock: see [Install the app](docs/team-workspace/install-app.md).
+
+The macOS app in this repository's GitHub Releases still runs a daemon of its own. It will become a window on your install; until then, it is not a way to install MeetVinci.
 
 ## ✨ Features
 
 - 💬 **Persistent bots.** Give a bot a name, an avatar, instructions and a model. Its conversation survives restarts, and work in progress resumes on its own.
-- 🔌 **Any model Pi can reach.** Log in to OpenAI Codex, Claude, Grok and other providers from Settings, or reuse the logins you already have in Pi.
+- 🔌 **Any model Pi can reach.** The admin gives each person an API key for Anthropic, OpenAI or another provider. An advanced user can also log in to their own subscription, such as OpenAI Codex, Claude or Grok, from Settings.
 - 🧰 **Skills, MCP and plugins.** Bots inherit your agent skills, instructions and MCP servers, and you can add more per bot. Pick a skill from the composer with `/`.
 - 🤝 **Bots talk to each other.** A bot can message another bot, wait for the answer and pass it on, up to three bots deep. Bots can also start subagents in the foreground or background.
-- ✅ **Approvals you control.** Each bot has a permission mode: read-only, ask, auto or full. Auto lets [Jev](https://typesafe.ai) approve safe calls and asks you about the rest, using your own plain-language rules.
-- 🔑 **Secrets without leaks.** A bot can ask you for an API key. You type it once, it is stored encrypted, and the bot only ever sees a placeholder that a local proxy swaps for the real value.
+- ✅ **Approvals.** The admin gives each bot a permission mode: read-only, ask, auto or full. Auto lets [Jev](https://typesafe.ai) approve safe calls and asks the person about the rest, using plain-language rules.
+- 🔑 **Secrets without leaks.** A bot can ask you for an API key. You type it once, it is stored encrypted, and the bot only ever sees a placeholder that a proxy swaps for the real value.
 - 📎 **Files, questions and reactions.** Attach files and images, answer a bot's multiple-choice questions, and react to messages.
 - ⏰ **Routines.** Schedule a bot to run on its own; results land in its chat.
 - 📊 **Artifacts.** Bots build documents, charts and HTML pages you can open and edit from the artifacts page.
-- 📱 **iOS app.** Scan the pairing QR code and chat on the go. Push notifications show the bot's own avatar. Android is planned.
-- 🍎 **macOS app.** Starts the daemon for you, pairs itself, and can also open MeetVinci running on another Mac.
-- 💾 **Backups.** One command snapshots every bot, its files and the database, and restores them later.
-
-## 👥 Team workspace
-
-MeetVinci can also run on one Linux server for a team of about 3 to 7 people. Each person gets their own MeetVinci in its own container, everyone uses one web address, and Cloudflare Access handles the login. It is work in progress and meant for trusted teams for now.
-
-Start with the [team workspace guide](docs/team-workspace/README.md).
+- 📱 **On your phone.** Add the install's address to your home screen: it installs as an app with push notifications. Native iOS and macOS apps that log in to the install are planned.
+- 🛡️ **Admin panel.** Add and remove people, give them model keys, and set up their bots and shared settings at `/admin`.
+- 💾 **Backups.** The admin backs up every person's bots, files and database every night, with an optional encrypted off-site copy.
 
 ## 🧰 Built with
 
 [Bun](https://bun.sh) · [Turborepo](https://turborepo.com) · [Pi Durable](https://github.com/earendil-works/pi) · [oRPC](https://orpc.dev) · [TanStack Start](https://tanstack.com/start) · [Expo](https://expo.dev) · [Electrobun](https://electrobun.dev) · SQLite · [Paraglide](https://inlang.com/m/gerre34r/library-inlang-paraglideJs)
 
-## 🚀 Run it locally
+## 🚀 Develop locally
+
+This runs MeetVinci from source for working on it. It is not a way to install it: the native daemon exists only for development.
 
 **You need:** [Bun](https://bun.sh) 1.4 on macOS. The iOS app also needs Xcode.
 
@@ -74,7 +76,7 @@ The dev sandbox is the install's image with its limits (uid 1000, read-only root
 Open **Settings → Providers** and log in. If you already use Pi, its saved logins in `~/.pi/agent` work right away.
 
 > [!WARNING]
-> Bots run their tools as your user, on your machine. This is not a sandbox. Use the permission modes to decide what a bot may do without asking.
+> Without `--sandbox`, bots run their tools as your user, on your machine. Use the permission modes to decide what a bot may do without asking.
 
 ### iPhone
 
@@ -128,7 +130,7 @@ bun run build:images                                 # meetvinci-daemon, meetvin
 bun run build:images daemon --platform linux/arm64   # one image, for a local run on Apple Silicon
 ```
 
-The images build from `deploy/docker/Dockerfile` and hold the same Bun bundles as the desktop app, without `node_modules`. They run as uid 1000 under `tini` and work with a read-only root, a `/tmp` tmpfs, `cap_drop: ALL` and `no-new-privileges`. The daemon keeps all state, `HOME` and the Pi agent directory on a volume at `/data`; pair it with `docker exec <container> meetvinci pair`.
+The images build from `deploy/docker/Dockerfile` and hold the same Bun bundles as the desktop app, without `node_modules`. They run as uid 1000 under `tini` and work with a read-only root, a `/tmp` tmpfs, `cap_drop: ALL` and `no-new-privileges`. The daemon keeps all state, `HOME` and the Pi agent directory on a volume at `/data`. `scripts/deploy.ts` runs the images behind the hub, which pairs each person's browser on their first visit; see the [install guide](docs/team-workspace/install.md).
 
 ## 🧪 Development
 
