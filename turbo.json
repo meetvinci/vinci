@@ -20,11 +20,6 @@
       "persistent": true,
       "cache": false
     },
-    "@repo/web#dev": {
-      "with": [
-        "@repo/daemon#dev"
-      ]
-    },
     "dev:app": {
       "with": [
         "@repo/daemon#dev"

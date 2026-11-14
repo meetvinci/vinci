@@ -30,22 +30,10 @@ The same `baseUrl` override works for `openai` and `xai` when the proxy serves t
 
 ## Test with a separate Pi directory
 
-To try logins or a proxy setup without touching your own Pi config, run a second daemon with its own Pi directory, data and port, plus a web dev server for it. The dev web app always talks to the daemon on its own `DAEMON_PORT`, so the normal one on port 47190 cannot pair with the test daemon.
+To try logins or a proxy setup without touching your own Pi config, run a second dev stack with its own Pi directory, data and ports. It takes four ports from `--port` and opens at the first:
 
 ```bash
-cd apps/daemon
-PI_CODING_AGENT_DIR=~/.config/meetvinci-test/pi \
-DATA_DIR=~/.config/meetvinci-test \
-DAEMON_HOST=127.0.0.1 DAEMON_PORT=47291 \
-WEB_PUBLIC_URL=http://localhost:47290 \
-bun --env-file=../../.env src/entry.native.ts
+PI_CODING_AGENT_DIR=~/.config/meetvinci-test/pi bun --env-file=.env scripts/hub.ts dev --port 47290 --data ~/.config/meetvinci-test
 ```
 
-In a second terminal:
-
-```bash
-cd apps/web
-DAEMON_PORT=47291 bunx vite dev --port 47290 --strictPort
-```
-
-Open the pairing link the daemon prints in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/meetvinci-test/pi/auth.json`; delete `~/.config/meetvinci-test` to start over.
+Open http://localhost:47290 in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/meetvinci-test/pi/auth.json`; delete `~/.config/meetvinci-test` to start over.

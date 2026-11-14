@@ -12,7 +12,7 @@ import { createTanstackStartPlugin } from './vite/tanstack-start.vite.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Dev always runs the local dev daemon next to Vite; built web servers pick the paired daemon's address from the connection cookie.
+// Without a hub (the desktop app's dev server), Vite proxies daemon paths to the local dev daemon; built web servers pick the paired daemon's address from the connection cookie.
 const DEV_DAEMON = `http://127.0.0.1:${env.DAEMON_PORT}`;
 
 export default defineConfig({
@@ -20,6 +20,8 @@ export default defineConfig({
   envDir: '../..',
   server: {
     host: true,
+    // Behind the dev hub (scripts/hub.ts dev), pages come through the hub, which relays no WebSocket to the web app: HMR connects to Vite's own port.
+    hmr: env.WEB_HUB_URL ? { clientPort: env.WEB_PORT } : undefined,
     proxy: {
       '/rpc': { target: DEV_DAEMON, ws: true },
       '/files': { target: DEV_DAEMON },

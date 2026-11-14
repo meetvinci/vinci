@@ -68,8 +68,10 @@ setup_main() {
 | Resource | Value |
 | -------- | ----- |
 | Tool | $TOOL |
-| Web | <http://localhost:47190> |
+| Web (dev door) | <http://localhost:47190> |
 | Daemon | <http://localhost:47191> |
+| Hub | <http://localhost:47192> |
+| Vite | <http://localhost:47193> |
 | Data | \`~/.config/meetvinci-dev\` |
 
 Dev ports are fixed, so only one worktree can run \`dev\` at a time.
@@ -87,7 +89,7 @@ EOF
 }
 
 # ─── Run ─────────────────────────────────────────────
-# Web and daemon together; Turbo starts the daemon with the web app.
+# The dev door, daemon, hub and web app together (scripts/hub.ts dev).
 run_main() {
   exec bun run dev:web
 }

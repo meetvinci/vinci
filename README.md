@@ -47,17 +47,19 @@ cp .env.example .env
 
 The defaults in `.env.example` work as they are.
 
-**2. Start the daemon and the web app**
+**2. Start MeetVinci**
 
 ```bash
 bun run dev:web
 ```
 
-This starts the daemon on port 47191 and the web app on http://localhost:47190. Dev data lives in `~/.config/meetvinci-dev`, apart from a real install in `~/.config/meetvinci`.
+Development runs like a real install: your daemon behind a local hub. This starts a dev door on http://localhost:47190, the daemon on 47191, the hub on 47192 and the web app (Vite) on 47193. Dev data lives in `~/.config/meetvinci-dev` (the hub's in its `hub/` folder), apart from a real install in `~/.config/meetvinci`.
 
-**3. Pair your browser**
+**3. Open it**
 
-While no device is paired, the daemon prints a pairing link and a QR code in the terminal. Open the link to pair this browser. To pair another device later, open **Settings → Devices** on a paired one, or run `meetvinci pair`.
+Open http://localhost:47190. The dev door stands in for Cloudflare Access: it signs you in as `dev@example.com`, and the hub pairs the browser on its own, so you land in chat with no PIN. You are also the hub's admin: `/admin` is the admin panel. Bot permissions, approval rules, model settings and how bots use secrets are the admin's, as in a team install: change them in `/admin`.
+
+**What changed for developers:** there is no startup PIN and no `bun run dev:pair` any more, and the browser goes through the hub like a team install. Your dev data folder stays the same. `bun scripts/hub.ts dev --port <first port> --data <folder>` runs a second stack next to yours.
 
 **4. Connect a model**
 
@@ -72,7 +74,9 @@ Open **Settings → Providers** and log in. If you already use Pi, its saved log
 bun run dev:mobile
 ```
 
-This boots the iOS Simulator and starts the dev client. Scan the pairing QR code from **Settings → Devices** in the web app. For a real phone, the daemon must be reachable on your LAN or Tailscale; it listens on every interface by default.
+This boots the iOS Simulator and starts the dev client. `bun run dev:all` starts it together with `dev:web`. The iOS app still pairs with a PIN: run `DATA_DIR=~/.config/meetvinci-dev bun apps/daemon/src/entry.native.ts pair` while the dev daemon runs, and scan the QR code.
+
+**A real phone or another computer** needs an address it can reach. Start with `bun run dev:web --url http://<LAN or Tailscale address>:47190`: the dev door, daemon and Vite then listen on every interface, and the terminal prints a login link for this run. Open that link once on each device (it keeps you signed in for 30 days, across restarts), then use `http://<address>:47190`. This replaces `dev:pair --url`. Without `--url`, only this Mac can open MeetVinci.
 
 ### Desktop app
 
@@ -88,7 +92,7 @@ Run `bun link` in `apps/daemon` once, then:
 
 ```bash
 meetvinci start                # Run in the foreground; Ctrl+C stops it
-meetvinci pair                 # Print a new pairing code, link and QR code
+meetvinci pair                 # Print a new pairing code, link and QR code (the iOS and desktop apps)
 ```
 
 The native daemon is for development. To back up a development data folder, stop the daemon and copy the folder. See the [API reference](.agents/references/api.md#daemon-and-storage) for details.

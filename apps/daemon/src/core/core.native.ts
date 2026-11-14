@@ -120,8 +120,6 @@ async function coreNativeRun(): Promise<void> {
     port: network.port,
   });
 
-  resources.defer(coreNativeFirstPairing(services));
-
   await stopped;
   log.info({ tag: 'daemon', message: 'Daemon stopped' });
 }
@@ -453,40 +451,6 @@ async function coreNativePublic(services: CoreTypes.CoreServices, peer: string |
 
     return new Response(null, { status });
   }
-}
-
-function coreNativeFirstPairing(services: CoreTypes.CoreServices): () => void {
-  const serverUrl = new URL(env.WEB_PUBLIC_URL).origin;
-  let timer: Timer | undefined;
-
-  if (env.DAEMON_TEAM) {
-    process.stdout.write('\nNo pairing PIN at startup: the team hub pairs this daemon\'s devices.\n\n');
-    return () => undefined;
-  }
-
-  async function issue(): Promise<void> {
-    const devices = await services.auth.queries.devices();
-
-    if (devices.length > 0) {
-      process.stdout.write(`\n${devices.length} paired device(s). To pair another one, run \`meetvinci pair --url ${serverUrl}\` where this daemon runs (in its container: docker exec <container> meetvinci pair --url ${serverUrl}).\n\n`);
-      return;
-    }
-
-    const { id, addresses } = await services.server.queries.info();
-
-    const { pin, qr, expiresAt } = await services.auth.actions.bootstrap({
-      serverId: id,
-      addresses,
-      isLocal: true,
-    });
-
-    process.stdout.write(`\nNo device is paired. Enter PIN ${pin}, open a link or scan the code with the phone to pair the first device:\n\n${coreNativePairingText(qr, serverUrl)}`);
-    timer = setTimeout(() => void issue(), expiresAt - Date.now());
-  }
-
-  void issue();
-
-  return () => clearTimeout(timer);
 }
 
 async function coreNativePair(url = env.WEB_PUBLIC_URL): Promise<void> {
