@@ -106,6 +106,7 @@
   "settings_sources_plugins_placeholder": "/path/to/plugins",
   "settings_sources_mcp": "MCP files",
   "settings_sources_mcp_placeholder": "/path/to/mcp.json",
+  "settings_sources_mcp_env": "A server that runs a command runs where bot tools run, so bots can read its env values, secrets included.",
   "settings_paths_add": "Add",
   "settings_paths_delete": "Remove",
   "settings_paths_error": "This list was not saved. Try again.",

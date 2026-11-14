@@ -4,6 +4,7 @@ import { log } from '@repo/logger/server';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { match, P } from 'ts-pattern';
+import { runtimeSandboxCreate } from '../runtime/runtime-sandbox.utils';
 import { MCP } from './mcp.constants';
 import type { McpContentFile, McpContentTarget, McpContentWriteTarget } from '../../types/mcp.types';
 import type * as PiMcpTypes from '@earendil-works/pi-mcp';
@@ -57,7 +58,7 @@ function mcpContentExtension(name: string, mimeType: string | undefined): string
     ?? Object.entries(ATTACHMENT.sendTypes).find(([, type]) => type === mime)?.[0];
 }
 
-async function mcpContentSave({ root, botId }: McpContentTarget, file: McpContentFile): Promise<string> {
+async function mcpContentSave({ root, botId, isSandboxed }: McpContentTarget, file: McpContentFile): Promise<string> {
   const name = mcpContentName(file.uri);
   const bytes = Buffer.from(file.data, 'base64');
   const extension = mcpContentExtension(name, file.mimeType);
@@ -75,6 +76,7 @@ async function mcpContentSave({ root, botId }: McpContentTarget, file: McpConten
 
     const fileName = await mcpContentWrite({
       directory,
+      agents: isSandboxed ? join(root, 'agents') : undefined,
       base,
       extension,
       bytes,
@@ -103,7 +105,10 @@ async function mcpContentWrite(target: McpContentWriteTarget, attempt: number): 
   const fileName = `${attempt === 1 ? target.base : `${target.base} (${attempt})`}.${target.extension}`;
 
   try {
-    await writeFile(join(target.directory, fileName), target.bytes, { flag: 'wx' });
+    const path = join(target.directory, fileName);
+
+    // SAFETY: the sandbox can plant links in a bot folder; the daemon must not follow one out of the bot folders.
+    await (target.agents === undefined ? writeFile(path, target.bytes, { flag: 'wx' }) : runtimeSandboxCreate(path, target.bytes, [target.agents]));
 
     return fileName;
   } catch (error) {

@@ -2,8 +2,8 @@ import { mcpActionPrepare } from './mcp-action.prepare';
 import { mcpQueryCatalog } from './mcp-query.catalog';
 import type { McpClientParams, McpClientServiceDeps } from '../../types/mcp.types';
 
-export function makeMcpClientService({ root, auth }: Omit<McpClientServiceDeps, 'connections'>) {
-  const deps: McpClientServiceDeps = { root, auth, connections: new Map() };
+export function makeMcpClientService({ root, auth, executionEnv }: Omit<McpClientServiceDeps, 'connections'>) {
+  const deps: McpClientServiceDeps = { root, auth, executionEnv, connections: new Map() };
 
   return {
     actions: {

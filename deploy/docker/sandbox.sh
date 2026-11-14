@@ -1,9 +1,15 @@
 #!/bin/sh
-# The sandbox image's entry, where a person's bots run their tools. /run/sandbox is the folder this container shares
-# with the person's daemon, mounted read only here: the daemon owns and creates everything in it.
-# - exec.sock: the daemon listens; this script keeps one connection to it open. When the daemon starts pi-env on it,
-#   the first line is `serve --token <hex>` (packages/runtime, runtime-sandbox.constants.ts) and the rest of the
-#   connection is pi-env's stdin and stdout. When it ends, the script connects again.
+# The sandbox image's entry, where a person's bots run their tools and command-type MCP servers. /run/sandbox is the
+# folder this container shares with the person's daemon, mounted read only here: the daemon owns and creates everything
+# in it.
+# - exec.sock: the daemon listens; this script keeps one spare connection to it open. The daemon's first line on a
+#   connection says what it is for (packages/runtime, runtime-sandbox.utils.ts), and the rest of the connection is
+#   that program's stdin and stdout:
+#   - `serve --token <hex>`: pi-env, which runs the bots' read, write, edit and bash.
+#   - `run <count> <field>...`: a command-type MCP server. Each field is base64 of `v` and a value: the working folder,
+#     <count> NAME=value environment entries, the command and its arguments. This script answers `started`, or
+#     `missing` when the command is not installed here.
+#   As soon as the daemon claims a connection, the script opens the next spare.
 # - proxy.sock: the daemon's secrets proxy. Commands here reach it at 127.0.0.1:47195 (SECRET_PROXY.sandboxPort in
 #   packages/secret-proxy) with the token the daemon puts in their environment.
 # - `sandbox health`, the image's health check: this container holds a connection to its daemon.
@@ -12,18 +18,109 @@ set -eu
 dir=/run/sandbox
 linked=/tmp/.sandbox-linked
 
+refuse() {
+  echo "sandbox: refused a connection that is not a pi-env or MCP server start" >&2
+  exit 1
+}
+
+# One field of a `run` line. The `v` keeps an empty value a field; the `.` keeps a trailing newline.
+field() {
+  value=$(printf '%s' "$1" | base64 -d 2>/dev/null && echo .) || refuse
+  value=${value%.}
+
+  case "$value" in
+    v*) value=${value#v} ;;
+    *) refuse ;;
+  esac
+}
+
+run() {
+  count=$1
+  shift
+
+  case "$count" in
+    '' | *[!0-9]*) refuse ;;
+  esac
+
+  [ $# -ge $((count + 2)) ] || refuse
+
+  # Decode every field in place: each turn appends one decoded field and drops its encoded one.
+  remaining=$#
+
+  while [ "$remaining" -gt 0 ]; do
+    field "$1"
+    shift
+    set -- "$@" "$value"
+    remaining=$((remaining - 1))
+  done
+
+  cd "$1" || refuse
+  shift
+
+  # The environment entries are never set in this script: `env` gives them to the server only, so a name such as PATH
+  # cannot change how this script runs. As for a server the daemon starts, the server's PATH finds its command.
+  search=$PATH
+  index=0
+
+  for entry in "$@"; do
+    if [ "$index" -eq "$count" ]; then
+      program=$entry
+      break
+    fi
+
+    name=${entry%%=*}
+
+    case "$name" in
+      '' | "$entry" | [0-9]* | *[!A-Za-z0-9_]*) refuse ;;
+      PATH) search=${entry#PATH=} ;;
+    esac
+
+    index=$((index + 1))
+  done
+
+  if ! (PATH=$search && command -v "$program") >/dev/null 2>&1; then
+    echo missing
+    exit 0
+  fi
+
+  echo started
+
+  # The server leads its own process group (setsid without a fork: this child is no group leader), so whatever it
+  # starts stops with it: when it exits, or when its connection ends and socat sends this script SIGTERM, even if
+  # the server ignores its stdin ending. dash's kill takes `-<group>` but not `--`.
+  server=
+  trap '[ -z "$server" ] || kill -KILL "-$server" 2>/dev/null; exit 0' HUP INT TERM
+  exec 3<&0
+  setsid env -- "$@" <&3 3<&- &
+  server=$!
+  exec 3<&-
+  status=0
+  wait "$server" || status=$?
+  kill -KILL "-$server" 2>/dev/null || true
+  exit "$status"
+}
+
 case "${1:-}" in
   serve)
     touch "$linked"
     IFS= read -r line
+
+    # Claimed: the dial loop opens the next spare connection now.
+    kill -USR1 "${SANDBOX_DIALER:-}" 2>/dev/null || true
+
+    case "$line" in
+      'run '*)
+        set -f
+        # shellcheck disable=SC2086 # base64 fields, split on purpose
+        run ${line#run }
+        ;;
+    esac
+
     token=${line#serve --token }
 
     # Only `serve --token <hex>`: the prefix must strip off, and what is left must be lowercase hex.
     case "$token" in
-      "$line" | '' | *[!0-9a-f]*)
-        echo "sandbox: refused a connection that is not a pi-env start" >&2
-        exit 1
-        ;;
+      "$line" | '' | *[!0-9a-f]*) refuse ;;
     esac
 
     exec pi-env serve --token "$token"
@@ -46,14 +143,24 @@ fi
 
 socat TCP-LISTEN:47195,bind=127.0.0.1,reuseaddr,fork "UNIX-CONNECT:$dir/proxy.sock" &
 
-# One connection at a time, again as soon as one ends. A refused connect (the daemon is starting or restarting) is
-# tried again every second.
-while :; do
-  socat "UNIX-CONNECT:$dir/exec.sock" EXEC:"sandbox serve" 2>/dev/null || true
+# One spare connection at a time: a new one as soon as the daemon claims the last (USR1 from `sandbox serve`), or when
+# it ends unclaimed. A refused connect (the daemon is starting or restarting) is tried again every second. Claimed
+# connections run on in the background until their program or the daemon ends them.
+export SANDBOX_DIALER=$$
+claimed=
+trap 'claimed=1' USR1
 
-  if [ -e "$linked" ]; then
-    rm -f "$linked"
-  else
-    sleep 1
+while :; do
+  claimed=
+  socat "UNIX-CONNECT:$dir/exec.sock" EXEC:"sandbox serve" 2>/dev/null &
+  spare=$!
+  [ -n "$claimed" ] || wait "$spare" || true
+
+  if [ -z "$claimed" ]; then
+    if [ -e "$linked" ]; then
+      rm -f "$linked"
+    else
+      sleep 1
+    fi
   fi
 done

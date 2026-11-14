@@ -1,5 +1,7 @@
 import { Type } from '@earendil-works/pi-ai';
 import { defineTool } from '@earendil-works/pi-durable';
+import { McpConnectionClosedError } from '@earendil-works/pi-mcp';
+import * as m from '@repo/i18n/messages';
 import { mcpContent } from './mcp-content.utils';
 import { mcpToolName } from './mcp.utils';
 import type { McpConnection, McpContentTarget } from '../../types/mcp.types';
@@ -26,9 +28,10 @@ export function mcpTools(connection: McpConnection, server: string, tools: Tool[
         });
 
         return { output: await mcpContent(target, result), isError: result.isError === true };
-      } catch {
+      } catch (error) {
         context.abortSignal?.throwIfAborted();
-        return { output: [{ type: 'text' as const, text: 'MCP tool call failed.' }], isError: true };
+        const text = connection.error ?? (error instanceof McpConnectionClosedError ? m.ui_mcp_server_stopped() : 'MCP tool call failed.');
+        return { output: [{ type: 'text' as const, text }], isError: true };
       }
     },
   }));

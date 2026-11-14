@@ -4,7 +4,7 @@ MeetVinci normally runs on one person's computer. The team workspace runs it on 
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
-> Bots run their tools in a sandbox that cannot read keys or act as the person, but a bot with full permission can still read and send anything in that person's bot folders, and stdio MCP servers still run inside the person's MeetVinci. Use this only with people you trust.
+> Bots run their tools in a sandbox that cannot read keys or act as the person, but a bot with full permission can still read and send anything in that person's bot folders, and it can read the `env` values (secrets included) of MCP servers that run a command, which run in the same sandbox. Use this only with people you trust.
 
 ## What it is
 

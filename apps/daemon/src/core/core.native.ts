@@ -187,7 +187,12 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
   const isSandboxed = env.DAEMON_SANDBOX_DIR !== undefined;
   resources.defer(() => executionEnv.close());
 
-  const mcpClients = makeMcpClientService({ root: paths.root, auth: mcpAuth });
+  const mcpClients = makeMcpClientService({
+    root: paths.root,
+    auth: mcpAuth,
+    executionEnv,
+  });
+
   resources.defer(() => mcpClients.close());
 
   const services = await makeServices({

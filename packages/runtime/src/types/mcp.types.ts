@@ -1,19 +1,26 @@
 import { credentialsKey } from '@repo/contracts/universal';
 import { z } from 'zod';
 import type { McpAuthService } from '../services/mcp-auth/mcp-auth.service';
+import type { runtimeEnvNative } from '../services/runtime/runtime-env.utils';
+import type { RuntimeSandboxCommand } from './runtime-sandbox.types';
 import type { ToolRegistration } from '@earendil-works/pi-durable';
-import type { AuthProvider, McpClient } from '@earendil-works/pi-mcp';
+import type { AuthProvider, McpClient, Tool } from '@earendil-works/pi-mcp';
 import type { McpCatalog } from '@repo/contracts/universal';
+import type { Socket } from 'node:net';
 
 export interface McpClientServiceDeps {
   root: string;
   auth: McpAuthService;
+  executionEnv: ReturnType<typeof runtimeEnvNative>;
   connections: Map<string, McpConnection>;
 }
+
+export type McpSandboxSpawn = (command: RuntimeSandboxCommand) => Promise<Socket>;
 
 export interface McpContentTarget {
   root: string;
   botId: string;
+  isSandboxed: boolean;
 }
 
 export interface McpContentFile {
@@ -24,6 +31,7 @@ export interface McpContentFile {
 
 export interface McpContentWriteTarget {
   directory: string;
+  agents: string | undefined;
   base: string;
   extension: string;
   bytes: Buffer;
@@ -49,6 +57,7 @@ export interface McpConnection {
   client: McpClient;
   authProvider?: AuthProvider;
   tools: ToolRegistration[];
+  definitions: Tool[];
   catalog: McpCatalog['servers'][number]['tools'];
   ready: Promise<void>;
   hasToolChanges: boolean;

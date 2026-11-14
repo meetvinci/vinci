@@ -5,6 +5,13 @@ export interface RuntimeSandboxParams {
   folder: string;
 }
 
+export interface RuntimeSandboxCommand {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  cwd: string;
+}
+
 export interface RuntimeSandboxState {
   spares: Socket[];
   waiters: Set<() => void>;

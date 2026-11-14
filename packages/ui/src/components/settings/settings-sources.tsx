@@ -2,7 +2,7 @@ import { useSettingsSources } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import IconTriangleAlert from '~icons/lucide/triangle-alert';
 import { Alert, AlertDescription, AlertTitle } from '../alert';
-import { PanelRow } from '../panel';
+import { PanelDescription, PanelRow } from '../panel';
 import { SettingsGroup } from './settings-group';
 import { SettingsPathList } from './settings-path-list';
 import type { SkillSkipReason, SkillStatus } from '@repo/contracts/universal';
@@ -40,6 +40,11 @@ export function SettingsSources() {
               />
             </div>
           </PanelRow>
+          {list.key === 'mcp' ? (
+            <PanelRow className="pt-0">
+              <PanelDescription>{m.settings_sources_mcp_env()}</PanelDescription>
+            </PanelRow>
+          ) : null}
           {list.key === 'skills' && sources.skills.skipped.length > 0 ? (
             <PanelRow className="pt-0">
               <SettingsSourcesSkipped skipped={sources.skills.skipped} />

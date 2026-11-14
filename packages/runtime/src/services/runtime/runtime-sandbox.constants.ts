@@ -13,4 +13,7 @@ export const RUNTIME_SANDBOX = {
     "process.stdin.on('end', () => socket.end());",
   ].join('\n'),
   lost: /pi-env connection (?:lost|timed out)/u,
+  started: 'started',
+  missing: 'missing',
+  maxAnswerBytes: 64,
 } as const;

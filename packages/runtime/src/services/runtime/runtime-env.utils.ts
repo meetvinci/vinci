@@ -8,6 +8,7 @@ export function runtimeEnvNative({ root, sandboxDir }: { root: string; sandboxDi
     .with(P.string, (folder) => runtimeSandboxNative({ root, folder }))
     .otherwise(() => ({
       env: ({ cwd = '.' }: { cwd?: string }) => new NodeExecutionEnv({ cwd: resolve(root, cwd) }),
+      spawn: undefined,
       close: () => undefined,
     }));
 }

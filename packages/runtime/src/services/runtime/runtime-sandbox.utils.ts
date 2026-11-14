@@ -2,11 +2,13 @@ import { Connection, RemoteExecutionEnv } from '@earendil-works/pi-env';
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { closeSync, constants, fstatSync, openSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { open } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { match } from 'ts-pattern';
 import { RUNTIME_SANDBOX } from './runtime-sandbox.constants';
-import type { RuntimeSandboxParams, RuntimeSandboxState } from '../../types/runtime-sandbox.types';
+import type { RuntimeSandboxCommand, RuntimeSandboxParams, RuntimeSandboxState } from '../../types/runtime-sandbox.types';
 import type { Server, Socket } from 'node:net';
 
 export function runtimeSandboxNative({ root, folder }: RuntimeSandboxParams) {
@@ -40,6 +42,7 @@ export function runtimeSandboxNative({ root, folder }: RuntimeSandboxParams) {
       id: RUNTIME_SANDBOX.envId,
       cwd: resolve(root, cwd),
     }),
+    spawn: async (command: RuntimeSandboxCommand) => runtimeSandboxRun(await runtimeSandboxTake(state, Date.now() + RUNTIME_SANDBOX.waitMs), command),
     close: () => {
       state.isClosing = true;
       connection.close();
@@ -60,13 +63,7 @@ export function runtimeSandboxRead(path: string, folders: string[]): string {
     // SAFETY: the opened file as the kernel names it (Linux), so a link a bot swaps in after any earlier check is caught.
     const opened = realpathSync(`/proc/self/fd/${descriptor}`);
 
-    const isInside = folders.some((folder) => {
-      const inner = relative(realpathSync(folder), opened);
-
-      return inner !== '' && !isAbsolute(inner) && inner.split(sep)[0] !== '..';
-    });
-
-    if (!isInside || !fstatSync(descriptor).isFile()) {
+    if (!runtimeSandboxIsInside(opened, folders) || !fstatSync(descriptor).isFile()) {
       throw new Errors.FORBIDDEN({ internal: `${path} opens ${opened}, outside ${folders.join(', ')}` });
     }
 
@@ -74,6 +71,32 @@ export function runtimeSandboxRead(path: string, folders: string[]): string {
   } finally {
     closeSync(descriptor);
   }
+}
+
+export async function runtimeSandboxCreate(path: string, bytes: Buffer, folders: string[]): Promise<void> {
+  const file = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
+
+  try {
+    // SAFETY: the created file as the kernel names it (Linux): checked before a byte is written.
+    const opened = realpathSync(`/proc/self/fd/${file.fd}`);
+
+    if (!runtimeSandboxIsInside(opened, folders)) {
+      rmSync(opened, { force: true });
+      throw new Errors.FORBIDDEN({ internal: `${path} created ${opened}, outside ${folders.join(', ')}` });
+    }
+
+    await file.writeFile(bytes);
+  } finally {
+    await file.close();
+  }
+}
+
+function runtimeSandboxIsInside(opened: string, folders: string[]): boolean {
+  return folders.some((folder) => {
+    const inner = relative(realpathSync(folder), opened);
+
+    return inner !== '' && !isAbsolute(inner) && inner.split(sep)[0] !== '..';
+  });
 }
 
 function runtimeSandboxListen(server: Server, path: string) {
@@ -125,6 +148,58 @@ function runtimeSandboxBridge(state: RuntimeSandboxState, child: Socket) {
   sandbox.once('close', () => !state.isClosing && log.warn({ tag: 'sandbox', message: 'The sandbox connection closed; the next tool call connects again.' }));
   child.pipe(sandbox);
   sandbox.pipe(child);
+}
+
+async function runtimeSandboxRun(socket: Socket, { command, args, env, cwd }: RuntimeSandboxCommand): Promise<Socket> {
+  const fields = [cwd, ...Object.entries(env).map(([name, value]) => `${name}=${value}`), command, ...args]
+    .map((value) => Buffer.from(`v${value}`).toString('base64'));
+
+  socket.write(`run ${Object.keys(env).length} ${fields.join(' ')}\n`);
+
+  const answer = await new Promise<string | undefined>((settle) => {
+    let buffer = Buffer.alloc(0);
+
+    const runtimeSandboxAnswer = (value: string | undefined) => {
+      clearTimeout(timer);
+      socket.off('data', runtimeSandboxData);
+      socket.off('close', runtimeSandboxClosed);
+      settle(value);
+    };
+
+    const runtimeSandboxData = (chunk: Buffer) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      const newline = buffer.indexOf(0x0a);
+
+      if (newline >= 0) {
+        socket.pause();
+        socket.unshift(buffer.subarray(newline + 1));
+        runtimeSandboxAnswer(buffer.subarray(0, newline).toString('utf8'));
+      } else if (buffer.length > RUNTIME_SANDBOX.maxAnswerBytes) {
+        runtimeSandboxAnswer(undefined);
+      }
+    };
+
+    const runtimeSandboxClosed = () => runtimeSandboxAnswer(undefined);
+    const timer = setTimeout(runtimeSandboxClosed, RUNTIME_SANDBOX.waitMs);
+    socket.on('data', runtimeSandboxData);
+    socket.once('close', runtimeSandboxClosed);
+  });
+
+  return match(answer)
+    .with(RUNTIME_SANDBOX.started, () => socket)
+    .with(RUNTIME_SANDBOX.missing, () => {
+      socket.destroy();
+      throw new Errors.NOT_FOUND({ resource: 'command', resourceId: command });
+    })
+    .otherwise(() => {
+      socket.destroy();
+      log.warn({
+        tag: 'sandbox',
+        message: 'The sandbox did not start an MCP server: is its image older than the daemon?',
+        command,
+      });
+      throw new Errors.SANDBOX_UNAVAILABLE({ internal: `The sandbox answered ${JSON.stringify(answer)} to a run line` });
+    });
 }
 
 async function runtimeSandboxTake(state: RuntimeSandboxState, deadline: number): Promise<Socket> {

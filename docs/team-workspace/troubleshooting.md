@@ -197,3 +197,14 @@ The person's sandbox is not running, so their MeetVinci refuses every tool call 
 - *The sandbox where bot tools run stopped during this tool call* means it stopped while a command ran: the next call reconnects.
 
 > On `root@<server>`, in `/opt/meetvinci`, bots of MeetVinci user `<id>` say "Bot tools are off". Report `bun deploy.ts status` and the last 20 lines of `docker compose logs sandbox-<id>` and `docker compose logs daemon-<id> | grep -A3 sandbox`, then run `bun deploy.ts apply` and confirm `bun deploy.ts status` exits 0.
+
+## An MCP server shows an error in the bot's MCP tab
+
+MCP servers that run a command run in the person's sandbox (see [What a bot can reach](admin.md#what-a-bot-can-reach)), never in their MeetVinci.
+
+- *MCP servers that run a command are off: the sandbox … is not running*: the same cause and fix as *Bot tools are off* above. Bots that used the server's tools get the same sentence when they call one. The next message after `apply` starts the server again.
+- *The command … is not installed in the sandbox where this MCP server runs*: the sandbox has no such program (today `npx`, `uvx` and `bunx` servers don't start). Install the package into a folder under the bot's own folder with `bun add` and run its entry file with `bun`, or wait for the sandbox's tool set.
+- *The MCP server stopped during this call*: the server exited or its sandbox restarted mid-call; the effect of that call is unknown, and the bot's next message starts the server again.
+- A server that blocks the person's bot tools (*Resource temporarily unavailable*): it filled the sandbox's process or memory limit. Remove or turn it off in the bot's MCP tab; everything it started stops with it.
+
+> On `root@<server>`, in `/opt/meetvinci`, an MCP server of MeetVinci user `<id>` shows an error. Report `bun deploy.ts status`, the processes in the sandbox (`docker compose exec sandbox-<id> sh -c 'for d in /proc/[0-9]*; do tr "\0" " " < $d/cmdline; echo; done'`) and the MCP lines of `docker compose logs daemon-<id> --tail 200`. Change nothing.

@@ -84,9 +84,9 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD ["bun", "-e", "process.exit((await fetch(`http://127.0.0.1:${process.env.DAEMON_PORT}/health`)).ok ? 0 : 1)"]
 ENTRYPOINT ["tini", "--", "meetvinci"]
 
-# A person's sandbox: their bots' read, write, edit and bash run here through pi-env, never in the daemon. No
-# MeetVinci code, no keys, no app database, no owner socket: only the bot folders (/data/agents) and shared skills
-# (/data/home/.agents, read only) of that person's volume, and /run/sandbox, the daemon's folder, read only. Bun, git
+# A person's sandbox: their bots' read, write, edit and bash run here through pi-env, and their command-type MCP servers
+# through sandbox.sh's `run`, never in the daemon. No MeetVinci code, no keys, no app database, no owner socket: only
+# the bot folders (/data/agents) and shared skills (/data/home/.agents, read only) of that person's volume, and /run/sandbox, the daemon's folder, read only. Bun, git
 # and curl for ordinary bot work; socat links the sandbox to its daemon (deploy/docker/sandbox.sh). /run/sandbox is
 # owned by uid 1000 here too: Docker fills a new shared volume from whichever of the two containers it creates first.
 FROM ${BUN_IMAGE}-slim AS sandbox
