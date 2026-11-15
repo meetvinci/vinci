@@ -87,6 +87,8 @@ const ssrRequires: Bun.BunPlugin = {
 
 async function bundle() {
   const target = path.join(desktop, 'dist/server');
+  const resolve = (pkg: string, from: string) => path.dirname(Bun.resolveSync(`${pkg}/package.json`, from));
+  const durable = resolve('@earendil-works/pi-durable', path.join(root, 'packages/runtime'));
 
   rmSync(target, { recursive: true, force: true });
 
@@ -125,6 +127,13 @@ async function bundle() {
       target: 'bun',
       outdir: path.join(target, 'daemon'),
     }),
+    // Pi Durable's Photon worker, which prepares the images bots read off the daemon's event loop: the daemon starts it
+    // from ./node-worker.js next to its own bundle, and without it falls back to its own thread.
+    Bun.build({
+      entrypoints: [path.join(durable, 'dist/images/node-worker.js')],
+      target: 'bun',
+      outdir: path.join(target, 'daemon'),
+    }),
   ]);
 
   const failed = builds.find((result) => !result.success);
@@ -139,10 +148,12 @@ async function bundle() {
 
   // Bun cannot bundle Takumi's native binding; without a local copy it auto-installs the latest one, which breaks the bundled JS.
   const binding = `@takumi-rs/core-${process.platform}-${process.arch}${process.platform === 'linux' ? '-gnu' : ''}`;
-  const resolve = (pkg: string, from: string) => path.dirname(Bun.resolveSync(`${pkg}/package.json`, from));
   const core = resolve('@takumi-rs/core', resolve('takumi-js', path.join(root, 'packages/server')));
 
   cpSync(resolve(binding, core), path.join(target, 'daemon/node_modules', binding), { recursive: true, dereference: true });
+
+  // Pi Durable reads Photon's WebAssembly by package path at run time (the read tool's images), which Bun cannot bundle.
+  cpSync(resolve('@silvia-odwyer/photon', durable), path.join(target, 'daemon/node_modules/@silvia-odwyer/photon'), { recursive: true, dereference: true });
 }
 
 function plist() {

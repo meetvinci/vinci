@@ -15,7 +15,8 @@ WORKDIR /src
 COPY . .
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 # The server bundle the desktop app ships: built web app, Bun bundles of the web server and daemon,
-# migrations, the Takumi binding and the prebuilt artifact embed. No node_modules reach the runtime images.
+# migrations, the Takumi binding, Photon's WebAssembly and its worker, and the prebuilt artifact embed. No other
+# node_modules reach the runtime images.
 RUN bun scripts/desktop.ts bundle
 
 FROM build AS hub-build
