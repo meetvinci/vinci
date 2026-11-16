@@ -63,6 +63,6 @@ Shared logins from a Claude or ChatGPT subscription are not supported: the provi
 - [Admin tasks](admin.md): the admin panel, global settings and suggested bots, people, keys, bots, backups, upgrades.
 - [Configuration](configuration.md): every setting and file.
 - [Troubleshooting](troubleshooting.md): known problems and fixes.
-- [Server tour](server-tour.html): a snapshot walkthrough of a test install with real terminal output. It shows what runs, where each person's data lives and how to change a bot by hand. Open it in a browser.
+- [Server tour](server-tour.html): a guided tour of a live install, to read with a terminal open: which containers run and who talks to whom, where everything is on disk, what happens at `apply` and at a reboot, what to watch during an install or an upgrade, and where each person's files are. Open it in a browser.
 
 For agents working on the code: [`.agents/references/team-workspace.md`](../../.agents/references/team-workspace.md) holds the design decisions, status and known risks.
