@@ -1,6 +1,8 @@
 import { defineExtension, hook, ToolTask } from '@earendil-works/pi-durable';
 import { createBashTool, createEditTool, createReadTool, createWriteTool } from '@earendil-works/pi-durable/tools';
 import * as m from '@repo/i18n/messages';
+import { runtimeImageReadTool } from './runtime-image.utils';
+import { runtimePdfReadTool } from './runtime-pdf.utils';
 import { RUNTIME_SANDBOX } from './runtime-sandbox.constants';
 import type { RuntimeCodingToolsParams } from '../../types/runtime.types';
 
@@ -8,7 +10,7 @@ export function runtimeCodingToolsExtension({ images, secrets }: RuntimeCodingTo
   return defineExtension({
     name: 'coding-tools',
     tools: [
-      createReadTool({ images }),
+      runtimePdfReadTool(runtimeImageReadTool(createReadTool({ images }))),
       createWriteTool(),
       createEditTool(),
       createBashTool({ prepare: secrets && ((execution) => secrets.actions.prepare(execution)) }),

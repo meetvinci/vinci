@@ -23,6 +23,7 @@ export const CHAT = {
   aroundPageSize: 25,
   reactionsPageSize: 100,
   peerNotePattern: /^\[[^\]\n]*\]\n\n/u,
+  megabyte: 1024 * 1024,
 } as const;
 
 export const CHAT_FILE_TYPES = {
@@ -36,4 +37,14 @@ export const CHAT_FILE_TYPES = {
   md: 'text/markdown',
   csv: 'text/csv',
   json: 'application/json',
+  heic: 'image/heic',
+  heif: 'image/heif',
+} as const;
+
+export const CHAT_IMAGE = {
+  maxSide: 2000,
+  quality: 0.85,
+  shrinks: ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+  kept: ['image/png', 'image/webp'],
+  fallbackType: 'image/jpeg',
 } as const;

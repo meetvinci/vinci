@@ -70,6 +70,18 @@ export interface RuntimeCodingToolsParams {
   secrets?: RuntimeSecrets;
 }
 
+export interface RuntimeImageSize {
+  width: number;
+  height: number;
+}
+
+export interface RuntimePdfRun {
+  isMissing: boolean;
+  isTimedOut: boolean;
+  exitCode: number | undefined;
+  output: string;
+}
+
 export interface RuntimeSecretsParams {
   secrets: RuntimeSecrets;
 }

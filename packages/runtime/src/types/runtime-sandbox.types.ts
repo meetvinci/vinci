@@ -21,6 +21,7 @@ export interface RuntimeSandboxBridgeRequest {
   op?: string;
   handle?: number;
   length?: number;
+  mode?: string;
 }
 
 export interface RuntimeSandboxBridgeFrame {
@@ -34,6 +35,8 @@ export interface RuntimeSandboxBridgeState {
   socket: Socket;
   marker: Buffer;
   reads: Map<number, RuntimeSandboxBridgeRead>;
+  opens: Map<number, boolean>;
+  handles: Map<number, boolean>;
   fileBytes: Map<number, number>;
   toSandbox: RuntimeSandboxBridgeBuffer;
   fromSandbox: RuntimeSandboxBridgeBuffer;

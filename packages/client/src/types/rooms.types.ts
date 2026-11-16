@@ -142,6 +142,7 @@ export interface RoomsAttachmentsParams<Source> {
   describe: (source: Source) => RoomsAttachmentFile;
   preview: (source: Source) => string;
   read: (source: Source) => Promise<File>;
+  shrinks?: (mediaType: string) => boolean;
   release?: (attachment: RoomsAttachment) => void;
   onFailed?: (attachment: RoomsAttachment) => void;
   onProblem: (message: string) => void;

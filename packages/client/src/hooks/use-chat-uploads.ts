@@ -4,10 +4,11 @@ import { m } from '@repo/i18n/client';
 import { useMutation } from '@tanstack/react-query';
 import { generateId } from 'ai';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { CHAT } from '../services/chat/chat.constants';
 import { useRpc } from './use-rpc';
-import type { RoomsAttachmentsParams, RoomsSourcedAttachment } from '../types/rooms.types';
+import type { RoomsAttachment, RoomsAttachmentsParams, RoomsSourcedAttachment } from '../types/rooms.types';
 
-export function useChatUploads<Source>({ botId, describe, preview, read, release, onFailed, onProblem }: RoomsAttachmentsParams<Source>) {
+export function useChatUploads<Source>({ botId, describe, preview, read, shrinks, release, onFailed, onProblem }: RoomsAttachmentsParams<Source>) {
   const { rpc } = useRpc();
   const [attachments, setAttachments] = useState<RoomsSourcedAttachment<Source>[]>([]);
   const [shownBotId, setShownBotId] = useState(botId);
@@ -37,7 +38,17 @@ export function useChatUploads<Source>({ botId, describe, preview, read, release
 
   const store = async (item: RoomsSourcedAttachment<Source>) => {
     try {
-      const saved = await upload.mutateAsync({ botId, file: await read(item.source) });
+      const file = await read(item.source);
+      const problem = chatUploadsProblem(item, file, shrinks?.(item.mediaType) === true);
+
+      if (problem) {
+        drop([item.key]);
+        onProblem(problem);
+
+        return;
+      }
+
+      const saved = await upload.mutateAsync({ botId, file });
 
       if (!kept.current.has(item.key)) {
         discard.mutate({ botId, attachmentId: saved.id });
@@ -67,8 +78,9 @@ export function useChatUploads<Source>({ botId, describe, preview, read, release
 
   const add = (sources: Source[]) => {
     const files = sources.map((source) => ({ source, ...describe(source) }));
-    const typed = files.filter((file) => ATTACHMENT.mediaTypes.some((type) => type === file.mediaType));
-    const sized = typed.filter((file) => file.size <= ATTACHMENT.maxBytes);
+    const typed = files.filter((file) => ATTACHMENT.mediaTypes.some((type) => type === file.mediaType) || shrinks?.(file.mediaType));
+    const sized = typed.filter((file) => file.size <= ATTACHMENT.maxBytes || shrinks?.(file.mediaType));
+    const tooBig = typed.find((file) => !sized.includes(file));
     const accepted = sized.slice(0, Math.max(0, remaining));
 
     for (const file of accepted) {
@@ -81,7 +93,7 @@ export function useChatUploads<Source>({ botId, describe, preview, read, release
 
     const problem = [
       typed.length < files.length ? m.rooms_files_type() : undefined,
-      sized.length < typed.length ? m.rooms_files_too_big() : undefined,
+      tooBig ? chatUploadsTooBig(tooBig.name, tooBig.size) : undefined,
       accepted.length < sized.length ? m.rooms_files_too_many({ count: ATTACHMENT.maxPerMessage }) : undefined,
     ].find(Boolean);
 
@@ -132,4 +144,20 @@ export function useChatUploads<Source>({ botId, describe, preview, read, release
     isFull: remaining <= 0,
     remaining,
   };
+}
+
+function chatUploadsTooBig(name: string, size: number) {
+  return m.rooms_files_too_big({
+    name,
+    size: (Math.ceil((size * 10) / CHAT.megabyte) / 10).toFixed(1),
+    limit: ATTACHMENT.maxBytes / CHAT.megabyte,
+  });
+}
+
+function chatUploadsProblem({ name }: Pick<RoomsAttachment, 'name'>, file: File, isShrunk: boolean) {
+  if (isShrunk && !ATTACHMENT.mediaTypes.some((type) => type === file.type)) {
+    return m.rooms_files_heic({ name });
+  }
+
+  return file.size > ATTACHMENT.maxBytes ? chatUploadsTooBig(name, file.size) : undefined;
 }

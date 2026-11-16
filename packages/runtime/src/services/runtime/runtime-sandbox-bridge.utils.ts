@@ -11,6 +11,8 @@ export function runtimeSandboxBridgeRun([bridgePath = '', ...args]: string[]) {
     }),
     marker: Buffer.from(`PI-ENV ${args.at(-1) ?? ''}\n`, 'utf8'),
     reads: new Map(),
+    opens: new Map(),
+    handles: new Map(),
     fileBytes: new Map(),
     toSandbox: { chunks: [], bytes: 0, limit: Number.MAX_SAFE_INTEGER },
     fromSandbox: { chunks: [], bytes: 0, limit: RUNTIME_SANDBOX.link.frameBytes },
@@ -89,7 +91,11 @@ function runtimeSandboxBridgeFromDaemon(state: RuntimeSandboxTypes.RuntimeSandbo
   state.toSandbox.bytes += chunk.length;
 
   for (const frame of runtimeSandboxBridgeFrames(state, state.toSandbox)) {
-    const { op, handle, length } = frame.type === RUNTIME_SANDBOX.link.request ? runtimeSandboxBridgeRequest(frame) : {};
+    const { op, handle, length, mode } = frame.type === RUNTIME_SANDBOX.link.request ? runtimeSandboxBridgeRequest(frame) : {};
+
+    if (op === 'open') {
+      state.opens.set(frame.id, mode === undefined);
+    }
 
     if (op === 'pread' && handle !== undefined && length !== undefined) {
       state.reads.set(frame.id, { handle, length });
@@ -97,11 +103,43 @@ function runtimeSandboxBridgeFromDaemon(state: RuntimeSandboxTypes.RuntimeSandbo
 
     if (op === 'close' && handle !== undefined) {
       state.fileBytes.delete(handle);
+      state.handles.delete(handle);
     }
   }
 }
 
+function runtimeSandboxBridgeHandle({ bytes }: RuntimeSandboxTypes.RuntimeSandboxBridgeFrame): number | undefined {
+  const json = bytes.subarray(RUNTIME_SANDBOX.link.headerBytes, RUNTIME_SANDBOX.link.headerBytes + bytes.readUInt32BE(9));
+
+  try {
+    // SAFETY: the sandbox's answer, which it controls: only a safe-integer `handle` is used, and one already open ends the bridge, so the cap comes from the daemon's request.
+    const { handle } = JSON.parse(json.toString('utf8')) as { handle?: number };
+
+    return Number.isSafeInteger(handle) ? handle : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function runtimeSandboxBridgeChecked(state: RuntimeSandboxTypes.RuntimeSandboxBridgeState, frame: RuntimeSandboxTypes.RuntimeSandboxBridgeFrame): Buffer {
+  const isReader = state.opens.get(frame.id);
+
+  if (isReader !== undefined && (frame.type === RUNTIME_SANDBOX.link.result || frame.type === RUNTIME_SANDBOX.link.error)) {
+    const handle = frame.type === RUNTIME_SANDBOX.link.result ? runtimeSandboxBridgeHandle(frame) : undefined;
+
+    state.opens.delete(frame.id);
+
+    if (handle !== undefined && state.handles.has(handle)) {
+      runtimeSandboxBridgeEnd(state, `refused handle ${handle} from the sandbox: it is already open`);
+    }
+
+    if (handle !== undefined) {
+      state.handles.set(handle, isReader);
+    }
+
+    return frame.bytes;
+  }
+
   const read = state.reads.get(frame.id);
 
   if (!read || (frame.type !== RUNTIME_SANDBOX.link.result && frame.type !== RUNTIME_SANDBOX.link.error)) {
@@ -118,11 +156,15 @@ function runtimeSandboxBridgeChecked(state: RuntimeSandboxTypes.RuntimeSandboxBr
 
   state.fileBytes.set(read.handle, total);
 
-  return total > RUNTIME_SANDBOX.link.fileBytes ? runtimeSandboxBridgeError(frame.id) : frame.bytes;
+  if (state.handles.get(read.handle) === true) {
+    return total > RUNTIME_SANDBOX.link.readerBytes ? runtimeSandboxBridgeError(frame.id, RUNTIME_SANDBOX.link.readerTooBig) : frame.bytes;
+  }
+
+  return total > RUNTIME_SANDBOX.link.fileBytes ? runtimeSandboxBridgeError(frame.id, RUNTIME_SANDBOX.link.tooBig) : frame.bytes;
 }
 
-function runtimeSandboxBridgeError(id: number): Buffer {
-  const body = Buffer.from(JSON.stringify({ code: 'EFBIG', message: RUNTIME_SANDBOX.link.tooBig }), 'utf8');
+function runtimeSandboxBridgeError(id: number, message: string): Buffer {
+  const body = Buffer.from(JSON.stringify({ code: 'EFBIG', message }), 'utf8');
   const header = Buffer.alloc(RUNTIME_SANDBOX.link.headerBytes);
 
   header.writeUInt32BE(RUNTIME_SANDBOX.link.frameBaseBytes + body.length, 0);

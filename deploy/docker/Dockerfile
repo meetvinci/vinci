@@ -96,13 +96,14 @@ FROM ${UV_IMAGE} AS uv
 # through sandbox.sh's `run`, never in the daemon. No MeetVinci code, no keys, no app database, no owner socket: only
 # the bot folders (/data/agents), shared skills (/data/home/.agents, read only) and the bots' home (/home/bot, bot-home
 # of the volume) of that person's volume, and /run/sandbox, the daemon's folder, read only. A base for office and coding
-# work: Bun, Node with npm, Python with pip, venv and uv, git, curl, wget, jq, ripgrep, sqlite3, zip and the usual text
+# work: Bun, Node with npm, Python with pip, venv and uv, git, curl, wget, jq, ripgrep, sqlite3, zip, poppler (Pi's read
+# extracts a PDF's text with pdftotext; pdftoppm renders scanned pages for it) and the usual text
 # tools; no compilers. socat links the sandbox to its daemon (deploy/docker/sandbox.sh). /run/sandbox is owned by uid
 # 1000 here too: Docker fills a new shared volume from whichever of the two containers it creates first. No file keeps
 # a setuid or setgid bit, and nothing runs as root, so apt and dpkg cannot install anything.
 FROM ${BUN_IMAGE}-slim AS sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      socat git curl wget ca-certificates jq ripgrep unzip zip xz-utils bzip2 file less patch procps sqlite3 \
+      socat git curl wget ca-certificates jq ripgrep unzip zip xz-utils bzip2 file less patch procps sqlite3 poppler-utils \
       python3 python3-pip python3-venv \
  && rm -rf /var/lib/apt/lists/* \
  && rm /usr/lib/python3.*/EXTERNALLY-MANAGED \
