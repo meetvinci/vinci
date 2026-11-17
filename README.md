@@ -1,8 +1,8 @@
-# 🤖 MeetVinci
+# 🤖 Vinci
 
 > Your own bots, on your own server. For a small team, or just for you.
 
-MeetVinci installs one way: on a Linux server, with Docker. Each person gets their own MeetVinci in its own container, and their bots' commands run in a second one, their sandbox. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Everyone uses one web address: Cloudflare Access handles the login, and a hub sends each person to their own bots. An admin panel adds people and sets up their keys, bots and settings. A person on their own installs the same thing and is its only admin and only user.
+Vinci installs one way: on a Linux server, with Docker. Each person gets their own Vinci in its own container, and their bots' commands run in a second one, their sandbox. Each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent with its own conversation, tools, skills and memory, and it keeps working when you close the app. Everyone uses one web address: Cloudflare Access handles the login, and a hub sends each person to their own bots. An admin panel adds people and sets up their keys, bots and settings. A person on their own installs the same thing and is its only admin and only user.
 
 ## ⬇️ Install
 
@@ -12,7 +12,7 @@ It is a first version, meant for people who trust each other: see the warning in
 
 People open the install's address in a browser, or add it to their phone's home screen and dock: see [Install the app](docs/team-workspace/install-app.md).
 
-The macOS app in this repository's GitHub Releases still runs a daemon of its own. It will become a window on your install; until then, it is not a way to install MeetVinci.
+The macOS app in this repository's GitHub Releases still runs a daemon of its own. It will become a window on your install; until then, it is not a way to install Vinci.
 
 ## ✨ Features
 
@@ -35,27 +35,27 @@ The macOS app in this repository's GitHub Releases still runs a daemon of its ow
 
 ## 🚀 Develop locally
 
-This runs MeetVinci from source for working on it. It is not a way to install it: the native daemon exists only for development.
+This runs Vinci from source for working on it. It is not a way to install it: the native daemon exists only for development.
 
 **You need:** [Bun](https://bun.sh) 1.4 on macOS. The iOS app also needs Xcode.
 
 **1. Install**
 
 ```bash
-git clone git@github.com:ijpatricio/orbs-bot.git meetvinci && cd meetvinci
+git clone git@github.com:ijpatricio/orbs-bot.git vinci && cd vinci
 bun install
 cp .env.example .env
 ```
 
 The defaults in `.env.example` work as they are.
 
-**2. Start MeetVinci**
+**2. Start Vinci**
 
 ```bash
 bun run dev:web
 ```
 
-Development runs like a real install: your daemon behind a local hub. This starts a dev door on http://localhost:47190, the daemon on 47191, the hub on 47192 and the web app (Vite) on 47193. Dev data lives in `~/.config/meetvinci-dev` (the hub's in its `hub/` folder), apart from a real install in `~/.config/meetvinci`.
+Development runs like a real install: your daemon behind a local hub. This starts a dev door on http://localhost:47190, the daemon on 47191, the hub on 47192 and the web app (Vite) on 47193. Dev data lives in `~/.config/vinci-dev` (the hub's in its `hub/` folder), apart from a real install in `~/.config/vinci`.
 
 **3. Open it**
 
@@ -84,9 +84,9 @@ Open **Settings → Providers** and log in. If you already use Pi, its saved log
 bun run dev:mobile
 ```
 
-This boots the iOS Simulator and starts the dev client. `bun run dev:all` starts it together with `dev:web`. The iOS app still pairs with a PIN: run `DATA_DIR=~/.config/meetvinci-dev bun apps/daemon/src/entry.native.ts pair` while the dev daemon runs, and scan the QR code.
+This boots the iOS Simulator and starts the dev client. `bun run dev:all` starts it together with `dev:web`. The iOS app still pairs with a PIN: run `DATA_DIR=~/.config/vinci-dev bun apps/daemon/src/entry.native.ts pair` while the dev daemon runs, and scan the QR code.
 
-**A real phone or another computer** needs an address it can reach. Start with `bun run dev:web --url http://<LAN or Tailscale address>:47190`: the dev door, daemon and Vite then listen on every interface, and the terminal prints a login link for this run. Open that link once on each device (it keeps you signed in for 30 days, across restarts), then use `http://<address>:47190`. This replaces `dev:pair --url`. Without `--url`, only this Mac can open MeetVinci.
+**A real phone or another computer** needs an address it can reach. Start with `bun run dev:web --url http://<LAN or Tailscale address>:47190`: the dev door, daemon and Vite then listen on every interface, and the terminal prints a login link for this run. Open that link once on each device (it keeps you signed in for 30 days, across restarts), then use `http://<address>:47190`. This replaces `dev:pair --url`. Without `--url`, only this Mac can open Vinci.
 
 ### Desktop app
 
@@ -94,15 +94,15 @@ This boots the iOS Simulator and starts the dev client. `bun run dev:all` starts
 bun run dev:desktop
 ```
 
-The macOS app starts the daemon and web app if they are not running, then pairs itself. On first launch it asks where MeetVinci runs: **This Mac** or **Another Mac**.
+The macOS app starts the daemon and web app if they are not running, then pairs itself. On first launch it asks where Vinci runs: **This Mac** or **Another Mac**.
 
-### The `meetvinci` command
+### The `vinci` command
 
 Run `bun link` in `apps/daemon` once, then:
 
 ```bash
-meetvinci start                # Run in the foreground; Ctrl+C stops it
-meetvinci pair                 # Print a new pairing code, link and QR code (the iOS and desktop apps)
+vinci start                # Run in the foreground; Ctrl+C stops it
+vinci pair                 # Print a new pairing code, link and QR code (the iOS and desktop apps)
 ```
 
 The native daemon is for development. To back up a development data folder, stop the daemon and copy the folder. See the [API reference](.agents/references/api.md#daemon-and-storage) for details.
@@ -117,7 +117,7 @@ bun run release --draft    # publish the GitHub Release as a draft
 
 This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with one file, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
 
-- `MeetVinci-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
+- `Vinci-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
 
 The iOS app ships through EAS and TestFlight, not GitHub: `bun run release:ios` builds it on this Mac and submits it to TestFlight; `bun run release:ios-expo` builds it on EAS instead. `bun run release:desktop` builds only the macOS app, without tagging.
 
@@ -126,7 +126,7 @@ The app looks for updates only at `DESKTOP_UPDATE_URL`, set at build time; a rel
 ### Container images
 
 ```bash
-bun run build:images                                 # meetvinci-daemon, meetvinci-web and meetvinci-hub for linux/amd64
+bun run build:images                                 # vinci-daemon, vinci-web and vinci-hub for linux/amd64
 bun run build:images daemon --platform linux/arm64   # one image, for a local run on Apple Silicon
 ```
 

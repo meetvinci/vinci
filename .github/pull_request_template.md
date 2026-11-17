@@ -37,4 +37,4 @@ Closes #
 - [ ] `bun run check`, `bun run lint`, `bun run lint:dead` and `bun run test`
 - [ ] Tested on every affected platform
 - [ ] UI change: follows `DESIGN.md`, copy in i18n, new functionality on both web and iOS
-- [ ] Substantial change: `meetvinci-review` run in full, findings fixed
+- [ ] Substantial change: `vinci-review` run in full, findings fixed

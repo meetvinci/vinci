@@ -3,7 +3,7 @@ import type { Plugin } from 'vite';
 
 export function createFilesPlugin(): Plugin {
   return {
-    name: 'meetvinci-files',
+    name: 'vinci-files',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use(async (request, _response, next) => {

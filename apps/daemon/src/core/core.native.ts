@@ -51,8 +51,8 @@ import type { RPCHandlerOptions } from '@orpc/server/fetch';
 import type { Server } from 'bun';
 
 const HELP = `Usage:
-  meetvinci start
-  meetvinci pair [--url <origin>]
+  vinci start
+  vinci pair [--url <origin>]
 
 Without a command, the daemon starts in the foreground.
 `;
@@ -150,7 +150,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
     source: secrets,
     folder: secretsFolder,
     sandboxDir: env.DAEMON_SANDBOX_DIR,
-    internalAllow: env.MEETVINCI_INTERNAL_ALLOW,
+    internalAllow: env.VINCI_INTERNAL_ALLOW,
   });
 
   resources.defer(() => secretProxy.actions.stop());

@@ -1,6 +1,6 @@
 # Install the app on your phone and computer
 
-MeetVinci is a web app you can install. Installed, it opens in its own window without the browser's address bar, sits on your home screen or in your dock, and notifies you when a bot answers, needs your approval or has a question, even when the app is closed.
+Vinci is a web app you can install. Installed, it opens in its own window without the browser's address bar, sits on your home screen or in your dock, and notifies you when a bot answers, needs your approval or has a question, even when the app is closed.
 
 You need your team's address, for example `https://acme.example.com`, and your work email for the login code.
 
@@ -10,8 +10,8 @@ Needs iOS or iPadOS 16.4 or later (Settings → General → About → iOS Versio
 
 1. Open your team's address in **Safari** and log in with the code from your email.
 2. Tap **Share** (the square with an arrow), then **Add to Home Screen**. Keep **Open as Web App** on and tap **Add**.
-3. Open MeetVinci from the new icon on your home screen. Notifications only work from this icon, not from a Safari tab.
-4. In MeetVinci, open **Settings → General → Notifications** and tap **Turn on**, then **Allow**. You can also allow when MeetVinci asks after your first message.
+3. Open Vinci from the new icon on your home screen. Notifications only work from this icon, not from a Safari tab.
+4. In Vinci, open **Settings → General → Notifications** and tap **Turn on**, then **Allow**. You can also allow when Vinci asks after your first message.
 
 The installed app has its own login and pairing: the first time you open it, you may see the login again.
 
@@ -19,14 +19,14 @@ The installed app has its own login and pairing: the first time you open it, you
 
 1. Open your team's address in **Chrome** and log in.
 2. Tap **⋮**, then **Add to Home screen** (or **Install app**), then **Install**.
-3. Open MeetVinci from the new icon, then **Settings → General → Notifications → Turn on**, and **Allow**.
+3. Open Vinci from the new icon, then **Settings → General → Notifications → Turn on**, and **Allow**.
 
 ## Mac
 
-- **Safari** (macOS 14 Sonoma or later): open your team's address, log in, then **File → Add to Dock**. Open MeetVinci from the Dock and turn notifications on in **Settings → General → Notifications**.
+- **Safari** (macOS 14 Sonoma or later): open your team's address, log in, then **File → Add to Dock**. Open Vinci from the Dock and turn notifications on in **Settings → General → Notifications**.
 - **Chrome or Edge**: open your team's address, log in, then click the install icon at the right of the address bar (or **⋮ → Cast, save and share → Install page as app**). Turn notifications on in **Settings → General → Notifications**. Chrome and Edge deliver notifications while the browser is running, even with the app's window closed.
 
-macOS asks the first time whether to allow notifications from MeetVinci; you can change it later in **System Settings → Notifications**.
+macOS asks the first time whether to allow notifications from Vinci; you can change it later in **System Settings → Notifications**.
 
 ## Windows
 
@@ -36,7 +36,7 @@ Open your team's address in **Edge** or **Chrome**, log in, then click the insta
 
 One device gets each notification, so your phone and computer do not ring together:
 
-- The device you are using right now, if MeetVinci is open on it.
+- The device you are using right now, if Vinci is open on it.
 - Otherwise the one chosen in **Settings → General → Send notifications to**: *Phone* or *Computer*. If you have no app of that kind with notifications on, the other one gets it.
 
 Muted chats never notify. Tapping a notification opens that chat; a waiting approval or question is at the bottom.
@@ -46,7 +46,7 @@ Muted chats never notify. Tapping a notification opens that chat; a waiting appr
 **Settings → General → Notifications** says what it can:
 
 - *On, even when the app is closed*: all set.
-- *On while this page is open*: this browser cannot notify you when MeetVinci is closed. Install the app or use another browser.
+- *On while this page is open*: this browser cannot notify you when Vinci is closed. Install the app or use another browser.
 - *Blocked in your browser settings*: allow notifications for your team's address in the browser's or system's settings, then reload.
 - *Add the app to your Home Screen first* (iPhone and iPad): follow the iPhone steps above and open the app from its icon.
 - *This browser cannot show notifications*: use one of the browsers above.

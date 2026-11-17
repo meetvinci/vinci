@@ -1,5 +1,5 @@
 ---
-name: meetvinci-green
+name: vinci-green
 description: "Run and repair the repository's complete local CI gate before a PR, push, release, or handoff. Default to the full repository; partial gates require an explicit request."
 disable-model-invocation: true
 ---

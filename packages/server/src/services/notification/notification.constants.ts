@@ -9,7 +9,7 @@ export const NOTIFICATION = {
   webPushKeyCredential: 'notification.web_push_vapid',
   webPushTtlSeconds: 24 * 60 * 60,
   webPushTimeoutMs: 15_000,
-  webPushSubject: 'mailto:push@meetvinci.invalid',
+  webPushSubject: 'mailto:push@vinci.invalid',
   webPushGoneStatuses: [404, 410],
   chatPath: '/rooms/direct/',
 } as const;

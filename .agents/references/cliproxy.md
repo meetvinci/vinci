@@ -1,8 +1,8 @@
 # Claude through CLIProxyAPI
 
-[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) serves a Claude subscription as an Anthropic-compatible API. MeetVinci reaches it through Pi's built-in `anthropic` provider, so every Claude model keeps its normal name, limits and pricing.
+[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) serves a Claude subscription as an Anthropic-compatible API. Vinci reaches it through Pi's built-in `anthropic` provider, so every Claude model keeps its normal name, limits and pricing.
 
-MeetVinci reads Pi's agent directory for logins (`auth.json`), custom endpoints (`models.json`), skills and instructions. It is `~/.pi/agent` unless `PI_CODING_AGENT_DIR` points elsewhere.
+Vinci reads Pi's agent directory for logins (`auth.json`), custom endpoints (`models.json`), skills and instructions. It is `~/.pi/agent` unless `PI_CODING_AGENT_DIR` points elsewhere.
 
 ## Setup
 
@@ -33,7 +33,7 @@ The same `baseUrl` override works for `openai` and `xai` when the proxy serves t
 To try logins or a proxy setup without touching your own Pi config, run a second dev stack with its own Pi directory, data and ports. It takes four ports from `--port` and opens at the first:
 
 ```bash
-PI_CODING_AGENT_DIR=~/.config/meetvinci-test/pi bun --env-file=.env scripts/hub.ts dev --port 47290 --data ~/.config/meetvinci-test
+PI_CODING_AGENT_DIR=~/.config/vinci-test/pi bun --env-file=.env scripts/hub.ts dev --port 47290 --data ~/.config/vinci-test
 ```
 
-Open the login link it prints (`http://localhost:47290/cdn-cgi/access/login?secret=…`) in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/meetvinci-test/pi/auth.json`; delete `~/.config/meetvinci-test` to start over.
+Open the login link it prints (`http://localhost:47290/cdn-cgi/access/login?secret=…`) in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/vinci-test/pi/auth.json`; delete `~/.config/vinci-test` to start over.

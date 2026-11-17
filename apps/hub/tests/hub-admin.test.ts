@@ -78,7 +78,7 @@ describe('admin access', () => {
     expect(api.status).toBe(403);
   });
 
-  it('refuses an admin write without a same-origin Origin and a JSON or MeetVinci header', async ({ tokens }) => {
+  it('refuses an admin write without a same-origin Origin and a JSON or Vinci header', async ({ tokens }) => {
     const cases: Record<string, string>[] = [{ origin: '' }, { origin: 'https://evil.example' }, { 'content-type': 'text/plain' }];
     const responses = await Promise.all(cases.map((headers) => hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: 'mallory@team.example' }, headers })));
 

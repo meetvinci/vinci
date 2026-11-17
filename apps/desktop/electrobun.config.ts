@@ -1,7 +1,7 @@
 import type { ElectrobunConfig } from 'electrobun';
 
-const name = process.env.APP_NAME ?? 'MeetVinci';
-const identifier = process.env.DESKTOP_BUNDLE_ID ?? 'pt.entrypoint.meetvinci.desktop';
+const name = process.env.APP_NAME ?? 'Vinci';
+const identifier = process.env.DESKTOP_BUNDLE_ID ?? 'pt.entrypoint.vinci.desktop';
 // A separate data folder and first port let a test build run beside dev servers without sharing their data or ports.
 const { DESKTOP_DATA_DIR: dataDir = '', DESKTOP_PORT: portText = '' } = process.env;
 const port = Number(portText);

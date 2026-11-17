@@ -1,9 +1,9 @@
 #!/bin/bash
-# The first step of every daemon and sandbox (meetvinci.sh without arguments, sandbox.sh): waits until the firewall
+# The first step of every daemon and sandbox (vinci.sh without arguments, sandbox.sh): waits until the firewall
 # confines this container, so no bot runs before the rules exist. Compose starts daemons after the firewall, but after a
 # reboot or a Docker restart Docker starts every container at once.
 # The test: a TCP connection to the network's gateway (the server itself) on the discard port. Without the firewall
-# the server refuses it (Connection refused), answers, or another host firewall drops or rejects it; MEETVINCI-DAEMONS-HOST
+# the server refuses it (Connection refused), answers, or another host firewall drops or rejects it; VINCI-DAEMONS-HOST
 # alone rejects it with ICMP "protocol unreachable", which the kernel reports as ENOPROTOOPT (Protocol not available).
 # The firewall adds that jump after the one in DOCKER-USER, in the same pass. Bash, not Bun: Bun reports every failed
 # connect as ECONNREFUSED.

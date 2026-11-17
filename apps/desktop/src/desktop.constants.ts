@@ -27,7 +27,7 @@ export const DESKTOP = {
   leftoverTimeoutMs: 5_000,
   stopTimeoutMs: 12_000,
   saveDelayMs: 500,
-  dataDir: '~/.config/meetvinci/',
+  dataDir: '~/.config/vinci/',
   bundle: { web: 'server/web/src/application/server.bun.js', daemon: 'server/daemon/entry.native.js' },
   dev: { web: ['x', 'vite', 'dev', '--strictPort'], daemon: '../daemon/src/entry.native.ts' },
   markers: ['server/web/', 'server/daemon/', 'vite dev', 'daemon/src/entry.native.ts'],

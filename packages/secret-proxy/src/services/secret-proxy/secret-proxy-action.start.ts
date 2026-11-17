@@ -15,7 +15,7 @@ import type { IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 
-const challenge = { 'proxy-authenticate': 'Basic realm="MeetVinci"' };
+const challenge = { 'proxy-authenticate': 'Basic realm="Vinci"' };
 
 export function secretProxyActionStart(deps: SecretProxyServiceDeps) {
   async function secretProxyStartExchange({ request, response }: SecretProxyExchange, target: URL | null, pace: Duplex | null) {

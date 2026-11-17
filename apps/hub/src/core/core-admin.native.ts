@@ -41,7 +41,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
   const by = identity.email;
 
   if ((!isRead || segments[2] === 'rpc') && !coreAdminIsSameSite(context)) {
-    throw new Errors.FORBIDDEN({ internal: 'Admin write without a same-origin Origin and a JSON or MeetVinci header' });
+    throw new Errors.FORBIDDEN({ internal: 'Admin write without a same-origin Origin and a JSON or Vinci header' });
   }
 
   return match({ method: request.method, segments })

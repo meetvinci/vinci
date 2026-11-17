@@ -72,7 +72,7 @@ setup_main() {
 | Daemon | <http://localhost:47191> |
 | Hub | <http://localhost:47192> |
 | Vite | <http://localhost:47193> |
-| Data | \`~/.config/meetvinci-dev\` |
+| Data | \`~/.config/vinci-dev\` |
 
 Dev ports are fixed, so only one worktree can run \`dev\` at a time.
 

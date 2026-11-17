@@ -1,6 +1,6 @@
 ---
 name: Bug or idea
-about: Something that breaks in MeetVinci, or something it could do
+about: Something that breaks in Vinci, or something it could do
 ---
 
 <!-- Label it `bug` or `enhancement`. Security problems stay out of public issues: follow SECURITY.md. Show synthetic data only, never tokens, pairing PINs or real conversations. -->

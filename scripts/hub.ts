@@ -17,10 +17,10 @@ const DEV = {
   email: 'dev@example.com',
   user: 'dev',
   name: 'Developer',
-  audience: 'meetvinci-dev',
-  kid: 'meetvinci-dev',
+  audience: 'vinci-dev',
+  kid: 'vinci-dev',
   port: 47190,
-  data: '~/.config/meetvinci-dev',
+  data: '~/.config/vinci-dev',
   loginSeconds: 30 * 24 * 3600,
   certsPath: '/cdn-cgi/access/certs',
   loginPath: '/cdn-cgi/access/login',
@@ -37,9 +37,9 @@ const DEV = {
 // without it never reaches the daemon (exec.sock has no other check, and whoever holds it gets the bots' tool calls).
 // Development only.
 const SANDBOX = {
-  image: 'meetvinci-sandbox:dev',
+  image: 'vinci-sandbox:dev',
   sockets: ['exec.sock', 'proxy.sock'],
-  keyEnv: 'MEETVINCI_DEV_RELAY_KEY',
+  keyEnv: 'VINCI_DEV_RELAY_KEY',
   keyWaitMs: 5000,
   // The container's relay: each connection to a socket in /run/sandbox becomes a TCP connection that starts with the key.
   relay: `const net = require('net');
@@ -48,7 +48,7 @@ for (const [socket, port] of JSON.parse(process.argv[1])) {
     const tcp = net.connect(port, 'host.docker.internal');
     const end = () => { unix.destroy(); tcp.destroy(); };
     [unix, tcp].forEach((side) => side.on('error', end).on('close', end));
-    tcp.write(process.env.MEETVINCI_DEV_RELAY_KEY + '\\n');
+    tcp.write(process.env.VINCI_DEV_RELAY_KEY + '\\n');
     unix.pipe(tcp).pipe(unix);
   }).listen('/run/sandbox/' + socket);
 }`,
@@ -318,7 +318,7 @@ async function dev() {
       env: {
         ...process.env,
         DATA_DIR: data,
-        MOBILE_SCHEME: 'meetvinci-dev',
+        MOBILE_SCHEME: 'vinci-dev',
         DAEMON_HOST: host,
         DAEMON_PORT: String(ports.daemon),
         DAEMON_SANDBOX_DIR: sandboxDir,
@@ -357,7 +357,7 @@ async function dev() {
     })],
   ];
 
-  const sandboxName = `meetvinci-dev-sandbox-${ports.door}`;
+  const sandboxName = `vinci-dev-sandbox-${ports.door}`;
   const relayKey = randomBytes(32).toString('hex');
   const relayPorts = SANDBOX.sockets.map((socket, index) => [socket, ports.sandbox[index]] as const);
   const bridges = sandboxDir ? relayPorts.map(([socket, port]) => sandboxBridge(port, path.join(sandboxDir, socket), Buffer.from(relayKey))) : [];

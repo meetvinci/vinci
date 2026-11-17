@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 
 const root = path.resolve(import.meta.dir, '..');
-const name = process.env.APP_NAME ?? 'MeetVinci';
+const name = process.env.APP_NAME ?? 'Vinci';
 const args = process.argv.slice(2);
 const draft = args.includes('--draft');
 const current = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
@@ -11,7 +11,7 @@ const current = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')
 const version = args.find((arg) => !arg.startsWith('--')) ?? current.replace(/\d+$/u, (patch: string) => String(Number(patch) + 1));
 const tag = `v${version}`;
 // A neutral folder keeps the build machine's home path out of bundled __filename values and route manifests.
-const build = path.join('/private/tmp', `meetvinci-release-${version}`);
+const build = path.join('/private/tmp', `vinci-release-${version}`);
 let tagged = false;
 
 function fail(message: string): never {

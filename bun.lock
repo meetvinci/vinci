@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "meetvinci",
+      "name": "vinci",
       "dependencies": {
         "@expo/fingerprint": "catalog:mobile",
       },
@@ -29,8 +29,8 @@
       "name": "@repo/daemon",
       "version": "0.1.6",
       "bin": {
-        "meetvinci": "./src/entry.native.ts",
-        "meetvinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts",
+        "vinci": "./src/entry.native.ts",
+        "vinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts",
       },
       "dependencies": {
         "@orpc/client": "catalog:",
