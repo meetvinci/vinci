@@ -48,7 +48,7 @@ export function skillQueryResolve(deps: SkillLoaderServiceDeps, params: SkillLoa
       .exhaustive();
 
     const local = localPaths.filter(existsSync).flatMap(skillResolveLocal);
-    const copies = deps.isSandboxed ? mkdtempSync(join(tmpdir(), 'meetvinci-skills-')) : undefined;
+    const copies = deps.isSandboxed ? mkdtempSync(join(tmpdir(), 'vinci-skills-')) : undefined;
 
     try {
       const originals = new Map(copies === undefined ? [] : local.flatMap((path, index) => skillResolveCopy(copies, path, index)));

@@ -11,11 +11,11 @@ if (existsSync('../../.env')) {
 
 const appEnv = z.object({
   APP_VARIANT: z.enum(['development', 'preview', 'production']).default('development'),
-  APP_NAME: z.string().trim().min(1).default('MeetVinci'),
-  MOBILE_BUNDLE_ID: z.string().trim().min(1).default('pt.entrypoint.meetvinci'),
-  MOBILE_SCHEME: z.string().trim().min(1).default('meetvinci'),
+  APP_NAME: z.string().trim().min(1).default('Vinci'),
+  MOBILE_BUNDLE_ID: z.string().trim().min(1).default('pt.entrypoint.vinci'),
+  MOBILE_SCHEME: z.string().trim().min(1).default('vinci'),
   MOBILE_APPLE_TEAM_ID: z.string().trim().min(1).optional(),
-  MOBILE_EAS_SLUG: z.string().trim().min(1).default('meetvinci'),
+  MOBILE_EAS_SLUG: z.string().trim().min(1).default('vinci'),
   MOBILE_EAS_OWNER: z.string().trim().min(1).optional(),
   MOBILE_EAS_PROJECT_ID: z.uuid().optional(),
 }).parse(Object.fromEntries(Object.entries(process.env).filter(([, value]) => value !== '')));
@@ -53,7 +53,7 @@ export default (): ExpoConfig => ({
   ios: {
     bundleIdentifier,
     appleTeamId: appEnv.MOBILE_APPLE_TEAM_ID,
-    icon: './assets/meetvinci.icon',
+    icon: './assets/vinci.icon',
     supportsTablet: true,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,

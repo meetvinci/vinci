@@ -9,9 +9,9 @@
 5. No history, dates, feature status or workflows. Daemon, RPC and Pi behavior live in the [API reference](api.md).
 6. Before writing a file, read a few sibling files of the same kind and follow them.
 
-## 1. How MeetVinci works
+## 1. How Vinci works
 
-MeetVinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
+Vinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
 
 ### System
 
@@ -83,7 +83,7 @@ flowchart TB
 
 | File | Runs on | Intent |
 | --- | --- | --- |
-| daemon `src/entry.native.ts` | Bun | the `meetvinci` CLI: start and pair; opens stores and starts the listener |
+| daemon `src/entry.native.ts` | Bun | the `vinci` CLI: start and pair; opens stores and starts the listener |
 | daemon `src/entry-sandbox-bridge.native.ts` | Bun | pi-env's transport to a person's sandbox, bundled next to the daemon entry; the daemon runs it per connection |
 | hub `src/entry.native.ts` | Bun | the team hub: verifies the Access identity and routes it to that user's daemon |
 | server `src/entry.server.ts` | any host | `makeServices`, `coreHandler` and portable product services |
@@ -103,7 +103,7 @@ flowchart TB
 - Exports start with their domain: `botActionSend`, `botQueryGet`, `BOT`. Factories are `make<Domain>Service`.
 - Name values for what they hold. Singular nouns for items, plural for collections, `At` for timestamps, units for durations (`timeoutMs`).
 - Booleans and predicates use positive `is`, `has`, `can` or `should`. Library-defined names keep their names at integration boundaries.
-- MeetVinci-owned Pi tools use the `bot_` prefix (`bot_message`, `bot_question`). Pi, MCP and plugin tools keep their provider names.
+- Vinci-owned Pi tools use the `bot_` prefix (`bot_message`, `bot_question`). Pi, MCP and plugin tools keep their provider names.
 
 ## 2. Project structure
 
@@ -164,7 +164,7 @@ packages/contracts/src/
 
 ```
 apps/daemon/src/
-├── entry.native.ts                     the meetvinci CLI and daemon entry
+├── entry.native.ts                     the vinci CLI and daemon entry
 ├── entry-sandbox-bridge.native.ts      the sandbox bridge program the daemon runs next to its own entry
 ├── core/core.native.ts                 startup composition and shutdown order
 ├── core/core-<part>.native.ts          one transport concern: server, rpc, local socket, pairing, command
@@ -259,18 +259,18 @@ packages/
 ├── .env.example                        every env variable with its default
 ├── AGENTS.md                           agent instructions; CLAUDE.md links to it
 ├── DESIGN.md                           UI principles
-├── README.md                           what MeetVinci is, setup, scripts
+├── README.md                           what Vinci is, setup, scripts
 ├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
 ├── scripts/deploy.ts                   container images and deployment, a subcommand per step; `provisioner` serves apply to the hub
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
 ├── deploy/docker/Dockerfile            hub, web, daemon, sandbox and provisioner image targets built from one repo checkout
-├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's meetvinci CLI wrapper
+├── deploy/docker/<name>.sh             a script an image runs, such as the daemon's vinci CLI wrapper
 ├── deploy/compose/compose.yaml         the team stack: hub, provisioner, web app, networks and the one-off tools service
 ├── deploy/compose/daemon.yaml          the hardened daemon service each person's generated service extends
 ├── deploy/compose/sandbox.yaml         the hardened sandbox service where each person's bot tools run
 ├── deploy/cloudflare/cloudflared.compose.yaml  the tunnel connector service the Compose stack includes; tunnel, Access and DNS come from scripts/deploy.ts cloudflare
-├── deploy/.env.example                 the server's /opt/meetvinci/.env keys, one block per deploy area
+├── deploy/.env.example                 the server's /opt/vinci/.env keys, one block per deploy area
 ├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace
 ├── .agents/docs/<name>.md              library notes: Pi Durable examples
 ├── .agents/orchestrators/              worktree configs for Paseo, Orca, Conductor and T3 Code, and workspace.sh

@@ -1,4 +1,4 @@
-// MeetVinci service worker: Web Push and notification taps only.
+// Vinci service worker: Web Push and notification taps only.
 // It caches nothing and has no fetch handler, so every page, asset and login redirect goes to the network as without it.
 // A new web build does not touch it; the browser replaces it when this file's bytes change (served with no-cache).
 // The push payload is NotificationWebPushPayload in packages/contracts/src/types/notification.types.ts.
@@ -15,7 +15,7 @@ self.addEventListener('push', (event) => {
   const payload = event.data?.json() ?? {};
 
   // Every push must show a notification, or Safari ends the subscription.
-  event.waitUntil(self.registration.showNotification(payload.title ?? 'MeetVinci', {
+  event.waitUntil(self.registration.showNotification(payload.title ?? 'Vinci', {
     body: payload.body ?? '',
     tag: payload.botId,
     renotify: Boolean(payload.botId),

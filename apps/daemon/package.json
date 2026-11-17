@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "bin": {
-    "meetvinci": "./src/entry.native.ts",
-    "meetvinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts"
+    "vinci": "./src/entry.native.ts",
+    "vinci-sandbox-bridge": "./src/entry-sandbox-bridge.native.ts"
   },
   "scripts": {
-    "dev": "DATA_DIR=$HOME/.config/meetvinci-dev MOBILE_SCHEME=meetvinci-dev DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191 WEB_PUBLIC_URL=http://localhost:47190 bun --env-file=../../.env --watch src/entry.native.ts",
+    "dev": "DATA_DIR=$HOME/.config/vinci-dev MOBILE_SCHEME=vinci-dev DAEMON_HOST=0.0.0.0 DAEMON_PORT=47191 WEB_PUBLIC_URL=http://localhost:47190 bun --env-file=../../.env --watch src/entry.native.ts",
     "start": "bun --env-file=../../.env src/entry.native.ts",
     "check": "tsrs --noEmit",
     "lint": "oxlint src/ -c ../../oxlint.config.ts --tsconfig tsconfig.json --disable-nested-config",

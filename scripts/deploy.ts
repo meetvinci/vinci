@@ -3,7 +3,7 @@ import { chmodSync, chownSync, closeSync, existsSync, mkdirSync, openSync, readd
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
-// Runs from a repo checkout (images), copied to /opt/meetvinci on the server, from there (every other command), and in
+// Runs from a repo checkout (images), copied to /opt/vinci on the server, from there (every other command), and in
 // the provisioner image (`provisioner`, which runs the same apply for the hub's admin panel).
 // It imports only Bun and node builtins, so the server needs Bun and Docker and nothing else.
 const root = path.resolve(import.meta.dir, '..');
@@ -27,7 +27,7 @@ const provisionerBodyLimit = 64 * 1024;
 // Overridable only so the provisioner's Access sync can be proven against a local stub.
 const cloudflareApi = process.env.CLOUDFLARE_API_URL ?? 'https://api.cloudflare.com/client/v4';
 // Objects are found by exact names built from --name: the account may hold unrelated objects that share a prefix.
-const cloudflareNamePattern = /^meetvinci-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const cloudflareNamePattern = /^vinci-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const domainPattern = /^(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+[a-z]{2,63}$/u;
 // Only the icon files skip cloudflared's own Access check; a segment cannot contain a slash, so no path climbs out.
 const cloudflareFaviconPath = '^/(?:img/favicon/[^/]+|favicon\\.ico)$';
@@ -40,7 +40,7 @@ const daemonBridgePrefix = 'mv-d';
 const daemonPort = 47191;
 // What the firewall service keeps: a chain in Docker's DOCKER-USER (what daemons forward) and one jumped from INPUT
 // (what daemons send to the host itself), both only for packets that come in on a daemon bridge.
-const firewallChains = { forward: 'MEETVINCI-DAEMONS', host: 'MEETVINCI-DAEMONS-HOST' };
+const firewallChains = { forward: 'VINCI-DAEMONS', host: 'VINCI-DAEMONS-HOST' };
 const firewallParents = { forward: 'DOCKER-USER', host: 'INPUT' };
 // The port a starting daemon connects to on its gateway until the firewall rejects it (deploy/docker/firewall-wait.sh).
 const firewallWaitPort = 9;
@@ -49,7 +49,7 @@ const firewallWaitPort = 9;
 const firewallFlushGuard = ['FORWARD', '-i', `${daemonBridgePrefix}+`, '-j', 'DROP'];
 // How a failed health check starts its line in the firewall's log, for `firewall status`.
 const firewallProblem = 'Firewall check failed:';
-// Addresses no bot reaches unless MEETVINCI_INTERNAL_ALLOW names one: private, shared (CGNAT, Tailscale), link-local
+// Addresses no bot reaches unless VINCI_INTERNAL_ALLOW names one: private, shared (CGNAT, Tailscale), link-local
 // (cloud metadata), loopback, benchmarking, multicast and reserved ranges.
 const internalRanges = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12', '192.0.0.0/24', '192.168.0.0/16', '198.18.0.0/15', '224.0.0.0/3'];
 // No leading zeros: iptables reads 010.0.0.1 as octal, 8.0.0.1.
@@ -85,7 +85,7 @@ const systemdFolder = '/etc/systemd/system';
 // mounts. The daemon's own data stays in its volume. The marker
 // file exists only on a mounted disk: Docker refuses a missing subpath, so a disk that is not mounted fails closed.
 const disksFolder = 'disks';
-const diskMarker = '.meetvinci-disk';
+const diskMarker = '.vinci-disk';
 const diskSizeDefault = '5g';
 const diskSizePattern = /^(?<amount>[1-9]\d{0,5})(?<unit>[mg])$/iu;
 // `status` calls a disk full from this share of its bytes or its files (inodes) used: ext4 keeps no room in reserve
@@ -199,7 +199,7 @@ async function docker(args: string[], { input, output, env }: DockerOptions = {}
   return stdout.trim();
 }
 
-// Builds meetvinci-<target>:<tag> images into the local Docker image store. linux/amd64 is the server target;
+// Builds vinci-<target>:<tag> images into the local Docker image store. linux/amd64 is the server target;
 // pass --platform linux/arm64 for local runs on Apple Silicon.
 function images() {
   const { values, positionals } = parseArgs({
@@ -219,7 +219,7 @@ function images() {
   }
 
   for (const target of selected) {
-    const image = `meetvinci-${target}:${values.tag}`;
+    const image = `vinci-${target}:${values.tag}`;
 
     console.log(`Building ${image} for ${values.platform}`);
 
@@ -675,11 +675,11 @@ async function firewallUp() {
   } catch {
     const logs = await docker(['compose', 'logs', '--no-log-prefix', '--tail', '1', 'firewall']).catch(() => '');
 
-    fail(`The firewall did not start, so apply stopped before starting or changing anyone's MeetVinci.${logs.trim() === '' ? '' : ` It said: ${logs.trim()}`}`);
+    fail(`The firewall did not start, so apply stopped before starting or changing anyone's Vinci.${logs.trim() === '' ? '' : ` It said: ${logs.trim()}`}`);
   }
 }
 
-// One change at a time between a by-hand apply and the provisioner, which share /opt/meetvinci. A lock older than ten
+// One change at a time between a by-hand apply and the provisioner, which share /opt/vinci. A lock older than ten
 // minutes was left by a crash, so a long holder touches it now and then (the nightly backup, between people).
 function takeLock(): boolean {
   const held = statSync(lockFile, { throwIfNoEntry: false });
@@ -733,7 +733,7 @@ async function applyTeam(waitFor?: string[]) {
   const ids = enabledIds(current);
   const daemons = [templateId, ...ids];
 
-  // A bad value would leave the firewall restarting while apply reports success. Bun reads it from /opt/meetvinci/.env.
+  // A bad value would leave the firewall restarting while apply reports success. Bun reads it from /opt/vinci/.env.
   internalAllow();
   writeFileSync('users.compose.yaml', renderCompose(daemons));
   await firewallUp();
@@ -850,7 +850,7 @@ async function backupVolume(id: string, person: Person, file: string): Promise<{
 }
 
 function backupNotBack(id: string, error: Error) {
-  return `The MeetVinci of ${id} did not come back healthy after its copy (${error.message}). Its backup is complete; bun deploy.ts status and docker compose logs daemon-${id} show why.`;
+  return `The Vinci of ${id} did not come back healthy after its copy (${error.message}). Its backup is complete; bun deploy.ts status and docker compose logs daemon-${id} show why.`;
 }
 
 function backupStamp(): string {
@@ -1054,7 +1054,7 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
 
     const { downtimeMs, startError } = await backupVolume(id, person, path.join(folder, `${id}.tar.gz`));
 
-    console.log(`Backed up ${id}${person.enabled ? `; their MeetVinci was stopped for ${(downtimeMs / 1000).toFixed(1)} s` : ' (disabled)'}`);
+    console.log(`Backed up ${id}${person.enabled ? `; their Vinci was stopped for ${(downtimeMs / 1000).toFixed(1)} s` : ' (disabled)'}`);
 
     if (startError) {
       console.error(backupNotBack(id, startError));
@@ -1078,13 +1078,13 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
   const hubDowntimeMs = Date.now() - hubStopped;
 
   console.log(`Backed up the hub folder; the hub was stopped for ${(hubDowntimeMs / 1000).toFixed(1)} s`);
-  await tools('tar -C /meetvinci -czf - "$@"', nightlyDeploymentFiles(), { volumes: [`${process.cwd()}:/meetvinci:ro`], output: path.join(folder, nightlyDeploymentFile) });
+  await tools('tar -C /vinci -czf - "$@"', nightlyDeploymentFiles(), { volumes: [`${process.cwd()}:/vinci:ro`], output: path.join(folder, nightlyDeploymentFile) });
 
   const names = readdirSync(folder).sort();
   const files = Object.fromEntries(await Promise.all(names.map(async (name) => [name, await fileDigest(path.join(folder, name))] as const)));
 
   const manifest = {
-    tag: process.env.MEETVINCI_TAG ?? '',
+    tag: process.env.VINCI_TAG ?? '',
     project: await project(),
     startedAt: startedAt.toISOString(),
     finishedAt: new Date().toISOString(),
@@ -1189,14 +1189,14 @@ function offsiteRun(name: string): string {
 }
 
 // GnuPG in the daemon image, by plain `docker run` rather than the tools service: on a fresh server it decrypts before
-// the deployment files are back, with only MEETVINCI_TAG, the bucket and the passphrase in .env.
+// the deployment files are back, with only VINCI_TAG, the bucket and the passphrase in .env.
 async function gpg(script: string, volume: string, options: DockerOptions): Promise<string> {
-  const tag = envValue('MEETVINCI_TAG') ?? fail('Set MEETVINCI_TAG in .env: the off-site copy is encrypted by GnuPG in the meetvinci-daemon image of that tag.');
+  const tag = envValue('VINCI_TAG') ?? fail('Set VINCI_TAG in .env: the off-site copy is encrypted by GnuPG in the vinci-daemon image of that tag.');
 
   return docker([
     'run', '--rm', ...(options.input ? ['--interactive'] : []), '--network', 'none', '--read-only', '--tmpfs', '/tmp', '--user', '0:0',
     '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER', '--security-opt', 'no-new-privileges:true',
-    '--env', 'BACKUP_PASSPHRASE', '--volume', volume, '--entrypoint', 'bash', `meetvinci-daemon:${tag}`,
+    '--env', 'BACKUP_PASSPHRASE', '--volume', volume, '--entrypoint', 'bash', `vinci-daemon:${tag}`,
     '-o', 'pipefail', '-c', `mkdir -m 700 /tmp/gnupg && ${script}`,
   ], options);
 }
@@ -1356,7 +1356,7 @@ async function nightlyRun() {
 }
 
 function nightlyNotBack(ids: string[]): string {
-  return `The backup is complete and kept, but the MeetVinci of ${ids.join(', ')} did not come back healthy after the copy: bun deploy.ts status and docker compose logs daemon-<id> show why`;
+  return `The backup is complete and kept, but the Vinci of ${ids.join(', ')} did not come back healthy after the copy: bun deploy.ts status and docker compose logs daemon-<id> show why`;
 }
 
 function ago(ms: number): string {
@@ -1427,8 +1427,8 @@ async function nightlyStatus() {
 }
 
 // `nightly fetch` lists the runs in the bucket; `nightly fetch <run>` downloads one, checks its checksum, decrypts it
-// into backups/<run>/ and checks every file against its manifest, ready for `restore`. Needs only MEETVINCI_TAG, the
-// bucket and the passphrase in .env and the meetvinci-daemon image, so it works on a fresh server.
+// into backups/<run>/ and checks every file against its manifest, ready for `restore`. Needs only VINCI_TAG, the
+// bucket and the passphrase in .env and the vinci-daemon image, so it works on a fresh server.
 async function nightlyFetch() {
   const bucket = offsiteBucket() ?? fail('Set BACKUP_S3_BUCKET and the other BACKUP_S3_ settings in .env (admin.md, Off-site copy).');
   const [run] = process.argv.slice(4);
@@ -1486,7 +1486,7 @@ async function nightlyFetch() {
   console.log(`Fetched ${run} into ${folder}; every file matches its manifest (tag ${nightlyManifestRead(folder).tag}).`);
 }
 
-// meetvinci-backup for the default project: a second stack on the host (COMPOSE_PROJECT_NAME) gets its own timer.
+// vinci-backup for the default project: a second stack on the host (COMPOSE_PROJECT_NAME) gets its own timer.
 async function nightlyUnit(): Promise<string> {
   return `${await project()}-backup`;
 }
@@ -1496,7 +1496,7 @@ function nightlyUnits(unit: string, at: string): Record<string, string> {
     [`${unit}.service`]: [
       '# Written by `bun deploy.ts nightly install`. Remove with `bun deploy.ts nightly remove`.',
       '[Unit]',
-      `Description=MeetVinci nightly backup of ${process.cwd()}`,
+      `Description=Vinci nightly backup of ${process.cwd()}`,
       'Wants=docker.service',
       'After=docker.service',
       '',
@@ -1512,7 +1512,7 @@ function nightlyUnits(unit: string, at: string): Record<string, string> {
     [`${unit}.timer`]: [
       '# Written by `bun deploy.ts nightly install`. Remove with `bun deploy.ts nightly remove`.',
       '[Unit]',
-      `Description=MeetVinci nightly backup of ${process.cwd()} at ${at}`,
+      `Description=Vinci nightly backup of ${process.cwd()} at ${at}`,
       '',
       '[Timer]',
       `OnCalendar=*-*-* ${at}:00`,
@@ -1586,7 +1586,7 @@ async function nightlyRemove() {
 // the provisioner cannot reach systemd, and needs no new unit for a person it adds.
 async function disksUnit() {
   if (process.getuid?.() !== 0 || !existsSync('/run/systemd/system') || !Bun.which('systemctl')) {
-    console.log('This server has no systemd: after a reboot, run `bun deploy.ts disks mount` and then `docker compose up -d`, or people\'s MeetVinci stay stopped.');
+    console.log('This server has no systemd: after a reboot, run `bun deploy.ts disks mount` and then `docker compose up -d`, or people\'s Vinci stay stopped.');
     return;
   }
 
@@ -1599,7 +1599,7 @@ async function disksUnit() {
   const content = [
     '# Written by `bun deploy.ts apply`: mounts each person\'s sandbox disk before Docker starts their containers.',
     '[Unit]',
-    `Description=MeetVinci sandbox disks of ${process.cwd()}`,
+    `Description=Vinci sandbox disks of ${process.cwd()}`,
     'Before=docker.service',
     `RequiresMountsFor=${process.cwd()}`,
     '',
@@ -1646,7 +1646,7 @@ async function nightly() {
   await actions[action as keyof typeof actions]();
 }
 
-// A whole install from one nightly folder, on a server whose /opt/meetvinci holds only that run's deployment files. The hub
+// A whole install from one nightly folder, on a server whose /opt/vinci holds only that run's deployment files. The hub
 // folder (admins, pins, global settings modes, audit trail) and every volume go back before anything starts, so the
 // hub never meets a fresh daemon and every pinned server ID matches.
 async function restoreInstall(folder: string) {
@@ -1814,17 +1814,17 @@ function cloudflareOptions() {
 
   if (!['apply', 'emails', 'destroy'].includes(action)) {
     fail(
-      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name meetvinci-<team> [--users <users.yaml|->] [--domain <domain>...] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
+      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name vinci-<team> [--users <users.yaml|->] [--domain <domain>...] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
     );
   }
 
   const zone = values.zone ?? fail('Pass --zone, the Cloudflare zone, such as example.com.');
-  const name = values.name ?? fail('Pass --name, the exact name prefix of the objects, such as meetvinci-acme.');
+  const name = values.name ?? fail('Pass --name, the exact name prefix of the objects, such as vinci-acme.');
   const hostname = values.hostname ?? fail('Pass --hostname, such as acme.example.com.');
   const sshHostname = values['ssh-hostname'];
 
   if (!cloudflareNamePattern.test(name)) {
-    fail('--name must start with meetvinci- and use lowercase letters, digits and single dashes.');
+    fail('--name must start with vinci- and use lowercase letters, digits and single dashes.');
   }
 
   for (const host of [hostname, sshHostname]) {
@@ -1855,7 +1855,7 @@ function cloudflareOptions() {
       bypass: `${name}-bypass`,
       sshAllow: `${name}-ssh-allow`,
       // DNS records have no name of their own; this exact comment marks the ones the script owns.
-      comment: `meetvinci deploy ${name}`,
+      comment: `vinci deploy ${name}`,
     },
   };
 }
@@ -1898,14 +1898,14 @@ function accessRuleValues(policy: CloudflarePolicy, kind: 'email' | 'email_domai
   return (policy.include ?? []).flatMap((rule) => (kind in rule ? [String((rule[kind] as Record<string, unknown>)[field]).toLowerCase()] : [])).sort();
 }
 
-// The allow policy's rules, read back. Rules MeetVinci never writes (groups, everyone, excludes) make it unreadable.
+// The allow policy's rules, read back. Rules Vinci never writes (groups, everyone, excludes) make it unreadable.
 function accessRead(policy: CloudflarePolicy): AccessRule {
   const include = policy.include ?? [];
   const domains = accessRuleValues(policy, 'email_domain', 'domain');
   const emails = accessRuleValues(policy, 'email', 'email');
 
   if (domains.length + emails.length !== include.length || (policy.exclude?.length ?? 0) > 0 || (policy.require?.length ?? 0) > 0) {
-    fail(`The Access policy ${policy.name} has rules MeetVinci does not manage; run cloudflare apply to reset it.`);
+    fail(`The Access policy ${policy.name} has rules Vinci does not manage; run cloudflare apply to reset it.`);
   }
 
   return { domains, emails };
@@ -2126,7 +2126,7 @@ async function cloudflareApply(options: CloudflareOptions) {
   // The zone and name let the provisioner update the allow policy, once a token is added to the server's .env; the
   // domains tell it which people the policy already lets in, with or without a token.
   const values = {
-    MEETVINCI_PUBLIC_HOST: hostname,
+    VINCI_PUBLIC_HOST: hostname,
     ACCESS_TEAM_DOMAIN: `https://${organization.auth_domain}`,
     ACCESS_AUD: aud,
     CLOUDFLARE_ZONE: options.zone,
@@ -2393,7 +2393,7 @@ function provisionerConfig() {
   }
 
   if (cloudflareToken && (!zone || !name || !cloudflareNamePattern.test(name))) {
-    fail('With CLOUDFLARE_API_TOKEN set, CLOUDFLARE_ZONE and CLOUDFLARE_NAME (meetvinci-<team>) must be set too.');
+    fail('With CLOUDFLARE_API_TOKEN set, CLOUDFLARE_ZONE and CLOUDFLARE_NAME (vinci-<team>) must be set too.');
   }
 
   return {
@@ -2418,7 +2418,7 @@ async function provisioner() {
     return run;
   };
 
-  // `manual`: the policy needs a change MeetVinci could not make (no token on the server, or Cloudflare refused); the admin
+  // `manual`: the policy needs a change Vinci could not make (no token on the server, or Cloudflare refused); the admin
   // makes it by hand. Without a token, a change that only touches emails inside the domain rule needs nothing.
   const syncAccess = async (previous: Team, next: Team): Promise<'synced' | 'manual'> => {
     if (config.access === undefined) {
@@ -2518,7 +2518,7 @@ async function provisioner() {
   }));
 
   // What the allow policy lets in, for the panel; needs only Access: Apps and Policies: Read. `emails: null` when that
-  // is unknown: no token, Cloudflare could not be read, or the policy has rules MeetVinci does not manage. The domains then
+  // is unknown: no token, Cloudflare could not be read, or the policy has rules Vinci does not manage. The domains then
   // come from the server's config.
   const readAccess = async () => {
     const unknown = { domains: config.domains, emails: null };
@@ -2646,18 +2646,18 @@ function iptablesBinary(): string {
   })();
 
   return fail(legacy
-    ? 'This server\'s Docker uses iptables-legacy, so the firewall cannot keep bots off internal addresses. MeetVinci needs a host on iptables-nft (nf_tables), such as Ubuntu 22.04 or later with its default iptables (install.md, step 2).'
+    ? 'This server\'s Docker uses iptables-legacy, so the firewall cannot keep bots off internal addresses. Vinci needs a host on iptables-nft (nf_tables), such as Ubuntu 22.04 or later with its default iptables (install.md, step 2).'
     : `No ${firewallParents.forward} chain in iptables-nft: Docker must manage iptables through iptables-nft (not iptables-legacy, not its nftables backend) before the firewall can start.`);
 }
 
-// MEETVINCI_INTERNAL_ALLOW: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach, such as a test model on
+// VINCI_INTERNAL_ALLOW: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach, such as a test model on
 // the host. Empty by default.
 function internalAllow(): [string, string][] {
-  return (process.env.MEETVINCI_INTERNAL_ALLOW ?? '').split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
+  return (process.env.VINCI_INTERNAL_ALLOW ?? '').split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
     const groups = internalAllowPattern.exec(entry)?.groups;
     const port = Number(groups?.port);
 
-    return groups?.address !== undefined && port >= 1 && port <= 65535 ? [groups.address, String(port)] : fail(`MEETVINCI_INTERNAL_ALLOW: "${entry}" is not <IPv4 address>:<port>.`);
+    return groups?.address !== undefined && port >= 1 && port <= 65535 ? [groups.address, String(port)] : fail(`VINCI_INTERNAL_ALLOW: "${entry}" is not <IPv4 address>:<port>.`);
   });
 }
 
@@ -2690,7 +2690,7 @@ type FirewallChain = keyof typeof firewallChains;
 // Brings the chains (all, or only `keys`) and their jumps in line and names what had to change. Each jump stays first
 // in its parent, ahead of rules such as ufw's that would accept the packet. Never touches a policy or any other rule.
 function firewallSync(binary: string, rules: Record<FirewallChain, string[][]>, keys = Object.keys(firewallChains) as FirewallChain[]): string[] {
-  const tag = `meetvinci:${createHash('sha256').update(JSON.stringify(rules)).digest('hex').slice(0, 12)}`;
+  const tag = `vinci:${createHash('sha256').update(JSON.stringify(rules)).digest('hex').slice(0, 12)}`;
 
   const listed = (chain: string) => {
     const { ok, out } = iptables(binary, ['-w', '-S', chain]);
@@ -2869,7 +2869,7 @@ try {
       'Usage:',
       '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
       '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
-      'On the server, in /opt/meetvinci:',
+      'On the server, in /opt/vinci:',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
       '  bun deploy.ts status                    each person\'s daemon and sandbox: running, starting or stopped',
       '  bun deploy.ts backup <id>               copy one person\'s volume to backups/',
@@ -2886,7 +2886,7 @@ try {
       'In the provisioner image:',
       '  bun deploy.ts provisioner               serve the hub\'s user API on PROVISIONER_PORT',
       'In the firewall image:',
-      '  bun deploy.ts firewall                  keep daemons off internal addresses (MEETVINCI_INTERNAL_ALLOW)',
+      '  bun deploy.ts firewall                  keep daemons off internal addresses (VINCI_INTERNAL_ALLOW)',
       '  bun deploy.ts firewall check            the health check: restore missing rules, fail if any were',
     ].join('\n'));
   }

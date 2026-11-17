@@ -1,6 +1,6 @@
-# Installing MeetVinci
+# Installing Vinci
 
-MeetVinci installs one way: on one Linux server, with Docker, the hub and the admin panel. It serves a small team, about 3 to 7 people. A person on their own installs the same thing and is its only admin and only user: see [Just me](install.md#just-me).
+Vinci installs one way: on one Linux server, with Docker, the hub and the admin panel. It serves a small team, about 3 to 7 people. A person on their own installs the same thing and is its only admin and only user: see [Just me](install.md#just-me).
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
@@ -8,11 +8,11 @@ MeetVinci installs one way: on one Linux server, with Docker, the hub and the ad
 
 ## What it is
 
-- Every person gets their own MeetVinci, with their own bots, chats, files and model keys.
-- Each person's MeetVinci runs in its own locked-down container on the server, and their bots' commands in a second one, their sandbox, which holds no keys. In the app, people only ever see their own bots and data.
+- Every person gets their own Vinci, with their own bots, chats, files and model keys.
+- Each person's Vinci runs in its own locked-down container on the server, and their bots' commands in a second one, their sandbox, which holds no keys. In the app, people only ever see their own bots and data.
 - Everyone uses one web address, for example `https://acme.example.com`. They open it in a browser or add it to their home screen.
-- Cloudflare handles the login. A person types their email and gets a one-time code. There are no MeetVinci passwords.
-- After login, MeetVinci sends each person to their own bots automatically. The first visit pairs the browser on its own: no PIN, no questions.
+- Cloudflare handles the login. A person types their email and gets a one-time code. There are no Vinci passwords.
+- After login, Vinci sends each person to their own bots automatically. The first visit pairs the browser on its own: no PIN, no questions.
 - The server has no open ports. Cloudflare Tunnel connects it to the internet from the inside.
 
 ## The picture
@@ -22,9 +22,9 @@ flowchart TB
   People["team members<br/>browser or home-screen app"] --> Cloudflare["Cloudflare<br/>login with email code"]
   Cloudflare -->|"tunnel"| Hub
   subgraph Server["your server"]
-    Hub["hub<br/>knows who is who"] --> A["Alice's MeetVinci"]
-    Hub --> B["Bob's MeetVinci"]
-    Hub --> C["Carol's MeetVinci"]
+    Hub["hub<br/>knows who is who"] --> A["Alice's Vinci"]
+    Hub --> B["Bob's Vinci"]
+    Hub --> C["Carol's Vinci"]
     Hub --> Web["web app"]
   end
   A --> Models["AI providers<br/>Anthropic, OpenAI and others"]

@@ -1,11 +1,11 @@
-# MeetVinci for a team: the hub and the web app. Lives in /opt/meetvinci next to .env, users.yaml, daemon.yaml,
+# Vinci for a team: the hub and the web app. Lives in /opt/vinci next to .env, users.yaml, daemon.yaml,
 # sandbox.yaml and cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (per
 # person a daemon and a sandbox, each with its network and volume, extending daemon.yaml and sandbox.yaml) and
 # hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, cloudflared.compose.yaml and
 # users.compose.yaml together.
 # The provisioner runs the same apply for the hub's admin panel.
 # Nothing is published on a host interface: cloudflared is the only way in.
-name: meetvinci
+name: vinci
 
 # At most 30 MB of Docker's log per container.
 x-logging: &logging
@@ -17,7 +17,7 @@ services:
   # One-off root jobs for `bun deploy.ts`: owner-socket folders, backups, restores and purges. No network.
   tools:
     profiles: [setup]
-    image: meetvinci-daemon:${MEETVINCI_TAG}
+    image: vinci-daemon:${VINCI_TAG}
     user: "0:0"
     entrypoint: ["sh", "-c"]
     read_only: true
@@ -35,7 +35,7 @@ services:
   # so this gives it nothing it lacked.
   disks:
     profiles: [setup]
-    image: meetvinci-daemon:${MEETVINCI_TAG}
+    image: vinci-daemon:${VINCI_TAG}
     user: "0:0"
     entrypoint: ["nsenter", "--target", "1", "--mount", "--", "sh", "-c"]
     privileged: true
@@ -45,7 +45,7 @@ services:
   # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
   # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
-    image: meetvinci-hub:${MEETVINCI_TAG}
+    image: vinci-hub:${VINCI_TAG}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -60,11 +60,11 @@ services:
     environment:
       ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
       ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
-      HUB_PUBLIC_URL: https://${MEETVINCI_PUBLIC_HOST}
+      HUB_PUBLIC_URL: https://${VINCI_PUBLIC_HOST}
       HUB_WEB_URL: http://web:47190
       HUB_ADMIN_EMAILS: ${HUB_ADMIN_EMAILS:?set HUB_ADMIN_EMAILS in .env}
       # The global sync at start runs once per version, not at every restart.
-      HUB_VERSION: ${MEETVINCI_TAG}
+      HUB_VERSION: ${VINCI_TAG}
       PROVISIONER_URL: http://provisioner:47193
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -76,13 +76,13 @@ services:
       web: {}
       provisioner: {}
 
-  # Adds, disables and removes people for the hub's admin panel by running `bun deploy.ts apply` in /opt/meetvinci, and
+  # Adds, disables and removes people for the hub's admin panel by running `bun deploy.ts apply` in /opt/vinci, and
   # updates the Access allow policy when CLOUDFLARE_API_TOKEN is set. It holds the Docker socket, which is root on the
   # host: it answers only the hub's token on the provisioner network, a fixed set of requests, one change at a time.
-  # Root without capabilities: it reads and writes root's files in /opt/meetvinci and the socket as their owner.
-  # /opt/meetvinci is mounted at the same path, so Compose resolves ./hub and the other relative paths as on the host.
+  # Root without capabilities: it reads and writes root's files in /opt/vinci and the socket as their owner.
+  # /opt/vinci is mounted at the same path, so Compose resolves ./hub and the other relative paths as on the host.
   provisioner:
-    image: meetvinci-provisioner:${MEETVINCI_TAG}
+    image: vinci-provisioner:${VINCI_TAG}
     user: "0:0"
     read_only: true
     tmpfs:
@@ -107,7 +107,7 @@ services:
       # mounted when it started, which holds the image's loop device after umount, purge or a disk replacement.
       - type: bind
         source: .
-        target: /opt/meetvinci
+        target: /opt/vinci
         bind:
           propagation: rslave
     networks:
@@ -122,7 +122,7 @@ services:
   # 0.2 s), daemons are unfiltered, and the hub cannot reach them because their networks drop traffic between
   # containers. `bun deploy.ts firewall remove` deletes the rules.
   firewall:
-    image: meetvinci-firewall:${MEETVINCI_TAG}
+    image: vinci-firewall:${VINCI_TAG}
     network_mode: host
     read_only: true
     cap_drop: [ALL]
@@ -134,11 +134,11 @@ services:
     logging: *logging
     environment:
       # Off by default: comma-separated <IPv4>:<port> (TCP) that every daemon may still reach.
-      MEETVINCI_INTERNAL_ALLOW: ${MEETVINCI_INTERNAL_ALLOW:-}
+      VINCI_INTERNAL_ALLOW: ${VINCI_INTERNAL_ALLOW:-}
 
   # One shared web app in hub mode: its server calls only the hub, never a daemon.
   web:
-    image: meetvinci-web:${MEETVINCI_TAG}
+    image: vinci-web:${VINCI_TAG}
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=64m
@@ -150,7 +150,7 @@ services:
     logging: *logging
     environment:
       WEB_HUB_URL: http://hub:47192
-      WEB_PUBLIC_URL: https://${MEETVINCI_PUBLIC_HOST}
+      WEB_PUBLIC_URL: https://${VINCI_PUBLIC_HOST}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     networks:
       web: {}

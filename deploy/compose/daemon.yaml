@@ -2,7 +2,7 @@
 # Not a Compose file of its own: never list it in COMPOSE_FILE.
 services:
   daemon:
-    image: meetvinci-daemon:${MEETVINCI_TAG:?set MEETVINCI_TAG in .env}
+    image: vinci-daemon:${VINCI_TAG:?set VINCI_TAG in .env}
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=256m
@@ -23,14 +23,14 @@ services:
       start_period: 30s
       start_interval: 1s
     environment:
-      DAEMON_PUBLIC_URLS: https://${MEETVINCI_PUBLIC_HOST:?set MEETVINCI_PUBLIC_HOST in .env}
-      WEB_PUBLIC_URL: https://${MEETVINCI_PUBLIC_HOST}
+      DAEMON_PUBLIC_URLS: https://${VINCI_PUBLIC_HOST:?set VINCI_PUBLIC_HOST in .env}
+      WEB_PUBLIC_URL: https://${VINCI_PUBLIC_HOST}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Ignored from one-mode piece H on (every daemon refuses), kept for one release so that an image from before it,
       # under these files during an upgrade or a rollback, still refuses. Remove after the next release (gotcha 314).
       DAEMON_TEAM: 'true'
       # The firewall's exceptions: the secrets proxy lets bots through to exactly these <IPv4>:<port> too.
-      MEETVINCI_INTERNAL_ALLOW: ${MEETVINCI_INTERNAL_ALLOW:-}
+      VINCI_INTERNAL_ALLOW: ${VINCI_INTERNAL_ALLOW:-}
       # Model API keys from .env, the same for every person. Bots do not see them: the sandbox has none.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

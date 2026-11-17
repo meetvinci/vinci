@@ -243,7 +243,7 @@ export async function hubFixtureFakeSocket(path: string) {
 
 export async function hubFixtureStart(config: HubFixtureConfig) {
   const { emails } = config;
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'meetvinci-hub-')));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'vinci-hub-')));
   const hubData = join(root, 'hub');
   const algorithm = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' };
   const keys = { good: await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']), rogue: await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']) };

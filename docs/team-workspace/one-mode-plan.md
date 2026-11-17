@@ -20,7 +20,7 @@ What is merged into `team-workspace`:
 
 | Piece | Pull request | Note |
 | --- | --- | --- |
-| A. Daemon product CLI, backup, release tarball | #72 | `meetvinci pair` stays: the desktop app and the iOS dev app use it |
+| A. Daemon product CLI, backup, release tarball | #72 | `vinci pair` stays: the desktop app and the iOS dev app use it |
 | B. Image guards | #74 | |
 | C. Onboarding removal | #73 | |
 | D. Solo install proof | none | No new server proof; the "Just me" section of `install.md` uses the memory numbers already there |
@@ -34,7 +34,7 @@ Left, with the client work: J (server addresses and PIN UI), K (desktop as a pur
 
 ## Summary (read this first)
 
-**The rule.** MeetVinci installs one way: Docker, with the hub, the admin panel and a sandbox per person. A solo person installs the same thing and is its only admin and only user. The native daemon stays only for development.
+**The rule.** Vinci installs one way: Docker, with the hub, the admin panel and a sandbox per person. A solo person installs the same thing and is its only admin and only user. The native daemon stays only for development.
 
 **What goes.**
 - The daemon's product CLI: `start --detach`, `service register|unregister` (macOS launch agent), `backup create|restore` and the backup service behind it. Team backups already use `tar` in `deploy.ts`.
@@ -77,8 +77,8 @@ Verdicts: **remove**; **keep: dev** (development needs it); **keep: team** (the 
 | `/lab/avatars`, `/lab/chat` links | settings footer, single-owner only | 2 links | **keep: dev**, **change**: show only in a dev build |
 | Sidebar foot: app name and server address | `apps/web/src/components/layout/layout-nav-device.tsx:28,54` | 1 branch | **remove** the address side with I |
 | Sandbox optional | `DAEMON_SANDBOX_DIR` optional; `isSandboxed`/`sandboxDir` in 19 files (runtime 12, server 4, secret-proxy 3) | ~40 lines | **keep: dev** (native dev runs tools in the daemon, decision row "Bot tools run in one sandbox container…"). **change** the image: refuse to start without it (B). |
-| Firewall wait optional | `deploy/docker/meetvinci.sh:7` (`MEETVINCI_WAIT_FOR_FIREWALL`) | 1 | **change**: unconditional in the image when no args are given (B) |
-| `DAEMON_PUBLIC_URLS` branch of first pairing | `core.native.ts:493-496` ("run `meetvinci pair` in the container") | 1 | **remove** (A): a daemon image without a hub is not a product any more |
+| Firewall wait optional | `deploy/docker/vinci.sh:7` (`VINCI_WAIT_FOR_FIREWALL`) | 1 | **change**: unconditional in the image when no args are given (B) |
+| `DAEMON_PUBLIC_URLS` branch of first pairing | `core.native.ts:493-496` ("run `vinci pair` in the container") | 1 | **remove** (A): a daemon image without a hub is not a product any more |
 
 ### Pairing, doors and connect
 
@@ -89,7 +89,7 @@ Verdicts: **remove**; **keep: dev** (development needs it); **keep: team** (the 
 | `pairing.redeem` (public) | `rpc.pairing.ts`; web `connection.client.ts:60`; mobile `connection.client.ts:39` | **keep: team** (the browser redeems the hub's grant) |
 | `pairing.create` (a paired device issues a PIN) | `rpc.pairing.ts:4`; `packages/client/src/hooks/use-settings-devices.ts:8`; PIN and QR in `packages/ui/src/components/settings/settings-devices.tsx:83,88`; already hidden in team (`canPair`) | **remove** with J, unless question 1 picks "pair a phone from a logged-in browser" |
 | Startup PIN and QR | `core.native.ts:484-517` `coreNativeFirstPairing`: team branch, public-URL branch, PIN branch | **keep: dev** the PIN branch until G; **remove** the other two (A, H) |
-| `meetvinci pair` / `bun run dev:pair` | `core.native.ts:520-532`; `apps/daemon/package.json` `dev:pair`; root `dev:pair` | **keep: dev** until G; then **remove** |
+| `vinci pair` / `bun run dev:pair` | `core.native.ts:520-532`; `apps/daemon/package.json` `dev:pair`; root `dev:pair` | **keep: dev** until G; then **remove** |
 | Web connect page | `apps/web/src/routes/connect/connect.tsx`, `components/connect/connect-form.tsx` (171 lines, PIN form plus hub "Opening your workspace") | **change**: keep only the hub path (auto redeem, **Try again**). The PIN form stays only while dev uses PINs. |
 | Hub first-visit grant | `apps/hub/src/core/core-pairing.native.ts`, `services/pairing/` | **keep: team** |
 | Public door vs owner socket | `rpc.procedures.ts` (`baseRouter`, `ownerRouter`, `localRouter`), `rpc-local.utils.ts` allowlist | **keep: team**. Allowlist entry `server.configure` goes with J. |
@@ -142,7 +142,7 @@ Verdicts: **remove**; **keep: dev** (development needs it); **keep: team** (the 
 | Item | Where | Verdict |
 | --- | --- | --- |
 | Embedded daemon and web server | `apps/desktop/src/desktop-server.ts` (262 lines: start, adopt, leftovers, pair link) | **remove** (K) |
-| Ports and data dir | `desktop.constants.ts:12-14` (`port 47190`, `portCount 10`, `daemonPortOffset 100`), `:30` `dataDir ~/.config/meetvinci/`, `:32` dev entries | **remove** (K) |
+| Ports and data dir | `desktop.constants.ts:12-14` (`port 47190`, `portCount 10`, `daemonPortOffset 100`), `:30` `dataDir ~/.config/vinci/`, `:32` dev entries | **remove** (K) |
 | Network: Tailscale, Bonjour find and advertise, probe | `desktop-network.ts` (204 lines), `DESKTOP.find` `_bots._tcp` | **remove** (K); keep a single probe of the team address |
 | "This Mac / Another Mac", tray server items, `network: local/lan/tailscale` | `desktop.ts` (746 lines; local branches at 54-88, 170, 409-415, 443-505, 709), `desktop-settings.ts` | **change** (K): one setting, the team address |
 | Update flow | `desktop-update.ts` (164), `DESKTOP_UPDATE_URL`, `publish:desktop` | **keep** (client updates) |
@@ -166,7 +166,7 @@ The mobile app has no team awareness at all (no `TEAM_MANAGED` handling beyond t
 
 | Item | Verdict |
 | --- | --- |
-| `README.md`: tagline "Your own bots, on your own Mac", intro, Download, Run it locally step 3, iPhone, Desktop app, The `meetvinci` command, Release (server tarball), Container images ("pair it with `docker exec … meetvinci pair`") | **change** (E): product = Docker install; "Run it locally" = development |
+| `README.md`: tagline "Your own bots, on your own Mac", intro, Download, Run it locally step 3, iPhone, Desktop app, The `vinci` command, Release (server tarball), Container images ("pair it with `docker exec … vinci pair`") | **change** (E): product = Docker install; "Run it locally" = development |
 | `docs/team-workspace/README.md`, `install.md` | **change** (D, E): add the solo case |
 | `.agents/references/api.md`: Daemon and storage (CLI), Connection (addresses, PIN), Team daemon refusals ("in a team daemon"), line 163 ("single-owner app") | **change** (E, with each piece) |
 | `.agents/references/team-workspace.md`: Design ("unchanged single-owner daemon"), 11 "single-owner" mentions, gotcha 198 | **change** (E): add one decision row at the end |
@@ -231,14 +231,14 @@ Each piece owns its files. No two pieces in the same step touch the same file.
 - Scope: remove `start --detach`, `service`, `backup`, the `DAEMON_PUBLIC_URLS` first-pairing branch; shorten `HELP`; remove the backup service; drop `server.tar.gz`.
 - Files: `apps/daemon/src/core/core.native.ts`, `apps/daemon/package.json` (`backup`), `packages/server/src/services/backup/*`, `packages/server/src/types/backup.types.ts`, `packages/server/src/entry.native.ts`, `scripts/release.ts`.
 - Wins: about 130 lines in the daemon, the backup service, one release file.
-- Risks: someone uses `meetvinci backup` on a dev data dir (copy the folder instead).
+- Risks: someone uses `vinci backup` on a dev data dir (copy the folder instead).
 - Proof: `bun run check`, `bun run lint`, `bun run lint:dead`, hub suites; `bun run dev:web` still starts and `dev:pair` still prints a PIN.
 - Owner first: question 7.
 
 **B. Image guards.**
 - Scope: the daemon image refuses to start without `DAEMON_SANDBOX_DIR`; firewall wait always on for the entrypoint without args.
-- Files: `deploy/docker/meetvinci.sh`, `deploy/docker/Dockerfile` (comments), `scripts/deploy.ts` (drop setting `MEETVINCI_WAIT_FOR_FIREWALL` if it becomes default).
-- Risks: `docker exec … meetvinci <cmd>` must stay unblocked (args given).
+- Files: `deploy/docker/vinci.sh`, `deploy/docker/Dockerfile` (comments), `scripts/deploy.ts` (drop setting `VINCI_WAIT_FOR_FIREWALL` if it becomes default).
+- Risks: `docker exec … vinci <cmd>` must stay unblocked (args given).
 - Proof: one image build in `docker:dind`, `apply` with one person, daemon healthy; a bare `docker run` of the image exits with a clear message.
 
 **C. Onboarding removal.**
@@ -318,7 +318,7 @@ Each piece owns its files. No two pieces in the same step touch the same file.
 
 Description, replacing the first paragraph:
 
-> A bot backend. MeetVinci installs one way: Docker, with a hub (`apps/hub`) that takes identity from Cloudflare Access, an admin panel, and per person one daemon and one sandbox. A person on their own installs the same thing and is its only admin and user. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. The web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) apps are clients of the install and talk over oRPC through the hub. The native daemon runs only for development.
+> A bot backend. Vinci installs one way: Docker, with a hub (`apps/hub`) that takes identity from Cloudflare Access, an admin panel, and per person one daemon and one sandbox. A person on their own installs the same thing and is its only admin and user. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. The web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) apps are clients of the install and talk over oRPC through the hub. The native daemon runs only for development.
 
 Rules, replacing the pairing rule:
 
@@ -333,6 +333,6 @@ If question 3 is answered "through a hub", the `dev:pair` rule changes to: "`bun
 
 `architecture.md` section 1 (the owner edits this file), proposed first paragraph:
 
-> MeetVinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
+> Vinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
 
-Also in that file: the System diagram's "Owner's computer" and desktop "starts or finds" go; the entry table's daemon row becomes "the `meetvinci` CLI: start (and pair in development)"; the `entry-backup.native.ts` row goes (no such file exists today); the desktop row becomes "the macOS and Linux app: a window on the install, tray, updates".
+Also in that file: the System diagram's "Owner's computer" and desktop "starts or finds" go; the entry table's daemon row becomes "the `vinci` CLI: start (and pair in development)"; the `entry-backup.native.ts` row goes (no such file exists today); the desktop row becomes "the macOS and Linux app: a window on the install, tray, updates".

@@ -22,18 +22,18 @@ The signing settings (`DESKTOP_SIGNING_KEYCHAIN` and the others) are in `.env.ex
 
 ## A test build beside dev servers
 
-A packaged app gets no environment when it is opened from Finder, so its name, bundle ID, data folder and ports are fixed when it is built. A test build that must not share anything with the dev servers (ports 47190 and 47191, `~/.config/meetvinci-dev`) or with another build sets all four:
+A packaged app gets no environment when it is opened from Finder, so its name, bundle ID, data folder and ports are fixed when it is built. A test build that must not share anything with the dev servers (ports 47190 and 47191, `~/.config/vinci-dev`) or with another build sets all four:
 
 | Setting | Test build example | Empty |
 |---|---|---|
-| `APP_NAME` | `MeetVinci Test` | `MeetVinci` |
-| `DESKTOP_BUNDLE_ID` | `pt.entrypoint.meetvinci.desktop.test` | `pt.entrypoint.meetvinci.desktop` |
-| `DESKTOP_DATA_DIR` | `~/.config/meetvinci-desktop-test/` | `~/.config/meetvinci/` |
+| `APP_NAME` | `Vinci Test` | `Vinci` |
+| `DESKTOP_BUNDLE_ID` | `pt.entrypoint.vinci.desktop.test` | `pt.entrypoint.vinci.desktop` |
+| `DESKTOP_DATA_DIR` | `~/.config/vinci-desktop-test/` | `~/.config/vinci/` |
 | `DESKTOP_PORT` | `47390` | `47190` |
 
 The app tries ten ports from `DESKTOP_PORT` and runs its daemon 100 higher, so a default build uses 47190-47199 and 47290-47299; `47390` keeps a test build clear of both. It reuses a running daemon only when that daemon's socket is in its own data folder.
 
-The build fails when `DESKTOP_DATA_DIR` is neither absolute nor starts with `~/`, or `DESKTOP_PORT` is not a whole number from 1024 to 65000. A built-in data folder wins over a `DATA_DIR` in the environment; with none built in, the app uses `DATA_DIR` and then `~/.config/meetvinci/` as before. `bun run dev:app` ignores both settings, so its `DATA_DIR` and the dev servers' ports keep working whatever `.env` holds.
+The build fails when `DESKTOP_DATA_DIR` is neither absolute nor starts with `~/`, or `DESKTOP_PORT` is not a whole number from 1024 to 65000. A built-in data folder wins over a `DATA_DIR` in the environment; with none built in, the app uses `DATA_DIR` and then `~/.config/vinci/` as before. `bun run dev:app` ignores both settings, so its `DATA_DIR` and the dev servers' ports keep working whatever `.env` holds.
 
 Before opening a test build, check the `runtime` block of the app's `Contents/Resources/build.json` (in a stable build, the app inside the `.tar.zst` in `Resources`): it must name the test name, bundle ID, data folder and port.
 
@@ -60,7 +60,7 @@ It uploads two files, the bundle first and the manifest last, so no app sees a n
 
 | File in the bucket | What it is |
 |---|---|
-| `stable-macos-arm64-MeetVinci.app.tar.zst` | The signed, stapled app, as a zstd tar. Replaced on every release. |
+| `stable-macos-arm64-Vinci.app.tar.zst` | The signed, stapled app, as a zstd tar. Replaced on every release. |
 | `stable-macos-arm64-update.json` | The manifest: bundle ID, channel, version, build hash and the bundle's file name. |
 
 Then it downloads the manifest from `DESKTOP_UPDATE_URL` and fails if the address does not serve what was just uploaded. Only stable Apple silicon builds update; there is no Linux or canary update.
@@ -74,7 +74,7 @@ Then it downloads the manifest from `DESKTOP_UPDATE_URL` and fails if the addres
 
 ### Settings it cannot change for now
 
-Every MeetVinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it hides those controls, as for a person in a team: a bot's permission level (new bots are on **Ask**), approval rules and the approval timeout, and how bots use secrets. The default model and rate limits were never in the app. Its bots cannot add an MCP server that runs a command. Pairing (including **Pair a device** for a phone), **Settings → Server**, chat, secrets, web MCP servers, models, sources and the Jev key work as before.
+Every Vinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it hides those controls, as for a person in a team: a bot's permission level (new bots are on **Ask**), approval rules and the approval timeout, and how bots use secrets. The default model and rate limits were never in the app. Its bots cannot add an MCP server that runs a command. Pairing (including **Pair a device** for a phone), **Settings → Server**, chat, secrets, web MCP servers, models, sources and the Jev key work as before.
 
 ## What the check protects against
 

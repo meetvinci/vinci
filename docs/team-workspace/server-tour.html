@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MeetVinci Server Tour</title>
+<title>Vinci Server Tour</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
 <style>
 html { color-scheme: light; }
@@ -102,16 +102,16 @@ footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--line)
 <main>
 <header>
   <div class="kicker">Live install · tag b285c406 · read 16 Nov 2026, 15:00 UTC</div>
-  <h1>A tour of a MeetVinci server, with a terminal open</h1>
+  <h1>A tour of a Vinci server, with a terminal open</h1>
   <p class="lede">Where the containers, images, disks and files are, what starts them, and what to keep open in a second terminal so you can watch things happen. Every command was run read-only on a real install with two people and the template workspace. Names, emails and the hostname are replaced: <code>alice</code>, <code>bob</code>, <code>example.com</code>, <code>team.example.com</code>.</p>
   <div class="term"><div class="bar"><span>your computer</span><button class="copy" type="button">Copy</button></div><pre><span class="c">ssh root@&lt;server&gt;
-cd /opt/meetvinci</span></pre></div>
-  <p class="note">Every server command below runs as root in <code>/opt/meetvinci</code>. None of them changes anything unless the text says so. The page describes <code>main</code>; where an install on <code>b285c406</code> or older differs, a note says so.</p>
+cd /opt/vinci</span></pre></div>
+  <p class="note">Every server command below runs as root in <code>/opt/vinci</code>. None of them changes anything unless the text says so. The page describes <code>main</code>; where an install on <code>b285c406</code> or older differs, a note says so.</p>
 </header>
 
 <section id="picture">
   <h2><span class="n">1</span>The picture</h2>
-  <p>One server, one Docker Compose project called <code>meetvinci</code>. Five containers are shared. Each person gets two more: a <b>daemon</b> (their own MeetVinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
+  <p>One server, one Docker Compose project called <code>vinci</code>. Five containers are shared. Each person gets two more: a <b>daemon</b> (their own Vinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
   <div class="diagram" role="img" aria-label="Diagram of the containers on the server and who talks to whom"><pre>   browser ── https://team.example.com
       │
    <b>Cloudflare Access</b>  email code; adds a signed header with the email
@@ -138,38 +138,38 @@ cd /opt/meetvinci</span></pre></div>
     <tr><td><code>web</code></td><td>The one web app, the admin panel included. Talks only to the hub.</td></tr>
     <tr><td><code>provisioner</code></td><td>The only container with the Docker socket. Adds, disables and removes people for the admin panel by running <code>bun deploy.ts apply</code>. Answers only the hub.</td></tr>
     <tr><td><code>firewall</code></td><td>Keeps daemons and sandboxes off the server's internal addresses. Checks its rules every 2 seconds.</td></tr>
-    <tr><td><code>daemon-&lt;id&gt;</code></td><td>One person's MeetVinci. Makes the model requests. Reachable only by the hub.</td></tr>
+    <tr><td><code>daemon-&lt;id&gt;</code></td><td>One person's Vinci. Makes the model requests. Reachable only by the hub.</td></tr>
     <tr><td><code>sandbox-&lt;id&gt;</code></td><td>Where that person's bot tools and command MCP servers run. Sees only the bot folders and the bots' home.</td></tr>
   </table></div>
   <div class="term"><div class="bar"><span>what runs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}"</span>
 SERVICE            IMAGE                              STATUS
 cloudflared        cloudflare/cloudflared:2026.10.7   Up 2 days (healthy)
-daemon-alice       meetvinci-daemon:b285c406          Up 12 hours (healthy)
-daemon-bob         meetvinci-daemon:b285c406          Up 12 hours (healthy)
-daemon-template    meetvinci-daemon:b285c406          Up 12 hours (healthy)
-firewall           meetvinci-firewall:b285c406        Up 2 days (healthy)
-hub                meetvinci-hub:b285c406             Up 12 hours (healthy)
-provisioner        meetvinci-provisioner:b285c406     Up 2 days (healthy)
-sandbox-alice      meetvinci-sandbox:b285c406         Up 12 hours (healthy)
-sandbox-bob        meetvinci-sandbox:b285c406         Up 12 hours (healthy)
-sandbox-template   meetvinci-sandbox:b285c406         Up 12 hours (healthy)
-web                meetvinci-web:b285c406             Up 2 days (healthy)</pre></div>
+daemon-alice       vinci-daemon:b285c406          Up 12 hours (healthy)
+daemon-bob         vinci-daemon:b285c406          Up 12 hours (healthy)
+daemon-template    vinci-daemon:b285c406          Up 12 hours (healthy)
+firewall           vinci-firewall:b285c406        Up 2 days (healthy)
+hub                vinci-hub:b285c406             Up 12 hours (healthy)
+provisioner        vinci-provisioner:b285c406     Up 2 days (healthy)
+sandbox-alice      vinci-sandbox:b285c406         Up 12 hours (healthy)
+sandbox-bob        vinci-sandbox:b285c406         Up 12 hours (healthy)
+sandbox-template   vinci-sandbox:b285c406         Up 12 hours (healthy)
+web                vinci-web:b285c406             Up 2 days (healthy)</pre></div>
   <p>Healthy looks like this: every line <code>(healthy)</code>, two lines per person plus the template's two. "Up 12 hours" on the people and the hub is normal: the nightly backup at 03:00 stops and starts each of them.</p>
 
   <h3>Who can talk to whom</h3>
   <p>Each person's daemon shares a network only with the hub; each sandbox is alone on its own. People's networks get a bridge named <code>mv-d…</code>, which is what the firewall's rules match. <code>web</code> and <code>provisioner</code> are internal: no internet.</p>
-  <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^meetvinci_); do printf "%-26s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
-meetvinci_egress           internal=false meetvinci-provisioner-1
-meetvinci_provisioner      internal=true  meetvinci-provisioner-1 meetvinci-hub-1
-meetvinci_sandbox-alice    internal=false meetvinci-sandbox-alice-1
-meetvinci_sandbox-bob      internal=false meetvinci-sandbox-bob-1
-meetvinci_sandbox-template internal=false meetvinci-sandbox-template-1
-meetvinci_tunnel           internal=false meetvinci-cloudflared-1 meetvinci-hub-1
-meetvinci_user-alice       internal=false meetvinci-daemon-alice-1 meetvinci-hub-1
-meetvinci_user-bob         internal=false meetvinci-daemon-bob-1 meetvinci-hub-1
-meetvinci_user-template    internal=false meetvinci-daemon-template-1 meetvinci-hub-1
-meetvinci_web              internal=true  meetvinci-hub-1 meetvinci-web-1</pre></div>
-  <p class="note">The daemon and its sandbox share no network. They meet through a socket file, <code>exec.sock</code>, in the small volume <code>meetvinci_sandbox-&lt;id&gt;</code>.</p>
+  <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^vinci_); do printf "%-26s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
+vinci_egress           internal=false vinci-provisioner-1
+vinci_provisioner      internal=true  vinci-provisioner-1 vinci-hub-1
+vinci_sandbox-alice    internal=false vinci-sandbox-alice-1
+vinci_sandbox-bob      internal=false vinci-sandbox-bob-1
+vinci_sandbox-template internal=false vinci-sandbox-template-1
+vinci_tunnel           internal=false vinci-cloudflared-1 vinci-hub-1
+vinci_user-alice       internal=false vinci-daemon-alice-1 vinci-hub-1
+vinci_user-bob         internal=false vinci-daemon-bob-1 vinci-hub-1
+vinci_user-template    internal=false vinci-daemon-template-1 vinci-hub-1
+vinci_web              internal=true  vinci-hub-1 vinci-web-1</pre></div>
+  <p class="note">The daemon and its sandbox share no network. They meet through a socket file, <code>exec.sock</code>, in the small volume <code>vinci_sandbox-&lt;id&gt;</code>.</p>
 
   <h3>How a request travels</h3>
   <div class="path" role="img" aria-label="Browser, then Cloudflare Access, then cloudflared, then the hub, then the person's daemon or the web app">
@@ -189,8 +189,8 @@ meetvinci_web              internal=true  meetvinci-hub-1 meetvinci-web-1</pre><
 
 <section id="disk">
   <h2><span class="n">2</span>Where everything is on disk</h2>
-  <h3>/opt/meetvinci</h3>
-  <div class="term"><div class="bar"><span>the install folder</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ls -la /opt/meetvinci</span>
+  <h3>/opt/vinci</h3>
+  <div class="term"><div class="bar"><span>the install folder</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ls -la /opt/vinci</span>
 drwx------ 5 root root   4096 backups
 -rw-r--r-- 1 root root   1466 cloudflared.compose.yaml
 -rw-r--r-- 1 root root   7277 compose.yaml
@@ -204,7 +204,7 @@ drwxrwx--- 2 1000 root   4096 hub
 -rw------- 1 root root    366 users.yaml</pre></div>
   <div class="tablewrap"><table>
     <tr><th>File</th><th>What it is</th><th>Who writes it</th><th>Secret?</th></tr>
-    <tr><td><code>.env</code></td><td>Hostname, Cloudflare values and tunnel token, image tag (<code>MEETVINCI_TAG</code>), shared model keys, provisioner token, limits. Never print it.</td><td>You</td><td><span class="tag no">Yes</span></td></tr>
+    <tr><td><code>.env</code></td><td>Hostname, Cloudflare values and tunnel token, image tag (<code>VINCI_TAG</code>), shared model keys, provisioner token, limits. Never print it.</td><td>You</td><td><span class="tag no">Yes</span></td></tr>
     <tr><td><code>users.yaml</code></td><td>The list of people and admins.</td><td>You, the provisioner (panel), the hub (admins)</td><td><span class="tag warn">Emails</span></td></tr>
     <tr><td><code>compose.yaml</code></td><td>The shared containers: hub, web, provisioner, firewall, and two one-off job containers (<code>tools</code>, <code>disks</code>).</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
     <tr><td><code>cloudflared.compose.yaml</code></td><td>The tunnel connector. Its routes live in Cloudflare.</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
@@ -232,67 +232,67 @@ drwxrwx--- 2 1000 root   4096 hub
   <p>Docker keeps containers, volumes and networks under <code>/var/lib/docker</code>. On this Docker (29, with the containerd image store) the images themselves are under <code>/var/lib/containerd</code>. Seven images, about 1.3 GB:</p>
   <div class="term"><div class="bar"><span>images and space</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker image ls --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"</span>
 REPOSITORY               TAG         SIZE
-meetvinci-firewall       b285c406    289MB
-meetvinci-provisioner    b285c406    296MB
-meetvinci-hub            b285c406    188MB
-meetvinci-web            b285c406    229MB
-meetvinci-sandbox        b285c406    791MB
-meetvinci-daemon         b285c406    367MB
+vinci-firewall       b285c406    289MB
+vinci-provisioner    b285c406    296MB
+vinci-hub            b285c406    188MB
+vinci-web            b285c406    229MB
+vinci-sandbox        b285c406    791MB
+vinci-daemon         b285c406    367MB
 cloudflare/cloudflared   2026.10.7   98.6MB
 <span class="c">$ docker system df</span>
 TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
 Images          7         7         1.311GB   0B (0%)
 Containers      11        11        61.44kB   0B (0%)
 Local Volumes   7         7         1.657MB   0B (0%)</pre></div>
-  <p class="note">Sizes overlap: the images share layers. After an upgrade the old tag's images stay until you remove them by name (<code>docker rmi meetvinci-daemon:&lt;old tag&gt; …</code>); keep them until the upgrade is checked, they are your rollback.</p>
-  <div class="term"><div class="bar"><span>volumes, three per person plus one shared</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ du -sh /var/lib/docker/volumes/meetvinci_*/_data</span>
-1.1M  /var/lib/docker/volumes/meetvinci_data-bob/_data
-504K  /var/lib/docker/volumes/meetvinci_data-alice/_data
-180K  /var/lib/docker/volumes/meetvinci_data-template/_data
-52K   /var/lib/docker/volumes/meetvinci_disk-bob/_data
-128K  /var/lib/docker/volumes/meetvinci_disk-alice/_data
-44K   /var/lib/docker/volumes/meetvinci_disk-template/_data
-16K   /var/lib/docker/volumes/meetvinci_ipc/_data
-4.0K  /var/lib/docker/volumes/meetvinci_sandbox-bob/_data
-4.0K  /var/lib/docker/volumes/meetvinci_sandbox-alice/_data
-4.0K  /var/lib/docker/volumes/meetvinci_sandbox-template/_data</pre></div>
+  <p class="note">Sizes overlap: the images share layers. After an upgrade the old tag's images stay until you remove them by name (<code>docker rmi vinci-daemon:&lt;old tag&gt; …</code>); keep them until the upgrade is checked, they are your rollback.</p>
+  <div class="term"><div class="bar"><span>volumes, three per person plus one shared</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ du -sh /var/lib/docker/volumes/vinci_*/_data</span>
+1.1M  /var/lib/docker/volumes/vinci_data-bob/_data
+504K  /var/lib/docker/volumes/vinci_data-alice/_data
+180K  /var/lib/docker/volumes/vinci_data-template/_data
+52K   /var/lib/docker/volumes/vinci_disk-bob/_data
+128K  /var/lib/docker/volumes/vinci_disk-alice/_data
+44K   /var/lib/docker/volumes/vinci_disk-template/_data
+16K   /var/lib/docker/volumes/vinci_ipc/_data
+4.0K  /var/lib/docker/volumes/vinci_sandbox-bob/_data
+4.0K  /var/lib/docker/volumes/vinci_sandbox-alice/_data
+4.0K  /var/lib/docker/volumes/vinci_sandbox-template/_data</pre></div>
   <div class="tablewrap"><table>
     <tr><th>Volume</th><th>What it holds</th></tr>
-    <tr><td><code>meetvinci_data-&lt;id&gt;</code></td><td>The person's MeetVinci: database, encryption key, chats, Pi settings and logins, shared skills. Secret.</td></tr>
-    <tr><td><code>meetvinci_disk-&lt;id&gt;</code></td><td>Not a real volume: a pointer to <code>disks/&lt;id&gt;/</code>, so containers can mount the person's sandbox disk.</td></tr>
-    <tr><td><code>meetvinci_sandbox-&lt;id&gt;</code></td><td>Only <code>exec.sock</code>: the line between daemon and sandbox.</td></tr>
-    <tr><td><code>meetvinci_ipc</code></td><td>One folder per person with their owner socket <code>rpc.sock</code>. The hub mounts it all; each daemon only its own folder.</td></tr>
+    <tr><td><code>vinci_data-&lt;id&gt;</code></td><td>The person's Vinci: database, encryption key, chats, Pi settings and logins, shared skills. Secret.</td></tr>
+    <tr><td><code>vinci_disk-&lt;id&gt;</code></td><td>Not a real volume: a pointer to <code>disks/&lt;id&gt;/</code>, so containers can mount the person's sandbox disk.</td></tr>
+    <tr><td><code>vinci_sandbox-&lt;id&gt;</code></td><td>Only <code>exec.sock</code>: the line between daemon and sandbox.</td></tr>
+    <tr><td><code>vinci_ipc</code></td><td>One folder per person with their owner socket <code>rpc.sock</code>. The hub mounts it all; each daemon only its own folder.</td></tr>
   </table></div>
 
   <h3>The sandbox disks</h3>
   <p>Each person's bot folders and bots' home live on a disk of their own: a 5 GB sparse file (<code>SANDBOX_DISK</code>) that takes only what is written. A full disk stops only that person's bots from writing; chats and settings live in the volume and keep working.</p>
   <div class="term"><div class="bar"><span>the disks, mounted</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ df -h disks/*/</span>
 Filesystem      Size  Used Avail Use% Mounted on
-/dev/loop2      4.8G   56K  4.8G   1% /opt/meetvinci/disks/bob
-/dev/loop0      4.8G  132K  4.8G   1% /opt/meetvinci/disks/alice
-/dev/loop1      4.8G   48K  4.8G   1% /opt/meetvinci/disks/template
+/dev/loop2      4.8G   56K  4.8G   1% /opt/vinci/disks/bob
+/dev/loop0      4.8G  132K  4.8G   1% /opt/vinci/disks/alice
+/dev/loop1      4.8G   48K  4.8G   1% /opt/vinci/disks/template
 <span class="c">$ ls -la disks/alice</span>
 drwxr-xr-x 3 1000 1000  4096 agents         <span class="d"># the bot folders, one per bot id</span>
 drwxr-xr-x 2 1000 1000  4096 bot-home       <span class="d"># the bots' home, /home/bot in the sandbox</span>
 drwx------ 2 root root 16384 lost+found
--rw-r--r-- 1 root root     0 .meetvinci-disk <span class="d"># marker: the disk is mounted</span></pre></div>
+-rw-r--r-- 1 root root     0 .vinci-disk <span class="d"># marker: the disk is mounted</span></pre></div>
   <p class="note"><code>ls -l disks/*.img</code> shows 5.0G each: that is the size they may grow to. <code>du -sh disks/*.img</code> shows what they really take.</p>
 
   <h3>The two systemd units</h3>
   <div class="tablewrap"><table>
     <tr><th>Unit</th><th>What it does</th><th>Written by</th></tr>
-    <tr><td><code>meetvinci-disks.service</code></td><td>At boot, before Docker: checks and mounts every <code>disks/*.img</code>.</td><td><code>apply</code></td></tr>
-    <tr><td><code>meetvinci-backup.timer</code> and <code>.service</code></td><td>The nightly backup at 03:00 server time (<code>BACKUP_TIME</code>).</td><td><code>nightly install</code></td></tr>
+    <tr><td><code>vinci-disks.service</code></td><td>At boot, before Docker: checks and mounts every <code>disks/*.img</code>.</td><td><code>apply</code></td></tr>
+    <tr><td><code>vinci-backup.timer</code> and <code>.service</code></td><td>The nightly backup at 03:00 server time (<code>BACKUP_TIME</code>).</td><td><code>nightly install</code></td></tr>
   </table></div>
-  <div class="term"><div class="bar"><span>both units</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ systemctl list-unit-files "meetvinci*" --no-pager</span>
+  <div class="term"><div class="bar"><span>both units</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ systemctl list-unit-files "vinci*" --no-pager</span>
 UNIT FILE                STATE   PRESET
-meetvinci-backup.service static  -
-meetvinci-disks.service  enabled enabled
-meetvinci-backup.timer   enabled enabled
-<span class="c">$ systemctl list-timers meetvinci-backup.timer --no-pager</span>
+vinci-backup.service static  -
+vinci-disks.service  enabled enabled
+vinci-backup.timer   enabled enabled
+<span class="c">$ systemctl list-timers vinci-backup.timer --no-pager</span>
 NEXT                        LEFT LAST                        PASSED UNIT
-Tue 2026-11-17 03:00:00 UTC  12h Mon 2026-11-16 03:00:05 UTC 11h ago meetvinci-backup.timer</pre></div>
-  <p>Bun lives at <code>/usr/local/bin/bun</code>, copied from the daemon image at install. It is the only thing MeetVinci puts on the host outside <code>/opt/meetvinci</code>, Docker's folders and the units.</p>
+Tue 2026-11-17 03:00:00 UTC  12h Mon 2026-11-16 03:00:05 UTC 11h ago vinci-backup.timer</pre></div>
+  <p>Bun lives at <code>/usr/local/bin/bun</code>, copied from the daemon image at install. It is the only thing Vinci puts on the host outside <code>/opt/vinci</code>, Docker's folders and the units.</p>
 </section>
 
 <section id="start">
@@ -306,36 +306,36 @@ Tue 2026-11-17 03:00:00 UTC  12h Mon 2026-11-16 03:00:05 UTC 11h ago meetvinci-b
     <li>Writes <code>hub/users.json</code> (and <code>hub/new-users.json</code> for people it creates). A removed person loses access here, before their container stops.</li>
     <li>Makes each owner-socket folder in the <code>ipc</code> volume, and checks the folders the sandbox will mount (it replaces a planted link, removes a planted hard link).</li>
     <li>Creates, mounts and grows each <b>sandbox disk</b>, and the first time moves the person's bot folders onto it. Warns if the disks could outgrow the server.</li>
-    <li>By hand only: writes <code>meetvinci-disks.service</code>.</li>
+    <li>By hand only: writes <code>vinci-disks.service</code>.</li>
     <li><code>docker compose up</code>: web, cloudflared, every daemon and sandbox; then the hub and the provisioner without recreating them. By hand it waits until everything is healthy.</li>
     <li>Joins the hub to each person's network and prints <code>Applied 2 users: alice, bob (and the template workspace)</code>.</li>
   </ol>
 
   <h3>At a reboot</h3>
   <ol class="steps">
-    <li><code>meetvinci-disks.service</code> checks and mounts every sandbox disk.</li>
+    <li><code>vinci-disks.service</code> checks and mounts every sandbox disk.</li>
     <li>Docker starts, and starts every container at once (<code>restart: unless-stopped</code>). Compose's start order does not apply here.</li>
     <li>The firewall writes its rules, in about 0.2 seconds.</li>
     <li>Each daemon and sandbox first waits until the firewall confines it, then starts. Its log says <code>Waiting for the firewall</code> and <code>The firewall confines this container after … ms; starting.</code></li>
     <li>Each sandbox connects to its daemon. The hub reaches each daemon again; open browser tabs reconnect on their own.</li>
   </ol>
-  <div class="term"><div class="bar"><span>the last boot, in order</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ journalctl -b -u meetvinci-disks -u docker --no-pager -o short-iso | grep -E "systemd.*(Starting|Finished|Started)"</span>
-15:12:18 systemd[1]: Starting meetvinci-disks.service - MeetVinci sandbox disks of /opt/meetvinci...
-15:12:18 systemd[1]: Finished meetvinci-disks.service - MeetVinci sandbox disks of /opt/meetvinci.
+  <div class="term"><div class="bar"><span>the last boot, in order</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ journalctl -b -u vinci-disks -u docker --no-pager -o short-iso | grep -E "systemd.*(Starting|Finished|Started)"</span>
+15:12:18 systemd[1]: Starting vinci-disks.service - Vinci sandbox disks of /opt/vinci...
+15:12:18 systemd[1]: Finished vinci-disks.service - Vinci sandbox disks of /opt/vinci.
 15:12:18 systemd[1]: Starting docker.service - Docker Application Container Engine...
 15:12:21 systemd[1]: Started docker.service - Docker Application Container Engine.</pre></div>
   <p class="note">A container recreated later (by an apply or an upgrade) starts with an empty log, so the firewall lines from the boot are gone once it has been recreated.</p>
 
   <h3>Watching a start live</h3>
   <p>Open this in a second terminal before an <code>apply</code>, an upgrade or a reboot. It prints one line each time a container starts, stops or changes health, and nothing else:</p>
-  <div class="term"><div class="bar"><span>container events, live</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker events --filter label=com.docker.compose.project=meetvinci --filter type=container \
+  <div class="term"><div class="bar"><span>container events, live</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker events --filter label=com.docker.compose.project=vinci --filter type=container \
     --filter event=start --filter event=die --filter event=health_status \
     --format '{{.Action}} {{.Actor.Attributes.name}}'</span>
 <span class="d"># what an apply that adds a person looks like</span>
-start meetvinci-daemon-carol-1
-start meetvinci-sandbox-carol-1
-health_status: healthy meetvinci-sandbox-carol-1
-health_status: healthy meetvinci-daemon-carol-1</pre></div>
+start vinci-daemon-carol-1
+start vinci-sandbox-carol-1
+health_status: healthy vinci-sandbox-carol-1
+health_status: healthy vinci-daemon-carol-1</pre></div>
   <p class="note">It shows only what happens from the moment you start it. Stop it with Ctrl-C.</p>
 </section>
 
@@ -359,15 +359,15 @@ alice     daemon running (healthy)    sandbox running (healthy)    disk 0.0 GiB 
 bob       daemon running (healthy)    sandbox running (healthy)    disk 0.0 GiB of 4.8 GiB, 0% of files
 Server disk: 68.3 GiB free of 74.8 GiB
 NAME                           MEM USAGE / LIMIT   CPU %
-meetvinci-daemon-alice-1       84.39MiB / 512MiB   0.04%
-meetvinci-daemon-bob-1         65.8MiB / 512MiB    0.04%
-meetvinci-daemon-template-1    60.77MiB / 512MiB   0.02%
-meetvinci-sandbox-alice-1      2.656MiB / 512MiB   0.00%
-meetvinci-web-1                130.5MiB / 256MiB   0.00%
-meetvinci-provisioner-1        61.89MiB / 256MiB   0.00%
-meetvinci-cloudflared-1        38.01MiB / 256MiB   0.24%
-meetvinci-firewall-1           31.92MiB / 128MiB   0.00%
-meetvinci-hub-1                16.5MiB / 256MiB    0.10%
+vinci-daemon-alice-1       84.39MiB / 512MiB   0.04%
+vinci-daemon-bob-1         65.8MiB / 512MiB    0.04%
+vinci-daemon-template-1    60.77MiB / 512MiB   0.02%
+vinci-sandbox-alice-1      2.656MiB / 512MiB   0.00%
+vinci-web-1                130.5MiB / 256MiB   0.00%
+vinci-provisioner-1        61.89MiB / 256MiB   0.00%
+vinci-cloudflared-1        38.01MiB / 256MiB   0.24%
+vinci-firewall-1           31.92MiB / 128MiB   0.00%
+vinci-hub-1                16.5MiB / 256MiB    0.10%
 ...</pre></div>
   <p><code>bun deploy.ts status</code> exits non-zero when someone's daemon or sandbox is not healthy, a disk is full or missing, or the server has less than 10% free. An idle sandbox uses about 3 MiB; it grows while a bot runs commands.</p>
   <p>In the browser, the admin panel's <b>Activity</b> page shows what admins read and changed, newest first; the hub keeps it in <code>hub/audit.sqlite</code>. See <a href="admin.md#activity">Activity</a>.</p>
@@ -396,7 +396,7 @@ meetvinci-hub-1                16.5MiB / 256MiB    0.10%
   <p>Everything of one person is in two places on the server: their volume and their sandbox disk. Here is where each thing lives, for <code>alice</code>:</p>
   <div class="tablewrap"><table>
     <tr><th>What</th><th>On the server</th><th>In the daemon</th><th>In the sandbox</th></tr>
-    <tr><td>Database: bots, devices, settings, encrypted secrets</td><td><code>meetvinci_data-alice</code> → <code>data/app.sqlite</code></td><td><code>/data/data/</code></td><td>no</td></tr>
+    <tr><td>Database: bots, devices, settings, encrypted secrets</td><td><code>vinci_data-alice</code> → <code>data/app.sqlite</code></td><td><code>/data/data/</code></td><td>no</td></tr>
     <tr><td>The key that decrypts the secrets</td><td>same, <code>data/credentials.key</code></td><td><code>/data/data/</code></td><td>no</td></tr>
     <tr><td>Conversations, routines, todos (one file per bot)</td><td>same, <code>data/bots/&lt;botId&gt;/runtime.sql</code></td><td><code>/data/data/bots/</code></td><td>no</td></tr>
     <tr><td>A bot's own MCP servers</td><td>same, <code>data/bots/&lt;botId&gt;/mcp.json</code></td><td><code>/data/data/bots/</code></td><td>no</td></tr>
@@ -404,22 +404,22 @@ meetvinci-hub-1                16.5MiB / 256MiB    0.10%
     <tr><td>Shared skills, instructions, MCP file</td><td>same, <code>home/.agents/</code></td><td><code>/data/home/.agents/</code></td><td>read only</td></tr>
     <tr><td>Bot folders: instructions file, skills, uploads</td><td><code>disks/alice/agents/&lt;botId&gt;/</code></td><td><code>/data/agents/</code></td><td><code>/data/agents/</code></td></tr>
     <tr><td>The bots' home: what bots install</td><td><code>disks/alice/bot-home/</code></td><td>an empty folder</td><td><code>/home/bot</code></td></tr>
-    <tr><td>The owner socket (private door)</td><td><code>meetvinci_ipc</code> → <code>alice/rpc.sock</code></td><td><code>/data/data/ipc/</code></td><td>no</td></tr>
+    <tr><td>The owner socket (private door)</td><td><code>vinci_ipc</code> → <code>alice/rpc.sock</code></td><td><code>/data/data/ipc/</code></td><td>no</td></tr>
   </table></div>
-  <div class="term"><div class="bar"><span>the mounts of a daemon and its sandbox</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for c in daemon sandbox; do echo "== $c"; docker inspect meetvinci-$c-alice-1 --format '{{range .Mounts}}{{.Type}} {{.Name}} -> {{.Destination}} rw={{.RW}}{{println}}{{end}}'; done</span>
+  <div class="term"><div class="bar"><span>the mounts of a daemon and its sandbox</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for c in daemon sandbox; do echo "== $c"; docker inspect vinci-$c-alice-1 --format '{{range .Mounts}}{{.Type}} {{.Name}} -> {{.Destination}} rw={{.RW}}{{println}}{{end}}'; done</span>
 == daemon
-volume meetvinci_data-alice -> /data rw=true
-volume meetvinci_disk-alice -> /data/agents rw=true
+volume vinci_data-alice -> /data rw=true
+volume vinci_disk-alice -> /data/agents rw=true
 tmpfs  -> /data/bot-home rw=false
-volume meetvinci_sandbox-alice -> /run/sandbox rw=true
-volume meetvinci_ipc -> /data/data/ipc rw=true
+volume vinci_sandbox-alice -> /run/sandbox rw=true
+volume vinci_ipc -> /data/data/ipc rw=true
 == sandbox
-volume meetvinci_disk-alice -> /data/agents rw=true
-volume meetvinci_disk-alice -> /home/bot rw=true
-volume meetvinci_sandbox-alice -> /run/sandbox rw=false
-volume meetvinci_data-alice -> /data/home/.agents rw=false</pre></div>
+volume vinci_disk-alice -> /data/agents rw=true
+volume vinci_disk-alice -> /home/bot rw=true
+volume vinci_sandbox-alice -> /run/sandbox rw=false
+volume vinci_data-alice -> /data/home/.agents rw=false</pre></div>
   <p>Both are locked down the same way: read-only system, no capabilities, user 1000, no published ports.</p>
-  <div class="term"><div class="bar"><span>hardening, one line each</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for c in daemon sandbox; do docker inspect meetvinci-$c-alice-1 --format "$c readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} user={{.Config.User}} memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}}"; done</span>
+  <div class="term"><div class="bar"><span>hardening, one line each</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for c in daemon sandbox; do docker inspect vinci-$c-alice-1 --format "$c readonly={{.HostConfig.ReadonlyRootfs}} capdrop={{.HostConfig.CapDrop}} user={{.Config.User}} memory={{.HostConfig.Memory}} pids={{.HostConfig.PidsLimit}} ports={{json .HostConfig.PortBindings}}"; done</span>
 daemon readonly=true capdrop=[ALL] user=1000:1000 memory=536870912 pids=256 ports={}
 sandbox readonly=true capdrop=[ALL] user=1000:1000 memory=536870912 pids=256 ports={}</pre></div>
 
@@ -443,7 +443,7 @@ $ setpriv --reuid=1000 --regid=1000 --clear-groups cp AGENTS.md AGENTS.md.before
 $ setpriv --reuid=1000 --regid=1000 --clear-groups nano AGENTS.md</span></pre></div>
   <p>The next message uses the new instructions; a skill shows up within about 30 seconds. Nothing needs a restart. Everything else (name, model, approval mode, secrets, MCP servers) goes through the admin panel. See <a href="admin.md#set-up-bots-skills-and-tools-for-a-person">Set up bots, skills and tools</a>.</p>
   <ul class="dont">
-    <li><p><b>Do not put plugins or MCP files in a bot's folder.</b> A bot can write its own folder, so MeetVinci loads neither from there. Use the shared <code>home/.agents/</code> or the panel.</p></li>
+    <li><p><b>Do not put plugins or MCP files in a bot's folder.</b> A bot can write its own folder, so Vinci loads neither from there. Use the shared <code>home/.agents/</code> or the panel.</p></li>
     <li><p><b>Do not edit <code>app.sqlite</code> or <code>runtime.sql</code>.</b> A hand edit skips the daemon's checks; one invalid value can break a person's whole bot list, and the daemon recovers chats, routines and approvals from <code>runtime.sql</code> on every start.</p></li>
     <li><p><b>Do not delete <code>daemon.lock</code>.</b> It does not stop the daemon; it only lets a second process corrupt its files.</p></li>
     <li><p><b>Do not edit <code>users.compose.yaml</code> or <code>hub/users.json</code>.</b> Apply rewrites them. Edit <code>users.yaml</code>, then run <code>bun deploy.ts apply</code>.</p></li>
@@ -458,7 +458,7 @@ $ setpriv --reuid=1000 --regid=1000 --clear-groups nano AGENTS.md</span></pre></
     <tr><td>Other people's daemons and sandboxes, the template</td><td><span class="tag no">No</span></td></tr>
     <tr><td>Its own daemon, from the sandbox (only the shared socket)</td><td><span class="tag no">No</span></td></tr>
     <tr><td>The server itself (SSH, Docker's gateways), the metadata service, private ranges, IPv6</td><td><span class="tag no">No</span></td></tr>
-    <tr><td>An address listed in <code>MEETVINCI_INTERNAL_ALLOW</code></td><td><span class="tag ok">Yes, only that</span></td></tr>
+    <tr><td>An address listed in <code>VINCI_INTERNAL_ALLOW</code></td><td><span class="tag ok">Yes, only that</span></td></tr>
   </table></div>
   <p>The sandbox has no database, no keys, no model keys and no owner socket. It does have every bot folder of that person, and the <code>env</code> values of MCP servers that run there. To prove the table on your server, run the two checks in <a href="admin.md#what-a-bot-can-do-and-reach">What a bot can do and reach</a>; healthy is <code>public: 200</code> and <code>blocked</code> for everything else.</p>
   <div class="term"><div class="bar"><span>the firewall</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ bun deploy.ts firewall status</span>
@@ -473,7 +473,7 @@ No check found a problem since the container started.</pre></div>
     <tr><th>Task</th><th>How</th><th>Details</th></tr>
     <tr><td>Add a person</td><td>Admin panel → <b>Add user</b>. By hand: a line in <code>users.yaml</code>, then <code>bun deploy.ts apply</code>. Watch two containers start in the events.</td><td><a href="admin.md#add-a-person">Add a person</a></td></tr>
     <tr><td>Disable or remove a person</td><td>Admin panel. Their container goes; their volume and disk stay until <code>bun deploy.ts purge &lt;id&gt;</code>.</td><td><a href="admin.md#remove-a-person">Remove a person</a></td></tr>
-    <tr><td>Upgrade</td><td>Load the new images, copy the deployment files, <code>bun deploy.ts nightly</code>, set <code>MEETVINCI_TAG</code>, <code>docker compose up -d --wait</code>, <code>bun deploy.ts apply</code>.</td><td><a href="admin.md#upgrades">Upgrades</a></td></tr>
+    <tr><td>Upgrade</td><td>Load the new images, copy the deployment files, <code>bun deploy.ts nightly</code>, set <code>VINCI_TAG</code>, <code>docker compose up -d --wait</code>, <code>bun deploy.ts apply</code>.</td><td><a href="admin.md#upgrades">Upgrades</a></td></tr>
     <tr><td>Roll back</td><td>The old version's deployment files and tag, then the same two commands. Some versions need a restore: read the section first.</td><td><a href="admin.md#upgrades">Upgrades</a>, last part</td></tr>
     <tr><td>Restore one person</td><td><code>bun deploy.ts restore alice backups/&lt;time&gt;</code>. It saves their current data first; nobody else stops.</td><td><a href="admin.md#restore-one-person">Restore one person</a></td></tr>
     <tr><td>Read the nightly result</td><td><code>bun deploy.ts nightly status</code></td><td><a href="admin.md#nightly-backups">Nightly backups</a></td></tr>
@@ -497,11 +497,11 @@ alice.tar.gz  bob.tar.gz  deployment.tar.gz  hub.tar.gz  manifest.json  template
     <tr><th>Step</th><th>What appears on the server</th><th>Look with</th></tr>
     <tr><td><a href="install.md#1-check-the-server">1. Check the server</a></td><td>Nothing yet. <code>x86_64</code>, Ubuntu 24.04, <code>avx2</code>, 3.7 GiB or more, 40 GB free.</td><td><code>free -h; df -h /</code></td></tr>
     <tr><td><a href="install.md#2-install-docker">2. Install Docker</a></td><td><code>/var/lib/docker</code> and <code>/var/lib/containerd</code>, the <code>docker</code> service enabled, three default networks (<code>bridge</code>, <code>host</code>, <code>none</code>).</td><td><code>systemctl is-enabled docker; docker network ls</code></td></tr>
-    <tr><td><a href="install.md#3-get-meetvinci-onto-the-server">3. Get MeetVinci on</a></td><td>Six <code>meetvinci-*</code> images with your tag. <code>/opt/meetvinci</code> (mode 700) with the five shipped files and <code>.env</code> (mode 600). <code>/usr/local/bin/bun</code>.</td><td><code>docker image ls; ls -la /opt/meetvinci; bun --version</code></td></tr>
+    <tr><td><a href="install.md#3-get-vinci-onto-the-server">3. Get Vinci on</a></td><td>Six <code>vinci-*</code> images with your tag. <code>/opt/vinci</code> (mode 700) with the five shipped files and <code>.env</code> (mode 600). <code>/usr/local/bin/bun</code>.</td><td><code>docker image ls; ls -la /opt/vinci; bun --version</code></td></tr>
     <tr><td><a href="install.md#4-write-the-team-list">4. Write the team list</a></td><td><code>users.yaml</code>. No container yet.</td><td><code>ls -l users.yaml</code> (not <code>cat</code>: emails)</td></tr>
     <tr><td><a href="install.md#5-create-the-cloudflare-objects">5. Cloudflare objects</a></td><td>Nothing on the server: this runs on your computer and writes <code>cloudflare.env</code> there.</td><td>The script's output</td></tr>
     <tr><td><a href="install.md#6-put-the-tunnel-token-on-the-server">6. Tunnel token</a></td><td>The Cloudflare lines merged into <code>.env</code> (seven with a domain rule, six without), still <code>600 root</code>.</td><td><code>stat -c "%a %U" .env</code></td></tr>
-    <tr><td><a href="install.md#7-start-meetvinci">7. Start MeetVinci</a></td><td>In the events: firewall first, then web, cloudflared, each daemon and sandbox, then hub and provisioner. On disk: <code>users.compose.yaml</code>, <code>hub/</code> with <code>users.json</code>, <code>disks/&lt;id&gt;.img</code> and their mounts, <code>meetvinci-disks.service</code>. The hub then creates <code>admins.json</code>, <code>audit.sqlite</code>, <code>pins.json</code> as it reaches each daemon, and <code>global.json</code> once people follow Global settings. The cloudflared log shows 4 <code>Registered tunnel connection</code>. The cloudflared image is pulled from Docker Hub the first time.</td><td><code>docker compose ps; bun deploy.ts status; ls -la hub disks</code></td></tr>
+    <tr><td><a href="install.md#7-start-vinci">7. Start Vinci</a></td><td>In the events: firewall first, then web, cloudflared, each daemon and sandbox, then hub and provisioner. On disk: <code>users.compose.yaml</code>, <code>hub/</code> with <code>users.json</code>, <code>disks/&lt;id&gt;.img</code> and their mounts, <code>vinci-disks.service</code>. The hub then creates <code>admins.json</code>, <code>audit.sqlite</code>, <code>pins.json</code> as it reaches each daemon, and <code>global.json</code> once people follow Global settings. The cloudflared log shows 4 <code>Registered tunnel connection</code>. The cloudflared image is pulled from Docker Hub the first time.</td><td><code>docker compose ps; bun deploy.ts status; ls -la hub disks</code></td></tr>
     <tr><td><a href="install.md#8-check-it-works">8. Check it works</a></td><td>On the first login: <code>Pairing grant issued through the hub</code> in the hub log. In the panel: Activity rows for each change you make in Global settings, and <code>Admin call relayed to a private door</code> lines in the hub log.</td><td>The live log filter</td></tr>
     <tr><td><a href="install.md#9-turn-on-nightly-backups">9. Nightly backups</a></td><td>The two backup units, then one run: each person's daemon and sandbox stop and start in turn (watch the events), the hub stops for about 2 seconds, and a folder <code>backups/&lt;time&gt;/</code> with <code>nightly.json</code> beside it.</td><td><code>bun deploy.ts nightly status</code></td></tr>
   </table></div>
@@ -509,7 +509,7 @@ alice.tar.gz  bob.tar.gz  deployment.tar.gz  hub.tar.gz  manifest.json  template
 
 <section id="cheat">
   <h2><span class="n">+</span>Cheat sheet</h2>
-  <div class="term"><div class="bar"><span>on the server, in /opt/meetvinci</span><button class="copy" type="button">Copy</button></div><pre><span class="c">docker compose ps</span>                                  <span class="d"># every container and its health</span>
+  <div class="term"><div class="bar"><span>on the server, in /opt/vinci</span><button class="copy" type="button">Copy</button></div><pre><span class="c">docker compose ps</span>                                  <span class="d"># every container and its health</span>
 <span class="c">bun deploy.ts status</span>                               <span class="d"># each person's daemon, sandbox and disk; free space</span>
 <span class="c">docker stats --no-stream</span>                           <span class="d"># memory and CPU</span>
 <span class="c">bun deploy.ts firewall status</span>                      <span class="d"># the firewall's health</span>
@@ -519,7 +519,7 @@ alice.tar.gz  bob.tar.gz  deployment.tar.gz  hub.tar.gz  manifest.json  template
 <span class="c">df -h disks/*/</span>                                     <span class="d"># how full each sandbox disk is</span>
 <span class="c">docker system df</span>                                   <span class="d"># images, containers, volumes</span>
 <span class="c">docker compose exec -T sandbox-&lt;id&gt; ls -la /data/agents</span>   <span class="d"># bot folders, as the bots see them</span>
-<span class="c">docker inspect meetvinci-hub-1 --format '{{.Config.Image}}'</span>   <span class="d"># the running tag, without opening .env</span>
+<span class="c">docker inspect vinci-hub-1 --format '{{.Config.Image}}'</span>   <span class="d"># the running tag, without opening .env</span>
 
 <span class="c">bun deploy.ts apply</span>                                <span class="d"># after editing users.yaml or .env</span>
 <span class="c">bun deploy.ts backup &lt;id&gt;</span>                          <span class="d"># before any risky change</span></pre></div>

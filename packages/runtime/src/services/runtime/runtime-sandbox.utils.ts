@@ -15,7 +15,7 @@ export function runtimeSandboxNative({ root, folder, bridge }: RuntimeSandboxPar
     spares: [],
     waiters: new Set(),
     reserved: undefined,
-    bridgePath: join(tmpdir(), `meetvinci-sandbox-${process.pid}.sock`),
+    bridgePath: join(tmpdir(), `vinci-sandbox-${process.pid}.sock`),
     isClosing: false,
   };
 

@@ -21,7 +21,7 @@ export async function secretProxyCertAuthority(): Promise<SecretProxyCertAuthori
 
   const caCert = await x509.X509CertificateGenerator.createSelfSigned({
     ...secretProxyCertValidity(),
-    name: 'CN=MeetVinci secrets proxy',
+    name: 'CN=Vinci secrets proxy',
     keys: caKeys,
     signingAlgorithm: SECRET_PROXY.certAlgorithm,
     extensions: [
