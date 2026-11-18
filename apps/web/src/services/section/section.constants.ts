@@ -49,6 +49,7 @@ export const SECTION_SCOPE_APP: SectionScope = {
       replace: true,
     }),
     mcpRemove: (botId, server) => linkOptions({ to: '/bots/$botId/mcp/$server/remove', params: { botId, server } }),
+    mcpEdit: null,
   },
   rooms: {
     routineEdit: (botId, routineId) => linkOptions({ to: '/bots/$botId/routines/$routineId/edit', params: { botId, routineId } }),

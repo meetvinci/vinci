@@ -10,6 +10,7 @@ const textareaVariants = cva({
     variant: {
       default: 'rounded-md bg-transparent px-3 py-2 shadow-xs dark:bg-input/30',
       field: 'rounded-xl bg-background px-4 py-3 shadow-sm dark:bg-card',
+      code: 'rounded-md bg-transparent px-3 py-2 font-mono text-xs shadow-xs md:text-xs dark:bg-input/30',
     },
   },
   defaultVariants: { variant: 'default' },

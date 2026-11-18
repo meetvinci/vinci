@@ -19,11 +19,11 @@ export async function mcpActionOwn(deps: McpServiceDeps, { botId, mcp }: Pick<Bo
     return { key: mcpOwnedKey(key), value };
   });
 
+  const mcpOwnedKeys = (references: Record<string, string>) => Object.fromEntries(Object.entries(references).map(([name, key]) => [name, mcpOwnedKey(key)]));
+
   const mcpServers = Object.fromEntries(Object.entries(mcp.mcpServers).map(([name, entry]) => [name, match(mcpServer.safeParse(entry))
-    .with({ success: true, data: { headerCredentials: P.nonNullable } }, ({ data }) => ({
-      ...data,
-      headerCredentials: Object.fromEntries(Object.entries(data.headerCredentials).map(([header, key]) => [header, mcpOwnedKey(key)])),
-    }))
+    .with({ success: true, data: { headerCredentials: P.nonNullable } }, ({ data }) => ({ ...data, headerCredentials: mcpOwnedKeys(data.headerCredentials) }))
+    .with({ success: true, data: { envCredentials: P.nonNullable } }, ({ data }) => ({ ...data, envCredentials: mcpOwnedKeys(data.envCredentials) }))
     .otherwise(() => entry)]));
 
   const { set } = deps.credentials.actions;

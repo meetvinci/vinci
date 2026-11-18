@@ -20,6 +20,12 @@
   "validation_muted_until": "Wähle ein Ende der Stummschaltung in der Zukunft.",
   "validation_mcp_secret_missing": "Frag den Besitzer zuerst mit bot_secret nach diesem Geheimnis.",
   "validation_mcp_secret_host": "Dieses Geheimnis ist für den Host des MCP-Servers nicht erlaubt. Bitte den Besitzer, es für diesen Host zu speichern.",
+  "validation_mcp_file_json": "Verwende JSON mit einem mcpServers-Objekt.",
+  "validation_mcp_file_name": "Benenne {server} um: Kleinbuchstaben, Ziffern und Bindestriche, beginnend mit einem Buchstaben, höchstens 32 Zeichen.",
+  "validation_mcp_file_count": "Füge höchstens 32 MCP-Server hinzu.",
+  "validation_mcp_file_server": "Korrigiere {server}: gib eine https-url oder einen command an. Erlaubte Felder: description, enabled, disabled, url, headers, headerCredentials, command, args, cwd, env, envCredentials.",
+  "validation_mcp_file_secret": "Korrigiere {server}: {field} verweist auf ein Geheimnis, das nicht gespeichert ist. Gib stattdessen den Wert ein oder nutze secrets.NAME für ein gespeichertes Geheimnis.",
+  "validation_mcp_file_host": "Korrigiere {server}: Das Geheimnis in {field} ist für den Host dieses Servers nicht erlaubt.",
   "validation_provider_import_prompt": "Dieser Anbieter verlangt mehr als einen API-Schlüssel und seine Einstellungen und kann daher nicht kopiert werden.",
   "validation_workspace_path": "Jede Datei muss in ihrem Ordner bleiben.",
   "validation_workspace_too_large": "Diese Dateien sind zu groß, um sie auf einmal zu kopieren."

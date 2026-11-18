@@ -19,6 +19,7 @@ import { BotDialogNav } from '@/components/bots/bot-dialog-nav';
 import { BotFormSection } from '@/components/bots/bot-form-section';
 import { BotFormSkills } from '@/components/bots/bot-form-skills';
 import { BotMcp } from '@/components/bots/bot-mcp';
+import { BotMcpEdit } from '@/components/bots/bot-mcp-edit';
 import { BotMcpRemove } from '@/components/bots/bot-mcp-remove';
 import { RoutinesEdit } from '@/components/routines/routines-edit';
 import { RoutinesList } from '@/components/routines/routines-list';
@@ -68,7 +69,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
     .with({ kind: 'section' }, ({ section: current }) => current)
     .with({ kind: 'routine-edit' }, { kind: 'routine-delete' }, () => 'routines')
     .with({ kind: 'todo-delete' }, () => 'todos')
-    .with({ kind: 'mcp-remove' }, () => 'mcp')
+    .with({ kind: 'mcp-edit' }, { kind: 'mcp-remove' }, () => 'mcp')
     .with({ kind: 'delete' }, { kind: 'reset' }, () => 'danger')
     .exhaustive();
 
@@ -194,6 +195,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
                 onBack={() => openSection('todos')}
               />
             ))
+            .with({ kind: 'mcp-edit' }, () => <BotMcpEdit bot={bot} />)
             .with({ kind: 'mcp-remove' }, ({ server }) => <BotMcpRemove bot={bot} server={server} />)
             .exhaustive()}
         </Form>

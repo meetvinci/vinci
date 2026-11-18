@@ -1,9 +1,9 @@
 import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
-import { match } from 'ts-pattern';
-import { mcpDocument } from '@repo/runtime/server';
+import { match, P } from 'ts-pattern';
+import { mcpDocument, mcpServer } from '@repo/runtime/server';
 import { MCP } from './mcp.constants';
-import type { McpServiceDeps } from '../../types/mcp.types';
+import type { McpFileEntry, McpFileServers, McpServiceDeps } from '../../types/mcp.types';
 
 export async function mcpFiles(path: string, visited = new Set<string>()): Promise<string[]> {
   const canonical = await realpath(path);
@@ -52,7 +52,7 @@ export function mcpFilesOwnedPath({ root }: Pick<McpServiceDeps, 'root'>, botId:
   return join(root, 'data', 'bots', botId, MCP.ownedFile);
 }
 
-export async function mcpFilesRead(deps: Pick<McpServiceDeps, 'root'>, botId: string) {
+export async function mcpFilesRead(deps: Pick<McpServiceDeps, 'root'>, botId: string): Promise<{ mcpServers: McpFileServers }> {
   const path = mcpFilesOwnedPath(deps, botId);
 
   try {
@@ -66,7 +66,7 @@ export async function mcpFilesRead(deps: Pick<McpServiceDeps, 'root'>, botId: st
   }
 }
 
-export async function mcpFilesWrite(deps: Pick<McpServiceDeps, 'root'>, botId: string, document: Awaited<ReturnType<typeof mcpFilesRead>>) {
+export async function mcpFilesWrite(deps: Pick<McpServiceDeps, 'root'>, botId: string, document: { mcpServers: Record<string, McpFileEntry> }) {
   const path = mcpFilesOwnedPath(deps, botId);
   const temporary = `${path}.${crypto.randomUUID()}.tmp`;
 
@@ -79,8 +79,22 @@ export function mcpFilesDerivedKey(botId: string, name: string, index: number) {
   return `${MCP.derivedPrefix}${botId}.${name}.${index}`;
 }
 
-export async function mcpFilesDerivedClear(deps: Pick<McpServiceDeps, 'credentials'>, botId: string, name: string, fromIndex = 0) {
-  const clears = Array.from({ length: MCP.maxHeaders - fromIndex }, (_, offset) => ({ key: mcpFilesDerivedKey(botId, name, fromIndex + offset), value: null }));
+export function mcpFilesReferences(entry: McpFileEntry): { key: string; host: string | null }[] {
+  const server = mcpServer.safeParse(entry).data;
+
+  return match(server)
+    .with({ url: P.string }, ({ url, headerCredentials = {} }) => Object.values(headerCredentials).map((key) => ({ key, host: new URL(url).hostname })))
+    .with({ command: P.string }, ({ envCredentials = {} }) => Object.values(envCredentials).map((key) => ({ key, host: null })))
+    .otherwise(() => []);
+}
+
+export async function mcpFilesDerivedRelease(deps: Pick<McpServiceDeps, 'credentials'>, botId: string, entries: McpFileEntry[], keep = new Set<string>()) {
+  const prefix = `${MCP.derivedPrefix}${botId}.`;
+
+  const keys = new Set(entries.flatMap((entry) => mcpFilesReferences(entry))
+    .map(({ key }) => key)
+    .filter((key) => key.startsWith(prefix) && !keep.has(key)));
+
   const { set } = deps.credentials.actions;
-  await Promise.all(clears.map((clear) => set(clear)));
+  await Promise.all([...keys].map((key) => set({ key, value: null })));
 }

@@ -15,7 +15,7 @@ const RPC_LOCAL_ALLOWLIST = {
   plugins: { discover: true, settings: true, configure: true },
   instructions: { discover: true, settings: true, configure: true },
   skills: { discover: true, shared: true, local: true, settings: true, status: true, configure: true },
-  mcp: { discover: true, shared: true, connect: true, add: true, remove: true, settings: true, configure: true },
+  mcp: { discover: true, shared: true, connect: true, add: true, remove: true, get: true, replace: true, settings: true, configure: true },
   mcpAuth: { start: true, complete: true, cancel: true, logout: true, status: true },
   tools: { settings: true, configure: true, export: true, pending: true, alwaysAllowed: true, clearAlwaysAllowed: true },
   workspace: { export: true, import: true },

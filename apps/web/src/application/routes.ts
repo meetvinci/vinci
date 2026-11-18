@@ -83,6 +83,7 @@ export const routes = rootRoute('root.tsx', [
           route('/delete', 'admin/admin.users.$userId.bots.$botId.delete.tsx'),
           route('/reset', 'admin/admin.users.$userId.bots.$botId.reset.tsx'),
           route('/skills/local', 'admin/admin.users.$userId.bots.$botId.skills.local.tsx'),
+          route('/mcp/edit', 'admin/admin.users.$userId.bots.$botId.mcp.edit.tsx'),
           route('/mcp/$server/remove', 'admin/admin.users.$userId.bots.$botId.mcp.$server.remove.tsx'),
           route('/$tab', 'admin/admin.users.$userId.bots.$botId.$tab.tsx'),
         ]),

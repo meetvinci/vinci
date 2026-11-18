@@ -16,6 +16,7 @@ export interface SectionBotLinks {
   reset: (botId: string) => LinkOptions
   remove: (botId: string) => LinkOptions
   mcpRemove: (botId: string, server: string) => LinkOptions
+  mcpEdit: ((botId: string) => LinkOptions) | null
 }
 
 export interface SectionRoomLinks {

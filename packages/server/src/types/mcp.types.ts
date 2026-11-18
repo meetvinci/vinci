@@ -2,7 +2,7 @@ import type { CredentialsService } from '../services/credentials/credentials.ser
 import type { SecretService } from '../services/secret/secret.service';
 import type { SettingsService } from '../services/settings/settings.service';
 import type { Bot, McpSettings } from '@repo/contracts/universal';
-import type { McpClientService } from '@repo/runtime/server';
+import type { McpClientService, McpSource } from '@repo/runtime/server';
 
 export interface McpServiceDeps {
   root: string;
@@ -31,3 +31,7 @@ export interface McpConfigParams {
   isInherited: boolean;
   sharedMcp: string[] | null;
 }
+
+export type McpFileServers = McpSource['servers'];
+
+export type McpFileEntry = McpFileServers[string] | object;

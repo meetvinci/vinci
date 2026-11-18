@@ -1,6 +1,6 @@
 import { Errors } from '@repo/errors/universal';
 import { match } from 'ts-pattern';
-import { mcpFilesDerivedClear, mcpFilesRead, mcpFilesWrite } from './mcp-files.utils';
+import { mcpFilesDerivedRelease, mcpFilesRead, mcpFilesWrite } from './mcp-files.utils';
 import type { McpServiceDeps } from '../../types/mcp.types';
 import type { McpServerRemoveInput } from '@repo/contracts/universal';
 
@@ -14,7 +14,7 @@ export async function mcpActionRemove(deps: McpServiceDeps, { botId, name }: Mcp
     .with(true, async () => {
       const mcpServers = Object.fromEntries(Object.entries(document.mcpServers).filter(([key]) => key !== name));
       await mcpFilesWrite(deps, botId, { mcpServers });
-      await mcpFilesDerivedClear(deps, botId, name);
+      await mcpFilesDerivedRelease(deps, botId, Object.entries(document.mcpServers).filter(([key]) => key === name).map(([, entry]) => entry));
     })
     .exhaustive();
 }

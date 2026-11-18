@@ -45,6 +45,7 @@ export function expandValidationError(key: string, params: Record<string, string
   const p = {
     field: Object.hasOwn(params, 'field') ? String(params.field) : '',
     minimum: Object.hasOwn(params, 'minimum') ? String(params.minimum) : '',
+    server: Object.hasOwn(params, 'server') ? String(params.server) : '',
   };
 
   return match(key)
@@ -61,6 +62,8 @@ export function expandValidationError(key: string, params: Record<string, string
     .with('validation_artifact_spec', () => m.validation_artifact_spec())
     .with('validation_mcp_secret_missing', () => m.validation_mcp_secret_missing())
     .with('validation_mcp_secret_host', () => m.validation_mcp_secret_host())
+    .with('validation_mcp_file_secret', () => m.validation_mcp_file_secret(p))
+    .with('validation_mcp_file_host', () => m.validation_mcp_file_host(p))
     .with('validation_routine_schedule', () => m.validation_routine_schedule())
     .otherwise(() => key);
 }

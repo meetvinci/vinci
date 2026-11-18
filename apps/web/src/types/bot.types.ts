@@ -30,6 +30,7 @@ export type BotDialogView =
   | { kind: 'routine-edit'; botId: string; routineId: string }
   | { kind: 'routine-delete'; botId: string; routineId: string }
   | { kind: 'todo-delete'; botId: string; todoId: string }
+  | { kind: 'mcp-edit'; botId: string }
   | { kind: 'mcp-remove'; botId: string; server: string };
 
 export interface BotDialogViewParams {
