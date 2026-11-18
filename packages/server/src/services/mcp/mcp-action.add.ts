@@ -2,7 +2,7 @@ import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import { mcpFilesDerivedKey, mcpFilesDerivedRelease, mcpFilesRead, mcpFilesReferences, mcpFilesWrite } from './mcp-files.utils';
 import { MCP } from './mcp.constants';
-import { mcpIsHostAllowed } from './mcp.utils';
+import { mcpIsHostAllowed, mcpIsUrlAllowed } from './mcp.utils';
 import type { McpServiceDeps } from '../../types/mcp.types';
 import type { McpServerAddInput } from '@repo/contracts/universal';
 
@@ -10,6 +10,10 @@ export async function mcpActionAdd(deps: McpServiceDeps, params: McpServerAddInp
   const { botId, name } = params;
   const headers = params.headers ?? [];
   const env = params.env ?? [];
+
+  if (params.url !== undefined && !mcpIsUrlAllowed(deps.internalAllow, params.url)) {
+    throw new Errors.VALIDATION_ERROR({ fields: { url: { message: 'validation_mcp_http', args: { server: name } } } });
+  }
 
   await mcpCheckSecrets('headers', headers.map(({ secret }) => secret));
   await mcpCheckSecrets('env', env.map(({ secret }) => secret));
