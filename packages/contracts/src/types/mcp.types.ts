@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { credentialsKey } from './credentials.types';
 import { secretName } from './secret.types';
 
 export const mcpSettings = z.object({
@@ -58,6 +59,44 @@ export const mcpServerAdd = z.object({
     path: ['env'],
   });
 
+const mcpFileHeaderName = z.string().regex(/^[A-Za-z0-9-]{1,64}$/);
+const mcpFileEnvName = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/);
+const mcpFileValue = z.string().min(1).max(16384);
+
+const mcpFileCommon = {
+  description: z.string().max(1024).optional(),
+  enabled: z.boolean().optional(),
+  disabled: z.boolean().optional(),
+};
+
+export const mcpFileServer = z.union([
+  z.strictObject({
+    ...mcpFileCommon,
+    type: z.literal('http').optional(),
+    url: z.url({ protocol: /^https$/ }),
+    headers: z.record(mcpFileHeaderName, mcpFileValue).optional(),
+    headerCredentials: z.record(mcpFileHeaderName, credentialsKey).optional(),
+  }),
+  z.strictObject({
+    ...mcpFileCommon,
+    type: z.literal('stdio').optional(),
+    command: z.string().trim().min(1).max(512),
+    args: z.array(z.string().max(1024)).max(32).optional(),
+    cwd: z.string().min(1).max(4096).optional(),
+    env: z.record(mcpFileEnvName, mcpFileValue).optional(),
+    envCredentials: z.record(mcpFileEnvName, credentialsKey).optional(),
+  }),
+]);
+
+export const mcpFileServers = z.record(mcpServerName, mcpFileServer)
+  .refine((servers) => Object.keys(servers).length <= 32, { message: 'validation_mcp_file_count' });
+
+export const mcpFileDocument = z.object({ mcpServers: mcpFileServers });
+
+export const mcpFile = z.object({ mcpServers: z.record(z.string(), z.json()) });
+
+export const mcpReplace = z.object({ botId: z.uuid(), mcpServers: mcpFileServers });
+
 export const mcpServerRemove = z.object({ botId: z.uuid(), name: mcpServerName });
 
 export const mcpOwned = z.object({
@@ -86,3 +125,6 @@ export type McpShared = z.infer<typeof mcpShared>;
 export type McpServerAddInput = z.infer<typeof mcpServerAdd>;
 export type McpServerRemoveInput = z.infer<typeof mcpServerRemove>;
 export type McpOwned = z.infer<typeof mcpOwned>;
+export type McpFile = z.infer<typeof mcpFile>;
+export type McpFileServer = z.infer<typeof mcpFileServer>;
+export type McpReplaceInput = z.infer<typeof mcpReplace>;

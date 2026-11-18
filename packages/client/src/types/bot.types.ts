@@ -110,6 +110,11 @@ export interface BotMcpRemoveParams {
   onDone: () => void;
 }
 
+export interface BotMcpFileParams {
+  botId: string;
+  onDone: () => void;
+}
+
 export interface BotMcpParams {
   bot: UniversalTypes.Bot;
   login: () => BotMcpLogin;

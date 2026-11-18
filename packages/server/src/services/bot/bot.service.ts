@@ -10,6 +10,7 @@ import { botActionImportFiles } from './bot-action.import-files';
 import { botActionMarkRead } from './bot-action.mark-read';
 import { botActionOpen } from './bot-action.open';
 import { botActionRemoveMcp } from './bot-action.remove-mcp';
+import { botActionReplaceMcp } from './bot-action.replace-mcp';
 import { botActionRestore } from './bot-action.restore';
 import { botActionSetPreferences } from './bot-action.set-preferences';
 import { botActionSwapModels } from './bot-action.swap-models';
@@ -22,6 +23,7 @@ import { botQueryInstructions } from './bot-query.instructions';
 import { botQueryList } from './bot-query.list';
 import { botQueryLocalSkills } from './bot-query.local-skills';
 import { botQueryMcp } from './bot-query.mcp';
+import { botQueryMcpFile } from './bot-query.mcp-file';
 import { botQueryModelSettings } from './bot-query.model-settings';
 import { botQueryPlugins } from './bot-query.plugins';
 import { botQueryPreferences } from './bot-query.preferences';
@@ -55,6 +57,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       connectMcp: (params: UniversalTypes.BotGetInput) => botActionConnectMcp(serviceDeps, params),
       addMcp: (params: UniversalTypes.McpServerAddInput) => botActionAddMcp(serviceDeps, params),
       removeMcp: (params: UniversalTypes.McpServerRemoveInput) => botActionRemoveMcp(serviceDeps, params),
+      replaceMcp: (params: UniversalTypes.McpReplaceInput) => botActionReplaceMcp(serviceDeps, params),
       restore: () => botActionRestore(serviceDeps),
       create: (params: BotTypes.BotCreateParams) => botActionCreate(serviceDeps, params),
       configureModels: (params: UniversalTypes.ModelSettings) => botActionConfigureModels(serviceDeps, params),
@@ -78,6 +81,7 @@ export function makeBotService(deps: Omit<BotTypes.BotServiceDeps, 'queues' | 'c
       localSkills: (params: UniversalTypes.BotGetInput) => botQueryLocalSkills(serviceDeps, params),
       sharedMcp: (params: UniversalTypes.BotGetInput) => botQuerySharedMcp(serviceDeps, params),
       mcp: (params: UniversalTypes.BotGetInput) => botQueryMcp(serviceDeps, params),
+      mcpFile: (params: UniversalTypes.BotGetInput) => botQueryMcpFile(serviceDeps, params),
       usage: (params: UniversalTypes.BotGetInput) => botQueryUsage(serviceDeps, params),
       list: () => botQueryList(serviceDeps),
       preferences: () => botQueryPreferences(serviceDeps),

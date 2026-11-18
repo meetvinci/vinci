@@ -76,6 +76,7 @@ import { Route as adminAdminDotusersDotuserIdDotdevicesDotdeviceIdDotrevokeRoute
 import { Route as adminAdminDotusersDotuserIdDotsettingsDotmodelsDotmodelRouteImport } from "./../routes/admin/admin.users.$userId.settings.models.$model";
 import { Route as roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRouteImport } from "./../routes/rooms/rooms.direct.$handle.todos.$todoId.delete";
 import { Route as roomsRoomsDotdirectDothandleDotwithDotpeerRouteImport } from "./../routes/rooms/rooms.direct.$handle.with.$peer";
+import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.mcp.edit";
 import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.skills.local";
 import { Route as adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRouteImport } from "./../routes/admin/admin.users.$userId.settings.providers.$providerId.logout";
 import { Route as adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.bots.$botId.mcp.$server.remove";
@@ -462,6 +463,12 @@ const roomsRoomsDotdirectDothandleDotwithDotpeerRoute =
     path: "/with/$peer/$conversationId",
     getParentRoute: () => roomsRoomsDotdirectDothandleRoute,
   } as any);
+const adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute =
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRouteImport.update({
+    id: "/mcp/edit",
+    path: "/mcp/edit",
+    getParentRoute: () => adminAdminDotusersDotuserIdDotbotsDotbotIdRoute,
+  } as any);
 const adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute =
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRouteImport.update(
     {
@@ -554,6 +561,7 @@ export interface FileRoutesByFullPath {
   "/admin/users/$userId/bots/$botId/": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/mcp/edit": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute;
   "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
   "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
@@ -616,6 +624,7 @@ export interface FileRoutesByTo {
   "/admin/users/$userId/bots/$botId": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/mcp/edit": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute;
   "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
   "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
@@ -689,6 +698,7 @@ export interface FileRoutesById {
   "/admin/users/$userId/bots/$botId/": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
   "/_chat/rooms/direct/$handle/todos/$todoId/delete": typeof roomsRoomsDotdirectDothandleDottodosDottodoIdDotdeleteRoute;
   "/_chat/rooms/direct/$handle/with/$peer/$conversationId": typeof roomsRoomsDotdirectDothandleDotwithDotpeerRoute;
+  "/admin/users/$userId/bots/$botId/mcp/edit": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute;
   "/admin/users/$userId/bots/$botId/skills/local": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
   "/admin/users/$userId/settings/providers/$providerId/logout": typeof adminAdminDotusersDotuserIdDotsettingsDotprovidersDotproviderIdDotlogoutRoute;
   "/admin/users/$userId/bots/$botId/mcp/$server/remove": typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
@@ -762,6 +772,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/bots/$botId/"
     | "/rooms/direct/$handle/todos/$todoId/delete"
     | "/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/mcp/edit"
     | "/admin/users/$userId/bots/$botId/skills/local"
     | "/admin/users/$userId/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
@@ -824,6 +835,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/bots/$botId"
     | "/rooms/direct/$handle/todos/$todoId/delete"
     | "/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/mcp/edit"
     | "/admin/users/$userId/bots/$botId/skills/local"
     | "/admin/users/$userId/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
@@ -896,6 +908,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/bots/$botId/"
     | "/_chat/rooms/direct/$handle/todos/$todoId/delete"
     | "/_chat/rooms/direct/$handle/with/$peer/$conversationId"
+    | "/admin/users/$userId/bots/$botId/mcp/edit"
     | "/admin/users/$userId/bots/$botId/skills/local"
     | "/admin/users/$userId/settings/providers/$providerId/logout"
     | "/admin/users/$userId/bots/$botId/mcp/$server/remove";
@@ -1382,6 +1395,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof roomsRoomsDotdirectDothandleDotwithDotpeerRouteImport;
       parentRoute: typeof roomsRoomsDotdirectDothandleRoute;
     };
+    "/admin/users/$userId/bots/$botId/mcp/edit": {
+      id: "/admin/users/$userId/bots/$botId/mcp/edit";
+      path: "/mcp/edit";
+      fullPath: "/admin/users/$userId/bots/$botId/mcp/edit";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdRoute;
+    };
     "/admin/users/$userId/bots/$botId/skills/local": {
       id: "/admin/users/$userId/bots/$botId/skills/local";
       path: "/skills/local";
@@ -1617,6 +1637,7 @@ interface adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren {
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotdeleteRoute;
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute;
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute;
+  adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute;
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute;
   adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute: typeof adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute;
 }
@@ -1631,6 +1652,8 @@ const adminAdminDotusersDotuserIdDotbotsDotbotIdRouteChildren: adminAdminDotuser
       adminAdminDotusersDotuserIdDotbotsDotbotIdDotresetRoute,
     adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute:
       adminAdminDotusersDotuserIdDotbotsDotbotIdDotindexRoute,
+    adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute:
+      adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDoteditRoute,
     adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute:
       adminAdminDotusersDotuserIdDotbotsDotbotIdDotskillsDotlocalRoute,
     adminAdminDotusersDotuserIdDotbotsDotbotIdDotmcpDotserverDotremoveRoute:

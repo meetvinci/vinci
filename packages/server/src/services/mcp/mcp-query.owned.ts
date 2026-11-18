@@ -1,6 +1,4 @@
-import { match, P } from 'ts-pattern';
-import { mcpServer } from '@repo/runtime/server';
-import { mcpFilesRead } from './mcp-files.utils';
+import { mcpFilesRead, mcpFilesReferences } from './mcp-files.utils';
 import { MCP } from './mcp.constants';
 import type { McpServiceDeps } from '../../types/mcp.types';
 import type { BotGetInput, McpOwned } from '@repo/contracts/universal';
@@ -10,9 +8,8 @@ export async function mcpQueryOwned(deps: McpServiceDeps, { botId }: BotGetInput
   const prefix = `${MCP.derivedPrefix}${botId}.`;
 
   const keys = Object.values(mcpServers)
-    .flatMap((entry) => match(mcpServer.safeParse(entry).data)
-      .with({ headerCredentials: P.nonNullable }, ({ headerCredentials }) => Object.values(headerCredentials))
-      .otherwise(() => []))
+    .flatMap((entry) => mcpFilesReferences(entry))
+    .map(({ key }) => key)
     .filter((key) => key.startsWith(prefix));
 
   const { get } = deps.credentials.queries;

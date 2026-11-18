@@ -68,6 +68,11 @@ export function adminSectionScope(userId: string): SectionScope {
         replace: true,
       }),
       mcpRemove: (botId, server) => linkOptions({ to: '/admin/users/$userId/bots/$botId/mcp/$server/remove', params: { userId, botId, server } }),
+      mcpEdit: (botId) => linkOptions({
+        to: '/admin/users/$userId/bots/$botId/mcp/edit',
+        params: { userId, botId },
+        replace: true,
+      }),
     },
     rooms: null,
   };

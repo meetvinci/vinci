@@ -1,7 +1,8 @@
 import { useBotMcp } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import IconBraces from '~icons/lucide/braces';
 import IconEllipsisVertical from '~icons/lucide/ellipsis-vertical';
 import IconLogIn from '~icons/lucide/log-in';
 import IconLogOut from '~icons/lucide/log-out';
@@ -34,10 +35,12 @@ interface BotMcpPanelProps {
   canStart: boolean
   /** False for a team user who can't see Settings → Sources, so the empty state doesn't point there. */
   isSourcesVisible: boolean
+  /** The JSON editor for the bot's own MCP file; only the admin panel has one. */
+  editLink: LinkOptions | null
   removeLink: (server: string) => LinkOptions
 }
 
-export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, removeLink }: BotMcpPanelProps) {
+export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, editLink, removeLink }: BotMcpPanelProps) {
   const mcp = useBotMcp({
     bot,
     canStart,
@@ -59,12 +62,22 @@ export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, remove
 
   return (
     <SettingsGroup title={m.bots_mcp()}>
-      {mcp.rows.length > 0 ? (
-        <PanelRow>
-          <Button disabled={mcp.isBusy} size="sm" variant="outline" onClick={mcp.refreshTools}>
-            <IconRefreshCw />
-            {m.bots_mcp_refresh_tools()}
-          </Button>
+      {mcp.rows.length > 0 || editLink ? (
+        <PanelRow className="flex-wrap gap-2">
+          {mcp.rows.length > 0 ? (
+            <Button disabled={mcp.isBusy} size="sm" variant="outline" onClick={mcp.refreshTools}>
+              <IconRefreshCw />
+              {m.bots_mcp_refresh_tools()}
+            </Button>
+          ) : null}
+          {editLink ? (
+            <Button asChild size="sm" variant="outline">
+              <Link {...editLink} resetScroll={false}>
+                <IconBraces />
+                {m.bots_mcp_edit()}
+              </Link>
+            </Button>
+          ) : null}
         </PanelRow>
       ) : null}
       {mcp.isEmpty ? (

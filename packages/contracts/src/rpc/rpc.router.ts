@@ -91,7 +91,7 @@ import {
   mcpAuthStatusResult,
   mcpAuthTarget,
 } from '../types/mcp-auth.types';
-import { mcpCatalog, mcpCatalogServer, mcpConfigure, mcpDiscover, mcpServerAdd, mcpServerRemove, mcpSettings, mcpShared } from '../types/mcp.types';
+import { mcpCatalog, mcpCatalogServer, mcpConfigure, mcpDiscover, mcpFile, mcpReplace, mcpServerAdd, mcpServerRemove, mcpSettings, mcpShared } from '../types/mcp.types';
 import { modelList, modelSettings } from '../types/model.types';
 import { notificationConfigure, notificationPresence, notificationPush, notificationSettings, notificationVoid, notificationWebPush, notificationWebPushKey } from '../types/notification.types';
 import { pluginCatalog, pluginConfigure, pluginDiscover, pluginSettings } from '../types/plugin.types';
@@ -311,6 +311,9 @@ export const contract = {
     add: ocFind.errors(ocTeam).input(mcpServerAdd).output(mcpCatalogServer),
 
     remove: ocFind.input(mcpServerRemove).output(bot),
+
+    get: ocFind.input(mcpDiscover).output(mcpFile),
+    replace: ocValidate.errors(ocTeam).input(mcpReplace).output(mcpCatalog),
 
     settings: ocAuth.output(mcpSettings),
 

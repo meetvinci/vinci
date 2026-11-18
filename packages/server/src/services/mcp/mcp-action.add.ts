@@ -1,7 +1,8 @@
 import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
-import { mcpFilesDerivedClear, mcpFilesDerivedKey, mcpFilesRead, mcpFilesWrite } from './mcp-files.utils';
+import { mcpFilesDerivedKey, mcpFilesDerivedRelease, mcpFilesRead, mcpFilesReferences, mcpFilesWrite } from './mcp-files.utils';
 import { MCP } from './mcp.constants';
+import { mcpIsHostAllowed } from './mcp.utils';
 import type { McpServiceDeps } from '../../types/mcp.types';
 import type { McpServerAddInput } from '@repo/contracts/universal';
 
@@ -46,7 +47,8 @@ export async function mcpActionAdd(deps: McpServiceDeps, params: McpServerAddInp
   await Promise.all(preparedHeaders.flatMap(({ derived }) => derived ? [set(derived)] : []));
 
   await mcpFilesWrite(deps, botId, { mcpServers: { ...document.mcpServers, [name]: entry } });
-  await mcpFilesDerivedClear(deps, botId, name, headers.length);
+  const replaced = Object.entries(document.mcpServers).filter(([key]) => key === name).map(([, previous]) => previous);
+  await mcpFilesDerivedRelease(deps, botId, replaced, new Set(mcpFilesReferences(entry).map(({ key }) => key)));
 
   function mcpSecretKey(secret: string) {
     return `${MCP.secretPrefix}${secret}`;
@@ -67,9 +69,7 @@ export async function mcpActionAdd(deps: McpServiceDeps, params: McpServerAddInp
     const host = new URL(urlValue).hostname;
     const rules = await deps.secrets.queries.rules();
 
-    const allowed = secrets.every((secret) => rules
-      .find((rule) => rule.name === secret)
-      ?.hosts.some((pattern) => pattern.startsWith('*.') ? host.endsWith(pattern.slice(1)) : host === pattern));
+    const allowed = secrets.every((secret) => mcpIsHostAllowed(rules, secret, host));
 
     match(allowed)
       .with(true, () => undefined)

@@ -18,6 +18,7 @@ export function botDialogView({ path, params }: BotDialogViewParams): BotDialogV
     .with('/$botId/routines/$routineId/edit', () => ({ kind: 'routine-edit', botId, routineId }))
     .with('/$botId/routines/$routineId/delete', () => ({ kind: 'routine-delete', botId, routineId }))
     .with('/$botId/todos/$todoId/delete', () => ({ kind: 'todo-delete', botId, todoId }))
+    .with('/$botId/mcp/edit', () => ({ kind: 'mcp-edit', botId }))
     .with('/$botId/mcp/$server/remove', () => ({ kind: 'mcp-remove', botId, server }))
     .otherwise(() => null);
 }
