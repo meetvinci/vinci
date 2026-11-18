@@ -415,6 +415,7 @@
   "mobile_bot_error_title": "Could not load this bot",
   "mobile_bot_missing": "This bot no longer exists.",
   "bots_mcp": "MCP servers",
+  "bots_mcp_refresh_tools": "Refresh tools",
   "bots_mcp_empty": "No MCP servers for this bot yet. Add one below, or add MCP files in Settings, under Sources.",
   "bots_mcp_empty_presets": "No MCP servers for this bot yet. Add one below.",
   "bots_mcp_add": "Add MCP server",

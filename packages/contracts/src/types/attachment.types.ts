@@ -4,7 +4,7 @@ import { replyQuote } from './reply.types';
 export const ATTACHMENT = {
   entryKind: 'bots.attachment-message',
   maxBytes: 10 * 1024 * 1024,
-  maxPerMessage: 4,
+  maxPerMessage: 20,
   pendingTtlMs: 24 * 60 * 60 * 1000,
   mediaTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/markdown', 'text/csv', 'application/json'],
   sendToolName: 'bot_send_file',

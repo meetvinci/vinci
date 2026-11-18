@@ -124,6 +124,7 @@ export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
   return {
     rows: rows.map((row) => ({ ...row, needsLogin: row.isOn && (pending === row.name || row.server?.auth === 'required') })),
     toggle,
+    refreshTools: () => prepareServers({ botId }),
     presets: MCP.presets.filter((preset) => !discover.data?.servers.some((server) => server.name === preset.name)),
     add: (preset: typeof MCP.presets[number]) => add.mutate({
       botId,
@@ -134,7 +135,7 @@ export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
     isEmpty: discover.isSuccess && shared.isSuccess && rows.length === 0,
     pending,
     status,
-    isBusy: start.isPending || complete.isPending || cancel.isPending || logout.isPending || update.isPending,
+    isBusy: prepare.isPending || start.isPending || complete.isPending || cancel.isPending || logout.isPending || update.isPending,
     problem: match({
       isLoadFailed: discover.isError || prepare.isError || shared.isError,
       isLoginFailed: start.isError || complete.isError,

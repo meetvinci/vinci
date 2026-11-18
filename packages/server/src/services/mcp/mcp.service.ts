@@ -15,6 +15,7 @@ import type * as UniversalTypes from '@repo/contracts/universal';
 export function makeMcpService(deps: McpTypes.McpServiceDeps) {
   return {
     actions: {
+      refresh: (params: UniversalTypes.BotGetInput) => deps.clients.actions.refresh(params),
       configure: (params: UniversalTypes.McpConfigureInput) => mcpActionConfigure(deps, params),
       prepare: (params: McpTypes.McpPrepareParams) => mcpActionPrepare(deps, params),
       add: (params: UniversalTypes.McpServerAddInput) => mcpActionAdd(deps, params),

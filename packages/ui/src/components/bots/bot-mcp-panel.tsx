@@ -6,6 +6,7 @@ import IconEllipsisVertical from '~icons/lucide/ellipsis-vertical';
 import IconLogIn from '~icons/lucide/log-in';
 import IconLogOut from '~icons/lucide/log-out';
 import IconPower from '~icons/lucide/power';
+import IconRefreshCw from '~icons/lucide/refresh-cw';
 import IconTrash2 from '~icons/lucide/trash-2';
 import IconX from '~icons/lucide/x';
 import { Button } from '../button';
@@ -58,6 +59,14 @@ export function BotMcpPanel({ bot, canSignIn, canStart, isSourcesVisible, remove
 
   return (
     <SettingsGroup title={m.bots_mcp()}>
+      {mcp.rows.length > 0 ? (
+        <PanelRow>
+          <Button disabled={mcp.isBusy} size="sm" variant="outline" onClick={mcp.refreshTools}>
+            <IconRefreshCw />
+            {m.bots_mcp_refresh_tools()}
+          </Button>
+        </PanelRow>
+      ) : null}
       {mcp.isEmpty ? (
         <PanelRow><PanelDescription>{isSourcesVisible ? m.bots_mcp_empty() : m.bots_mcp_empty_presets()}</PanelDescription></PanelRow>
       ) : null}

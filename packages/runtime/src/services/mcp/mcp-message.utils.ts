@@ -14,7 +14,7 @@ const mcpMessageIsError = /"isError"\s*:\s*true/u;
 const mcpMessageEscapes = new Map([[0x22, 0x22], [0x5c, 0x5c], [0x2f, 0x2f], [0x62, 0x08], [0x66, 0x0c], [0x6e, 0x0a], [0x72, 0x0d], [0x74, 0x09]]);
 
 // SAFETY: a message over MCP.maxMessageBytes is never kept; one answering a pending tools/call becomes that call's result, bounded.
-export function mcpMessage(calls: ReadonlySet<PiMcpTypes.JsonRpcId>): McpMessage {
+function mcpMessage(calls: ReadonlySet<PiMcpTypes.JsonRpcId>): McpMessage {
   let chunks: Buffer[] = [];
   let length = 0;
   let oversize: ReturnType<typeof mcpMessageOversize> | undefined;

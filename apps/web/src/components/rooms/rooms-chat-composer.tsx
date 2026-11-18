@@ -206,7 +206,7 @@ export function RoomsChatComposer({
             <PromptInputDrawerAlert>{chat.problem}</PromptInputDrawerAlert>
           </PromptInputDrawer>
         ) : null}
-        <RoomsChatAttachments files={files} />
+        <RoomsChatAttachments botId={bot.id} files={files} />
         {replyTo ? (
           <PromptInputQuote removeLabel={m.rooms_chat_reply_clear()} onRemove={() => onReplyChange(null)}>
             {m.rooms_chat_replying({ name: replyTo.metadata?.authorName ?? '', text: roomsMessageText(replyTo) })}

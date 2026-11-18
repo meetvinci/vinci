@@ -3,6 +3,7 @@ import type { BotServiceDeps } from '../../types/bot.types';
 import type { BotGetInput } from '@repo/contracts/universal';
 
 export async function botActionConnectMcp(deps: BotServiceDeps, params: BotGetInput) {
+  deps.mcp.actions.refresh(params);
   const bot = await botActionConfigure(deps, params);
   return deps.mcp.queries.discover({ bot });
 }

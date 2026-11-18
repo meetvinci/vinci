@@ -146,18 +146,28 @@ export function PromptInputQuote({ children, removeLabel, onRemove }: { children
   );
 }
 
-export function PromptInputAttachment({ name, preview, image, status, removeLabel, onRemove }: {
+export function PromptInputAttachment({ name, preview, image, status, removeLabel, previewLabel, onPreview, onRemove }: {
   name: string
   preview: string
   image: boolean
   status: 'uploading' | 'ready' | 'failed'
   removeLabel: string
+  previewLabel?: string
+  onPreview?: () => void
   onRemove: () => void
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-xl bg-muted p-1 text-xs text-muted-foreground data-[status=failed]:text-destructive" data-status={status}>
-      {image ? <img alt="" className="size-8 rounded-lg object-cover" src={preview} /> : <IconLucideFileText className="ml-2 size-3.5 shrink-0" />}
-      <span className="max-w-40 truncate">{name}</span>
+      <button
+        aria-label={previewLabel ?? name}
+        className={cn('flex min-w-0 items-center gap-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring', onPreview && 'cursor-zoom-in')}
+        disabled={!onPreview}
+        type="button"
+        onClick={onPreview}
+      >
+        {image ? <img alt="" className="size-8 rounded-lg object-cover" src={preview} /> : <IconLucideFileText className="ml-2 size-3.5 shrink-0" />}
+        <span className="max-w-40 truncate">{name}</span>
+      </button>
       {status === 'uploading' ? <IconLucideLoader2 className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : null}
       <PromptInputButton
         aria-label={removeLabel}
