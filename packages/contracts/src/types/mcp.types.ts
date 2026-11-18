@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { credentialsKey } from './credentials.types';
 import { secretName } from './secret.types';
 
 export const mcpSettings = z.object({
@@ -75,7 +74,7 @@ export const mcpFileServer = z.union([
     type: z.literal('http').optional(),
     url: z.url({ protocol: /^https?$/ }),
     headers: z.record(mcpFileHeaderName, mcpFileValue).optional(),
-    headerCredentials: z.record(mcpFileHeaderName, credentialsKey).optional(),
+    headerCredentials: z.record(mcpFileHeaderName, mcpFileValue).optional(),
   }),
   z.strictObject({
     ...mcpFileCommon,
@@ -84,7 +83,7 @@ export const mcpFileServer = z.union([
     args: z.array(z.string().max(1024)).max(32).optional(),
     cwd: z.string().min(1).max(4096).optional(),
     env: z.record(mcpFileEnvName, mcpFileValue).optional(),
-    envCredentials: z.record(mcpFileEnvName, credentialsKey).optional(),
+    envCredentials: z.record(mcpFileEnvName, mcpFileValue).optional(),
   }),
 ]);
 

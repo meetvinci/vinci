@@ -45,8 +45,10 @@ export async function mcpActionReplace(deps: McpServiceDeps, { botId, mcpServers
       .exhaustive();
   }
 
-  async function mcpReplaceReferences(server: string, values: Record<string, string>, references: Record<string, string>, host: string | null) {
-    const checked = Object.entries(references).filter(([field]) => !Object.hasOwn(values, field));
+  async function mcpReplaceReferences(server: string, typed: Record<string, string>, given: Record<string, string>, host: string | null) {
+    const mcpIsReference = (value: string) => value.startsWith(MCP.secretPrefix) || value.startsWith(MCP.derivedPrefix);
+    const values = { ...Object.fromEntries(Object.entries(given).filter(([, value]) => !mcpIsReference(value))), ...typed };
+    const checked = Object.entries(given).filter(([field, value]) => mcpIsReference(value) && !Object.hasOwn(values, field));
     await Promise.all(checked.map(([field, key]) => mcpReplaceCheck(server, field, key, host)));
 
     const stored = Object.entries(values).map(([field, value]) => {
