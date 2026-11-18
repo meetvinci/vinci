@@ -23,9 +23,10 @@
   "validation_mcp_file_json": "Usa JSON con un objeto mcpServers.",
   "validation_mcp_file_name": "Cambia el nombre de {server}: usa minúsculas, números y guiones, empezando por una letra, hasta 32 caracteres.",
   "validation_mcp_file_count": "Añade como máximo 32 servidores MCP.",
-  "validation_mcp_file_server": "Corrige {server}: indica una url https o un command. Campos permitidos: description, enabled, disabled, url, headers, headerCredentials, command, args, cwd, env, envCredentials.",
+  "validation_mcp_file_server": "Corrige {server}: indica una url o un command. Campos permitidos: description, enabled, disabled, url, headers, headerCredentials, command, args, cwd, env, envCredentials.",
   "validation_mcp_file_secret": "Corrige {server}: {field} hace referencia a un secreto que no está guardado. Escribe el valor o usa secrets.NOMBRE para un secreto guardado.",
   "validation_mcp_file_host": "Corrige {server}: el secreto de {field} no está permitido para el host de este servidor.",
+  "validation_mcp_http": "Usa https en {server}: http solo funciona con una dirección IPv4 y un puerto que estén en VINCI_INTERNAL_ALLOW del servidor.",
   "validation_provider_import_prompt": "Este proveedor pide más que una clave de API y sus ajustes, así que no se puede copiar.",
   "validation_workspace_path": "Cada archivo debe permanecer dentro de su carpeta.",
   "validation_workspace_too_large": "Estos archivos son demasiado grandes para copiarlos de una vez."

@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { match, P } from 'ts-pattern';
 import { mcpFilesDerivedRelease, mcpFilesRead, mcpFilesReferences, mcpFilesWrite } from './mcp-files.utils';
 import { MCP } from './mcp.constants';
-import { mcpIsHostAllowed } from './mcp.utils';
+import { mcpIsHostAllowed, mcpIsUrlAllowed } from './mcp.utils';
 import type { McpServiceDeps } from '../../types/mcp.types';
 import type { McpFileServer, McpReplaceInput } from '@repo/contracts/universal';
 
@@ -31,6 +31,10 @@ export async function mcpActionReplace(deps: McpServiceDeps, { botId, mcpServers
   async function mcpReplaceServer(name: string, server: McpFileServer) {
     return match(server)
       .with({ url: P.string }, async ({ headers = {}, headerCredentials = {}, ...rest }) => {
+        if (!mcpIsUrlAllowed(deps.internalAllow, rest.url)) {
+          throw new Errors.VALIDATION_ERROR({ fields: { mcpServers: { message: 'validation_mcp_http', args: { server: name } } } });
+        }
+
         const references = await mcpReplaceReferences(name, headers, headerCredentials, new URL(rest.url).hostname);
         return Object.keys(references).length > 0 ? { ...rest, headerCredentials: references } : rest;
       })

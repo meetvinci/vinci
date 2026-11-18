@@ -34,7 +34,7 @@ export const mcpServerName = z.string().trim().regex(/^[a-z][a-z0-9-]{0,31}$/);
 export const mcpServerAdd = z.object({
   botId: z.uuid(),
   name: mcpServerName,
-  url: z.url({ protocol: /^https$/ }).optional(),
+  url: z.url({ protocol: /^https?$/ }).optional(),
   command: z.string().trim().min(1).max(512).optional(),
   args: z.array(z.string().max(1024)).max(32).optional(),
   headers: z.array(z.object({
@@ -73,7 +73,7 @@ export const mcpFileServer = z.union([
   z.strictObject({
     ...mcpFileCommon,
     type: z.literal('http').optional(),
-    url: z.url({ protocol: /^https$/ }),
+    url: z.url({ protocol: /^https?$/ }),
     headers: z.record(mcpFileHeaderName, mcpFileValue).optional(),
     headerCredentials: z.record(mcpFileHeaderName, credentialsKey).optional(),
   }),

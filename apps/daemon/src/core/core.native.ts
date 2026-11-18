@@ -186,6 +186,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
     mcp: makeMcpService({
       root: paths.root,
       isSandboxed,
+      internalAllow: env.VINCI_INTERNAL_ALLOW,
       settings,
       clients: mcpClients,
       credentials,

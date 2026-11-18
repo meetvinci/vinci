@@ -7,6 +7,7 @@ import type { McpClientService, McpSource } from '@repo/runtime/server';
 export interface McpServiceDeps {
   root: string;
   isSandboxed: boolean;
+  internalAllow: string[];
   settings: SettingsService;
   clients: McpClientService;
   credentials: CredentialsService;
