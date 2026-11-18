@@ -48,7 +48,8 @@ export function useBotMcpFile({ botId, onDone }: BotMcpFileParams) {
 }
 
 function mcpFileParse(text: string): { isValid: true; mcpServers: McpReplaceInput['mcpServers'] } | { isValid: false; problem: string } {
-  const result = mcpFileDocument.safeParse(mcpFileJson(text.trim()));
+  const document = mcpFileJson(text.trim());
+  const result = mcpFileDocument.safeParse(document);
 
   if (result.success) {
     return { isValid: true, mcpServers: result.data.mcpServers };
@@ -57,16 +58,27 @@ function mcpFileParse(text: string): { isValid: true; mcpServers: McpReplaceInpu
   const [issue] = result.error.issues;
   const [top, name] = issue.path;
   const server = String(name);
+  const isCommand = Object.hasOwn(Object(Object(Object(document).mcpServers)[server]), 'command');
+
+  const leaf = match(issue)
+    .with({ code: 'invalid_union' }, ({ errors }) => ({ ...errors[isCommand ? 1 : 0][0], isUnion: true }))
+    .otherwise((direct) => ({ ...direct, path: direct.path.slice(2), isUnion: false }));
+
+  const field = leaf.path.join('.');
 
   const problem = match({
     top,
     depth: issue.path.length,
     issue,
+    leaf,
   })
     .with({ top: P.not('mcpServers') }, { depth: 1, issue: { message: P.not('validation_mcp_file_count') } }, () => m.validation_mcp_file_json())
     .with({ depth: 1 }, () => m.validation_mcp_file_count())
-    .with({ issue: { code: 'invalid_key' } }, () => m.validation_mcp_file_name({ server }))
-    .otherwise(() => m.validation_mcp_file_server({ server }));
+    .with({ depth: 2, issue: { code: 'invalid_key' } }, () => m.validation_mcp_file_name({ server }))
+    .with({ leaf: { code: 'unrecognized_keys' } }, ({ leaf: { keys } }) => m.validation_mcp_file_field({ server, field: keys.join(', ') }))
+    .with({ leaf: { isUnion: true, code: 'invalid_type', path: [P.union('url', 'command')] } }, () => m.validation_mcp_file_server({ server }))
+    .with({ leaf: { path: ['url'] } }, () => m.validation_mcp_file_url({ server }))
+    .otherwise(() => m.validation_mcp_file_value({ server, field }));
 
   return { isValid: false, problem };
 }
