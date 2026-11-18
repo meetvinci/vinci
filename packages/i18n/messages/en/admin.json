@@ -1,5 +1,6 @@
 {
   "admin_title": "Vinci admin",
+  "admin_back_to_app": "Back to app",
   "admin_nav": "Admin sections",
   "admin_signed_in_as": "Signed in as {email}",
   "admin_signed_out": "Your sign-in has expired",

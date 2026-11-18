@@ -201,6 +201,7 @@ async function coreServerWhoami(services: CoreTypes.CoreServices, { identity, us
     user: user.id,
     serverId: daemon?.serverId ?? null,
     isAdvanced: user.advanced === true,
+    isAdmin: await services.admins.queries.has({ email: identity.email }),
     sections: services.global.queries.sections({ id: user.id }).map(({ id, mode }) => ({ id, mode })),
   }, { headers: { 'Cache-Control': 'no-store' } });
 }

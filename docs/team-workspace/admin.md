@@ -278,6 +278,8 @@ People install the web app themselves and turn notifications on in **Settings â†
 
 ## What people see
 
+People whose email is in the admin list see **Admin panel** in the user dropdown at the bottom of the sidebar. It opens `/admin`; the hub checks admin access on every request. **Back to app** in the admin header returns to `/rooms`.
+
 The app a person opens is simpler than the one a single owner gets: it hides what most people never need. Hiding is not a permission; the panel always shows you everything, whatever a person sees.
 
 **Everyone sees:** appearance, the Enter key and notifications; sidebar sections, pin, hide and mute; artifacts and every chat action; approvals; answering a bot's questions, a secret included; routines and todos; resetting a chat; removing their own devices and stored secrets; creating and deleting bots; a bot's name, handle, avatar, instructions, *Also read the shared instructions*, skills, *Use shared plugins*, shared MCP servers on and off, adding MCP servers from the presets and removing them, MCP sign-in with their own account; and a bot's main and fallback model and reasoning, from the providers you configured. Each bot's **Tools** tab also lists its [always approved tools](#always-approved-tools), which they can remove.

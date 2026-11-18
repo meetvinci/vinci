@@ -7,6 +7,7 @@ export const teamWhoami = z.object({
   user: adminUserId,
   serverId: z.string().nullable(),
   isAdvanced: z.boolean(),
+  isAdmin: z.boolean(),
   sections: z.array(z.object({ id: adminSectionId, mode: adminSectionMode })),
 });
 

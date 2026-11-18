@@ -4,6 +4,8 @@ How Vinci serves a small team (3-7 users per installation) without making the da
 
 ## Design
 
+The user dropdown links to **Admin panel** only when `/hub/whoami` reports `isAdmin` from the hub's admin list. The link opens `/admin`, whose authorization remains enforced by the hub; **Back to app** in its header returns to `/rooms`.
+
 This is the only way Vinci installs; a person on their own runs the same install as its only admin and user. Each user gets their own daemon, with one owner, in its own hardened Linux container. One hub per organization is the only front door: Cloudflare Access logs the user in, the hub verifies the Access JWT, maps the email to that user's daemon and forwards. The daemon never learns about users; its owner is whoever the hub routes to it.
 
 ```mermaid

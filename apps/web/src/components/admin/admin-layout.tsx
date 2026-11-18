@@ -8,6 +8,7 @@ import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { adminNoticeContext } from '@/context/admin';
 import { ADMIN } from '@/services/admin/admin.constants';
+import IconArrowLeft from '~icons/lucide/arrow-left';
 import IconTriangleAlert from '~icons/lucide/triangle-alert';
 import type { AdminNotice } from '@/types/admin.types';
 import type { ErrorComponentProps } from '@tanstack/react-router';
@@ -28,6 +29,16 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
     <adminNoticeContext.Provider value={setNotice}>
       <div className="flex min-h-svh flex-col bg-background">
         <header className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-3 md:px-6">
+          <Button
+            asChild
+            size="sm"
+            variant="ghost"
+          >
+            <a href="/rooms">
+              <IconArrowLeft />
+              {m.admin_back_to_app()}
+            </a>
+          </Button>
           <p className="text-base font-semibold tracking-tight">{m.admin_title()}</p>
           <nav aria-label={m.admin_nav()} className="flex items-center gap-1">
             <AdminLayoutNavLink isCurrent={!isGlobal && pathname.startsWith('/admin/users')} to="/admin/users">{m.admin_users_title()}</AdminLayoutNavLink>

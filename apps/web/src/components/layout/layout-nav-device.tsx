@@ -14,6 +14,7 @@ import BrandsLogo from '~icons/brands/logo';
 import LucideChevronsUpDown from '~icons/lucide/chevrons-up-down';
 import IconLogOut from '~icons/lucide/log-out';
 import IconPower from '~icons/lucide/power';
+import IconShield from '~icons/lucide/shield';
 import type { ConnectionInfo } from '@repo/client/client';
 
 interface LayoutNavDeviceProps {
@@ -70,6 +71,14 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
                   </Link>
                 </DropdownMenu.DropdownMenuItem>
               ))}
+              {team?.isAdmin ? (
+                <DropdownMenu.DropdownMenuItem asChild>
+                  <a href="/admin">
+                    <IconShield className="size-4" />
+                    <span className="flex-1">{m.layout_admin_panel()}</span>
+                  </a>
+                </DropdownMenu.DropdownMenuItem>
+              ) : null}
             </DropdownMenu.DropdownMenuGroup>
             <DropdownMenu.DropdownMenuSeparator />
             <DropdownMenu.DropdownMenuItem onSelect={() => void disconnect()}>
