@@ -1,9 +1,9 @@
 import { GIF_PROVIDER_LABELS, ROOMS_SEND_MODES } from '@repo/client/client';
 import { useChatDefaults, useChatHideVerbose, useNotificationSettings } from '@repo/client/react';
 import { conversationWhenBusy, gifProvider, notificationPlatform } from '@repo/contracts/universal';
-import { m } from '@repo/i18n/client';
+import { locales, m } from '@repo/i18n/client';
 import { useRouter } from 'expo-router';
-import { BellRing, EyeOff, ListOrdered, Monitor, Palette, Settings, ShieldCheck, Smile } from 'lucide-react-native';
+import { BellRing, EyeOff, Languages, ListOrdered, Monitor, Palette, Settings, ShieldCheck, Smile } from 'lucide-react-native';
 import { useState } from 'react';
 import { Linking, Switch } from 'react-native';
 import { BotDetailsSection } from '@/components/bots/bot-details-section';
@@ -11,11 +11,13 @@ import { BotSettingsMenuRow } from '@/components/bots/bot-settings-menu-row';
 import { Icon } from '@/components/ui/icon';
 import { Item, ItemButton, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { useAppearance } from '@/hooks/use-appearance';
+import { useLocale } from '@/hooks/use-locale';
 import { useToast } from '@/hooks/use-toast';
 import { appearanceRead, appearanceSave } from '@/services/appearance/appearance.client';
 import { APPEARANCE_CHOICES } from '@/services/appearance/appearance.constants';
 import type { AppearanceChoice } from '@/types/appearance.types';
 import type { NotificationPlatform } from '@repo/contracts/universal';
+import type { Locale } from '@repo/i18n/client';
 
 const SETTINGS_APPEARANCE_LABELS = {
   system: m.settings_appearance_system,
@@ -35,6 +37,9 @@ export function SettingsGeneral() {
   const router = useRouter();
   const toast = useToast();
   const palettes = useAppearance();
+  const language = useLocale();
+  const languageName = (locale: Locale) => m.settings_language_name({}, { locale });
+  const languageSystem = m.settings_language_system({ language: languageName(language.system) });
   const [appearance, setAppearance] = useState(appearanceRead);
   const whenBusy = defaults.settings?.whenBusy;
 
@@ -88,6 +93,23 @@ export function SettingsGeneral() {
           }))}
           title={m.settings_notify_prefer()}
           value={notify.prefer ? SETTINGS_NOTIFY_PREFER[notify.prefer]() : '…'}
+        />
+        <BotSettingsMenuRow
+          icon={Languages}
+          items={[
+            {
+              label: languageSystem,
+              systemImage: language.choice === 'system' ? 'checkmark' as const : undefined,
+              onSelect: () => language.choose('system'),
+            },
+            ...locales.map((locale) => ({
+              label: languageName(locale),
+              systemImage: locale === language.choice ? 'checkmark' as const : undefined,
+              onSelect: () => language.choose(locale),
+            })),
+          ]}
+          title={m.settings_language()}
+          value={language.choice === 'system' ? languageSystem : languageName(language.choice)}
         />
         <BotSettingsMenuRow
           icon={Monitor}

@@ -5,6 +5,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { Uniwind } from 'uniwind';
 import { ContextAppearance } from '@/components/context/context-appearance';
 import { ContextConnection } from '@/components/context/context-connection';
+import { ContextLocale } from '@/components/context/context-locale';
 import { ContextToast } from '@/components/context/context-toast';
 import { useConnectionIsConnected } from '@/hooks/use-connection';
 import { useNavigationTheme } from '@/hooks/use-navigation-theme';
@@ -24,9 +25,11 @@ const DIALOG = { presentation: 'transparentModal', animation: 'fade' } as const;
 export default function RootLayout() {
   return (
     <KeyboardProvider>
-      <ContextAppearance>
-        <RootLayoutTheme />
-      </ContextAppearance>
+      <ContextLocale>
+        <ContextAppearance>
+          <RootLayoutTheme />
+        </ContextAppearance>
+      </ContextLocale>
     </KeyboardProvider>
   );
 }

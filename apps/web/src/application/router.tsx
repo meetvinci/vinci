@@ -2,10 +2,12 @@ import { bootZodErrors } from '@repo/i18n/validation';
 import { LayoutError, LayoutNotFound } from '@repo/ui/layout/layout-error';
 import { createRouter as createTanStackRouter } from '@tanstack/react-router';
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query';
+import { localeBoot } from '@/services/locale/locale.client';
 import { tanstackQueryContext } from '@/services/tanstack/tanstack.client';
 import { routeTree } from './routes.tree';
 
 bootZodErrors();
+localeBoot();
 
 export function getRouter() {
   const context = tanstackQueryContext();

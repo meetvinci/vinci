@@ -3,6 +3,7 @@ import Electrobun, { ApplicationMenu, BrowserView, BrowserWindow, PATHS, Screen,
 import { join } from 'node:path';
 import { DESKTOP_BUILD, DESKTOP_PORTS } from './desktop-build';
 import { desktopLaunchAtLogin, desktopLaunchAtLoginSet, desktopLaunchClaim, desktopLaunchPrepare, desktopLaunchRelease } from './desktop-launch';
+import { desktopLocaleApply } from './desktop-locale';
 import { desktopNetworkFind, desktopNetworkHost, desktopNetworkProbe, desktopNetworkSelf, desktopNetworkTailscale } from './desktop-network';
 import { desktopNotify } from './desktop-notify';
 import { desktopServerLeftovers, desktopServerPairLink, desktopServerStart } from './desktop-server';
@@ -27,6 +28,7 @@ let updates = false;
 
 const appName = DESKTOP_BUILD.name;
 
+desktopLocaleApply();
 desktopLaunchPrepare();
 
 const headless = process.env[DESKTOP.headless.env] === '1';

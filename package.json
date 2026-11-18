@@ -107,6 +107,7 @@
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/svg-spinners": "^1.2.4",
     "@iconify-json/vscode-icons": "^1.2.94",
+    "@iconify-json/circle-flags": "^1.2.14",
     "@rolldown/plugin-babel": "^0.2.4",
     "@svgr/core": "^8.1.0",
     "@svgr/plugin-jsx": "^8.1.0",

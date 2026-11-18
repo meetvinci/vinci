@@ -1,6 +1,6 @@
 import { useNotificationSettings } from '@repo/client/react';
 import { notificationPlatform } from '@repo/contracts/universal';
-import { m } from '@repo/i18n/client';
+import { locales, m } from '@repo/i18n/client';
 import { Button } from '@repo/ui/button';
 import { Label } from '@repo/ui/label';
 import { PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
@@ -9,13 +9,63 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { match } from 'ts-pattern';
+import { localeChoice, localeChoose, localeSystem } from '@/services/locale/locale.client';
+import { LOCALE_FLAGS } from '@/services/locale/locale.constants';
 import { pushEnable, pushState } from '@/services/push/push.client';
 import type { NotificationPlatform } from '@repo/contracts/universal';
+import type { Locale } from '@repo/i18n/client';
 
 const SETTINGS_NOTIFY_PREFER = {
   phone: m.settings_notify_prefer_phone,
   computer: m.settings_notify_prefer_computer,
 } satisfies Record<NotificationPlatform, () => string>;
+
+function SettingsGeneralLanguage() {
+  const id = useId();
+  const languageName = (locale: Locale) => m.settings_language_name({}, { locale });
+
+  return (
+    <PanelRow>
+      <PanelContent>
+        <Label htmlFor={id}>{m.settings_language()}</Label>
+      </PanelContent>
+      <Select
+        value={localeChoice()}
+        onValueChange={(value) => {
+          const choice = value === 'system' ? value : locales.find((locale) => locale === value);
+
+          if (choice) {
+            localeChoose({ choice });
+          }
+        }}
+      >
+        <SelectTrigger className="w-48" id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="system">{m.settings_language_system({ language: languageName(localeSystem()) })}</SelectItem>
+          {locales.map((locale) => {
+            const Flag = LOCALE_FLAGS[locale];
+
+            return (
+              <SelectItem
+                key={locale}
+                lang={locale}
+                textValue={languageName(locale)}
+                value={locale}
+              >
+                <span className="flex items-center gap-2">
+                  <Flag aria-hidden="true" className="size-4" />
+                  {languageName(locale)}
+                </span>
+              </SelectItem>
+            );
+          })}
+        </SelectContent>
+      </Select>
+    </PanelRow>
+  );
+}
 
 function SettingsGeneralNotifications() {
   const id = useId();
@@ -58,6 +108,7 @@ export function SettingsGeneral() {
   return (
     <SettingsGroup title={m.settings_general()}>
       <ClientOnly>
+        <SettingsGeneralLanguage />
         <SettingsGeneralNotifications />
       </ClientOnly>
       <PanelRow>

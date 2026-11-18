@@ -1,4 +1,5 @@
 import { m } from '@repo/i18n/messages';
+import { locales } from '@repo/i18n/runtime';
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { version } from './package.json';
@@ -43,6 +44,15 @@ const interPath = (file: string) => `./node_modules/@expo-google-fonts/inter/${f
 const variant = VARIANTS[appEnv.APP_VARIANT];
 const bundleIdentifier = `${appEnv.MOBILE_BUNDLE_ID}${variant.bundleSuffix}`;
 
+// Each locale gets an .lproj, so iOS reports the device language to the app and shows permission prompts in it.
+const LOCALES = Object.fromEntries(locales.map((locale) => [locale, {
+  ios: {
+    NSLocalNetworkUsageDescription: m.mobile_local_network_permission({ name }, { locale }),
+    NSCameraUsageDescription: m.mobile_camera_permission({ name }, { locale }),
+    NSPhotoLibraryUsageDescription: m.mobile_photos_permission({ name }, { locale }),
+  },
+}]));
+
 export default (): ExpoConfig => ({
   name: variant.name,
   slug: appEnv.MOBILE_EAS_SLUG,
@@ -50,6 +60,7 @@ export default (): ExpoConfig => ({
   version,
   orientation: 'default',
   userInterfaceStyle: 'automatic',
+  locales: LOCALES,
   ios: {
     bundleIdentifier,
     appleTeamId: appEnv.MOBILE_APPLE_TEAM_ID,
