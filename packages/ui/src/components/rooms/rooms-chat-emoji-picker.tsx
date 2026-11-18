@@ -2,6 +2,16 @@ import { m } from '@repo/i18n/client';
 import { getLocale } from '@repo/i18n/runtime';
 import { EmojiPicker, EmojiPickerContent, EmojiPickerSearch } from '../emoji-picker';
 import { RoomsChatEmojiLoading } from './rooms-chat-emoji-loading';
+import type { Locale } from '@repo/i18n/client';
+import type { ComponentProps } from 'react';
+
+const ROOMS_EMOJI_LOCALES = {
+  'en': 'en',
+  'pt-PT': 'pt',
+  'de': 'de',
+  'es': 'es',
+  'fr': 'fr',
+} satisfies Record<Locale, ComponentProps<typeof EmojiPicker>['locale']>;
 
 interface RoomsChatEmojiPickerProps {
   layout: 'popover' | 'sheet';
@@ -14,7 +24,7 @@ export function RoomsChatEmojiPicker({ layout, onPick, onRetry }: RoomsChatEmoji
     <EmojiPicker
       className={layout === 'sheet' ? 'h-72 w-full **:data-[slot=emoji-picker-row]:flex **:data-[slot=emoji-picker-row]:justify-between' : 'h-80'}
       columns={8}
-      locale={getLocale()}
+      locale={ROOMS_EMOJI_LOCALES[getLocale()]}
       onEmojiSelect={({ emoji }) => onPick(emoji)}
     >
       <EmojiPickerSearch

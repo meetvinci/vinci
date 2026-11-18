@@ -1,5 +1,5 @@
 import { env } from '@repo/env/client';
-import { m } from '@repo/i18n/client';
+import { getLocale, locales, m } from '@repo/i18n/client';
 import * as DropdownMenu from '@repo/ui/dropdown-menu';
 import { LAYOUT_MENU } from '@repo/ui/layout.constants';
 import * as Sidebar from '@repo/ui/sidebar';
@@ -8,14 +8,65 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useHydrated } from '@tanstack/react-router';
 import { match } from 'ts-pattern';
 import { connectionForget } from '@/services/connection/connection.client';
+import { localeChoice, localeChoose, localeSystem } from '@/services/locale/locale.client';
+import { LOCALE_FLAGS } from '@/services/locale/locale.constants';
 import { rpc } from '@/services/rpc/rpc.client';
 import { teamQuery } from '@/services/team/team.client';
 import BrandsLogo from '~icons/brands/logo';
 import LucideChevronsUpDown from '~icons/lucide/chevrons-up-down';
+import IconLanguages from '~icons/lucide/languages';
 import IconLogOut from '~icons/lucide/log-out';
 import IconPower from '~icons/lucide/power';
 import IconShield from '~icons/lucide/shield';
 import type { ConnectionInfo } from '@repo/client/client';
+import type { Locale } from '@repo/i18n/client';
+
+function LayoutNavDeviceLanguage() {
+  const CurrentFlag = LOCALE_FLAGS[getLocale()];
+  const languageName = (locale: Locale) => m.settings_language_name({}, { locale });
+
+  return (
+    <DropdownMenu.DropdownMenuSub>
+      <DropdownMenu.DropdownMenuSubTrigger>
+        <CurrentFlag aria-hidden="true" className="size-4" />
+        <span className="flex-1">{m.settings_language()}</span>
+      </DropdownMenu.DropdownMenuSubTrigger>
+      <DropdownMenu.DropdownMenuPortal>
+        <DropdownMenu.DropdownMenuSubContent>
+          <DropdownMenu.DropdownMenuRadioGroup
+            value={localeChoice()}
+            onValueChange={(value) => {
+              const choice = value === 'system' ? value : locales.find((locale) => locale === value);
+
+              if (choice) {
+                localeChoose({ choice });
+              }
+            }}
+          >
+            <DropdownMenu.DropdownMenuRadioItem value="system">
+              <IconLanguages aria-hidden="true" className="size-4" />
+              {m.settings_language_system({ language: languageName(localeSystem()) })}
+            </DropdownMenu.DropdownMenuRadioItem>
+            {locales.map((locale) => {
+              const Flag = LOCALE_FLAGS[locale];
+
+              return (
+                <DropdownMenu.DropdownMenuRadioItem
+                  key={locale}
+                  lang={locale}
+                  value={locale}
+                >
+                  <Flag aria-hidden="true" className="size-4" />
+                  {languageName(locale)}
+                </DropdownMenu.DropdownMenuRadioItem>
+              );
+            })}
+          </DropdownMenu.DropdownMenuRadioGroup>
+        </DropdownMenu.DropdownMenuSubContent>
+      </DropdownMenu.DropdownMenuPortal>
+    </DropdownMenu.DropdownMenuSub>
+  );
+}
 
 interface LayoutNavDeviceProps {
   connection: ConnectionInfo
@@ -80,6 +131,8 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
                 </DropdownMenu.DropdownMenuItem>
               ) : null}
             </DropdownMenu.DropdownMenuGroup>
+            <DropdownMenu.DropdownMenuSeparator />
+            <LayoutNavDeviceLanguage />
             <DropdownMenu.DropdownMenuSeparator />
             <DropdownMenu.DropdownMenuItem onSelect={() => void disconnect()}>
               <IconLogOut className="size-4" />

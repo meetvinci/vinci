@@ -243,7 +243,7 @@ packages/
 ├── env/src/entry.{server,client}.ts    typed process and build env; no file reads
 ├── errors/src/                         shared typed errors and their schemas
 ├── logger/src/                         structured logging and redaction
-├── i18n/messages/en/<area>.json        English copy, one file per area
+├── i18n/messages/<locale>/<area>.json  copy per locale (en is the base; pt-PT, de, es, fr), one file per area
 ├── i18n/src/                           Paraglide config and entries; src/paraglide/ is generated
 ├── avatar-blobs/src/<concern>.ts       the blob avatar engine, player and skins
 ├── tanstack-helpers/src/<concern>.ts   head, metadata and favicon helpers
@@ -404,5 +404,5 @@ Before adding infrastructure, inspect the installed library API and official exa
 ### Shared tooling
 
 - Use Bun and the root dependency catalog: external dependencies use `catalog:`, workspace packages use `workspace:*`. Run `bun install` after manifest changes and retain the lockfile.
-- Hosts initialize logging and locale explicitly. Shared packages must not assume Vite, Workers, HTTP ingest routes, locale URLs or cookies. User-facing text uses English i18n keys; Paraglide generates the declarations.
+- Hosts initialize logging and locale explicitly. Shared packages must not assume Vite, Workers, HTTP ingest routes, locale URLs or cookies. User-facing text uses English i18n keys; Paraglide generates the declarations. Web keeps a person's language choice per device in the `bots.locale` cookie and renders SSR in it (else `Accept-Language`); mobile keeps it in SecureStore (else the device language); desktop native copy follows the system language.
 - Every source package has `check`, `lint` and `lint:fix`. Keep Oxlint, Fallow, TypeScript and CI enforcement intact; never weaken checks to fit code. Run the [quality gate](quality-gate.md). Add tests only when requested.

@@ -1,6 +1,8 @@
+import { runWithLocale } from '@repo/i18n/server';
 import { log } from '@repo/logger/server';
 import { createServerEntry, createStartHandler, defaultStreamHandler } from '@tanstack/react-start/server';
 import { match } from 'ts-pattern';
+import { localeForRequest } from '@/services/locale/locale.utils';
 import type { Register } from '@tanstack/react-start';
 
 const handleStartRequest = createStartHandler((context) => {
@@ -28,7 +30,7 @@ export default createServerEntry<Register>({
       })
       .with(false, async () => {
         try {
-          const response = await handleStartRequest(request, options);
+          const response = await runWithLocale(localeForRequest(request), () => handleStartRequest(request, options));
           response.headers.set('Cache-Control', 'private, no-store');
 
           return response;

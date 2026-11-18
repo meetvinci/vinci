@@ -1,7 +1,11 @@
-import { m } from '@repo/i18n/client';
+import { m, matchLocale, setLocale } from '@repo/i18n/client';
 import { Electroview } from 'electrobun/view';
 import { DESKTOP } from '../../desktop.constants';
 import type { DesktopConnectView, DesktopRPC } from '../../types/desktop.types';
+
+const locale = matchLocale(navigator.languages);
+void setLocale(locale, { reload: false });
+document.documentElement.lang = locale;
 
 const rpc = Electroview.defineRPC<DesktopRPC>({ maxRequestTime: Infinity, handlers: { requests: {}, messages: {} } });
 

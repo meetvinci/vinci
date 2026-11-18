@@ -199,6 +199,7 @@
       },
       "devDependencies": {
         "@babel/core": "catalog:",
+        "@iconify-json/circle-flags": "catalog:",
         "@iconify-json/logos": "catalog:",
         "@iconify-json/lucide": "catalog:",
         "@iconify-json/svg-spinners": "catalog:",
@@ -527,6 +528,7 @@
     "@earendil-works/pi-env": "1.4.0",
     "@earendil-works/pi-mcp": "1.4.0",
     "@hookform/resolvers": "^5.4.0",
+    "@iconify-json/circle-flags": "^1.2.14",
     "@iconify-json/logos": "^1.2.11",
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/svg-spinners": "^1.2.4",
@@ -1062,6 +1064,8 @@
     "@humanwhocodes/module-importer": ["@humanwhocodes/module-importer@1.0.1", "", {}, "sha512-bxveV4V8v5Yb4ncFTT3rPSgZBOpCkjfK0y4oVVVJwIuDVBRMDXrPyXRL988i5ap9m9bnyEEjWfm5WkBmtffLfA=="],
 
     "@humanwhocodes/retry": ["@humanwhocodes/retry@0.4.3", "", {}, "sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ=="],
+
+    "@iconify-json/circle-flags": ["@iconify-json/circle-flags@1.2.14", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-svZ6j9ZaHc69eWdO5cY0wiaEo0A9kiiXM8diPx/0JkcBmKhW6Mt5e3OBOSkGBhOOwqV3q6q7DBbDGIwg6Nzz8g=="],
 
     "@iconify-json/logos": ["@iconify-json/logos@1.2.17", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-ruCr6y5h8FW+loXwRJkz+6cJj3njyX5Ccpi+ifMgaWZPbTSCbsCccNyGomZxIdhoyDKNOmNdZuURC3tyBvDr7A=="],
 

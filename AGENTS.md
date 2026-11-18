@@ -20,7 +20,7 @@ A bot backend. Vinci installs one way: Docker, with a hub (`apps/hub`) that take
 - Build no product feature for a native install. The native daemon exists for `bun run dev`; keep it working, nothing more.
 - `apps/daemon` is startup, composition, transport and shutdown only. Product logic belongs in server, Pi integration in runtime, and native implementations in their owning package. Follow the ownership table in the architecture reference; fix conflicting code rather than the rules.
 - Services own one concrete domain and receive whole service dependencies. A combined response does not justify a catchall service.
-- User-facing copy uses English keys in `packages/i18n/messages/en/`.
+- User-facing copy uses English keys in `packages/i18n/messages/en/`. Add each new or changed key to every other locale folder (`pt-PT`, `de`, `es`, `fr`) with a translation in the same change.
 - Architecture, lint, TypeScript and Fallow rules change only on the user's explicit request; fix the code to pass a check.
 - Keep development data and credentials separate from production. The user owns the dev servers: ask before stopping or starting one. If a dev terminal has crashed, restart it in the same Paseo terminal and say so.
 - `bun run dev:web` starts the daemon, the hub and the web app and prints a login link; open it once and you are signed in as the dev user. Pass `--url <origin>` for another origin, and `--sandbox` to run bot tools in the Linux sandbox.
