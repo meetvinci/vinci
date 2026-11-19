@@ -1,3 +1,4 @@
+export * from './context/chat-steps';
 export * from './context/rpc';
 export * from './hooks/use-bot-avatar-flash';
 export * from './hooks/use-bot-avatar-upload';

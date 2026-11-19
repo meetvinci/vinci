@@ -239,7 +239,7 @@
   "admin_activity_bots_copy": "Copió bots sugeridos ({count})",
   "admin_activity_change": "Hizo un cambio: {procedure}",
   "admin_user_advanced": "Usuario avanzado",
-  "admin_user_advanced_hint": "Muestra a esta persona los ajustes avanzados en su app: preferencias de chat, proveedores de modelos, la clave de Jev y fuentes. Los permisos, las reglas de aprobación y cómo usan los bots los secretos los controlas tú.",
+  "admin_user_advanced_hint": "Muestra a esta persona los ajustes avanzados en su app: los pasos de los bots (herramientas usadas y razonamiento), preferencias de chat, proveedores de modelos, la clave de Jev y fuentes. Los permisos, las reglas de aprobación y cómo usan los bots los secretos los controlas tú.",
   "admin_user_advanced_turned_on": "Ajustes avanzados visibles",
   "admin_user_advanced_turned_off": "Ajustes avanzados ocultos",
   "admin_user_advanced_failed": "No se pudo cambiar el ajuste avanzado. Inténtalo de nuevo."

@@ -239,7 +239,7 @@
   "admin_activity_bots_copy": "Copiou bots sugeridos ({count})",
   "admin_activity_change": "Fez uma alteração: {procedure}",
   "admin_user_advanced": "Utilizador avançado",
-  "admin_user_advanced_hint": "Mostra a esta pessoa as definições avançadas na sua aplicação: preferências de conversa, fornecedores de modelos, a chave do Jev e fontes. As permissões, as regras de aprovação e a forma como os bots usam segredos ficam consigo.",
+  "admin_user_advanced_hint": "Mostra a esta pessoa as definições avançadas na sua aplicação: os passos dos bots (ferramentas usadas e raciocínio), preferências de conversa, fornecedores de modelos, a chave do Jev e fontes. As permissões, as regras de aprovação e a forma como os bots usam segredos ficam consigo.",
   "admin_user_advanced_turned_on": "Definições avançadas visíveis",
   "admin_user_advanced_turned_off": "Definições avançadas ocultas",
   "admin_user_advanced_failed": "Não foi possível alterar a definição avançada. Tente novamente."

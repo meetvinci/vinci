@@ -239,7 +239,7 @@
   "admin_activity_bots_copy": "Vorgeschlagene Bots kopiert ({count})",
   "admin_activity_change": "Eine Änderung vorgenommen: {procedure}",
   "admin_user_advanced": "Fortgeschrittener Benutzer",
-  "admin_user_advanced_hint": "Zeigt dieser Person die erweiterten Einstellungen in ihrer App: Chat-Einstellungen, Modellanbieter, den Jev-Schlüssel und Quellen. Berechtigungen, Genehmigungsregeln und wie Bots Geheimnisse verwenden, bleiben bei dir.",
+  "admin_user_advanced_hint": "Zeigt dieser Person die erweiterten Einstellungen in ihrer App: die Schritte der Bots (Werkzeugaufrufe und Denken), Chat-Einstellungen, Modellanbieter, den Jev-Schlüssel und Quellen. Berechtigungen, Genehmigungsregeln und wie Bots Geheimnisse verwenden, bleiben bei dir.",
   "admin_user_advanced_turned_on": "Erweiterte Einstellungen werden angezeigt",
   "admin_user_advanced_turned_off": "Erweiterte Einstellungen sind ausgeblendet",
   "admin_user_advanced_failed": "Die erweiterte Einstellung konnte nicht geändert werden. Versuche es erneut."

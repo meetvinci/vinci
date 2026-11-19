@@ -11,6 +11,7 @@ export function useTeam() {
   return {
     isTeam: team !== null,
     isAdvanced: team === null || team.isAdvanced,
+    canSeeSteps: team === null || team.isAdvanced || team.isAdmin,
     followsGlobal: (section: AdminSectionId) => team?.sections.some((item) => item.id === section && item.mode === 'global') ?? false,
   };
 }
