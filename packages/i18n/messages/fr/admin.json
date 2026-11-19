@@ -239,7 +239,7 @@
   "admin_activity_bots_copy": "A copié des bots suggérés ({count})",
   "admin_activity_change": "A fait une modification : {procedure}",
   "admin_user_advanced": "Utilisateur avancé",
-  "admin_user_advanced_hint": "Affiche à cette personne les paramètres avancés dans son app : préférences de discussion, fournisseurs de modèles, clé Jev et sources. Les autorisations, les règles d’approbation et la façon dont les bots utilisent les secrets restent de votre ressort.",
+  "admin_user_advanced_hint": "Affiche à cette personne les paramètres avancés dans son app : les étapes des bots (outils utilisés et raisonnement), préférences de discussion, fournisseurs de modèles, clé Jev et sources. Les autorisations, les règles d’approbation et la façon dont les bots utilisent les secrets restent de votre ressort.",
   "admin_user_advanced_turned_on": "Paramètres avancés affichés",
   "admin_user_advanced_turned_off": "Paramètres avancés masqués",
   "admin_user_advanced_failed": "Impossible de modifier le paramètre avancé. Réessayez."

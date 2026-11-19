@@ -63,10 +63,11 @@ export function RoomsChatMessage({
   const { handle } = useParams({ from: '/_chat/rooms/direct/$handle', shouldThrow: false }) ?? {};
   const entryId = message.metadata?.entryIds[0];
 
-  const { hideVerbose } = useChatHideVerbose();
+  const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const [isExpanded, setIsExpanded] = useState(false);
-  const steps = hideVerbose && !live ? chatActivitySteps(message) : null;
-  const blocks = toolBlocks({ parts: message.parts, hideVerbose: hideVerbose && !isExpanded });
+  const steps = canSeeSteps && hideVerbose && !live ? chatActivitySteps(message) : null;
+  // SAFETY: without steps a person sees an approval only while it waits (the runs pane), never its outcome.
+  const blocks = toolBlocks({ parts: message.parts, hideVerbose: hideVerbose && !isExpanded }).filter((block) => canSeeSteps || block.kind !== 'expired');
   const files = message.parts.filter(isFileUIPart);
   const standalone = (block: typeof blocks[number] | undefined) => block?.kind === 'tools' || block?.kind === 'events' || block?.kind === 'reasoning' || block?.kind === 'failure' || block?.kind === 'expired';
   const bubbleBlocks = blocks.filter((block) => !standalone(block));

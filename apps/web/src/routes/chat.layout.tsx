@@ -1,4 +1,4 @@
-import { useChatListSync } from '@repo/client/react';
+import { chatStepsContext, useChatListSync } from '@repo/client/react';
 import { useRoomsPresence } from '@repo/client/web';
 import { chatSearch } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
@@ -12,6 +12,7 @@ import { useDesktopUpdateToast } from '@/hooks/use-desktop-update-toast';
 import { useLayoutShortcuts } from '@/hooks/use-layout-shortcuts';
 import { usePush } from '@/hooks/use-push';
 import { useRoomsNotify } from '@/hooks/use-rooms-notify';
+import { useTeam } from '@/hooks/use-team';
 import { layoutSidebarsOpen } from '@/services/layout/layout.client';
 import { rpc } from '@/services/rpc/rpc.client';
 import { seoHead } from '@/services/seo/seo.utils';
@@ -50,18 +51,21 @@ function RoomsLayout() {
   useLayoutShortcuts();
   const { sidebars, connection } = Route.useLoaderData();
   const room = useMatch({ from: '/_chat/rooms/direct/$handle', shouldThrow: false });
+  const team = useTeam();
 
   return (
-    <LayoutShellDashboard
-      aside={<RoomsDetails />}
-      asidePathname={room?.pathname}
-      connection={connection}
-      sidebars={sidebars}
-    >
-      <Outlet />
-      <RoomsSearch />
-      <RoomsSectionDialog />
-      <RoomsSectionDeleteDialog />
-    </LayoutShellDashboard>
+    <chatStepsContext.Provider value={team.canSeeSteps}>
+      <LayoutShellDashboard
+        aside={<RoomsDetails />}
+        asidePathname={room?.pathname}
+        connection={connection}
+        sidebars={sidebars}
+      >
+        <Outlet />
+        <RoomsSearch />
+        <RoomsSectionDialog />
+        <RoomsSectionDeleteDialog />
+      </LayoutShellDashboard>
+    </chatStepsContext.Provider>
   );
 }
