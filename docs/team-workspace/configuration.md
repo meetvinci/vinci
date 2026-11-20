@@ -10,7 +10,7 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is. |
 | `VINCI_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
-| `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner` and `vinci-firewall` images. Change it to upgrade or roll back. |
+| `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner` and `vinci-firewall` images. Change it to upgrade or roll back. Images built by CI from a release tag `vX.Y.Z` are tagged `X.Y.Z`, without the `v` ([images from CI](admin.md#images-from-ci)). |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
 | `SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_PIDS` | `512m`, `1`, `256` | Limits for each person's sandbox, where their bots' tools run. These are the defaults; idle it uses about 3 MB. A runaway command hits this limit, not their Vinci's. |
 | `SANDBOX_DISK` | `5g` | The disk of each person's bots: their bot folders and the files sent in chats, `m` or `g`. Bots get *No space left on device* at this size; nobody else notices. Raise it and run `bun deploy.ts apply` to grow every disk; shrinking is not automatic. See [disk limits](admin.md#disk-limits). |

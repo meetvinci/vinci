@@ -793,6 +793,14 @@ To roll back, copy the old version's deployment files into `/opt/vinci` again (f
 
 > On `root@<server>`, upgrade Vinci in `/opt/vinci` to image tag `<tag>`: confirm `docker images` lists `vinci-daemon`, `vinci-sandbox` (from the version with the sandbox), `vinci-web`, `vinci-hub`, `vinci-provisioner` and (from the version with the firewall) `vinci-firewall` with that tag, and that `/opt/vinci` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `vinci-fw-undo` timer from the Upgrades section. Set `VINCI_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply` (on the first upgrade to the version with the firewall it recreates the hub and everyone's Vinci on new networks itself). Confirm every container is healthy on the new tag, `vinci-daemon-template-1`, the sandboxes and the firewall included, `bun deploy.ts status` exits 0, `bun deploy.ts firewall status` says `healthy`, and the hub log shows no error; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. The hub copies the global settings again as it starts; confirm the `global/sync` by `hub start` line in its log a minute after the restart. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
+### Images from CI
+
+Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64. Each image gets three tags: `X.Y.Z`, `X.Y` and the short commit, for example `1.2.3`, `1.2` and `a7a5395`. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit.
+
+Vinci has no image registry yet, so the workflow only checks that every image builds. Until there is one, build and load the images yourself as in [install, step 3](install.md#3-get-vinci-onto-the-server).
+
+To publish to a registry later, open `.github/workflows/images.yml`, uncomment every line marked `# push:`, and set `REGISTRY` to the registry's address (for example `registry.example.com/vinci`). Then add the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`. The next tag then publishes `<registry>/vinci-daemon:1.2.3` and the five others.
+
 ## Status and logs
 
 ```sh
