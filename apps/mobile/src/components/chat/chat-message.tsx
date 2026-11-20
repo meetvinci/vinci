@@ -64,10 +64,16 @@ export function ChatMessage({
   const canReact = from === 'assistant' && entryId > 0;
   const name = message.metadata?.authorName ?? bot.name;
   const router = useRouter();
-  const { hideVerbose } = useChatHideVerbose();
+  const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const [isExpanded, setIsExpanded] = useState(false);
-  const steps = hideVerbose && !isLive ? chatActivitySteps(message) : null;
-  const segments = chatMessageSegments(message, hideVerbose && !isExpanded);
+  const steps = canSeeSteps && hideVerbose && !isLive ? chatActivitySteps(message) : null;
+
+  const segments = chatMessageSegments({
+    message,
+    hideVerbose: hideVerbose && !isExpanded,
+    canSeeSteps,
+  });
+
   const reply = message.metadata?.replyTo;
   const firstText = segments.flatMap((segment) => (segment.kind === 'bubbles' ? segment.parts : [])).find((part) => part.kind === 'markdown');
 

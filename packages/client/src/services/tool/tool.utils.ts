@@ -1,6 +1,6 @@
 import { GIF, gifToolDetails, TOOL_APPROVAL, toolCallArtifact, toolCallJson, toolCallPeerDetails, toolCallSubagent, toolCallSubagentDetails, toolCallText } from '@repo/contracts/universal';
 import { match, P } from 'ts-pattern';
-import { TOOL_ARTIFACT_NAMES, TOOL_MCP_NAME, TOOL_PATH_KEYS, TOOL_PEER_NAMES, TOOL_PRESENTATIONS, TOOL_PREVIEW_KEYS, TOOL_SUBAGENT } from './tool.constants';
+import { TOOL_ACTIVITY_TOPIC_LABELS, TOOL_ACTIVITY_TOPIC_PATTERNS, TOOL_ACTIVITY_TOPICS, TOOL_ARTIFACT_NAMES, TOOL_MCP_NAME, TOOL_PATH_KEYS, TOOL_PEER_NAMES, TOOL_PRESENTATIONS, TOOL_PREVIEW_KEYS, TOOL_SUBAGENT } from './tool.constants';
 import type * as ToolTypes from '../../types/tool.types';
 import type { Bot } from '@repo/contracts/universal';
 import type { DynamicToolUIPart } from 'ai';
@@ -50,6 +50,17 @@ export function toolPresentation(part: Pick<DynamicToolUIPart, 'toolName'>): Too
     label: known?.label() ?? toolReadableName(identity.name),
     icon: known?.icon ?? (identity.isMcp ? 'mcp' : 'tool'),
   };
+}
+
+// SAFETY: built from the tool's name alone, never its arguments, output or the model's text, so a person who cannot see steps reads no technical detail.
+export function toolActivityFriendly(part: Pick<DynamicToolUIPart, 'toolName' | 'toolCallId'>): string {
+  const words = toolReadableName(toolIdentity(part).name).toLowerCase();
+  const isOwn = part.toolName.startsWith('bot_');
+  const topic = TOOL_ACTIVITY_TOPICS.get(part.toolName) ?? (isOwn ? undefined : TOOL_ACTIVITY_TOPIC_PATTERNS.find((rule) => rule.pattern.test(words))?.topic) ?? 'working';
+  const labels = TOOL_ACTIVITY_TOPIC_LABELS[topic];
+  const variant = part.toolCallId.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) % labels.length;
+
+  return (labels[variant] ?? labels[0])();
 }
 
 export function toolPreview(part: DynamicToolUIPart): string | undefined {

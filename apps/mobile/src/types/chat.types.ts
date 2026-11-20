@@ -72,6 +72,12 @@ export type ChatMessageSegment =
   | { key: string; kind: 'failure'; text: string }
   | { key: string; kind: 'subagent'; part: ClientTypes.ToolPart; subagent: ClientTypes.ToolSubagent };
 
+export interface ChatMessageSegmentsParams {
+  message: ClientTypes.ChatMessage;
+  hideVerbose: boolean;
+  canSeeSteps: boolean;
+}
+
 export interface ChatPlayback {
   pause: () => void;
 }

@@ -65,6 +65,7 @@ export type ChatActivityBot = Pick<UniversalTypes.Bot, 'id' | 'name'>;
 export interface ChatActivityDetailParams {
   draft?: ChatMessage;
   bots: ChatActivityBot[];
+  canSeeSteps: boolean;
 }
 
 export interface ChatMessagesParams {
