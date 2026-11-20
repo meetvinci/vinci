@@ -1,7 +1,7 @@
 name: Images
 
 # Builds every Vinci image (docker-bake.hcl) for linux/amd64 and linux/arm64. A release tag (scripts/release.ts pushes
-# vX.Y.Z) tags them X.Y.Z, X.Y and the short commit; a manual run builds the chosen ref and tags it with the short
+# vX.Y.Z) tags them vX.Y.Z, vX.Y and the short commit; a manual run builds the chosen ref and tags it with the short
 # commit only.
 #
 # There is no registry yet, so nothing logs in or pushes: each architecture builds into the cache and stops. To publish,
@@ -39,8 +39,8 @@ jobs:
         with:
           flavor: latest=false
           tags: |
-            type=semver,pattern={{version}},enable=${{ github.event_name == 'push' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
+            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'push' }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'push' }}
             type=sha,prefix=,format=short
 
   build:

@@ -795,11 +795,11 @@ To roll back, copy the old version's deployment files into `/opt/vinci` again (f
 
 ### Images from CI
 
-Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64. Each image gets three tags: `X.Y.Z`, `X.Y` and the short commit, for example `1.2.3`, `1.2` and `a7a5395`. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit.
+Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64. Each image gets three tags: `vX.Y.Z`, `vX.Y` and the short commit, for example `v1.2.3`, `v1.2` and `a7a5395`, so `VINCI_TAG` keeps its `v0.2.0` form. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit.
 
 Vinci has no image registry yet, so the workflow only checks that every image builds. Until there is one, build and load the images yourself as in [install, step 3](install.md#3-get-vinci-onto-the-server).
 
-To publish to a registry later, open `.github/workflows/images.yml`, uncomment every line marked `# push:`, and set `REGISTRY` to the registry's address (for example `registry.example.com/vinci`). Then add the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`. The next tag then publishes `<registry>/vinci-daemon:1.2.3` and the five others.
+To publish to a registry later, open `.github/workflows/images.yml`, uncomment every line marked `# push:`, and set `REGISTRY` to the registry's address (for example `registry.example.com/vinci`). Then add the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`. The next tag then publishes `<registry>/vinci-daemon:v1.2.3` and the five others.
 
 ## Status and logs
 
