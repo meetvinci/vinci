@@ -6,9 +6,18 @@ const root = path.resolve(import.meta.dir, '..');
 const name = process.env.APP_NAME ?? 'Vinci';
 const args = process.argv.slice(2);
 const draft = args.includes('--draft');
-const current = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
-// Releases bump the patch version unless a version is given.
-const version = args.find((arg) => !arg.startsWith('--')) ?? current.replace(/\d+$/u, (patch: string) => String(Number(patch) + 1));
+const kind = args.find((arg) => !arg.startsWith('--'));
+const current: string = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+const [major, minor, patch] = current.split('.').map(Number);
+
+// Every release names its bump, so the version says what changed: a smaller bump resets the parts after it.
+const next: Record<string, string> = {
+  major: `${major + 1}.0.0`,
+  minor: `${major}.${minor + 1}.0`,
+  patch: `${major}.${minor}.${patch + 1}`,
+};
+
+const version = kind && Object.hasOwn(next, kind) ? next[kind] : '';
 const tag = `v${version}`;
 // A neutral folder keeps the build machine's home path out of bundled __filename values and route manifests.
 const build = path.join('/private/tmp', `vinci-release-${version}`);
@@ -71,9 +80,12 @@ function notes(): string {
   return run(['git', 'log', '--no-merges', '--format=- %s', range]);
 }
 
-if (!/^\d+\.\d+\.\d+$/u.test(version)) {
-  fail('Usage: bun run release [major.minor.patch] [--draft]');
+if (!version) {
+  fail('Usage: bun run release <patch|minor|major> [--draft]');
 }
+
+// Shown before the checks, so the person sees what they are about to release.
+console.log(`${current} -> ${version}`);
 
 // The app is built for its update address and its update goes to the bucket: stop before tagging when either is missing.
 if (!process.env.DESKTOP_UPDATE_URL?.trim() || !process.env.DESKTOP_UPDATE_S3_BUCKET?.trim()) {
@@ -122,6 +134,7 @@ if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'],
   fail(`The server bundle contains ${homedir()}. Nothing was pushed.`);
 }
 
+// The pushed tag also starts the images workflow (.github/workflows/images.yml).
 run(['git', 'push', '--atomic', 'origin', 'main', tag]);
 run(['gh', 'release', 'create', tag, desktop, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
 tagged = false;

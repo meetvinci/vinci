@@ -274,7 +274,7 @@ async function publish() {
   const manifestFile = path.join(artifacts, updateManifestName);
 
   if (!existsSync(manifestFile)) {
-    fail(`No ${updateManifestName} in ${artifacts}: run bun run release first.`);
+    fail(`No ${updateManifestName} in ${artifacts}: run bun run release <patch|minor|major> first.`);
   }
 
   const manifestText = readFileSync(manifestFile, 'utf8');

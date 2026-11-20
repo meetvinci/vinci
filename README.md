@@ -110,12 +110,13 @@ The native daemon is for development. To back up a development data folder, stop
 ### Release
 
 ```bash
-bun run release            # next patch: 0.0.1, 0.0.2, ...
-bun run release 0.2.0      # a specific version
-bun run release --draft    # publish the GitHub Release as a draft
+bun run release patch          # 0.1.6 -> 0.1.7: fixes
+bun run release minor          # 0.1.6 -> 0.2.0: new features
+bun run release major          # 0.1.6 -> 1.0.0: breaking changes
+bun run release minor --draft  # publish the GitHub Release as a draft
 ```
 
-This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with one file, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
+The bump kind is required: the next version follows semantic versioning from the root `package.json` version, and the script prints `current -> next` before it starts. This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with one file, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
 
 - `Vinci-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
 
