@@ -74,3 +74,53 @@ export const TOOL_ACTIVITY_LABELS = new Map<string, ToolTypes.ToolActivityLabel>
   ['bot_todo_remove', { plain: m.rooms_activity_tool_todos }],
   ['bot_gif', { plain: m.rooms_activity_tool_gif }],
 ]);
+
+export const TOOL_ACTIVITY_TOPICS = new Map<string, ToolTypes.ToolActivityTopic>([
+  ['bash', 'working'],
+  ['tool_search', 'working'],
+  ['read', 'documents'],
+  ['write', 'documentWrite'],
+  ['edit', 'documentWrite'],
+  ['bot_history', 'history'],
+  ['bot_search', 'history'],
+  ['bot_artifact_list', 'documents'],
+  ['bot_artifact_get', 'documents'],
+  ['bot_artifact_blocks', 'documents'],
+  ['bot_artifact_create', 'artifact'],
+  ['bot_artifact_update', 'artifact'],
+  ['bot_todo_list', 'todos'],
+  ['bot_todo_create', 'todos'],
+  ['bot_todo_update', 'todos'],
+  ['bot_todo_remove', 'todos'],
+  ['bot_routine_list', 'routines'],
+  ['bot_routine_create', 'routines'],
+  ['bot_routine_update', 'routines'],
+  ['bot_routine_run', 'routines'],
+  ['bot_routine_remove', 'routines'],
+  ['bot_gif', 'gif'],
+]);
+
+export const TOOL_ACTIVITY_TOPIC_PATTERNS: ToolTypes.ToolActivityTopicPattern[] = [
+  { topic: 'mail', pattern: /mail|outlook|inbox/u },
+  { topic: 'calendar', pattern: /calendar|calendly|meeting|appointment/u },
+  { topic: 'messages', pattern: /slack|teams|discord|whatsapp|telegram|message/u },
+  { topic: 'data', pattern: /sql|postgres|mysql|mariadb|supabase|database|\bdb\b|query|table|mongo|redis|bigquery|snowflake|clickhouse|airtable|sheet|excel|crm|analytics/u },
+  { topic: 'documents', pattern: /\bfiles?\b|folder|\bdocs?\b|document|drive|dropbox|notion|confluence|pdf|wiki|note/u },
+  { topic: 'web', pattern: /web|search|browse|fetch|scrape|crawl|url|http|brave|tavily|perplexity|google/u },
+];
+
+export const TOOL_ACTIVITY_TOPIC_LABELS = {
+  data: [m.rooms_activity_friendly_data, m.rooms_activity_friendly_data_gather],
+  web: [m.rooms_activity_friendly_web, m.rooms_activity_friendly_web_lookup],
+  documents: [m.rooms_activity_friendly_documents, m.rooms_activity_friendly_documents_files],
+  documentWrite: [m.rooms_activity_friendly_document_write],
+  mail: [m.rooms_activity_friendly_mail],
+  calendar: [m.rooms_activity_friendly_calendar],
+  messages: [m.rooms_activity_friendly_messages],
+  history: [m.rooms_activity_tool_history],
+  todos: [m.rooms_activity_tool_todos],
+  routines: [m.rooms_activity_friendly_routines],
+  artifact: [m.rooms_activity_tool_artifact],
+  gif: [m.rooms_activity_tool_gif],
+  working: [m.rooms_activity_friendly_working, m.rooms_activity_friendly_working_ready],
+} as const satisfies Record<ToolTypes.ToolActivityTopic, readonly [() => string, ...(() => string)[]]>;

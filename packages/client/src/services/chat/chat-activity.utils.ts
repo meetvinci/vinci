@@ -2,7 +2,7 @@ import { m } from '@repo/i18n/client';
 import { match } from 'ts-pattern';
 import { toolBlocks } from '../tool/tool.client';
 import { TOOL_ACTIVITY_LABELS, TOOL_PEER_NAMES, TOOL_SUBAGENT } from '../tool/tool.constants';
-import { toolInputText, toolPresentation, toolPreview, toolRunning } from '../tool/tool.utils';
+import { toolActivityFriendly, toolInputText, toolPresentation, toolPreview, toolRunning } from '../tool/tool.utils';
 import { CHAT } from './chat.constants';
 import type * as ChatTypes from '../../types/chat.types';
 
@@ -52,11 +52,12 @@ export function chatActivitySteps(message: ChatTypes.ChatMessage): ChatTypes.Cha
   return { steps, seconds: startedAt === undefined || endedAt === undefined ? null : Math.max(0, Math.round((endedAt - startedAt) / 1000)) };
 }
 
-export function chatActivityDetail({ draft, bots }: ChatTypes.ChatActivityDetailParams): string | null {
+export function chatActivityDetail({ draft, bots, canSeeSteps }: ChatTypes.ChatActivityDetailParams): string | null {
   const parts = draft?.parts.filter((part) => part.type !== 'step-start') ?? [];
   const last = parts.at(-1);
   const before = parts.at(-2);
-  const preamble = last?.type === 'dynamic-tool' && before?.type === 'reasoning' && Object.hasOwn(before.providerMetadata ?? {}, CHAT.preambleKey) ? chatActivityPlain(before.text) : null;
+  // SAFETY: without steps a person never reads the model's own words here (preambles, thinking headings, helper names), only fixed copy.
+  const preamble = canSeeSteps && last?.type === 'dynamic-tool' && before?.type === 'reasoning' && Object.hasOwn(before.providerMetadata ?? {}, CHAT.preambleKey) ? chatActivityPlain(before.text) : null;
 
   const detail = match(last)
     .returnType<string | null>()
@@ -78,7 +79,11 @@ export function chatActivityDetail({ draft, bots }: ChatTypes.ChatActivityDetail
       if (part.toolName === TOOL_SUBAGENT) {
         const name = toolInputText({ input: part.input, key: 'name' });
 
-        return name ? m.rooms_activity_detail_subagent({ name }) : m.rooms_activity_detail_subagent_anonymous();
+        return name && canSeeSteps ? m.rooms_activity_detail_subagent({ name }) : m.rooms_activity_detail_subagent_anonymous();
+      }
+
+      if (!canSeeSteps) {
+        return toolActivityFriendly(part);
       }
 
       const preview = toolPreview(part);
@@ -92,6 +97,7 @@ export function chatActivityDetail({ draft, bots }: ChatTypes.ChatActivityDetail
 
       return preview ? m.rooms_activity_detail_tool({ tool: label, detail: preview }) : label;
     })
+    .with({ type: 'reasoning' }, () => !canSeeSteps, () => null)
     .with({ type: 'reasoning' }, ({ text }) => [...text.matchAll(/\*\*([^*\n]{3,80})\*\*/gu)].at(-1)?.[1]?.trim() ?? text.split('\n').map(chatActivityPlain).filter(Boolean).at(-1) ?? null)
     .otherwise(() => null);
 

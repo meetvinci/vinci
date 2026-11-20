@@ -17,12 +17,13 @@ export function chatMessageDetails(message: ChatMessage): string[] {
   return [...sent, ...usage];
 }
 
-export function chatMessageSegments(message: ChatMessage, hideVerbose: boolean): ChatTypes.ChatMessageSegment[] {
+export function chatMessageSegments({ message, hideVerbose, canSeeSteps }: ChatTypes.ChatMessageSegmentsParams): ChatTypes.ChatMessageSegment[] {
   const isReply = message.role !== 'user';
   const files = message.parts.filter((part) => part.type === 'file');
   const segments: ChatTypes.ChatMessageSegment[] = files.length > 0 ? [{ key: 'files', kind: 'bubbles', parts: [{ key: 'files', kind: 'files', files }] }] : [];
 
-  for (const block of toolBlocks({ parts: message.parts, hideVerbose })) {
+  // SAFETY: without steps a person sees an approval only while it waits (the runs list), never its outcome.
+  for (const block of toolBlocks({ parts: message.parts, hideVerbose }).filter((item) => canSeeSteps || item.kind !== 'expired')) {
     const tools = match(block)
       .with({ kind: 'tools' }, ({ parts }) => parts)
       .with({ kind: 'expired' }, ({ part }) => [part])

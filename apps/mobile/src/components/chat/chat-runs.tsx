@@ -38,7 +38,7 @@ export function ChatRuns({ bot, bots = [], activity, failure, draft, startedAt, 
     ) : null;
   };
 
-  const { hideVerbose } = useChatHideVerbose();
+  const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const last = draft?.parts.filter((part) => part.type !== 'step-start').at(-1);
   const isWaiting = activity === 'queued';
   const waitingOn = chatActivityWaitingOn(approvals.length, questions.length);
@@ -53,7 +53,11 @@ export function ChatRuns({ bot, bots = [], activity, failure, draft, startedAt, 
   const detail = match(waitingOn)
     .with('approval', () => m.rooms_activity_waiting_approval())
     .with('question', () => m.rooms_activity_waiting_question())
-    .otherwise(() => (isWaiting ? null : chatActivityDetail({ draft, bots })));
+    .otherwise(() => (isWaiting ? null : chatActivityDetail({
+      draft,
+      bots,
+      canSeeSteps,
+    })));
 
   const peer = isWaiting || waitingOn ? undefined : chatActivityPeer(draft, bots);
   const label = isWaiting ? m.rooms_chat_waiting({ bot: bot.name }) : detail ?? BOT_ACTIVITY_LABELS[activity]();

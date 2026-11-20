@@ -80,3 +80,10 @@ export interface ToolActivityLabel {
   plain: () => string;
   detail?: (detail: string) => string;
 }
+
+export type ToolActivityTopic = 'data' | 'web' | 'documents' | 'documentWrite' | 'mail' | 'calendar' | 'messages' | 'history' | 'todos' | 'routines' | 'artifact' | 'gif' | 'working';
+
+export interface ToolActivityTopicPattern {
+  topic: ToolActivityTopic;
+  pattern: RegExp;
+}
