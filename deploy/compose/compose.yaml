@@ -17,7 +17,7 @@ services:
   # One-off root jobs for `bun deploy.ts`: owner-socket folders, backups, restores and purges. No network.
   tools:
     profiles: [setup]
-    image: vinci-daemon:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-daemon:${VINCI_TAG}
     user: "0:0"
     entrypoint: ["sh", "-c"]
     read_only: true
@@ -35,7 +35,7 @@ services:
   # so this gives it nothing it lacked.
   disks:
     profiles: [setup]
-    image: vinci-daemon:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-daemon:${VINCI_TAG}
     user: "0:0"
     entrypoint: ["nsenter", "--target", "1", "--mount", "--", "sh", "-c"]
     privileged: true
@@ -45,7 +45,7 @@ services:
   # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
   # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
-    image: vinci-hub:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-hub:${VINCI_TAG}
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
@@ -82,7 +82,7 @@ services:
   # Root without capabilities: it reads and writes root's files in /opt/vinci and the socket as their owner.
   # /opt/vinci is mounted at the same path, so Compose resolves ./hub and the other relative paths as on the host.
   provisioner:
-    image: vinci-provisioner:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-provisioner:${VINCI_TAG}
     user: "0:0"
     read_only: true
     tmpfs:
@@ -122,7 +122,7 @@ services:
   # 0.2 s), daemons are unfiltered, and the hub cannot reach them because their networks drop traffic between
   # containers. `bun deploy.ts firewall remove` deletes the rules.
   firewall:
-    image: vinci-firewall:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-firewall:${VINCI_TAG}
     network_mode: host
     read_only: true
     cap_drop: [ALL]
@@ -138,7 +138,7 @@ services:
 
   # One shared web app in hub mode: its server calls only the hub, never a daemon.
   web:
-    image: vinci-web:${VINCI_TAG}
+    image: ${VINCI_REGISTRY:-}vinci-web:${VINCI_TAG}
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=64m

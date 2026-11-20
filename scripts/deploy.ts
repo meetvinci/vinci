@@ -1189,14 +1189,14 @@ function offsiteRun(name: string): string {
 }
 
 // GnuPG in the daemon image, by plain `docker run` rather than the tools service: on a fresh server it decrypts before
-// the deployment files are back, with only VINCI_TAG, the bucket and the passphrase in .env.
+// the deployment files are back, with only VINCI_TAG, VINCI_REGISTRY, the bucket and the passphrase in .env.
 async function gpg(script: string, volume: string, options: DockerOptions): Promise<string> {
   const tag = envValue('VINCI_TAG') ?? fail('Set VINCI_TAG in .env: the off-site copy is encrypted by GnuPG in the vinci-daemon image of that tag.');
 
   return docker([
     'run', '--rm', ...(options.input ? ['--interactive'] : []), '--network', 'none', '--read-only', '--tmpfs', '/tmp', '--user', '0:0',
     '--cap-drop', 'ALL', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--cap-add', 'FOWNER', '--security-opt', 'no-new-privileges:true',
-    '--env', 'BACKUP_PASSPHRASE', '--volume', volume, '--entrypoint', 'bash', `vinci-daemon:${tag}`,
+    '--env', 'BACKUP_PASSPHRASE', '--volume', volume, '--entrypoint', 'bash', `${envValue('VINCI_REGISTRY') ?? ''}vinci-daemon:${tag}`,
     '-o', 'pipefail', '-c', `mkdir -m 700 /tmp/gnupg && ${script}`,
   ], options);
 }
@@ -1427,8 +1427,8 @@ async function nightlyStatus() {
 }
 
 // `nightly fetch` lists the runs in the bucket; `nightly fetch <run>` downloads one, checks its checksum, decrypts it
-// into backups/<run>/ and checks every file against its manifest, ready for `restore`. Needs only VINCI_TAG, the
-// bucket and the passphrase in .env and the vinci-daemon image, so it works on a fresh server.
+// into backups/<run>/ and checks every file against its manifest, ready for `restore`. Needs only VINCI_TAG,
+// VINCI_REGISTRY, the bucket and the passphrase in .env and the vinci-daemon image, so it works on a fresh server.
 async function nightlyFetch() {
   const bucket = offsiteBucket() ?? fail('Set BACKUP_S3_BUCKET and the other BACKUP_S3_ settings in .env (admin.md, Off-site copy).');
   const [run] = process.argv.slice(4);
