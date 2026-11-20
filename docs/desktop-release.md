@@ -39,10 +39,10 @@ Before opening a test build, check the `runtime` block of the app's `Contents/Re
 
 Delete the app and its data folder when done.
 
-## Publish version N
+## Publish a version
 
 ```bash
-bun run release N        # for example: bun run release 0.2.0
+bun run release <patch|minor|major>   # for example: bun run release minor (0.1.6 -> 0.2.0)
 ```
 
 From a clean `main` that matches `origin/main`, this checks, tags, builds the app for `DESKTOP_UPDATE_URL`, signs it with the Developer ID, has Apple notarize it, staples the ticket, pushes the tag, creates the GitHub Release, and finally publishes the update to the bucket. With `--draft` it stops before the bucket and prints the command that publishes it.
