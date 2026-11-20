@@ -672,7 +672,7 @@ What the person gets back is exactly what they had at backup time: bots, chats, 
 
 From one run folder alone, for example when the server is lost. Images are not in the backup: you need the same tag as `"tag"` in its `manifest.json`.
 
-1. Prepare the new server with [install](install.md) steps 1 and 2, and load the images of that tag as in step 3 (build them from that commit of the repository). Install Bun as in step 3.
+1. Prepare the new server with [install](install.md) steps 1 and 2, and pull the images of that tag as in step 3 (or build them from that commit if it was not a release). Install Bun as in step 3.
 2. Copy the run folder to the new server and unpack the deployment files from it:
 
    ```sh
@@ -697,7 +697,7 @@ Nothing changes in Cloudflare: the tunnel token in `.env` connects the new serve
 
 When the server is lost, or its disk no longer has the backup you want. You need the bucket settings and the passphrase from your password manager, and the images of the tag the backup was made with.
 
-1. Prepare the new server with [install](install.md) steps 1 and 2, load the images as in step 3 (build them from the tag you last upgraded to; step 4 tells you the backup's own tag) and install Bun as in step 3.
+1. Prepare the new server with [install](install.md) steps 1 and 2, pull the images as in step 3 (the tag you last upgraded to; step 4 tells you the backup's own tag; build them by hand if it was not a release) and install Bun as in step 3.
 2. Copy `deploy.ts` from that checkout and write a `.env` that holds only the image tag and the off-site settings:
 
    ```sh
@@ -706,7 +706,7 @@ When the server is lost, or its disk no longer has the backup you want. You need
    ssh root@<new server> 'cd /opt/vinci && umask 077 && cat > .env'
    ```
 
-   Type or paste `VINCI_TAG=<tag>`, every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
+   Type or paste `VINCI_TAG=<tag>`, `VINCI_REGISTRY=ghcr.io/meetvinci/` (leave it out for images loaded by hand), every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
 3. List the backups in the bucket and pick one (UTC times, oldest first):
 
    ```sh
@@ -747,7 +747,7 @@ bun deploy.ts apply
 
 ## Upgrades
 
-New images arrive with a new tag. Build and load all six (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Load images before changing the tag: Docker Compose otherwise tries to download them and fails with `pull access denied`. To switch:
+New images arrive with a new release tag. Pull all six (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again from a checkout of that tag (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun ghcr.io/meetvinci/vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Pull the images before changing the tag, so the switch below does not wait on the download. The first upgrade from images loaded by hand also needs `VINCI_REGISTRY=ghcr.io/meetvinci/` added to `.env` and the server logged in to the registry, both as in step 3. To switch:
 
 1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Vinci as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version. On the first upgrade to the version with nightly backups, the hub stops for about 7 seconds instead of 3: the running hub still has the old health check. Note the run's time (`Last run: backups/<time>`): it stays for 7 days like the nightly runs, a later run on the same day included, and is the one to restore if the new version goes wrong.
 
@@ -791,15 +791,31 @@ To roll back, copy the old version's deployment files into `/opt/vinci` again (f
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Vinci in `/opt/vinci` to image tag `<tag>`: confirm `docker images` lists `vinci-daemon`, `vinci-sandbox` (from the version with the sandbox), `vinci-web`, `vinci-hub`, `vinci-provisioner` and (from the version with the firewall) `vinci-firewall` with that tag, and that `/opt/vinci` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `vinci-fw-undo` timer from the Upgrades section. Set `VINCI_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply` (on the first upgrade to the version with the firewall it recreates the hub and everyone's Vinci on new networks itself). Confirm every container is healthy on the new tag, `vinci-daemon-template-1`, the sandboxes and the firewall included, `bun deploy.ts status` exits 0, `bun deploy.ts firewall status` says `healthy`, and the hub log shows no error; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. The hub copies the global settings again as it starts; confirm the `global/sync` by `hub start` line in its log a minute after the restart. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Vinci in `/opt/vinci` to image tag `<tag>`: pull the six images of that tag as in install step 3, confirm `docker images` lists `vinci-daemon`, `vinci-sandbox` (from the version with the sandbox), `vinci-web`, `vinci-hub`, `vinci-provisioner` and (from the version with the firewall) `vinci-firewall` with that tag, and that `/opt/vinci` has the deployment files from the same checkout. Back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `vinci-fw-undo` timer from the Upgrades section. Set `VINCI_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply` (on the first upgrade to the version with the firewall it recreates the hub and everyone's Vinci on new networks itself). Confirm every container is healthy on the new tag, `vinci-daemon-template-1`, the sandboxes and the firewall included, `bun deploy.ts status` exits 0, `bun deploy.ts firewall status` says `healthy`, and the hub log shows no error; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. The hub copies the global settings again as it starts; confirm the `global/sync` by `hub start` line in its log a minute after the restart. If anything fails, roll back as the Upgrades section says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ### Images from CI
 
-Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64. Each image gets three tags: `vX.Y.Z`, `vX.Y` and the short commit, for example `v1.2.3`, `v1.2` and `a7a5395`, so `VINCI_TAG` keeps its `v0.2.0` form. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit.
+Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64 and publish them, private, to GitHub's container registry as `ghcr.io/meetvinci/vinci-<image>`. Each image gets three tags: `vX.Y.Z`, `vX.Y` and the short commit, for example `v1.2.3`, `v1.2` and `a7a5395`, so `VINCI_TAG` keeps its `v0.2.0` form. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit. The workflow pushes with its own `GITHUB_TOKEN`: there is no secret to keep.
 
-Vinci has no image registry yet, so the workflow only checks that every image builds. Until there is one, build and load the images yourself as in [install, step 3](install.md#3-get-vinci-onto-the-server).
+After each publish the workflow deletes old builds of manual runs, keeping the 5 newest. Releases are never deleted, so every version stays available to upgrade or roll back to.
 
-To publish to a registry later, open `.github/workflows/images.yml`, uncomment every line marked `# push:`, and set `REGISTRY` to the registry's address (for example `registry.example.com/vinci`). Then add the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`. The next tag then publishes `<registry>/vinci-daemon:v1.2.3` and the five others.
+Storing container images on GitHub is free for now; GitHub promises a month's notice before it charges for it.
+
+### Give a server access to the images
+
+Every server pulls with its own read-only token, so you can cut one off without touching the others. The tokens belong to one machine account, `meetvinci-registry`, that can read the six `vinci-*` packages and nothing else. A token cannot be limited to some packages, so never make these tokens on a person's own account: they would read every private package that person can.
+
+Once, when the first images exist:
+
+1. Create the machine account `meetvinci-registry` on GitHub with a team email address (a shared inbox or an alias, not one person's), turn on two-factor authentication, and keep its password, one-time code and recovery codes in the team password manager.
+2. In the `meetvinci` organization, open each of the six packages (**Packages** → `vinci-daemon` → **Package settings**). Under **Manage access**, turn off **Inherit access from source repository**: with it on, reading the package means reading the repository, and a token holder could see the source. Then add `meetvinci-registry` with the **Read** role.
+
+For each server (about a minute):
+
+1. Logged in as `meetvinci-registry`, open **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Name it after the server or customer (for example `client`), tick only `read:packages`, and choose an expiry; put a reminder in a calendar for it.
+2. Save it in the password manager, then log the server in with it as in [install, step 3](install.md#3-get-vinci-onto-the-server).
+
+To cut a server off, delete its token on the same page. That server can no longer pull new versions; the Vinci it runs keeps working on the images it already has. GitHub cannot create these tokens through its API: an admin makes each one by hand.
 
 ## Status and logs
 

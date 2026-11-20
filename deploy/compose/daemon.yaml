@@ -2,7 +2,7 @@
 # Not a Compose file of its own: never list it in COMPOSE_FILE.
 services:
   daemon:
-    image: vinci-daemon:${VINCI_TAG:?set VINCI_TAG in .env}
+    image: ${VINCI_REGISTRY:-}vinci-daemon:${VINCI_TAG:?set VINCI_TAG in .env}
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=256m
