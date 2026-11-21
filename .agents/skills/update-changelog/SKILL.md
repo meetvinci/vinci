@@ -1,5 +1,5 @@
 ---
-name: vinci-changelog
+name: update-changelog
 description: Generate concise, illustrated development notes in the Vinci changelog from changes on main, a PR, or a specified Git range.
 ---
 
