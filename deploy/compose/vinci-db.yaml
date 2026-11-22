@@ -1,0 +1,44 @@
+name: vinci-db
+
+services:
+  api:
+    build: ../../apps/vinci-db
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${VINCI_DB_API_BIND:-127.0.0.1}:${VINCI_DB_API_PORT:-55433}:80"
+    environment:
+      APP_ENV: production
+      APP_KEY: ${APP_KEY:?set Laravel application key in .env}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_DATABASE: bots
+      DB_USERNAME: bot
+      DB_PASSWORD: ${VINCI_DB_PASSWORD}
+      VINCI_DB_API_TOKEN: ${VINCI_DB_API_TOKEN:?set shared API token in .env}
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set the admin password in .env}
+      VINCI_DB_PASSWORD: ${VINCI_DB_PASSWORD:?set the shared SQL password in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ../../apps/vinci-db/database/init.sql:/docker-entrypoint-initdb.d/10-bot.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "bot", "-d", "bots"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data: {}
