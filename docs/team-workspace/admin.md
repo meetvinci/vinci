@@ -706,7 +706,7 @@ When the server is lost, or its disk no longer has the backup you want. You need
    ssh root@<new server> 'cd /opt/vinci && umask 077 && cat > .env'
    ```
 
-   Type or paste `VINCI_TAG=<tag>`, `VINCI_REGISTRY=ghcr.io/meetvinci/` (leave it out for images loaded by hand), every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
+   Type or paste `VINCI_TAG=<tag>`, `VINCI_REGISTRY=registry.example.com/vinci/` (leave it out for images loaded by hand), every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
 3. List the backups in the bucket and pick one (UTC times, oldest first):
 
    ```sh
@@ -747,7 +747,7 @@ bun deploy.ts apply
 
 ## Upgrades
 
-New images arrive with a new release tag. Pull all six (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again from a checkout of that tag (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun ghcr.io/meetvinci/vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Pull the images before changing the tag, so the switch below does not wait on the download. The first upgrade from images loaded by hand also needs `VINCI_REGISTRY=ghcr.io/meetvinci/` added to `.env` and the server logged in to the registry, both as in step 3. To switch:
+New images arrive with a new release tag. Pull all six (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again from a checkout of that tag (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun registry.example.com/vinci/vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Pull the images before changing the tag, so the switch below does not wait on the download. The first upgrade from images loaded by hand also needs `VINCI_REGISTRY=registry.example.com/vinci/` added to `.env` and the server logged in to the registry, both as in step 3. To switch:
 
 1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Vinci as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version. On the first upgrade to the version with nightly backups, the hub stops for about 7 seconds instead of 3: the running hub still has the old health check. Note the run's time (`Last run: backups/<time>`): it stays for 7 days like the nightly runs, a later run on the same day included, and is the one to restore if the new version goes wrong.
 
@@ -795,27 +795,17 @@ To roll back, copy the old version's deployment files into `/opt/vinci` again (f
 
 ### Images from CI
 
-Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64 and publish them, private, to GitHub's container registry as `ghcr.io/meetvinci/vinci-<image>`. Each image gets three tags: `vX.Y.Z`, `vX.Y` and the short commit, for example `v1.2.3`, `v1.2` and `a7a5395`, so `VINCI_TAG` keeps its `v0.2.0` form. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build gets only the short commit. The workflow pushes with its own `GITHUB_TOKEN`: there is no secret to keep.
+Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all six images for amd64 and arm64 and publish them to Vinci's private registry, `registry.example.com` (zot, on the server `vinci01`), as `registry.example.com/vinci/vinci-<image>:vX.Y.Z`. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build is tagged with the full commit instead. The workflow logs in as the registry's `github-ci` user, which can push but not delete, with the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`.
 
-After each publish the workflow deletes old builds of manual runs, keeping the 5 newest. Releases are never deleted, so every version stays available to upgrade or roll back to.
+The registry deletes old images by itself once a day: of each image it keeps the 10 newest tags and any tag pulled in the last 30 days. A release older than that, which no server pulled in a month, is gone, and rolling back to it means building it again (run the workflow by hand on its tag, or [build it locally](install.md#3-get-vinci-onto-the-server)). Users, permissions and retention are set on `vinci01`, in `/opt/zot`, not in this repository.
 
-Storing container images on GitHub is free for now; GitHub promises a month's notice before it charges for it.
+The registry is behind Cloudflare, which refuses any request over 100 MB, and a push sends each compressed layer in one request. Today the largest is about 72 MB (the sandbox image). If a push fails with `413` or `Request Entity Too Large`, a layer has grown past the limit: split the Dockerfile step that makes it. Pulls are not limited.
 
 ### Give a server access to the images
 
-Every server pulls with its own read-only token, so you can cut one off without touching the others. The tokens belong to one machine account, `meetvinci-registry`, that can read the six `vinci-*` packages and nothing else. A token cannot be limited to some packages, so never make these tokens on a person's own account: they would read every private package that person can.
+Every server pulls as `vinci-pull`, the registry's read-only user: it can pull the `vinci/` images and nothing else, and cannot push or delete. Keep its password in the password manager and log each server in with it as in [install, step 3](install.md#3-get-vinci-onto-the-server).
 
-Once, when the first images exist:
-
-1. Create the machine account `meetvinci-registry` on GitHub with a team email address (a shared inbox or an alias, not one person's), turn on two-factor authentication, and keep its password, one-time code and recovery codes in the team password manager.
-2. In the `meetvinci` organization, open each of the six packages (**Packages** → `vinci-daemon` → **Package settings**). Under **Manage access**, turn off **Inherit access from source repository**: with it on, reading the package means reading the repository, and a token holder could see the source. Then add `meetvinci-registry` with the **Read** role.
-
-For each server (about a minute):
-
-1. Logged in as `meetvinci-registry`, open **Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)**. Name it after the server or customer (for example `client`), tick only `read:packages`, and choose an expiry; put a reminder in a calendar for it.
-2. Save it in the password manager, then log the server in with it as in [install, step 3](install.md#3-get-vinci-onto-the-server).
-
-To cut a server off, delete its token on the same page. That server can no longer pull new versions; the Vinci it runs keeps working on the images it already has. GitHub cannot create these tokens through its API: an admin makes each one by hand.
+All servers share that one login. To cut a single server off, ask the registry's admin for its own read-only user on `vinci01` (an `htpasswd` line and a read-only rule in `/opt/zot/config.json`) and log that server in with it instead; removing the user later stops only that server. A server cut off keeps running the images it already has: it can no longer pull new versions.
 
 ## Status and logs
 
