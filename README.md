@@ -114,15 +114,18 @@ bun run release patch          # 0.1.6 -> 0.1.7: fixes
 bun run release minor          # 0.1.6 -> 0.2.0: new features
 bun run release major          # 0.1.6 -> 1.0.0: breaking changes
 bun run release minor --draft  # publish the GitHub Release as a draft
+bun run release patch --desktop # also build and publish the macOS app
 ```
 
-The bump kind is required: the next version follows semantic versioning from the root `package.json` version, and the script prints `current -> next` before it starts. This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, then builds from a clean checkout of the tag. It pushes `main` and the tag, creates a GitHub Release with one file, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
+The bump kind is required: the next version follows semantic versioning from the root `package.json` version, and the script prints `current -> next` before it starts. This releases from a clean `main` that matches `origin/main`. It runs `check` and `lint`, sets the version in every `package.json`, commits and tags it, pushes `main` and the tag, and creates a GitHub Release. The tag makes CI build the container images, also with `--draft`. That is the whole release: it needs no Apple certificate and no update bucket.
+
+With `--desktop`, it also builds the macOS app from a clean checkout of the tag before pushing, attaches it to the GitHub Release, and then publishes the app's update to the update bucket, from which installed apps update themselves (see [Desktop releases and updates](docs/desktop-release.md); `--draft` skips that last step):
 
 - `Vinci-<version>-macos-arm64.zip`: the macOS app, signed with your Developer ID and notarized by Apple.
 
 The iOS app ships through EAS and TestFlight, not GitHub: `bun run release:ios` builds it on this Mac and submits it to TestFlight; `bun run release:ios-expo` builds it on EAS instead. `bun run release:desktop` builds only the macOS app, without tagging.
 
-The app looks for updates only at `DESKTOP_UPDATE_URL`, set at build time; a release refuses to start without it and `bun run publish:desktop` uploads a finished release to its bucket. Signing reads `DESKTOP_SIGNING_KEYCHAIN` (a dedicated keychain holding the Developer ID certificate) and `DESKTOP_SIGNING_IDENTITY` (its SHA-1) from `.env`. The keychain password and notary key come from `.env` or from a `credentials.json` next to the keychain; see `.env.example`.
+The app looks for updates only at `DESKTOP_UPDATE_URL`, set at build time; a `--desktop` release refuses to start without it and `bun run publish:desktop` uploads a finished release to its bucket. Signing reads `DESKTOP_SIGNING_KEYCHAIN` (a dedicated keychain holding the Developer ID certificate) and `DESKTOP_SIGNING_IDENTITY` (its SHA-1) from `.env`. The keychain password and notary key come from `.env` or from a `credentials.json` next to the keychain; see `.env.example`.
 
 ### Container images
 

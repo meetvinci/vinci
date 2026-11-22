@@ -6,6 +6,9 @@ const root = path.resolve(import.meta.dir, '..');
 const name = process.env.APP_NAME ?? 'Vinci';
 const args = process.argv.slice(2);
 const draft = args.includes('--draft');
+// A release is the container images. The macOS app joins it only when asked: it needs signing and an update bucket.
+const withDesktop = args.includes('--desktop');
+const unknown = args.find((arg) => arg.startsWith('--') && !['--draft', '--desktop'].includes(arg));
 const kind = args.find((arg) => !arg.startsWith('--'));
 const current: string = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 const [major, minor, patch] = current.split('.').map(Number);
@@ -27,7 +30,9 @@ function fail(message: string): never {
   console.error(message);
 
   if (tagged) {
-    console.error(`Undo the release commit: git worktree remove --force ${build}; git tag -d ${tag} && git reset --hard origin/main`);
+    const removeBuild = withDesktop ? `git worktree remove --force ${build}; ` : '';
+
+    console.error(`Undo the release commit: ${removeBuild}git tag -d ${tag} && git reset --hard origin/main`);
   }
 
   process.exit(1);
@@ -80,15 +85,15 @@ function notes(): string {
   return run(['git', 'log', '--no-merges', '--format=- %s', range]);
 }
 
-if (!version) {
-  fail('Usage: bun run release <patch|minor|major> [--draft]');
+if (!version || unknown) {
+  fail('Usage: bun run release <patch|minor|major> [--draft] [--desktop]');
 }
 
 // Shown before the checks, so the person sees what they are about to release.
 console.log(`${current} -> ${version}`);
 
 // The app is built for its update address and its update goes to the bucket: stop before tagging when either is missing.
-if (!process.env.DESKTOP_UPDATE_URL?.trim() || !process.env.DESKTOP_UPDATE_S3_BUCKET?.trim()) {
+if (withDesktop && (!process.env.DESKTOP_UPDATE_URL?.trim() || !process.env.DESKTOP_UPDATE_S3_BUCKET?.trim())) {
   fail('Set DESKTOP_UPDATE_URL and the DESKTOP_UPDATE_S3_ settings in .env (docs/desktop-release.md).');
 }
 
@@ -110,7 +115,7 @@ if (run(['git', 'tag', '--list', tag])) {
   fail(`${tag} already exists.`);
 }
 
-if (existsSync(build)) {
+if (withDesktop && existsSync(build)) {
   fail(`${build} already exists: remove it first.`);
 }
 
@@ -123,21 +128,30 @@ run(['git', 'commit', '--all', '--message', `Release ${tag}`]);
 run(['git', 'tag', '--annotate', tag, '--message', `${name} ${tag}`]);
 tagged = true;
 
-run(['git', 'worktree', 'add', '--detach', build, tag]);
-step(['bun', 'install', '--frozen-lockfile'], build);
-step(['bun', 'scripts/desktop.ts', 'release'], build);
-
 const artifacts = path.join(build, 'apps/desktop/artifacts');
-const desktop = path.join(artifacts, `${name}-${version}-macos-arm64.zip`);
+const files = withDesktop ? [path.join(artifacts, `${name}-${version}-macos-arm64.zip`)] : [];
 
-if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'], { cwd: build }).exitCode === 0) {
-  fail(`The server bundle contains ${homedir()}. Nothing was pushed.`);
+if (withDesktop) {
+  run(['git', 'worktree', 'add', '--detach', build, tag]);
+  step(['bun', 'install', '--frozen-lockfile'], build);
+  step(['bun', 'scripts/desktop.ts', 'release'], build);
+
+  if (Bun.spawnSync(['grep', '-rqF', '--', homedir(), 'apps/desktop/dist/server'], { cwd: build }).exitCode === 0) {
+    fail(`The server bundle contains ${homedir()}. Nothing was pushed.`);
+  }
 }
 
 // The pushed tag also starts the images workflow (.github/workflows/images.yml).
 run(['git', 'push', '--atomic', 'origin', 'main', tag]);
-run(['gh', 'release', 'create', tag, desktop, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
+// Pushed: undoing the commit here would no longer undo the release.
 tagged = false;
+console.log(`Pushed ${tag}. If the next step fails, create its GitHub Release by hand: running again makes another version.`);
+run(['gh', 'release', 'create', tag, ...files, '--verify-tag', ...(draft ? ['--draft'] : []), '--title', `${name} ${tag}`, '--notes', notes()]);
+
+if (!withDesktop) {
+  console.log(`Released ${tag}${draft ? ' as a draft' : ''}: the Images workflow builds its container images.`);
+  process.exit(0);
+}
 
 // Last, so installed apps see the update only once the tag and the release exist; a draft is not offered to them yet.
 if (draft) {

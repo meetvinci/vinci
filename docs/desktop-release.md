@@ -10,7 +10,7 @@ Put these in `.env` on the Mac that builds releases.
 
 | Setting | What it is |
 |---|---|
-| `DESKTOP_UPDATE_URL` | The address installed apps read updates from. `https://` only, no `?query` (the updater adds its own), so a key goes in the path. A release refuses to start without it. |
+| `DESKTOP_UPDATE_URL` | The address installed apps read updates from. `https://` only, no `?query` (the updater adds its own), so a key goes in the path. A `--desktop` release refuses to start without it. |
 | `DESKTOP_UPDATE_S3_BUCKET` | The bucket behind that address. |
 | `DESKTOP_UPDATE_S3_ENDPOINT` | The provider's S3 address, for R2 `https://<account id>.r2.cloudflarestorage.com`. Empty for Amazon S3. |
 | `DESKTOP_UPDATE_S3_REGION` | `auto` for R2. |
@@ -42,10 +42,10 @@ Delete the app and its data folder when done.
 ## Publish a version
 
 ```bash
-bun run release <patch|minor|major>   # for example: bun run release minor (0.1.6 -> 0.2.0)
+bun run release <patch|minor|major> --desktop   # for example: bun run release minor --desktop (0.1.6 -> 0.2.0)
 ```
 
-From a clean `main` that matches `origin/main`, this checks, tags, builds the app for `DESKTOP_UPDATE_URL`, signs it with the Developer ID, has Apple notarize it, staples the ticket, pushes the tag, creates the GitHub Release, and finally publishes the update to the bucket. With `--draft` it stops before the bucket and prints the command that publishes it.
+Without `--desktop`, a release is the container images only and needs none of the settings above. With it, from a clean `main` that matches `origin/main`, this checks, tags, builds the app for `DESKTOP_UPDATE_URL`, signs it with the Developer ID, has Apple notarize it, staples the ticket, pushes the tag, creates the GitHub Release, and finally publishes the update to the bucket. With `--draft` it stops before the bucket and prints the command that publishes it.
 
 To publish a release that is already built (for example after the bucket step failed):
 
