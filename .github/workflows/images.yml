@@ -1,7 +1,7 @@
 name: Images
 
-# Builds every Vinci image (docker-bake.hcl) for linux/amd64 and linux/arm64. A release tag (scripts/release.ts pushes
-# vX.Y.Z) tags them vX.Y.Z; a manual run builds the chosen ref and tags it with the full commit.
+# Builds every Vinci image, including the API, from docker-bake.hcl for linux/amd64 and linux/arm64.
+# A release tag produces a vX.Y.Z image tag. A manual run tags the images with the full commit.
 #
 # Images go to our private zot registry as registry.example.com/vinci/vinci-<target>, pushed as its `github-ci` user
 # (repository secrets REGISTRY_USERNAME and REGISTRY_PASSWORD; it can push but not delete). Each architecture pushes by

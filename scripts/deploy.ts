@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util';
 // It imports only Bun and node builtins, so the server needs Bun and Docker and nothing else.
 const root = path.resolve(import.meta.dir, '..');
 const dockerfile = path.join(root, 'deploy/docker/Dockerfile');
-const targets = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall'];
+const targets = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall', 'api'];
 const usersFile = 'users.yaml';
 const lockFile = 'users.yaml.lock';
 const lockStaleMs = 10 * 60 * 1000;
