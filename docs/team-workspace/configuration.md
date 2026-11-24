@@ -10,7 +10,7 @@ Every setting and file in a team install. "Set by the image" means the container
 | --- | --- | --- |
 | `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is. |
 | `VINCI_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
-| `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner` and `vinci-firewall` images. Change it to upgrade or roll back. CI builds them from each release tag ([images from CI](admin.md#images-from-ci)). |
+| `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` images. Change it to upgrade or roll back. CI builds them from each release tag ([images from CI](admin.md#images-from-ci)). |
 | `VINCI_REGISTRY` | `registry.example.com/vinci/` | Where Compose takes the images from, ending in `/`. Empty uses images loaded by hand with `docker load` ([install, step 3](install.md#3-get-vinci-onto-the-server)). |
 | `DAEMON_MEMORY`, `DAEMON_CPUS`, `DAEMON_PIDS` | `512m`, `1`, `256` | Limits for each person's container. These are the defaults. |
 | `SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_PIDS` | `512m`, `1`, `256` | Limits for each person's sandbox, where their bots' tools run. These are the defaults; idle it uses about 3 MB. A runaway command hits this limit, not their Vinci's. |
@@ -103,7 +103,7 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | --- | --- | --- |
 | `.env` | `/opt/vinci/` | Every setting above. Secret. |
 | `users.yaml` | `/opt/vinci/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
-| `compose.yaml`, `daemon.yaml`, `sandbox.yaml` | `/opt/vinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the one-off `tools` service, and the two containers every person gets: their Vinci and the sandbox where their bots' tools run. |
+| `compose.yaml`, `daemon.yaml`, `sandbox.yaml` | `/opt/vinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the API, the one-off `tools` service, and the two containers every person gets: their Vinci and the sandbox where their bots' tools run. |
 | `cloudflared.compose.yaml` | `/opt/vinci/`, copied from `deploy/cloudflare/` | The tunnel connector. |
 | `deploy.ts` | `/opt/vinci/`, copied from `scripts/deploy.ts` | `apply`, `status`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/vinci/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |

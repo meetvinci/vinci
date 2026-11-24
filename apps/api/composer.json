@@ -1,0 +1,15 @@
+{
+    "name": "vinci/api",
+    "description": "Vinci HTTP API",
+    "license": "MIT",
+    "type": "project",
+    "require": {
+        "php": "^8.4",
+        "laravel/framework": "^13.17"
+    },
+    "config": {
+        "platform": {
+            "php": "8.4.0"
+        }
+    }
+}

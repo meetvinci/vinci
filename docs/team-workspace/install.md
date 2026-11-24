@@ -73,13 +73,13 @@ The server needs the registry's read-only login, `vinci-pull`, from whoever runs
 op read 'op://<vault>/<item>/password' | ssh root@<server> 'docker login registry.example.com --username vinci-pull --password-stdin'
 ```
 
-Expected: `Login Succeeded`. Docker keeps the password in `/root/.docker/config.json`, readable by root only, and uses it for every later pull. Then pull the six images:
+Expected: `Login Succeeded`. Docker keeps the password in `/root/.docker/config.json`, readable by root only, and uses it for every later pull. Then pull the release images:
 
 ```sh
-ssh root@<server> "for image in daemon sandbox web hub provisioner firewall; do docker pull -q registry.example.com/vinci/vinci-\$image:$TAG; done"
+ssh root@<server> "for image in daemon sandbox web hub provisioner firewall api; do docker pull -q registry.example.com/vinci/vinci-\$image:$TAG; done"
 ```
 
-Expected: six lines `registry.example.com/vinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
+Expected: seven lines `registry.example.com/vinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
 
 Copy the deployment files into `/opt/vinci`, from a checkout of the same tag (`git checkout $TAG`). Only the first time, also copy the settings template as `.env`; it already points `VINCI_REGISTRY` at the registry:
 
@@ -97,11 +97,11 @@ ssh root@<server> "docker run --rm --entrypoint cat registry.example.com/vinci/v
 
 Expected: a Bun version such as `1.4.4`. The copy goes through `bun.new` because writing over a Bun that is running (a nightly backup during an upgrade, for example) fails with `Text file busy`.
 
-**A commit that is not a release** (to test a fix before releasing it): build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (six `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=registry.example.com/vinci/` back when you return to a release.
+**A commit that is not a release** (to test a fix before releasing it): build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG vinci-api:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (seven `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=registry.example.com/vinci/` back when you return to a release.
 
 **Give this to your agent:**
 
-> On `root@<server>`, log Docker in to `registry.example.com` as `vinci-pull` with the password at `op://<vault>/<item>/password`, piping `op read` into `docker login --password-stdin` over ssh without printing it. Pull `registry.example.com/vinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner` and `vinci-firewall` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> On `root@<server>`, log Docker in to `registry.example.com` as `vinci-pull` with the password at `op://<vault>/<item>/password`, piping `op read` into `docker login --password-stdin` over ssh without printing it. Pull `registry.example.com/vinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -265,7 +265,7 @@ Check it:
 ssh root@<server> 'cd /opt/vinci && docker compose ps --format "{{.Name}} {{.Status}}" && docker compose logs cloudflared | grep -c "Registered tunnel connection"'
 ```
 
-Expected: `vinci-hub-1`, `vinci-provisioner-1`, `vinci-web-1`, `vinci-cloudflared-1`, `vinci-firewall-1`, `vinci-daemon-template-1` and `vinci-sandbox-template-1`, and one `vinci-daemon-<id>-1` and one `vinci-sandbox-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
+Expected: `vinci-hub-1`, `vinci-provisioner-1`, `vinci-web-1`, `vinci-api-1`, `vinci-cloudflared-1`, `vinci-firewall-1`, `vinci-daemon-template-1` and `vinci-sandbox-template-1`, and one `vinci-daemon-<id>-1` and one `vinci-sandbox-<id>-1` per person, each `Up … (healthy)`, then `4` or more (cloudflared keeps 4 connections; the count grows after restarts).
 
 The hub creates `hub/audit.sqlite` on its first start: the admin panel's [audit trail](admin.md#activity). `ssh root@<server> 'ls -l /opt/vinci/hub/audit.sqlite'` shows it owned by uid 1000 with mode `-rw-------`.
 

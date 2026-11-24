@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Vinci container images: one build stage, then the hub, web, daemon, sandbox, provisioner and firewall targets.
+# Vinci container images: a shared Bun build and runtime targets for the team stack.
 # Build from the repo root: bun run build:images (see scripts/deploy.ts).
-# Every image runs as uid 1000 under tini and works with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
+# Unprivileged Bun services run as uid 1000 under tini and work with a read-only root, a /tmp tmpfs, cap_drop ALL and no-new-privileges.
 # Bundles run with --no-install: an unresolved optional import must fail, not download a package from npm at runtime.
 ARG BUN_IMAGE=oven/bun:1.4.4
 # The Docker CLI and its Compose plugin for the provisioner: static binaries, nothing else from this image.
@@ -165,3 +165,27 @@ ENV HOME=/tmp
 HEALTHCHECK --interval=2s --timeout=5s --start-period=10s --start-interval=1s --retries=1 \
   CMD ["bun", "--no-install", "/app/deploy.ts", "firewall", "check"]
 ENTRYPOINT ["tini", "--", "bun", "--no-install", "/app/deploy.ts", "firewall"]
+
+FROM composer:2 AS api-dependencies
+WORKDIR /app
+COPY apps/api/composer.json apps/api/composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction
+
+FROM php:8.4-apache AS api
+WORKDIR /var/www/html
+COPY --from=api-dependencies /app/vendor ./vendor
+COPY apps/api/artisan ./artisan
+COPY apps/api/bootstrap ./bootstrap
+COPY apps/api/public ./public
+COPY apps/api/routes ./routes
+RUN mkdir bootstrap/cache \
+ && php artisan package:discover --no-ansi \
+ && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
+ && sed -i 's|\*:80>|*:8080>|; s|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf \
+ && printf 'ServerName localhost\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf
+ENV APP_ENV=production LOG_CHANNEL=stderr \
+    APACHE_PID_FILE=/tmp/apache2.pid APACHE_RUN_DIR=/tmp APACHE_LOCK_DIR=/tmp
+USER www-data
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=4s --start-period=10s --start-interval=1s \
+  CMD ["php", "-r", "exit(file_get_contents('http://127.0.0.1:8080/') === 'ok' ? 0 : 1);"]

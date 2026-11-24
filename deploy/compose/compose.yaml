@@ -1,4 +1,4 @@
-# Vinci for a team: the hub and the web app. Lives in /opt/vinci next to .env, users.yaml, daemon.yaml,
+# Vinci for a team: the hub, web app and API. Lives in /opt/vinci next to .env, users.yaml, daemon.yaml,
 # sandbox.yaml and cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (per
 # person a daemon and a sandbox, each with its network and volume, extending daemon.yaml and sandbox.yaml) and
 # hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, cloudflared.compose.yaml and
@@ -155,7 +155,23 @@ services:
     networks:
       web: {}
 
+  api:
+    image: ${VINCI_REGISTRY:-}vinci-api:${VINCI_TAG}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=16m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      api: {}
+
 networks:
+  api:
+    internal: true
   # cloudflared (deploy/cloudflare/cloudflared.compose.yaml) and the hub. Outbound internet: the tunnel and the hub's
   # Access key fetch.
   tunnel: {}

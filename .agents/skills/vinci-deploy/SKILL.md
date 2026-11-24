@@ -46,7 +46,7 @@ Follow `docs/team-workspace/install.md` steps 1 to 8 in order. Stop at the first
 | --- | --- |
 | 1. Check the server | `x86_64`, Ubuntu 24.04, `avx2`, at least 3.7 GiB memory, 40 GB free |
 | 2. Docker | server version 26 or newer, `docker compose version` works, service `enabled` |
-| 3. Images and files | `Login Succeeded` for `registry.example.com`; six `registry.example.com/vinci/vinci-<image>:<tag>` pull lines (or, for an unreleased commit, `amd64` for all six local images and six `Loaded image:` lines); `/opt/vinci` mode 700 with the five files; `.env` mode 600; `bun --version` on the server |
+| 3. Images and files | `Login Succeeded` for `registry.example.com`; seven `registry.example.com/vinci/vinci-<image>:<tag>` pull lines (or, for an unreleased commit, `amd64` for all seven local images and seven `Loaded image:` lines); `/opt/vinci` mode 700 with the five files; `.env` mode 600; `bun --version` on the server |
 | 4. `users.yaml` | one `<id>: <email>` per person under `users:`; the first admin under `admins:` |
 | 5. Cloudflare | `created` or `unchanged` for the tunnel, policies, apps, routes and DNS; the six values printed (`VINCI_PUBLIC_HOST`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, empty without `--domain`); `cloudflare.env` written (git ignores it). Ask the human first: a domain rule (`--domain`) or a list of emails plus the small server token (install step 6); never a public mail domain |
 | 6. Tunnel token | `600 root` and `6` from the step's check; local `cloudflare.env` deleted |

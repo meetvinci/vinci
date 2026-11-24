@@ -10,6 +10,7 @@
 .env*
 !.env.example
 data
+apps/api/vendor
 apps/mobile/ios
 apps/mobile/android
 packages/i18n/src/paraglide

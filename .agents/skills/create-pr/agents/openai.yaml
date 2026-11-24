@@ -1,0 +1,3 @@
+interface:
+  display_name: "Create a PR"
+  short_description: "Open a focused GitHub PR or build a stack"

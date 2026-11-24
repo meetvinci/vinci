@@ -4,7 +4,7 @@
 
 variable "TARGETS" {
   type    = list(string)
-  default = ["daemon", "sandbox", "web", "hub", "provisioner", "firewall"]
+  default = ["daemon", "sandbox", "web", "hub", "provisioner", "firewall", "api"]
 }
 
 # Where the images live, without a trailing slash (for example registry.example.com/vinci). Empty names them
@@ -17,8 +17,8 @@ variable "TAG" {
   default = "latest"
 }
 
-# A GitHub Actions cache scope prefix such as amd64. Empty uses no cache. Each image gets its own scope, so the six
-# exports do not overwrite each other.
+# A GitHub Actions cache scope prefix such as amd64. Empty uses no cache. Each image gets its own scope, so its
+# cache exports are kept separate.
 variable "CACHE_SCOPE" {
   default = ""
 }
