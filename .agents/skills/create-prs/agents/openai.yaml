@@ -1,0 +1,3 @@
+interface:
+  display_name: "Create PRs"
+  short_description: "Split feature work into focused, stacked GitHub PRs"
