@@ -1,5 +1,18 @@
 # Vinci changelog
 
+## v0.1.11 - API in Docker installs
+
+*2026-11-24*
+
+- The main Compose stack now starts the internal Vinci API. Its health check calls `GET /` and expects HTTP 200 with `ok`.
+
+```diff
++ $ docker compose exec -T api php -r 'echo file_get_contents("http://127.0.0.1:8080/");'
++ ok
+```
+
+- Release builds publish `vinci-api` for AMD64 and ARM64 alongside the other Vinci images.
+
 ## v0.1.10 - Chat progress and release images
 
 *2026-11-20*
