@@ -53,7 +53,7 @@ Expected: `x86_64`, `Ubuntu 24.04…`, `avx2`, a total memory of at least 3.7Gi,
 ssh root@<server> 'curl -fsSL https://get.docker.com | sh > /root/docker-install.log 2>&1; docker version --format "{{.Server.Version}}"; docker compose version; systemctl is-enabled docker; iptables --version'
 ```
 
-Expected: a Docker version of 26 or newer, `Docker Compose version v2…` or newer, `enabled`, and an `iptables` version ending with `(nf_tables)`, as on Ubuntu 22.04 or later. Docker starts on boot after this. With `(legacy)`, Vinci's firewall cannot work and `apply` refuses to start anyone's Vinci: use another server.
+Expected: Docker 26 or newer, Compose 2.23.1 or newer, `enabled`, and an `iptables` version ending with `(nf_tables)`, as on Ubuntu 22.04 or later. Docker starts on boot after this. With `(legacy)`, Vinci's firewall cannot work and `apply` refuses to start anyone's Vinci: use another server.
 
 **Give this to your agent:**
 
@@ -247,6 +247,12 @@ Set the first admin of the admin panel (the same email as under `admins:` in `us
 ```sh
 ssh root@<server> 'cd /opt/vinci && sed -i "/^HUB_ADMIN_EMAILS=/d" .env && echo "HUB_ADMIN_EMAILS=admin@example.com" >> .env'
 ssh root@<server> 'cd /opt/vinci && { grep -q "^PROVISIONER_TOKEN=." .env || { sed -i "/^PROVISIONER_TOKEN=/d" .env && echo "PROVISIONER_TOKEN=$(openssl rand -hex 32)" >> .env; }; } && grep -c "^PROVISIONER_TOKEN=.\{64\}$" .env'
+```
+
+Generate the two PostgreSQL passwords once. Compose uses them when it initializes the database volume.
+
+```sh
+ssh root@<server> 'set -e; cd /opt/vinci; for key in VINCI_DB_PASSWORD VINCI_POSTGRES_PASSWORD; do if ! grep -q "^$key=." .env; then password=$(openssl rand -hex 32); sed -i "/^$key=/d" .env; printf "%s=%s\n" "$key" "$password" >> .env; fi; done'
 ```
 
 Expected: `1`.
