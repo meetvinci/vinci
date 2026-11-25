@@ -172,6 +172,10 @@ COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction
 
 FROM php:8.4-apache AS api
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libpq-dev \
+ && docker-php-ext-install pdo_pgsql \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /var/www/html
 COPY --from=api-dependencies /app/vendor ./vendor
 COPY apps/api/artisan ./artisan

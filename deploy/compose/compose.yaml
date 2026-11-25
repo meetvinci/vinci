@@ -157,6 +157,9 @@ services:
 
   api:
     image: ${VINCI_REGISTRY:-}vinci-api:${VINCI_TAG}
+    depends_on:
+      postgres:
+        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=16m
@@ -166,8 +169,41 @@ services:
     pids_limit: 128
     restart: unless-stopped
     logging: *logging
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_DATABASE: vinci
+      DB_USERNAME: vinci
+      DB_PASSWORD: ${VINCI_DB_PASSWORD:?set VINCI_DB_PASSWORD in .env}
     networks:
       api: {}
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_PASSWORD: ${VINCI_POSTGRES_PASSWORD:?set VINCI_POSTGRES_PASSWORD in .env}
+      VINCI_DB_PASSWORD: ${VINCI_DB_PASSWORD}
+    configs:
+      - source: postgres-init
+        target: /docker-entrypoint-initdb.d/10-vinci.sql
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=\"$$VINCI_DB_PASSWORD\" psql -h 127.0.0.1 -U vinci -d vinci -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      api: {}
+
+configs:
+  postgres-init:
+    content: |
+      \getenv vinci_password VINCI_DB_PASSWORD
+      CREATE ROLE vinci LOGIN PASSWORD :'vinci_password';
+      CREATE DATABASE vinci OWNER vinci;
 
 networks:
   api:
@@ -187,3 +223,4 @@ networks:
 volumes:
   # Each person's data/ipc folder, as ipc/<id>. Daemons mount only their own subfolder.
   ipc: {}
+  postgres-data: {}
