@@ -1,7 +1,7 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { botHandle, botNewModel } from '@repo/client/client';
 import { useBotCreate, useRpc } from '@repo/client/react';
-import { botForm } from '@repo/contracts/universal';
+import { BOT_FIELDS, botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { BotFormAvatar } from '@repo/ui/bots/bot-form-avatar';
 import { BotFormProfile } from '@repo/ui/bots/bot-form-profile';
@@ -83,7 +83,7 @@ function BotDialogCreate() {
       modelProvider: settings?.modelProvider ?? '',
       modelId: settings?.modelId ?? '',
       thinkingLevel: settings?.thinkingLevel ?? 'medium',
-      permission: 'ask',
+      permission: BOT_FIELDS.defaultPermission,
       inherit: ['skills', 'agentsFile', 'mcp', 'plugins'],
       sharedSkills: null,
       sharedMcp: null,

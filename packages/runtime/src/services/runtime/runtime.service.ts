@@ -88,6 +88,7 @@ export function makeRuntimeService({
   alarm,
   models: sourceModels,
   env,
+  isSandboxed,
   permissions,
   collaboration: policy,
   gifs,
@@ -139,6 +140,7 @@ export function makeRuntimeService({
       ...(toolSearch.tools ?? []),
     ],
     ownTools: [collaboration.extension, questions.extension, chatTools.extension, subagents.extension].flatMap((extension) => extension.tools ?? []),
+    sandboxTools: isSandboxed ? [...codingTools.tools ?? []] : [],
   };
 
   const unlisten = alarm.listen(({ botId }) => {
