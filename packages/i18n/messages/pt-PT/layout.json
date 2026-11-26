@@ -37,5 +37,8 @@
   "layout_disconnect": "Desligar este dispositivo",
   "layout_sign_out": "Terminar sessão",
   "layout_connected": "Ligado",
-  "layout_unreachable": "Não é possível contactar o daemon"
+  "layout_unreachable": "Não é possível contactar o daemon",
+  "layout_unsaved_title": "Sair sem guardar?",
+  "layout_unsaved_description": "As alterações por guardar vão perder-se.",
+  "layout_unsaved_leave": "Descartar alterações"
 }

@@ -4,7 +4,7 @@ import { useBotUpdate } from '@repo/client/react';
 import { BOT_FIELDS, botAvatar, botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { CalendarClock, ListTodo, ScrollText, Trash2 } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -20,13 +20,13 @@ import { BotSettingsModel } from '@/components/bots/bot-settings-model';
 import { BotSettingsProfile } from '@/components/bots/bot-settings-profile';
 import { RoutinesList } from '@/components/routines/routines-list';
 import { TodosList } from '@/components/todos/todos-list';
-import { actionSheetShow } from '@/components/ui/action-sheet';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FormField } from '@/components/ui/form-field';
 import { Icon } from '@/components/ui/icon';
 import { useChatReturn } from '@/hooks/use-chat-return';
 import { useConnection } from '@/hooks/use-connection';
+import { useUnsaved } from '@/hooks/use-unsaved';
 import { BOT_SHARED_RESOURCES } from '@/services/bot/bot-shared.constants';
 import type { BotAvatarRouteParams } from '@/types/bot-avatar.types';
 import type { RpcSession } from '@/types/rpc.types';
@@ -118,18 +118,7 @@ function BotSettingsScreenForm({ session, bot, isDeletable }: BotSettingsScreenF
 
   const { isDirty } = form.formState;
 
-  const disablePrevention = usePreventRemove(isDirty, ({ repeat }) => actionSheetShow({
-    title: m.mobile_bot_discard_title(),
-    cancelLabel: m.mobile_bot_keep_editing(),
-    choices: [{
-      label: m.mobile_bot_discard(),
-      isDestructive: true,
-      onSelect: () => {
-        form.reset();
-        repeat();
-      },
-    }],
-  }));
+  const disablePrevention = useUnsaved(isDirty);
 
   const save = useBotUpdate(m.bots_saved());
 

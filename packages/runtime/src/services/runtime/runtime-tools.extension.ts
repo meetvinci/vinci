@@ -5,7 +5,7 @@ import { runtimeActionRequestApproval } from './runtime-action.request-approval'
 import { runtimeBot } from './runtime.constants';
 import type { RuntimeToolsDeps } from '../../types/runtime.types';
 
-export function runtimeToolsExtension({ harness, readOnlyTools, ownTools, permissions }: RuntimeToolsDeps) {
+export function runtimeToolsExtension({ harness, readOnlyTools, ownTools, sandboxTools, permissions }: RuntimeToolsDeps) {
   return defineExtension({
     name: 'bots.tools',
     hooks: [hook(ToolTask, {
@@ -26,6 +26,7 @@ export function runtimeToolsExtension({ harness, readOnlyTools, ownTools, permis
               arguments: call.arguments,
               isReadOnly: tool !== undefined && readOnlyTools.includes(tool),
               isOwn: tool !== undefined && ownTools.includes(tool),
+              isSandboxed: tool !== undefined && sandboxTools.includes(tool),
               getRequest: async () => {
                 const view = await conversation?.context(context);
                 const message = [...(view?.messages ?? [])].reverse().find((item) => item.role === 'user');

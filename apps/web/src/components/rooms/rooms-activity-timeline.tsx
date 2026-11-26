@@ -88,7 +88,6 @@ export function RoomsActivityTimeline({ bot, run, title }: RoomsActivityTimeline
         detail: span.detail ?? undefined,
         tool: span.tool ? tool(span.tool) : undefined,
         tokens: span.tokens ?? undefined,
-        cost: span.cost ?? undefined,
         status: span.isFailed ? 'failed' : 'ok',
         retry: span.isRetry,
       })),

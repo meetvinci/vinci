@@ -37,5 +37,8 @@
   "layout_disconnect": "Desconectar este dispositivo",
   "layout_sign_out": "Cerrar sesión",
   "layout_connected": "Conectado",
-  "layout_unreachable": "No se puede acceder al daemon"
+  "layout_unreachable": "No se puede acceder al daemon",
+  "layout_unsaved_title": "¿Salir sin guardar?",
+  "layout_unsaved_description": "Se perderán los cambios sin guardar.",
+  "layout_unsaved_leave": "Descartar cambios"
 }
