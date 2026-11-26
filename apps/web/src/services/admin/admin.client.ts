@@ -152,10 +152,6 @@ export function adminUsersQuery() {
   return queryOptions({ ...adminUserListQuery(), select: ({ users }) => users });
 }
 
-export function adminHasAccountsQuery() {
-  return queryOptions({ ...adminUserListQuery(), select: ({ hasAccounts }) => hasAccounts });
-}
-
 export function adminAddAdmin({ email }: UniversalTypes.Admin) {
   return adminRequest({
     path: '/admins',

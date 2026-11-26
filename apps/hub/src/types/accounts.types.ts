@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import type { AuditService } from '../services/audit/audit.service';
-import type { AccessIdentity } from './access.types';
 
 export const accountsPutReply = z.object({ created: z.boolean(), password: z.string().min(1).optional() });
 
@@ -16,9 +15,7 @@ export const accountsRefusal = z.object({ seconds: z.number().optional() });
 
 export type AccountsPut = z.infer<typeof accountsPutReply>;
 
-export interface AccountsServiceParams {
-  url: string | undefined;
-  token: string | undefined;
+export interface AccountsServiceParams extends AccountsConfig {
   audit: AuditService;
 }
 
@@ -28,14 +25,20 @@ export interface AccountsConfig {
 }
 
 export interface AccountsServiceDeps {
-  config: AccountsConfig | null;
+  config: AccountsConfig;
   audit: AuditService;
   sessions: Map<string, AccountsSessionEntry>;
 }
 
+export interface AccountsSession {
+  email: string;
+  token: string;
+  expiresAt: number;
+}
+
 export interface AccountsSessionEntry {
   until: number;
-  identity: Promise<AccessIdentity>;
+  identity: Promise<AccountsSession>;
   email: string | null;
 }
 

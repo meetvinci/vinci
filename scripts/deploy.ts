@@ -26,16 +26,12 @@ const namePattern = /^[^\p{Cc}]{1,100}$/u;
 const daemonUid = 1000;
 const provisionerTokenLength = 32;
 const provisionerBodyLimit = 64 * 1024;
-// Overridable only so the provisioner's Access sync can be proven against a local stub.
+// Overridable only so `cloudflare apply` can be proven against a local stub.
 const cloudflareApi = process.env.CLOUDFLARE_API_URL ?? 'https://api.cloudflare.com/client/v4';
 // Objects are found by exact names built from --name: the account may hold unrelated objects that share a prefix.
 const cloudflareNamePattern = /^vinci-[a-z0-9]+(?:-[a-z0-9]+)*$/u;
-const domainPattern = /^(?:[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?\.)+[a-z]{2,63}$/u;
-// Only the icon files skip cloudflared's own Access check; a segment cannot contain a slash, so no path climbs out.
-const cloudflareFaviconPath = '^/(?:img/favicon/[^/]+|favicon\\.ico)$';
-// The hub on the Compose `tunnel` network, and the host's sshd as cloudflared's container sees it.
-const cloudflareOrigin = 'http://hub:47192';
-const cloudflareSshOrigin = 'ssh://host.docker.internal:22';
+// The tunnel's only route: Caddy, which serves the login and the hub on plain HTTP when the tunnel carries HTTPS.
+const cloudflareOrigin = 'http://caddy:80';
 // Every daemon's network is a bridge named mv-d<9 hex of its id>, so the firewall's rules match all of them, people added
 // later included, by the interface prefix alone. Linux allows 15 characters.
 const daemonBridgePrefix = 'mv-d';
@@ -65,12 +61,11 @@ const nightlyManifest = 'manifest.json';
 const nightlyHubFile = 'hub.tar.gz';
 const nightlyDatabaseFile = 'postgres.sql.gz';
 const nightlyDeploymentFile = 'deployment.tar.gz';
-// What a fresh server needs next to the volumes and the hub folder, with the edge file of VINCI_AUTH; COMPOSE_FILE in
-// .env may name more.
-const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'sandbox.yaml', 'deploy.ts'];
-// How people log in, VINCI_AUTH in .env, and the Compose file of each mode's edge: Cloudflare Access through cloudflared
-// (the default), or Vinci accounts in the Laravel API behind Caddy, which publishes 80 and 443 itself.
-const authEdges = { access: 'cloudflared.compose.yaml', laravel: 'caddy.compose.yaml' };
+// The edge: Caddy, in front of the Laravel API's login and the hub. It publishes 80 and 443 itself, or, with the
+// optional Cloudflare Tunnel (cloudflared.compose.yaml), serves plain HTTP to cloudflared only.
+const edgeFile = 'caddy.compose.yaml';
+// What a fresh server needs next to the volumes and the hub folder; COMPOSE_FILE in .env may name more.
+const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', edgeFile, 'daemon.yaml', 'sandbox.yaml', 'deploy.ts'];
 const laravelSecretLength = 32;
 // `check`: what a production server needs, and the least a test server gets away with (a warning, not a failure).
 const serverMemoryGib = 3.7;
@@ -84,7 +79,7 @@ const disclosureVersion = /\b[A-Za-z][\w-]*\/v?\d+(?:\.\d+)+/u;
 const disclosureBody = /stack ?trace|\bat \S+ \(\S+:\d+:\d+\)|\.php(?: on line |:|\()\d+|\b(?:apache|nginx|caddy|php|laravel|symfony|bun|node)\/?\s?v?\d+\.\d+/iu;
 // Each edge's paths: the app, the admin panel, the RPC, the hub's public health and icons, the login pages, and a path
 // nothing serves, on the hub and on the login pages.
-const disclosurePaths = ['/', '/admin', '/rpc', '/hub/health', '/favicon.ico', '/img/favicon/site.webmanifest', '/vinci-check-404', '/cdn-cgi/access/login', '/cdn-cgi/access/logout', '/cdn-cgi/access/vinci-check-404'];
+const disclosurePaths = ['/', '/admin', '/rpc', '/hub/health', '/favicon.ico', '/img/favicon/site.webmanifest', '/vinci-check-404', '/auth/login', '/auth/required', '/auth/vinci-check-404'];
 const disclosureTimeoutMs = 15_000;
 // `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
 const nightlyStaleMs = 36 * 60 * 60 * 1000;
@@ -128,25 +123,6 @@ interface CloudflareResponse<T> {
 interface CloudflareNamed {
   id: string;
   name: string;
-}
-
-interface CloudflarePolicy extends CloudflareNamed {
-  include?: Record<string, unknown>[];
-  exclude?: unknown[];
-  require?: unknown[];
-}
-
-// Who the allow policy lets through: everyone at these domains, and these other emails.
-interface AccessRule {
-  domains: string[];
-  emails: string[];
-}
-
-interface CloudflareApp extends CloudflareNamed {
-  domain: string;
-  aud: string;
-  destinations?: { uri?: string }[];
-  policies?: { id: string }[];
 }
 
 interface CloudflareTunnel extends CloudflareNamed {
@@ -747,28 +723,13 @@ async function apply() {
   await locked(() => applyTeam());
 }
 
-function authMode(): keyof typeof authEdges {
-  const mode = envValue('VINCI_AUTH') ?? 'access';
-
-  if (mode !== 'access' && mode !== 'laravel') {
-    fail(`VINCI_AUTH in .env must be access or laravel, not ${mode}.`);
-  }
-
-  return mode;
-}
-
-// The edge of the other mode would publish a second way in, and laravel mode cannot start without its secrets.
+// The Laravel API is the only login: Caddy must be loaded, with the API's secrets. Cloudflare Access is gone, so an
+// install still set up for it stops here with the way out.
 function authCheck() {
-  const mode = authMode();
   const listed = new Set((process.env.COMPOSE_FILE ?? '').split(':').map((file) => path.basename(file)));
-  const other = mode === 'access' ? authEdges.laravel : authEdges.access;
 
-  if (listed.has(other) || (mode === 'laravel' && !listed.has(authEdges.laravel))) {
-    fail(`With VINCI_AUTH=${mode}, COMPOSE_FILE in .env must load ${authEdges[mode]}, not ${other} (configuration.md).`);
-  }
-
-  if (mode === 'access') {
-    return;
+  if (envValue('VINCI_AUTH') === 'access' || !listed.has(edgeFile)) {
+    fail(`People log in with Vinci accounts only: COMPOSE_FILE in .env must load ${edgeFile}, and VINCI_AUTH=access is gone. An install that used Cloudflare Access moves over as admin.md "Move from Cloudflare Access" says.`);
   }
 
   const missing = [
@@ -777,7 +738,7 @@ function authCheck() {
   ];
 
   if (missing.length > 0) {
-    fail(`With VINCI_AUTH=laravel, .env needs ${missing.join(', ')}: API_INTERNAL_TOKEN ${laravelSecretLength} or more random characters, API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
+    fail(`.env needs ${missing.join(', ')}: API_INTERNAL_TOKEN ${laravelSecretLength} or more random characters, API_APP_KEY a Laravel base64: key (install.md, step 5).`);
   }
 }
 
@@ -1081,7 +1042,7 @@ function envCount(name: string, fallback: number): number {
 // The deployment files to keep: the usual ones and whatever COMPOSE_FILE in .env loads, as far as they exist.
 function nightlyDeploymentFiles(): string[] {
   const listed = (process.env.COMPOSE_FILE ?? '').split(':').filter(Boolean);
-  const files = [...deploymentFiles, authEdges[authMode()], ...listed].map((file) => path.relative(process.cwd(), path.resolve(file)));
+  const files = [...deploymentFiles, ...listed].map((file) => path.relative(process.cwd(), path.resolve(file)));
 
   return [...new Set(files)].filter((file) => !file.startsWith('..') && existsSync(file));
 }
@@ -1879,11 +1840,6 @@ function cloudflareOptions() {
       zone: { type: 'string' },
       hostname: { type: 'string' },
       name: { type: 'string' },
-      users: { type: 'string' },
-      domain: { type: 'string', multiple: true, default: [] },
-      session: { type: 'string', default: '24h' },
-      'ssh-hostname': { type: 'string' },
-      'ssh-email': { type: 'string', multiple: true, default: [] },
       'env-out': { type: 'string' },
       yes: { type: 'boolean', default: false },
     },
@@ -1892,160 +1848,41 @@ function cloudflareOptions() {
 
   const action = positionals[0] ?? '';
 
-  if (!['apply', 'emails', 'destroy'].includes(action)) {
-    fail(
-      'Usage: bun scripts/deploy.ts cloudflare apply|emails|destroy --zone <zone> --hostname <host> --name vinci-<team> [--users <users.yaml|->] [--domain <domain>...] [--session 24h] [--ssh-hostname <host> --ssh-email <email>...] [--env-out <file>] [--yes]',
-    );
+  if (!['apply', 'destroy'].includes(action)) {
+    fail('Usage: bun scripts/deploy.ts cloudflare apply|destroy --zone <zone> --hostname <host> --name vinci-<team> [--env-out <file>] [--yes]');
   }
 
   const zone = values.zone ?? fail('Pass --zone, the Cloudflare zone, such as example.com.');
-  const name = values.name ?? fail('Pass --name, the exact name prefix of the objects, such as vinci-acme.');
+  const name = values.name ?? fail('Pass --name, the exact name of the tunnel, such as vinci-acme.');
   const hostname = values.hostname ?? fail('Pass --hostname, such as acme.example.com.');
-  const sshHostname = values['ssh-hostname'];
 
   if (!cloudflareNamePattern.test(name)) {
     fail('--name must start with vinci- and use lowercase letters, digits and single dashes.');
   }
 
-  for (const host of [hostname, sshHostname]) {
-    if (host !== undefined && !host.endsWith(`.${zone}`)) {
-      fail(`${host} is not a name inside the zone ${zone}.`);
-    }
+  if (!hostname.endsWith(`.${zone}`)) {
+    fail(`${hostname} is not a name inside the zone ${zone}.`);
   }
-
-  const domains = accessDomains(values.domain);
 
   return {
     action,
     zone,
     name,
     hostname,
-    sshHostname,
-    users: values.users,
-    domains,
-    session: values.session,
-    sshEmails: values['ssh-email'],
     envOut: values['env-out'],
     yes: values.yes,
-    names: {
-      app: name,
-      faviconApp: `${name}-favicon`,
-      sshApp: `${name}-ssh`,
-      allow: `${name}-allow`,
-      bypass: `${name}-bypass`,
-      sshAllow: `${name}-ssh-allow`,
-      // DNS records have no name of their own; this exact comment marks the ones the script owns.
-      comment: `vinci deploy ${name}`,
-    },
+    // DNS records have no name of their own; this exact comment marks the ones the script owns.
+    comment: `vinci deploy ${name}`,
   };
 }
 
 type CloudflareOptions = ReturnType<typeof cloudflareOptions>;
-
-// users.yaml decides who may log in, as it decides who gets a daemon: enabled users and the admin panel's admins.
-function accessEmails(current: Team): string[] {
-  const enabled = [...current.users.values()].filter((person) => person.enabled).map((person) => person.email);
-
-  return [...new Set([...enabled, ...current.admins])].sort();
-}
-
-function cloudflareEmails(file: string | undefined): string[] {
-  return accessEmails(team(file ?? fail('Pass --users with the path of users.yaml, or - to read it from stdin.')));
-}
-
-// `--domain` and CLOUDFLARE_ACCESS_DOMAINS: lowercase domains, each once.
-function accessDomains(values: string[]): string[] {
-  const domains = [...new Set(values.map((value) => value.trim().toLowerCase().replace(/^@/u, '')))].sort();
-  const invalid = domains.find((domain) => !domainPattern.test(domain));
-
-  if (invalid !== undefined) {
-    fail(`${invalid} is not a domain such as example.com.`);
-  }
-
-  return domains;
-}
-
-function accessCovers(domains: string[], email: string): boolean {
-  return domains.some((domain) => email.endsWith(`@${domain}`));
-}
-
-// With a domain rule, only the emails outside those domains (outside admins, for example) are listed one by one.
-function accessRule(domains: string[], emails: string[]): AccessRule {
-  return { domains, emails: emails.filter((email) => !accessCovers(domains, email)) };
-}
-
-function accessRuleValues(policy: CloudflarePolicy, kind: 'email' | 'email_domain', field: 'email' | 'domain'): string[] {
-  return (policy.include ?? []).flatMap((rule) => (kind in rule ? [String((rule[kind] as Record<string, unknown>)[field]).toLowerCase()] : [])).sort();
-}
-
-// The allow policy's rules, read back. Rules Vinci never writes (groups, everyone, excludes) make it unreadable.
-function accessRead(policy: CloudflarePolicy): AccessRule {
-  const include = policy.include ?? [];
-  const domains = accessRuleValues(policy, 'email_domain', 'domain');
-  const emails = accessRuleValues(policy, 'email', 'email');
-
-  if (domains.length + emails.length !== include.length || (policy.exclude?.length ?? 0) > 0 || (policy.require?.length ?? 0) > 0) {
-    fail(`The Access policy ${policy.name} has rules Vinci does not manage; run cloudflare apply to reset it.`);
-  }
-
-  return { domains, emails };
-}
 
 async function cloudflareContext(zone: string): Promise<CloudflareContext> {
   const zones = await cloudflareRequest<{ id: string; account: { id: string } }[]>('GET', `/zones?name=${encodeURIComponent(zone)}`);
   const found = zones[0] ?? fail(`The token cannot see the zone ${zone}.`);
 
   return { account: found.account.id, zone: found.id };
-}
-
-function cloudflareAllowPolicy(name: string, { domains, emails }: AccessRule) {
-  const include = [...domains.map((domain) => ({ email_domain: { domain } })), ...emails.map((email) => ({ email: { email } }))];
-
-  if (include.length === 0) {
-    fail('Access would let nobody in: users.yaml needs an enabled user or an admin, or pass --domain.');
-  }
-
-  return { name, decision: 'allow', include };
-}
-
-// The desired Access policies and apps. Each app names its one policy; the IDs are filled in once the policies exist.
-function cloudflareAccessPlan(options: CloudflareOptions, rule: AccessRule) {
-  const { names, hostname, sshHostname, session } = options;
-
-  const app = (name: string, uris: string[], policy: string, extra: Record<string, unknown>) => ({
-    name,
-    type: 'self_hosted',
-    domain: uris[0],
-    destinations: uris.map((uri) => ({ type: 'public', uri })),
-    app_launcher_visible: false,
-    policy,
-    ...extra,
-  });
-
-  const policies = [cloudflareAllowPolicy(names.allow, rule), { name: names.bypass, decision: 'bypass', include: [{ everyone: {} }] }];
-
-  const apps = [
-    app(names.app, [hostname], names.allow, {
-      session_duration: session,
-      http_only_cookie_attribute: true,
-      same_site_cookie_attribute: 'lax',
-      enable_binding_cookie: false,
-    }),
-    app(names.faviconApp, [`${hostname}/img/favicon/*`, `${hostname}/favicon.ico`], names.bypass, {}),
-  ];
-
-  if (sshHostname !== undefined) {
-    const sshEmails = options.sshEmails.map((email) => email.trim().toLowerCase()).sort();
-
-    if (sshEmails.length === 0) {
-      fail('Pass --ssh-email for every admin allowed to use SSH.');
-    }
-
-    policies.push(cloudflareAllowPolicy(names.sshAllow, { domains: [], emails: sshEmails }));
-    apps.push(app(names.sshApp, [sshHostname], names.sshAllow, { session_duration: session }));
-  }
-
-  return { policies, apps };
 }
 
 async function cloudflareRecords(context: CloudflareContext, hosts: string[]): Promise<CloudflareRecord[]> {
@@ -2081,51 +1918,6 @@ async function cloudflareTunnel(context: CloudflareContext, name: string): Promi
   return found;
 }
 
-async function cloudflarePolicy(context: CloudflareContext, existing: CloudflareNamed[], policy: { name: string }): Promise<[string, string]> {
-  const found = existing.find((item) => item.name === policy.name);
-  const body = { ...policy, exclude: [], require: [] };
-
-  if (found === undefined) {
-    const created = await cloudflareRequest<CloudflareNamed>('POST', `/accounts/${context.account}/access/policies`, body);
-
-    console.log(`Access policy ${policy.name}: created`);
-
-    return [policy.name, created.id];
-  }
-
-  if (cloudflareMatches(found, body)) {
-    console.log(`Access policy ${policy.name}: unchanged`);
-  } else {
-    await cloudflareRequest('PUT', `/accounts/${context.account}/access/policies/${found.id}`, body);
-    console.log(`Access policy ${policy.name}: updated`);
-  }
-
-  return [policy.name, found.id];
-}
-
-async function cloudflareApp(context: CloudflareContext, existing: CloudflareApp[], desired: ReturnType<typeof cloudflareAccessPlan>['apps'][number], policyId: string): Promise<[string, string]> {
-  const { policy: _policy, ...fields } = desired;
-  const body = { ...fields, policies: [{ id: policyId, precedence: 1 }] };
-  const found = existing.find((app) => app.name === desired.name);
-
-  if (found === undefined) {
-    const created = await cloudflareRequest<CloudflareApp>('POST', `/accounts/${context.account}/access/apps`, body);
-
-    console.log(`Access app ${desired.name}: created`);
-
-    return [desired.name, created.aud];
-  }
-
-  if (cloudflareMatches(found, fields) && cloudflareMatches(found.policies?.map((policy) => policy.id), [policyId])) {
-    console.log(`Access app ${desired.name}: unchanged`);
-  } else {
-    await cloudflareRequest('PUT', `/accounts/${context.account}/access/apps/${found.id}`, body);
-    console.log(`Access app ${desired.name}: updated`);
-  }
-
-  return [desired.name, found.aud];
-}
-
 async function cloudflareRecord(context: CloudflareContext, existing: CloudflareRecord[], body: { name: string }) {
   const found = existing.find((record) => record.name === body.name);
 
@@ -2140,55 +1932,21 @@ async function cloudflareRecord(context: CloudflareContext, existing: Cloudflare
   }
 }
 
-// Creates or updates the tunnel, Access and DNS for one hostname. Order matters: Access protects the hostname
-// before its DNS record exists, so it is never reachable unprotected.
+// A remotely managed tunnel to Caddy, and the team hostname's DNS record pointing at it. Caddy then serves the login
+// and the hub as on its own address; the Laravel API is the login either way.
 async function cloudflareApply(options: CloudflareOptions) {
-  const { names, hostname, sshHostname } = options;
-  const rule = accessRule(options.domains, cloudflareEmails(options.users));
+  const { hostname } = options;
   const context = await cloudflareContext(options.zone);
-  const plan = cloudflareAccessPlan(options, rule);
-  const hosts = sshHostname === undefined ? [hostname] : [hostname, sshHostname];
+  const records = await cloudflareRecords(context, [hostname]);
+  const foreign = records.find((record) => record.comment !== options.comment || record.type !== 'CNAME');
 
-  const [apps, records, existingPolicies, organization] = await Promise.all([
-    cloudflareList<CloudflareApp>(`/accounts/${context.account}/access/apps`),
-    cloudflareRecords(context, hosts),
-    cloudflareList<CloudflareNamed>(`/accounts/${context.account}/access/policies`),
-    cloudflareRequest<{ auth_domain: string }>('GET', `/accounts/${context.account}/access/organizations`),
-  ]);
-
-  // Refuse before any write: objects on these hostnames that the script did not create stay untouched.
-  for (const app of apps) {
-    const own = plan.apps.find((item) => item.name === app.name);
-    const uris = [app.domain, ...(app.destinations ?? []).map((destination) => destination.uri)];
-
-    if (own === undefined && uris.some((uri) => hosts.some((host) => uri === host || uri?.startsWith(`${host}/`)))) {
-      fail(`The Access app ${app.name} already covers ${hostname}. Remove it by hand or choose another hostname.`);
-    }
-
-    if (own !== undefined && app.domain !== own.domain) {
-      fail(`The Access app ${app.name} exists for ${app.domain}, not ${own.domain}. Choose another --name.`);
-    }
-  }
-
-  const foreign = records.find((record) => record.comment !== names.comment || record.type !== 'CNAME');
-
+  // Refuse before any write: a record on this hostname that the script did not create stays untouched.
   if (foreign !== undefined) {
     fail(`The DNS record ${foreign.type} ${foreign.name} was not created by this script. Remove it by hand or choose another hostname.`);
   }
 
   const tunnel = await cloudflareTunnel(context, options.name);
-  const policyIds = new Map(await Promise.all(plan.policies.map((policy) => cloudflarePolicy(context, existingPolicies, policy))));
-  const auds = new Map(await Promise.all(plan.apps.map((app) => cloudflareApp(context, apps, app, policyIds.get(app.policy) ?? fail(`No policy ${app.policy}.`)))));
-  const aud = auds.get(names.app) ?? fail('The Access app has no AUD tag.');
-  const teamName = organization.auth_domain.split('.')[0];
-
-  const ingress = [
-    { hostname, path: cloudflareFaviconPath, service: cloudflareOrigin },
-    { hostname, service: cloudflareOrigin, originRequest: { access: { required: true, teamName, audTag: [aud] } } },
-    ...(sshHostname === undefined ? [] : [{ hostname: sshHostname, service: cloudflareSshOrigin }]),
-    { service: 'http_status:404' },
-  ];
-
+  const ingress = [{ hostname, service: cloudflareOrigin }, { service: 'http_status:404' }];
   const configRoute = `/accounts/${context.account}/cfd_tunnel/${tunnel.id}/configurations`;
   const configuration = await cloudflareRequest<{ config: { ingress?: unknown } | null }>('GET', configRoute);
 
@@ -2199,105 +1957,52 @@ async function cloudflareApply(options: CloudflareOptions) {
     console.log('Tunnel routes: updated');
   }
 
-  const record = { type: 'CNAME', content: `${tunnel.id}.cfargotunnel.com`, proxied: true, comment: names.comment };
+  await cloudflareRecord(context, records, {
+    type: 'CNAME',
+    content: `${tunnel.id}.cfargotunnel.com`,
+    proxied: true,
+    comment: options.comment,
+    name: hostname,
+  });
 
-  await Promise.all(hosts.map((host) => cloudflareRecord(context, records, { ...record, name: host })));
-
-  // The zone and name let the provisioner update the allow policy, once a token is added to the server's .env; the
-  // domains tell it which people the policy already lets in, with or without a token.
-  const values = {
-    VINCI_PUBLIC_HOST: hostname,
-    ACCESS_TEAM_DOMAIN: `https://${organization.auth_domain}`,
-    ACCESS_AUD: aud,
-    CLOUDFLARE_ZONE: options.zone,
-    CLOUDFLARE_NAME: options.name,
-    CLOUDFLARE_ACCESS_DOMAINS: options.domains.join(','),
-  };
-
-  console.log(`\nTunnel ${tunnel.name}: ${tunnel.id}`);
-  console.log(Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n'));
+  console.log(`\nTunnel ${tunnel.name}: ${tunnel.id}\nVINCI_PUBLIC_HOST=${hostname}`);
 
   if (options.envOut === undefined) {
-    console.log('TUNNEL_TOKEN not written: pass --env-out <file> to write it with the values above.');
+    console.log('TUNNEL_TOKEN not written: pass --env-out <file> to write it with VINCI_PUBLIC_HOST.');
     return;
   }
 
   const token = await cloudflareRequest<string>('GET', `/accounts/${context.account}/cfd_tunnel/${tunnel.id}/token`);
-  const lines = Object.entries({ ...values, TUNNEL_TOKEN: token }).map(([key, value]) => `${key}=${value}\n`);
 
   // The token is secret: make an existing file private before writing to it.
   if (existsSync(options.envOut)) {
     chmodSync(options.envOut, 0o600);
   }
 
-  writeFileSync(options.envOut, lines.join(''), { mode: 0o600 });
-  console.log(`Wrote these values and TUNNEL_TOKEN to ${options.envOut} (mode 600).`);
+  writeFileSync(options.envOut, `VINCI_PUBLIC_HOST=${hostname}\nTUNNEL_TOKEN=${token}\n`, { mode: 0o600 });
+  console.log(`Wrote VINCI_PUBLIC_HOST and TUNNEL_TOKEN to ${options.envOut} (mode 600).`);
 }
 
-async function cloudflareFindAllow(zone: string, allow: string): Promise<[CloudflareContext, CloudflarePolicy[], CloudflarePolicy]> {
-  const context = await cloudflareContext(zone);
-  const policies = await cloudflareList<CloudflarePolicy>(`/accounts/${context.account}/access/policies`);
-  const found = policies.find((policy) => policy.name === allow) ?? fail(`The Access policy ${allow} does not exist. Run apply first.`);
-
-  return [context, policies, found];
-}
-
-// Updates only the allow policy: by hand with `cloudflare emails`, and from the provisioner after each change.
-// Without domains it keeps the policy's own domain rules, which only `apply` sets.
-async function cloudflareAllow(zone: string, allow: string, emails: string[], domains?: string[]): Promise<AccessRule> {
-  const [context, policies, found] = await cloudflareFindAllow(zone, allow);
-  const rule = accessRule(domains ?? accessRuleValues(found, 'email_domain', 'domain'), emails);
-
-  await cloudflarePolicy(context, policies, cloudflareAllowPolicy(allow, rule));
-
-  return rule;
-}
-
-// After a person is added to, disabled in or removed from users.yaml, or the admins changed.
-async function cloudflareSync(options: CloudflareOptions) {
-  const domains = options.domains.length > 0 ? options.domains : undefined;
-  const rule = await cloudflareAllow(options.zone, options.names.allow, cloudflareEmails(options.users), domains);
-
-  console.log(`Allowed: ${[...rule.domains.map((domain) => `anyone @${domain}`), ...rule.emails].join(', ')}`);
-}
-
-// Lists what it would delete: only objects with this run's exact names and hostnames. Deletes them only with --yes.
+// Lists what it would delete: only the tunnel with this exact name and its DNS record. Deletes them only with --yes.
 async function cloudflareDestroy(options: CloudflareOptions) {
-  const { names, hostname, sshHostname } = options;
   const context = await cloudflareContext(options.zone);
-  // Without --ssh-hostname the SSH app stays, so its policy must stay too.
-  const policyNames = new Set(sshHostname === undefined ? [names.allow, names.bypass] : [names.allow, names.bypass, names.sshAllow]);
 
-  const domains = new Map([
-    [names.app, hostname],
-    [names.faviconApp, `${hostname}/img/favicon/*`],
-    [names.sshApp, sshHostname],
-  ]);
-
-  const [tunnel, records, apps, policies] = await Promise.all([
+  const [tunnel, records] = await Promise.all([
     cloudflareFindTunnel(context, options.name),
-    cloudflareRecords(context, sshHostname === undefined ? [hostname] : [hostname, sshHostname]),
-    cloudflareList<CloudflareApp>(`/accounts/${context.account}/access/apps`),
-    cloudflareList<CloudflareNamed>(`/accounts/${context.account}/access/policies`),
+    cloudflareRecords(context, [options.hostname]),
   ]);
 
   const target = tunnel === undefined ? null : `${tunnel.id}.cfargotunnel.com`;
-  const ownRecords = records.filter((record) => record.comment === names.comment && record.type === 'CNAME' && (target === null ? record.content.endsWith('.cfargotunnel.com') : record.content === target));
+  const ownRecords = records.filter((record) => record.comment === options.comment && record.type === 'CNAME' && (target === null ? record.content.endsWith('.cfargotunnel.com') : record.content === target));
   const account = `/accounts/${context.account}`;
 
-  // DNS goes first, so the hostname stops resolving while Access still protects it; policies go after the apps that use them.
+  // DNS goes first, so the hostname stops resolving before the tunnel goes.
   const stages: CloudflareDeletion[][] = [
     ownRecords.map((record) => ({ label: `DNS ${record.type} ${record.name} -> ${record.content}`, name: options.name, route: `/zones/${context.zone}/dns_records/${record.id}` })),
     tunnel === undefined ? [] : [{ label: `Tunnel ${tunnel.name} ${tunnel.id}`, name: tunnel.name, route: `${account}/cfd_tunnel/${tunnel.id}` }],
-    apps.filter((app) => domains.get(app.name) === app.domain).map((app) => ({ label: `Access app ${app.name} (${app.domain})`, name: app.name, route: `${account}/access/apps/${app.id}` })),
-    policies.filter((policy) => policyNames.has(policy.name)).map((policy) => ({ label: `Access policy ${policy.name}`, name: policy.name, route: `${account}/access/policies/${policy.id}` })),
   ];
 
   const deletions = stages.flat();
-
-  if (deletions.some((item) => item.name !== options.name && !item.name.startsWith(`${options.name}-`))) {
-    fail('Refusing: an object to delete does not carry the exact name prefix.');
-  }
 
   if (deletions.length === 0) {
     console.log('Nothing to delete.');
@@ -2328,7 +2033,7 @@ async function cloudflareDestroy(options: CloudflareOptions) {
 
 async function cloudflare() {
   const options = cloudflareOptions();
-  const actions = { apply: cloudflareApply, emails: cloudflareSync, destroy: cloudflareDestroy };
+  const actions = { apply: cloudflareApply, destroy: cloudflareDestroy };
 
   await actions[options.action as keyof typeof actions](options);
 }
@@ -2448,8 +2153,8 @@ async function stackStatus() {
 
   console.log(`Server disk: ${gib(bavail * bsize)} free of ${gib(blocks * bsize)}${isLow ? ', LOW' : ''}`);
 
-  // In laravel mode nobody logs in without Caddy, the API and its database.
-  const edge = authMode() === 'laravel' ? ['caddy', 'api', 'postgres'] : [];
+  // Nobody logs in without Caddy, the API and its database.
+  const edge = ['caddy', 'api', 'postgres'];
 
   for (const service of edge) {
     console.log(`${service.padEnd(width)}  ${shown(service)}`);
@@ -2514,7 +2219,7 @@ async function checkAddress(address: string) {
   const requests: [string, URL, RequestInit][] = [
     ...disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), {}]),
     ...(cookie ? disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), { headers: { cookie: `vinci_session=${cookie}` } }]) : []),
-    ['DELETE', new URL('/cdn-cgi/access/login', origin), {}],
+    ['DELETE', new URL('/auth/login', origin), {}],
     ['GET', new URL(`http://${origin.host}/`), {}],
   ];
 
@@ -2579,22 +2284,12 @@ async function check() {
 
 function provisionerConfig() {
   const token = process.env.PROVISIONER_TOKEN ?? '';
-  const { CLOUDFLARE_API_TOKEN: cloudflareToken, CLOUDFLARE_ZONE: zone, CLOUDFLARE_NAME: name } = process.env;
 
   if (token.length < provisionerTokenLength) {
     fail(`PROVISIONER_TOKEN must be at least ${provisionerTokenLength} random characters.`);
   }
 
-  if (cloudflareToken && (!zone || !name || !cloudflareNamePattern.test(name))) {
-    fail('With CLOUDFLARE_API_TOKEN set, CLOUDFLARE_ZONE and CLOUDFLARE_NAME (vinci-<team>) must be set too.');
-  }
-
-  return {
-    tokenHash: digest(`Bearer ${token}`),
-    access: cloudflareToken && zone && name ? { zone, allow: `${name}-allow` } : undefined,
-    // Written by `cloudflare apply --domain`; without a token, the only way to know whom the policy already lets in.
-    domains: accessDomains((process.env.CLOUDFLARE_ACCESS_DOMAINS ?? '').split(',').filter(Boolean)),
-  };
+  return { tokenHash: digest(`Bearer ${token}`) };
 }
 
 // The hub's only way to change the stack. It holds the Docker socket, so it answers a fixed set of requests, only with
@@ -2611,28 +2306,6 @@ async function provisioner() {
     return run;
   };
 
-  // `manual`: the policy needs a change Vinci could not make (no token on the server, or Cloudflare refused); the admin
-  // makes it by hand. Without a token, a change that only touches emails inside the domain rule needs nothing.
-  const syncAccess = async (previous: Team, next: Team): Promise<'synced' | 'manual'> => {
-    if (config.access === undefined) {
-      const before = new Set(accessEmails(previous));
-      const after = new Set(accessEmails(next));
-      const changed = [...before.symmetricDifference(after)].filter((email) => !accessCovers(config.domains, email));
-
-      return changed.length === 0 ? 'synced' : 'manual';
-    }
-
-    try {
-      await cloudflareAllow(config.access.zone, config.access.allow, accessEmails(next));
-
-      return 'synced';
-    } catch (error) {
-      console.error(`Access sync failed; the allow policy needs the change by hand: ${errorMessage(error)}`);
-
-      return 'manual';
-    }
-  };
-
   const listUsers = async () => {
     const current = team();
     const states = await userStates().catch(() => undefined);
@@ -2641,8 +2314,7 @@ async function provisioner() {
   };
 
   // Writes users.yaml and applies it for one person. When apply fails, a change that leaves the person enabled is
-  // rolled back so a retry starts clean; a disable or removal is kept, so the login stays gone. Access follows
-  // whichever list stands, and the reply says what happened.
+  // rolled back so a retry starts clean; a disable or removal is kept, so the login stays gone.
   const change = async (previous: Team, next: Team, id: string, isGranting: boolean): Promise<Response | undefined> => {
     writeTeam(next);
 
@@ -2656,11 +2328,7 @@ async function provisioner() {
         await applyTeam([]).catch((rollback: unknown) => console.error(`Rolling back ${id} failed: ${errorMessage(rollback)}`));
       }
 
-      return reply(500, {
-        error: errorMessage(error),
-        rolledBack: isGranting,
-        access: await syncAccess(previous, isGranting ? previous : next),
-      });
+      return reply(500, { error: errorMessage(error), rolledBack: isGranting });
     }
   };
 
@@ -2684,7 +2352,6 @@ async function provisioner() {
       id,
       ...person,
       state,
-      access: await syncAccess(previous, next),
     });
   }));
 
@@ -2698,7 +2365,7 @@ async function provisioner() {
 
     const next = { users, admins: previous.admins };
 
-    return await change(previous, next, id, false) ?? reply(200, { id, access: await syncAccess(previous, next) });
+    return await change(previous, next, id, false) ?? reply(200, { id });
   }));
 
   const putAdmins = (emails: string[]) => serial(() => locked(async () => {
@@ -2707,25 +2374,8 @@ async function provisioner() {
 
     writeTeam(next);
 
-    return reply(200, { emails: next.admins, access: await syncAccess(previous, next) });
+    return reply(200, { emails: next.admins });
   }));
-
-  // What the allow policy lets in, for the panel; needs only Access: Apps and Policies: Read. `emails: null` when that
-  // is unknown: no token, Cloudflare could not be read, or the policy has rules Vinci does not manage. The domains then
-  // come from the server's config.
-  const readAccess = async () => {
-    const unknown = { domains: config.domains, emails: null };
-
-    if (config.access === undefined) {
-      return unknown;
-    }
-
-    return cloudflareFindAllow(config.access.zone, config.access.allow).then(([, , found]) => accessRead(found)).catch((error: unknown) => {
-      console.error(`Reading the Access policy failed: ${errorMessage(error)}`);
-
-      return unknown;
-    });
-  };
 
   const route = async (request: Request, pathname: string): Promise<Response> => {
     if (!timingSafeEqual(digest(request.headers.get('authorization') ?? ''), config.tokenHash)) {
@@ -2742,11 +2392,7 @@ async function provisioner() {
       return reply(200, { users: await listUsers() });
     }
 
-    if (pathname === '/access' && request.method === 'GET') {
-      return reply(200, await readAccess());
-    }
-
-    if (pathname === '/access/admins' && request.method === 'PUT') {
+    if (pathname === '/admins' && request.method === 'PUT') {
       const emails = (await readBody(request, ['emails']))?.emails;
 
       return Array.isArray(emails) && emails.length <= 100 && emails.every(isEmail) ? putAdmins(emails) : reply(400, { error: 'Send { emails: [<email>] }.' });
@@ -2800,9 +2446,7 @@ async function provisioner() {
     },
   });
 
-  const rule = config.domains.length === 0 ? '' : `; domain rule ${config.domains.map((domain) => `@${domain}`).join(', ')}`;
-
-  console.log(`Provisioner listening on ${server.port}; Access sync ${config.access === undefined ? 'off (manual)' : 'on'}${rule}.`);
+  console.log(`Provisioner listening on ${server.port}.`);
 }
 
 function iptables(binary: string, args: string[], input?: string) {

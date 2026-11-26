@@ -55,7 +55,7 @@ export function makeCoreRelay(services: CoreTypes.CoreServices): WebSocketHandle
 async function coreRelayRecheck(services: CoreTypes.CoreServices, socket: ServerWebSocket<CoreTypes.CoreSocket>): Promise<void> {
   const { identity } = socket.data;
 
-  const isLoggedIn = identity.kind === 'access' || await services.accounts.queries.session({ token: identity.token })
+  const isLoggedIn = await services.accounts.queries.session({ token: identity.token })
     .then(({ email }) => email === identity.email)
     .catch((error: unknown) => !(isAppError(error) && error.code === 'UNAUTHORIZED'));
 

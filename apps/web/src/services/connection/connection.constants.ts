@@ -3,8 +3,6 @@ export const CONNECTION = {
   pairingKey: 'bots.pairing',
   rpcPath: '/rpc',
   healthPath: '/health',
-  accessHeader: 'cf-access-jwt-assertion',
-  accessCookie: 'CF_Authorization',
   sessionCookie: 'vinci_session',
   reauthKey: 'bots.reauth',
   reauthWindowMs: 60_000,

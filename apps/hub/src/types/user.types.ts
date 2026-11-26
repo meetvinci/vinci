@@ -5,7 +5,7 @@ import type { ProvisionerService } from '../services/provisioner/provisioner.ser
 import type { AccountsPut } from './accounts.types';
 import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
-import type { ProvisionerAccess, ProvisionerUser } from './provisioner.types';
+import type { ProvisionerUser } from './provisioner.types';
 
 export const userId = z.string().regex(/^[a-z\d][a-z\d-]{0,62}$/u);
 
@@ -110,7 +110,6 @@ export interface UserAccountUndoParams extends Omit<UserAccountParams, 'name'> {
 }
 
 export interface UserChanged extends ProvisionerUser {
-  access: ProvisionerAccess;
   password?: string;
 }
 
@@ -119,7 +118,7 @@ export interface UserPassword {
 }
 
 export interface UserRemoved {
-  access: ProvisionerAccess;
+  removed: true;
 }
 
 export interface UserService {

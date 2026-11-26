@@ -2,7 +2,7 @@
 
 Your own bots, on your own server. For a small team, or just for you.
 
-Vinci runs on a Linux server with Docker. Each person gets their own container, and each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent. Cloudflare Access handles the login.
+Vinci runs on a Linux server with Docker. Each person gets their own container, and each bot is a persistent [Pi](https://github.com/earendil-works/pi) agent. The install's Laravel API handles the login, with email and password.
 
 It is an early version, meant for people who trust each other.
 

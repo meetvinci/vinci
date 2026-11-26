@@ -1,7 +1,7 @@
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { USER } from './user.constants';
-import { userAccountPut, userAccountUndo, userNewId } from './user.utils';
+import { userAccountUndo, userNewId } from './user.utils';
 import type * as UserTypes from '../../types/user.types';
 
 export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, email, by }: Omit<UserTypes.UserCreateParams, 'bots'>): Promise<UserTypes.UserChanged> {
@@ -20,9 +20,9 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
       by,
     };
 
-    const account = await userAccountPut(deps, { ...target, name });
+    const account = await deps.accounts.actions.put({ ...target, name });
 
-    const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true, advanced: false } }).catch(async (error: unknown) => {
+    await deps.provisioner.actions.put({ user: { id, name, email, enabled: true, advanced: false } }).catch(async (error: unknown) => {
       await userAccountUndo(deps, { ...target, account });
       throw error;
     });
@@ -34,15 +34,14 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
       message: 'Admin created a user',
       by,
       user: id,
-      access,
-      account: account?.created ?? null,
+      account: account.created,
     });
 
     if (!listed) {
       throw new Errors.INTERNAL_ERROR({ internal: `The provisioner did not list ${id} after creating it` });
     }
 
-    return { ...listed, access, password: account?.password };
+    return { ...listed, password: account.password };
   });
 
   deps.state.creating = created.then(() => undefined, () => undefined);

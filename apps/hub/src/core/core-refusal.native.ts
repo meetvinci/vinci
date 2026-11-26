@@ -1,7 +1,7 @@
 import { match } from 'ts-pattern';
 import type * as CoreTypes from '../types/core.types';
 
-const SIGN_OUT = '/cdn-cgi/access/logout';
+const SIGN_OUT = '/auth/logout';
 
 const STYLE = [
   ':root{color-scheme:light dark;--bg:#fafafa;--fg:#18181b;--muted:#52525b;--line:#e4e4e7}',

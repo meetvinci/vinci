@@ -52,7 +52,9 @@ export async function adminActionChange(
       admin: email,
     });
 
-    return { access: await adminActionSync(deps, { by, attempts: 1 }), password: account?.password };
+    await adminActionSync(deps, { by, attempts: 1 });
+
+    return { password: account?.password };
   });
 
   state.saving = saved.then(() => undefined, () => undefined);

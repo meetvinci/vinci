@@ -10,19 +10,15 @@ import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-q
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { AdminAccess, AdminAccessNotice } from '@/components/admin/admin-access';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { AdminPassword } from '@/components/admin/admin-password';
-import { useAdminNotice } from '@/hooks/use-admin-notice';
-import { adminAddAdmin, adminAdminsQuery, adminHasAccountsQuery, adminMeQuery } from '@/services/admin/admin.client';
+import { adminAddAdmin, adminAdminsQuery, adminMeQuery } from '@/services/admin/admin.client';
 import { adminProblem } from '@/services/admin/admin.utils';
 
 export function AdminAdmins() {
   const queryClient = useQueryClient();
-  const notice = useAdminNotice();
   const { data: admins } = useSuspenseQuery(adminAdminsQuery());
   const { data: me } = useSuspenseQuery(adminMeQuery());
-  const { data: hasAccounts } = useSuspenseQuery(adminHasAccountsQuery());
   const [created, setCreated] = useState<{ email: string, password: string } | null>(null);
   const isLast = admins.length <= 1;
 
@@ -34,13 +30,8 @@ export function AdminAdmins() {
   const add = useMutation({
     mutationFn: adminAddAdmin,
     meta: { success: m.admin_admins_added() },
-    onSuccess: async ({ access, password }, { email }) => {
+    onSuccess: async ({ password }, { email }) => {
       await queryClient.invalidateQueries({ queryKey: adminAdminsQuery().queryKey });
-      notice({
-        access,
-        email,
-        change: 'add',
-      });
       form.reset();
 
       if (password) {
@@ -60,8 +51,7 @@ export function AdminAdmins() {
           onDone={() => setCreated(null)}
         />
       ) : null}
-      <AdminPageHeader description={hasAccounts ? m.admin_admins_hint_accounts() : m.admin_admins_hint()} title={m.admin_admins_title()} />
-      <AdminAccessNotice domains={undefined} isUnknown={admins.some((item) => item.access === 'unknown')} />
+      <AdminPageHeader description={m.admin_admins_hint_accounts()} title={m.admin_admins_title()} />
       <Panel className="max-w-3xl">
         {admins.map((item) => (
           <PanelRow key={item.email}>
@@ -69,7 +59,6 @@ export function AdminAdmins() {
               <PanelTitle className="truncate">{item.email}</PanelTitle>
               {item.email === me.email ? <PanelDescription>{m.admin_admins_you()}</PanelDescription> : null}
             </PanelContent>
-            <AdminAccess access={item.access} />
             {isLast ? null : (
               <Button
                 asChild

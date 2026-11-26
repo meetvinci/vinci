@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // stack or wording that names the framework.
         $exceptions->render(fn (Throwable $error, Request $request) => match (true) {
             $error instanceof HttpResponseException => null,
-            $error->getPrevious() instanceof TokenMismatchException => response('', 302, ['Location' => '/cdn-cgi/access/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))]),
+            $error->getPrevious() instanceof TokenMismatchException => response('', 302, ['Location' => '/auth/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))]),
             $error instanceof HttpExceptionInterface => response('', $error->getStatusCode(), $error->getHeaders()),
             // No login, or an ended one, at the hub's /internal/session routes.
             $error instanceof AuthenticationException => response('', 401),

@@ -4,7 +4,7 @@ import { readFile, rm, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { HUB_FIXTURE, hubFixtureEncode, hubFixtureFakeSocket, hubFixtureOwner, hubFixtureStart } from './support/hub.fixture';
+import { HUB_FIXTURE, hubFixtureCookie, hubFixtureFakeSocket, hubFixtureOwner, hubFixtureStart } from './support/hub.fixture';
 import type { HubFixture } from './support/hub.fixture';
 import type { WebSocketOptions } from 'bun';
 
@@ -36,7 +36,7 @@ async function hubTestRpc(token: string, path: string, body: object | null, head
   const response = await fetch(`${hub}/rpc/${path}`, {
     method: 'POST',
     headers: {
-      'cf-access-jwt-assertion': token,
+      'cookie': hubFixtureCookie(token),
       'content-type': 'application/json',
       'x-bots-protocol': '1',
       'origin': publicOrigin,
@@ -75,7 +75,7 @@ function hubTestConnectionCookie(device: HubTestDevice): string {
 }
 
 async function hubTestPair(token: string, name: string) {
-  const handoff = await hubTestGet('/connect', { 'cf-access-jwt-assertion': token });
+  const handoff = await hubTestGet('/connect', { 'cookie': hubFixtureCookie(token) });
   const code = new URL(handoff.headers.get('location') ?? '', hub).searchParams.get('code') ?? '';
   const payload = authPairCode.parse(code);
   const redeemed = await hubTestRpc(token, 'pairing/redeem', { pin: payload.pin, name });
@@ -118,17 +118,13 @@ const it = test.extend<HubTestFixtures>({
   }, { scope: 'file' }],
 });
 
-describe('access token verification', () => {
+describe('login verification', () => {
   it.for([
-    ['a missing token', async () => ({})],
-    ['a garbage token', async () => ({ 'cf-access-jwt-assertion': 'not.a.jwt' })],
-    ['another key with the same kid', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice }, { key: fixture.keys.rogue.privateKey }) })],
-    ['an unknown kid', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice }, { kid: 'kid-other' }) })],
-    ['an expired token', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice, exp: Date.now() / 1000 - 3600 }) })],
-    ['a token not yet valid', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice, nbf: Date.now() / 1000 + 3600 }) })],
-    ['a wrong audience', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice, aud: ['other-application'] }) })],
-    ['a wrong issuer', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ email: emails.alice, iss: 'https://evil.cloudflareaccess.com' }) })],
-    ['a token without an email', async (fixture: HubFixture) => ({ 'cf-access-jwt-assertion': await fixture.mint({ common_name: 'service-token' }) })],
+    ['a missing cookie', async () => ({})],
+    ['a malformed token', async () => ({ 'cookie': hubFixtureCookie('not-a-token') })],
+    ['a token the API does not know', async () => ({ 'cookie': hubFixtureCookie('7|unknown0token') })],
+    ['an ended login', async (fixture: HubFixture) => ({ 'cookie': hubFixtureCookie(await fixture.mint({ email: emails.alice, exp: Date.now() / 1000 - 3600 })) })],
+    ['an Access JWT, which is no login any more', async () => ({ 'cf-access-jwt-assertion': 'a.b.c', 'cookie': 'CF_Authorization=a.b.c' })],
   ] as const)('rejects %s with an empty 401', async ([, headers], { fixture }) => {
     const response = await hubTestGet('/health', await headers(fixture));
 
@@ -136,34 +132,14 @@ describe('access token verification', () => {
     expect(await response.text()).toBe('');
   });
 
-  it('rejects alg none', async () => {
-    const claims = {
-      iss: HUB_FIXTURE.teamDomain,
-      aud: [HUB_FIXTURE.audience],
-      exp: Date.now() / 1000 + 600,
-      email: emails.alice,
-    };
-
-    const response = await hubTestGet('/health', { 'cf-access-jwt-assertion': `${hubFixtureEncode({ alg: 'none', kid: 'kid-good' })}.${hubFixtureEncode(claims)}.` });
-
-    expect(response.status).toBe(401);
-  });
-
-  it('rejects a tampered payload', async ({ tokens }) => {
-    const claims = {
-      iss: HUB_FIXTURE.teamDomain,
-      aud: [HUB_FIXTURE.audience],
-      exp: Date.now() / 1000 + 600,
-      email: emails.bob,
-    };
-
-    const response = await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice.replace(/\.[^.]+\./u, `.${hubFixtureEncode(claims)}.`) });
+  it('trusts no identity header', async () => {
+    const response = await hubTestGet('/health', { 'x-vinci-email': emails.alice, 'cf-access-authenticated-user-email': emails.alice });
 
     expect(response.status).toBe(401);
   });
 
   it('answers 403 to a valid identity without a hub user', async ({ fixture }) => {
-    const response = await hubTestGet('/health', { 'cf-access-jwt-assertion': await fixture.mint({ email: 'mallory@team.example' }) });
+    const response = await hubTestGet('/health', { 'cookie': hubFixtureCookie(await fixture.mint({ email: 'mallory@team.example' })) });
 
     expect(response.status).toBe(403);
   });
@@ -178,43 +154,34 @@ describe('access token verification', () => {
 
 describe('routing by identity', () => {
   it('sends each identity to its own daemon', async ({ fixture, tokens }) => {
-    const alice = serverHealth.parse(await (await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice })).json());
-    const bob = serverHealth.parse(await (await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.bob })).json());
+    const alice = serverHealth.parse(await (await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.alice) })).json());
+    const bob = serverHealth.parse(await (await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.bob) })).json());
 
     expect(alice.id).toBe(fixture.serverIds.alice);
     expect(bob.id).toBe(fixture.serverIds.bob);
   });
 
-  it('accepts the CF_Authorization cookie alone', async ({ fixture, tokens }) => {
-    const health = serverHealth.parse(await (await hubTestGet('/health', { cookie: `CF_Authorization=${tokens.alice}` })).json());
-
-    expect(health.id).toBe(fixture.serverIds.alice);
-  });
-
-  it('sends other paths to the web app with the verified token and without client identity headers', async ({ tokens }) => {
+  it('sends other paths to the web app with the login cookie and without client forwarding headers', async ({ tokens }) => {
     const response = await hubTestGet('/rooms', {
-      'cookie': `CF_Authorization=${tokens.alice}`,
-      'cf-access-authenticated-user-email': emails.bob,
+      'cookie': hubFixtureCookie(tokens.alice),
       'x-forwarded-host': 'evil.example',
       'x-forwarded-for': '10.9.9.9',
     });
 
     const { headers } = webEcho.parse(await response.json());
 
-    expect(headers['cf-access-jwt-assertion']).toBe(tokens.alice);
-    expect(headers).not.toHaveProperty('cf-access-authenticated-user-email');
+    expect(headers.cookie).toBe(hubFixtureCookie(tokens.alice));
     expect(headers['x-forwarded-host']).toBe('team.example');
     expect(headers['x-forwarded-proto']).toBe('https');
     expect(headers).not.toHaveProperty('x-forwarded-for');
   });
 
   it('serves the favicon paths from the web app without identity, cookies or tokens', async ({ tokens }) => {
-    const response = await hubTestGet('/img/favicon/site.webmanifest', { cookie: `CF_Authorization=${tokens.alice}; bots.connection=x` });
+    const response = await hubTestGet('/img/favicon/site.webmanifest', { cookie: `${hubFixtureCookie(tokens.alice)}; bots.connection=x` });
     const { path, headers } = webEcho.parse(await response.json());
 
     expect(path).toBe('/img/favicon/site.webmanifest');
     expect(headers).not.toHaveProperty('cookie');
-    expect(headers).not.toHaveProperty('cf-access-jwt-assertion');
     expect((await hubTestGet('/img/favicon/../../health')).status).toBe(401);
   });
 
@@ -233,7 +200,7 @@ describe('routing by identity', () => {
       'refresh': `0; url=${value}`,
     });
 
-    const response = await hubTestGet(`/relay?${query}`, { 'cf-access-jwt-assertion': tokens.alice });
+    const response = await hubTestGet(`/relay?${query}`, { 'cookie': hubFixtureCookie(tokens.alice) });
 
     expect(response.status).toBe(302);
     expect(response.headers.get('location')).toBe(expected);
@@ -242,7 +209,7 @@ describe('routing by identity', () => {
   });
 
   it('refuses a WebSocket upgrade outside the daemon paths', async ({ tokens }) => {
-    expect(await hubTestOpens(hubTestSocket('/rooms', { headers: { 'cf-access-jwt-assertion': tokens.alice } }))).toBe(false);
+    expect(await hubTestOpens(hubTestSocket('/rooms', { headers: { 'cookie': hubFixtureCookie(tokens.alice) } }))).toBe(false);
   });
 });
 
@@ -255,7 +222,7 @@ describe('no client value steers the daemon choice', () => {
     ['a protocol-relative path', () => ({}), `//127.0.0.1:${HUB_FIXTURE.ports.bob}/health`],
     ['a dot-segment path', () => ({}), '/rpc/../health'],
   ] as const)('keeps alice on her daemon with %s', async ([, headers, path], { fixture, tokens }) => {
-    const response = await hubTestGet(path, { 'cf-access-jwt-assertion': tokens.alice, ...headers(fixture) });
+    const response = await hubTestGet(path, { 'cookie': hubFixtureCookie(tokens.alice), ...headers(fixture) });
 
     expect(await response.text()).not.toContain(fixture.serverIds.bob);
   });
@@ -272,8 +239,8 @@ describe('first-visit pairing', () => {
 
   it("leaves /connect to the web app once it has a code or a connection to this user's daemon", async ({ tokens, devices }) => {
     const responses = await Promise.all([
-      hubTestGet('/connect?code=abc', { 'cf-access-jwt-assertion': tokens.alice }),
-      hubTestGet('/connect?reason=revoked', { 'cf-access-jwt-assertion': tokens.alice, 'cookie': hubTestConnectionCookie(devices.alice) }),
+      hubTestGet('/connect?code=abc', { 'cookie': hubFixtureCookie(tokens.alice) }),
+      hubTestGet('/connect?reason=revoked', { 'cookie': `${hubFixtureCookie(tokens.alice)}; ${hubTestConnectionCookie(devices.alice)}` }),
     ]);
 
     const echoes = await Promise.all(responses.map(async (response) => webEcho.parse(await response.json()).path));
@@ -283,8 +250,8 @@ describe('first-visit pairing', () => {
 
   it('hands a fresh code after revoked or replaced, or with a connection to another daemon', async ({ fixture, tokens, devices }) => {
     const responses = await Promise.all([
-      hubTestGet('/connect?reason=revoked', { 'cf-access-jwt-assertion': tokens.bob }),
-      hubTestGet('/connect?reason=replaced', { 'cf-access-jwt-assertion': tokens.bob, 'cookie': hubTestConnectionCookie(devices.alice) }),
+      hubTestGet('/connect?reason=revoked', { 'cookie': hubFixtureCookie(tokens.bob) }),
+      hubTestGet('/connect?reason=replaced', { 'cookie': `${hubFixtureCookie(tokens.bob)}; ${hubTestConnectionCookie(devices.alice)}` }),
     ]);
 
     const codes = responses.map((response) => authPairCode.parse(new URL(response.headers.get('location') ?? '', hub).searchParams.get('code') ?? ''));
@@ -315,8 +282,8 @@ describe('first-visit pairing', () => {
 
   it('authenticates /files from the connection cookie like the web proxy did', async ({ tokens, devices }) => {
     const path = `/files/${crypto.randomUUID()}/${crypto.randomUUID()}`;
-    const anonymous = await hubTestGet(path, { 'cf-access-jwt-assertion': tokens.alice });
-    const withCookie = await hubTestGet(path, { 'cf-access-jwt-assertion': tokens.alice, 'cookie': hubTestConnectionCookie(devices.alice) });
+    const anonymous = await hubTestGet(path, { 'cookie': hubFixtureCookie(tokens.alice) });
+    const withCookie = await hubTestGet(path, { 'cookie': `${hubFixtureCookie(tokens.alice)}; ${hubTestConnectionCookie(devices.alice)}` });
 
     expect([400, 401]).toContain(anonymous.status);
     expect(withCookie.status).toBe(404);
@@ -330,7 +297,7 @@ describe('WebSocket relay', () => {
       serverId: devices.alice.serverId,
       token: () => devices.alice.token,
       url: `${hub}/rpc`,
-      connect: () => hubTestSocket('/rpc', { headers: { 'cf-access-jwt-assertion': tokens.alice, 'origin': publicOrigin } }),
+      connect: () => hubTestSocket('/rpc', { headers: { 'cookie': hubFixtureCookie(tokens.alice), 'origin': publicOrigin } }),
     });
 
     const info = await client.server.info();
@@ -364,7 +331,7 @@ describe('WebSocket relay', () => {
 describe('server ID pinning', () => {
   it('pins each daemon on first contact', async ({ fixture, tokens }) => {
     const pins = z.record(z.string(), z.string()).parse(JSON.parse(await readFile(join(fixture.hubData, 'pins.json'), 'utf8')));
-    const whoami = await (await hubTestGet('/hub/whoami', { 'cf-access-jwt-assertion': tokens.alice })).json();
+    const whoami = await (await hubTestGet('/hub/whoami', { 'cookie': hubFixtureCookie(tokens.alice) })).json();
 
     expect(pins).toEqual(fixture.serverIds);
     expect(whoami).toMatchObject({
@@ -377,8 +344,8 @@ describe('server ID pinning', () => {
   it("refuses to forward when alice's address answers as another daemon", async ({ fixture, tokens }) => {
     await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], daemonUrl: `http://localhost:${HUB_FIXTURE.ports.bob}` } });
 
-    const health = await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice });
-    const bob = serverHealth.parse(await (await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.bob })).json());
+    const health = await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.alice) });
+    const bob = serverHealth.parse(await (await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.bob) })).json());
 
     expect(health.status).toBe(502);
     expect(await health.text()).not.toContain(fixture.serverIds.bob);
@@ -392,7 +359,7 @@ describe('server ID pinning', () => {
 
     await fixture.writeUsers({ ...fixture.users, 'carol@team.example': { id: 'carol', daemonUrl: `http://localhost:${HUB_FIXTURE.ports.bob}`, socketPath: join(fixture.root, 'carol.sock') } });
 
-    const health = await hubTestGet('/health', { 'cf-access-jwt-assertion': carol });
+    const health = await hubTestGet('/health', { 'cookie': hubFixtureCookie(carol) });
     const pins = z.record(z.string(), z.string()).parse(JSON.parse(await readFile(join(fixture.hubData, 'pins.json'), 'utf8')));
 
     expect(health.status).toBe(502);
@@ -422,7 +389,7 @@ describe('owner socket', () => {
     await symlink(target, link);
     await fixture.writeUsers({ ...fixture.users, [emails.alice]: { ...fixture.users[emails.alice], socketPath } });
 
-    const response = await hubTestGet('/hub/pair', { 'cf-access-jwt-assertion': tokens.alice });
+    const response = await hubTestGet('/hub/pair', { 'cookie': hubFixtureCookie(tokens.alice) });
 
     await fixture.writeUsers(fixture.users);
     await fake.close();
@@ -441,18 +408,18 @@ describe('users file', () => {
   ] as const)('refuses everyone with %s and recovers once fixed', async ([, users], { fixture, tokens }) => {
     await fixture.writeUsers(users(fixture));
 
-    const refused = await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice });
+    const refused = await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.alice) });
 
     await fixture.writeUsers(fixture.users);
 
-    const restored = await hubTestGet('/health', { 'cf-access-jwt-assertion': tokens.alice });
+    const restored = await hubTestGet('/health', { 'cookie': hubFixtureCookie(tokens.alice) });
 
     expect(refused.status).toBe(403);
     expect(restored.status).toBe(200);
   });
 
   it('closes an open WebSocket once its user is removed', async ({ fixture, tokens }) => {
-    const socket = hubTestSocket('/rpc', { headers: { 'cf-access-jwt-assertion': tokens.alice, 'origin': publicOrigin } });
+    const socket = hubTestSocket('/rpc', { headers: { 'cookie': hubFixtureCookie(tokens.alice), 'origin': publicOrigin } });
 
     const closed = new Promise<number>((done) => {
       socket.addEventListener('close', (event) => done(event.code));
@@ -469,22 +436,23 @@ describe('users file', () => {
     expect(code).toBe(1008);
   });
 
-  it('closes an open WebSocket when the Access token expires', async ({ fixture }) => {
-    const token = await fixture.mint({ email: emails.alice, exp: Math.floor(Date.now() / 1000) + 2 });
-    const socket = hubTestSocket('/rpc', { headers: { 'cf-access-jwt-assertion': token, 'origin': publicOrigin } });
+  it('closes an open WebSocket once its login ends', async ({ fixture }) => {
+    const token = await fixture.mint({ email: emails.alice });
+    const socket = hubTestSocket('/rpc', { headers: { 'cookie': hubFixtureCookie(token), 'origin': publicOrigin } });
 
     const closed = new Promise<number>((done) => {
       socket.addEventListener('close', (event) => done(event.code));
     });
 
     expect(await hubTestOpens(socket)).toBe(true);
+    fixture.revoke(token);
     expect(await closed).toBe(1008);
   });
 });
 
 describe('path hygiene', () => {
   it.for(['//rpc/x', '/rpc//x', '//health', '/rooms//x'])('rejects %s with 400 before routing', async (path, { tokens }) => {
-    const response = await hubTestGet(path, { 'cf-access-jwt-assertion': tokens.alice });
+    const response = await hubTestGet(path, { 'cookie': hubFixtureCookie(tokens.alice) });
 
     expect(response.status).toBe(400);
   });
@@ -494,8 +462,8 @@ describe('grant limit', () => {
   it('limits grants per identity without affecting other users', async ({ tokens, devices }) => {
     expect(devices.alice.token).toBeTruthy();
 
-    const responses = await Promise.all(Array.from({ length: 6 }, () => hubTestGet('/hub/pair', { 'cf-access-jwt-assertion': tokens.alice })));
-    const bob = await hubTestGet('/hub/pair', { 'cf-access-jwt-assertion': tokens.bob });
+    const responses = await Promise.all(Array.from({ length: 6 }, () => hubTestGet('/hub/pair', { 'cookie': hubFixtureCookie(tokens.alice) })));
+    const bob = await hubTestGet('/hub/pair', { 'cookie': hubFixtureCookie(tokens.bob) });
     const statuses = responses.map(({ status }) => status);
 
     expect(statuses.filter((status) => status === 429).length).toBeGreaterThan(0);

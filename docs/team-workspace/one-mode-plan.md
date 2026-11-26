@@ -7,7 +7,7 @@ Status: decided by the owner on 2026-11-14; most pieces are merged. The plan bel
 The owner's answers to the questions in section 5:
 
 1. **Phone and desktop:** later, with the client work. The desktop app becomes a window on the install's address. Mobile logs in once in a web view, gets a device token, then uses native requests. Until then, the PWA. Nothing that this needs is removed now: device tokens, `pairing.bootstrap` and `pairing.redeem` stay.
-2. **Login:** Cloudflare Access only, for now.
+2. **Login:** Cloudflare Access only, for now. Superseded on 2026-11-26: the Laravel API, with Sanctum sessions, is the only login, and Cloudflare Access is gone; the Cloudflare Tunnel stays an optional transport ([install](install.md#logins)).
 3. **Development:** through a local hub with a dev-only identity (piece G). PINs went with G.
 4. **Sandbox in development:** yes, against the recommendation. Built as an opt-in flag, `bun run dev:web --sandbox`.
 5. **Onboarding flow:** removed.

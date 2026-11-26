@@ -2,12 +2,12 @@ import { log } from '@repo/logger/server';
 import type { AccountsPut } from '../../types/accounts.types';
 import type * as AdminTypes from '../../types/admin.types';
 
-export function adminAccountPut(deps: AdminTypes.AdminServiceDeps, { email, by }: AdminTypes.AdminChangeParams): Promise<AccountsPut | null> {
-  return deps.accounts.queries.isConfigured() ? deps.accounts.actions.put({
+export function adminAccountPut(deps: AdminTypes.AdminServiceDeps, { email, by }: AdminTypes.AdminChangeParams): Promise<AccountsPut> {
+  return deps.accounts.actions.put({
     email,
     name: null,
     by,
-  }) : Promise.resolve(null);
+  });
 }
 
 export async function adminAccountUndo(deps: AdminTypes.AdminServiceDeps, { account, ...target }: AdminTypes.AdminAccountUndoParams): Promise<void> {
@@ -24,7 +24,7 @@ export async function adminAccountUndo(deps: AdminTypes.AdminServiceDeps, { acco
 }
 
 export async function adminAccountRemove(deps: AdminTypes.AdminServiceDeps, { email, by }: AdminTypes.AdminChangeParams): Promise<void> {
-  if (deps.accounts.queries.isConfigured() && !(await deps.provisioner.queries.list()).some((user) => user.email === email)) {
+  if (!(await deps.provisioner.queries.list()).some((user) => user.email === email)) {
     await deps.accounts.actions.remove({ email, by });
   }
 }

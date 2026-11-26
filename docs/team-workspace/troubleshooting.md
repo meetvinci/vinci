@@ -13,7 +13,7 @@ Either the daemon does not accept the team address, or the hub does not know the
 
 ## A person sees "No workspace for this email"
 
-They passed the Cloudflare login, but Vinci has no user with that email. With a domain rule this is what everyone at the domain who is not on the team sees; it is expected. If they should be on the team, add them in the admin panel. If they signed in with the wrong address, the page's **Sign out** link lets them try another. *This page is for admins* means the same for `/admin`: their email is not on the admin list.
+They logged in, but Vinci has no user with that email: an admin who is not a user, or a person removed from `users.yaml` whose login account stayed. If they should be on the team, add them in the admin panel. If they signed in with the wrong address, the page's **Sign out** link lets them try another. *This page is for admins* means the same for `/admin`: their email is not on the admin list.
 
 *Your sign-in is turned off* means the person is on the team but an admin turned their sign-in off (**Turn on sign-in** on their page in the admin panel brings it back; their workspace was kept).
 
@@ -21,7 +21,7 @@ They passed the Cloudflare login, but Vinci has no user with that email. With a 
 
 ## The login page says "Too many attempts"
 
-With Vinci accounts (`VINCI_AUTH=laravel`), the login page locks one email after 5 wrong passwords from one address in a minute, or 20 from any addresses in an hour; wrong current passwords at **Change password** count toward the same hourly limit. The page names how long the lock lasts. An email with no account is locked the same way, so the page never tells which accounts exist. If the person forgot their password, an admin gives them a new one (**Reset password** on their page in the admin panel); the lock still applies until it ends.
+The login page locks one email after 5 wrong passwords from one address in a minute, or 20 from any addresses in an hour; wrong current passwords at **Change password** count toward the same hourly limit. The page names how long the lock lasts. An email with no account is locked the same way, so the page never tells which accounts exist. If the person forgot their password, an admin gives them a new one (**Reset password** on their page in the admin panel); the lock still applies until it ends.
 
 A real person locked out by someone else's guesses waits out the hour, or an admin lifts every lock at once (the counters live in Laravel's cache, in PostgreSQL; nothing else is in that cache):
 
@@ -29,11 +29,11 @@ A real person locked out by someone else's guesses waits out the hour, or an adm
 ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan cache:clear'
 ```
 
-> On `root@<server>`, in `/opt/vinci`, run `docker compose exec -T api php artisan cache:clear` to lift the login lock for `<email>`, then check `docker compose logs caddy --since 1h` for many `POST /cdn-cgi/access/login` lines from one address and report the address and count, without printing anything else.
+> On `root@<server>`, in `/opt/vinci`, run `docker compose exec -T api php artisan cache:clear` to lift the login lock for `<email>`, then check `docker compose logs caddy --since 1h` for many `POST /auth/login` lines from one address and report the address and count, without printing anything else.
 
 ## Someone is still signed in after a password change, or not signed in after logging in
 
-With Vinci accounts, a login is a token the API keeps; the hub asks the API about it on every request and trusts the answer for at most 5 seconds. **Sign out**, **Change password** (other browsers), **Reset password** and **Remove** end logins within those 5 seconds, open chats included. A browser that was signed out comes back to the login page on its next page load; a chat that was open shows the connection lost.
+A login is a token the API keeps; the hub asks the API about it on every request and trusts the answer for at most 5 seconds. **Sign out**, **Change password** (other browsers), **Reset password** and **Remove** end logins within those 5 seconds, open chats included. A browser that was signed out comes back to the login page on its next page load; a chat that was open shows the connection lost.
 
 If a login works and the next page sends the person back to the login page, the hub cannot check logins with the API: `docker compose logs hub --since 5m` says *The accounts service* answered or did not answer, and every page then answers 502 with `accounts_unavailable`. `bun deploy.ts status` should show `vinci-api-1` and `vinci-postgres-1` `running (healthy)`.
 
@@ -82,10 +82,9 @@ The hub checks that each person's Vinci has the ID it saw the first time. If the
 The panel asks the provisioner, which runs `bun deploy.ts apply`. Its log names the step that failed: `docker compose logs provisioner --since 15m`.
 
 - `EACCES` on `hub/users.json`: the `hub` folder is still owned by group 1000 from an older install. Run `bun deploy.ts apply` once by hand as root; it changes the folder to group root, mode 770.
-- `PROVISIONER_TOKEN must be at least 32 random characters` or `CLOUDFLARE_ZONE and CLOUDFLARE_NAME … must be set`: the provisioner did not start. Fix `.env` and run `docker compose up -d --wait provisioner`.
+- `PROVISIONER_TOKEN must be at least 32 random characters`: the provisioner did not start. Fix `.env` and run `docker compose up -d --wait provisioner`.
 - `docker compose up … failed`: the same failure as `apply` by hand would show; run `bun deploy.ts apply` on the server to see Compose's full message. `cannot start a paused container` means someone paused a container: `docker unpause` it. A failed add was undone, so try again.
 - `Another apply or admin panel change is running (users.yaml.lock)`: a by-hand `apply` or another panel change was running. Try again in a minute. If nothing is running, a crash left the lock behind; it is ignored after 10 minutes, or delete `/opt/vinci/users.yaml.lock`.
-- The panel says to add the email in Cloudflare Access by hand: there is no `CLOUDFLARE_API_TOKEN` on the server, or Cloudflare refused it (the log says `Access sync failed`). Run `cloudflare emails` from your computer ([admin tasks](admin.md#add-a-person), step 2) or [let the server do it](admin.md#let-the-server-update-cloudflare-access).
 
 > On `root@<server>`, in `/opt/vinci`, the admin panel failed to change people. Report the errors in `docker compose logs provisioner --since 15m` and `stat -c "%u:%g %a" hub`, without printing secrets. If it does not print `1000:0 770`, run `bun deploy.ts apply` and confirm it ends with `Applied <n> users`. Change nothing else.
 
@@ -143,20 +142,18 @@ If it happens often, someone may be removing the device in **Settings → Device
 
 ## The page reloads by itself now and then
 
-The Cloudflare login expired (24 hours by default). Vinci reloads the page, at most once a minute, so Cloudflare can ask the person to log in again. Unsent messages are kept.
+The person's login ended: after 7 days, or because they signed out in another browser, changed their password elsewhere, or an admin reset it. Vinci reloads the page, at most once a minute, and the login page asks them to log in again. Unsent messages are kept.
 
-- To make it rarer, run the Cloudflare setup again with a longer session, for example `--session 168h` (a week). A lost or shared device then stays logged in that long; removing the person from `users.yaml` and running `bun deploy.ts apply` still locks them out at once.
-
-> In the Vinci repository, run `bun scripts/deploy.ts cloudflare apply` again with the same arguments as at install and `--session 168h`, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Confirm it prints `updated` only for the Access app.
+> On `root@<server>`, in `/opt/vinci`, check `docker compose logs hub --since 1h` for `Request refused` lines with status 401 for `<email>`'s requests and for "accounts service" errors, and report them without cookies or tokens. Change nothing.
 
 ## Adding to the home screen fails, or the icon is blank
 
-The app's manifest and icons are behind the Cloudflare login.
+The app's manifest and icons must load without a login; Caddy and the hub let `/favicon.ico` and `/img/favicon/<file>` through.
 
 - Check: `curl -s -o /dev/null -w '%{http_code}\n' https://<team>.<domain>/favicon.ico` must print 200 without a login.
-- Fix: run `bun scripts/deploy.ts cloudflare apply` again. It restores the `vinci-<team>-favicon` Access application and the tunnel route for the icons.
+- Fix: copy `caddy.compose.yaml` of the installed release into `/opt/vinci` again and run `docker compose up -d --wait caddy`. An install that still has an old Cloudflare Access application in front asks for its code even for the icons: [Move from Cloudflare Access](admin.md#move-from-cloudflare-access).
 
-> In the Vinci repository, run `bun scripts/deploy.ts cloudflare apply` again with the same arguments as at install, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command. Then check that `https://<team>.<domain>/favicon.ico` answers 200 without a login.
+> On `root@<server>`, check that `https://<team>.<domain>/favicon.ico` answers 200 without a login. If not, compare `/opt/vinci/caddy.compose.yaml` with `deploy/caddy/caddy.compose.yaml` of the installed release (`VINCI_TAG`), and report the difference. Change nothing.
 
 ## One person cannot pair a new browser for a while
 

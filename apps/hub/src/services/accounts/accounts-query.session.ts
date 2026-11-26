@@ -2,15 +2,13 @@ import { Errors } from '@repo/errors/universal';
 import { accountsSessionReply } from '../../types/accounts.types';
 import { ACCOUNTS } from './accounts.constants';
 import { accountsDriverRequest } from './accounts.driver';
-import type { AccessIdentity } from '../../types/access.types';
 import type * as AccountsTypes from '../../types/accounts.types';
 
-export function accountsQuerySession(deps: AccountsTypes.AccountsServiceDeps, { token }: AccountsTypes.AccountsSessionParams): Promise<AccessIdentity> {
+export function accountsQuerySession(
+  deps: AccountsTypes.AccountsServiceDeps,
+  { token }: AccountsTypes.AccountsSessionParams,
+): Promise<AccountsTypes.AccountsSession> {
   const { config, sessions } = deps;
-
-  if (!config) {
-    return Promise.reject(new Errors.NOT_FOUND({ internal: 'HUB_ACCOUNTS_URL is not set' }));
-  }
 
   if (!ACCOUNTS.sessionToken.test(token)) {
     return Promise.reject(new Errors.UNAUTHORIZED({ internal: token === '' ? 'No login cookie' : 'Malformed login cookie' }));
@@ -39,7 +37,7 @@ export function accountsQuerySession(deps: AccountsTypes.AccountsServiceDeps, { 
   }).then(({ email, expires_at: expiresAt }) => {
     entry.email = email.toLowerCase();
 
-    return { kind: 'session' as const, email: entry.email, token, expiresAt: expiresAt * 1000 };
+    return { email: entry.email, token, expiresAt: expiresAt * 1000 };
   });
 
   const entry: AccountsTypes.AccountsSessionEntry = { until: now + ACCOUNTS.sessionCacheMs, identity, email: null };

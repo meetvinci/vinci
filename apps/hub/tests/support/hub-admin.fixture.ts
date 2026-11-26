@@ -2,7 +2,7 @@ import { makeHttpClient } from '@repo/client/client';
 import { authPairCode, authRedeemResult } from '@repo/contracts/universal';
 import { test } from 'vitest';
 import { z } from 'zod';
-import { hubFixtureStart } from './hub.fixture';
+import { hubFixtureCookie, hubFixtureStart } from './hub.fixture';
 import type { HubFixture, HubFixtureConfig } from './hub.fixture';
 
 interface HubAdminTestWrite {
@@ -29,14 +29,14 @@ export function hubAdminTestKit(config: HubFixtureConfig) {
   const writeHeaders = { 'content-type': 'application/json', 'origin': publicOrigin };
 
   const get = (path: string, token?: string, headers: Record<string, string> = {}): Promise<Response> => (
-    fetch(`${hub}${path}`, { headers: token ? { 'cf-access-jwt-assertion': token, ...headers } : headers, redirect: 'manual' })
+    fetch(`${hub}${path}`, { headers: token ? { 'cookie': hubFixtureCookie(token), ...headers } : headers, redirect: 'manual' })
   );
 
-  const read = async (token: string, path: string, base = hub) => hubAdminTestJson(await fetch(`${base}${path}`, { headers: { 'cf-access-jwt-assertion': token } }));
+  const read = async (token: string, path: string, base = hub) => hubAdminTestJson(await fetch(`${base}${path}`, { headers: { 'cookie': hubFixtureCookie(token) } }));
 
   const write = async (token: string, path: string, { method = 'POST', body, headers = {}, base = hub }: HubAdminTestWrite = {}) => hubAdminTestJson(await fetch(`${base}${path}`, {
     method,
-    headers: { 'cf-access-jwt-assertion': token, ...writeHeaders, ...headers },
+    headers: { 'cookie': hubFixtureCookie(token), ...writeHeaders, ...headers },
     body: body ? JSON.stringify(body) : undefined,
   }));
 
@@ -46,7 +46,7 @@ export function hubAdminTestKit(config: HubFixtureConfig) {
 
     const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
       method: 'POST',
-      headers: { 'cf-access-jwt-assertion': token, ...writeHeaders, 'x-bots-protocol': '1' },
+      headers: { 'cookie': hubFixtureCookie(token), ...writeHeaders, 'x-bots-protocol': '1' },
       body: JSON.stringify({ json: { pin, name: 'hub test device' } }),
     });
 
@@ -59,7 +59,7 @@ export function hubAdminTestKit(config: HubFixtureConfig) {
       fetch: (url, init) => {
         const headers = new Headers(init.headers);
 
-        headers.set('cf-access-jwt-assertion', token);
+        headers.set('cookie', hubFixtureCookie(token));
         headers.set('origin', publicOrigin);
 
         return fetch(url, { ...init, headers });

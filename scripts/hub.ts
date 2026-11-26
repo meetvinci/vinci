@@ -7,25 +7,24 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Server, ServerWebSocket, Subprocess } from 'bun';
 
-// `bun run dev:web`: the dev daemon, a local hub and Vite behind a dev door that plays Cloudflare Access with one
+// `bun run dev:web`: the dev daemon, a local hub and Vite behind a dev door that plays the Laravel API's login with one
 // fixed identity. Development only: the hub image bundles apps/hub alone, and the hub has no switch for this door.
-// The hub trusts the door only because ACCESS_TEAM_DOMAIN points at it, which this script sets for its own hub.
-// The identity comes only from the login cookie that the run's printed link sets, never from where a request comes
-// from: every container on the Mac (a bot in the dev sandbox too) reaches this Mac's loopback ports through
-// host.docker.internal and arrives as 127.0.0.1.
+// The hub trusts the door only because HUB_ACCOUNTS_URL points at it with this run's token, which this script sets
+// for its own hub. The identity comes only from the login cookie that the run's printed link sets, never from where a
+// request comes from: every container on the Mac (a bot in the dev sandbox too) reaches this Mac's loopback ports
+// through host.docker.internal and arrives as 127.0.0.1.
 const DEV = {
   email: 'dev@example.com',
   user: 'dev',
   name: 'Developer',
-  audience: 'vinci-dev',
-  kid: 'vinci-dev',
   port: 47190,
   data: '~/.config/vinci-dev',
   loginSeconds: 30 * 24 * 3600,
-  certsPath: '/cdn-cgi/access/certs',
-  loginPath: '/cdn-cgi/access/login',
-  accessHeader: 'cf-access-jwt-assertion',
-  accessCookie: 'CF_Authorization',
+  loginPath: '/auth/login',
+  logoutPath: '/auth/logout',
+  // The API's routes the hub calls: whose login a cookie is, and the admin panel's accounts.
+  internalPath: '/internal/',
+  sessionCookie: 'vinci_session',
   stopSignals: ['SIGINT', 'SIGTERM'],
   stopGraceMs: 3000,
 } as const;
@@ -57,7 +56,6 @@ for (const [socket, port] of JSON.parse(process.argv[1])) {
 } as const;
 
 const root = path.resolve(import.meta.dir, '..');
-const algorithm = { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' };
 
 interface DevSocket {
   target: string;
@@ -117,31 +115,45 @@ function sandboxBridge(port: number, socketPath: string, key: Buffer) {
   }).listen(port, '127.0.0.1');
 }
 
-function encode(value: object): string {
-  return Buffer.from(JSON.stringify(value)).toString('base64url');
-}
+// One login token per dev data folder, in the shape of a Sanctum token, so a phone's login cookie outlives a restart.
+async function devSession(file: string): Promise<string> {
+  const stored = existsSync(file) ? (await readFile(file, 'utf8')).trim() : '';
 
-// One signing key per dev data folder, so a phone's login cookie outlives a restart.
-async function devKey(file: string): Promise<{ privateKey: CryptoKey; publicJwk: JsonWebKey }> {
-  const stored = existsSync(file) ? JSON.parse(await readFile(file, 'utf8')) as JsonWebKey : null;
-
-  const generated = {
-    ...algorithm,
-    modulusLength: 2048,
-    publicExponent: new Uint8Array([1, 0, 1]),
-  };
-
-  const privateJwk = stored ?? await crypto.subtle.generateKey(generated, true, ['sign', 'verify'])
-    .then(({ privateKey }) => crypto.subtle.exportKey('jwk', privateKey));
-
-  if (!stored) {
-    await writeFile(file, JSON.stringify(privateJwk), { mode: 0o600 });
+  if (stored !== '') {
+    return stored;
   }
 
-  return {
-    privateKey: await crypto.subtle.importKey('jwk', privateJwk, algorithm, false, ['sign']),
-    publicJwk: { kty: 'RSA', n: privateJwk.n, e: privateJwk.e, alg: 'RS256', use: 'sig', kid: DEV.kid } as JsonWebKey,
-  };
+  const token = `1|${randomBytes(30).toString('hex')}`;
+
+  await writeFile(file, token, { mode: 0o600 });
+
+  return token;
+}
+
+// The door's stand-in for the API's /internal routes, only with this run's token: the dev identity's login, and
+// accounts that the dev install does not have (its one person comes from users.json).
+function devInternal(request: Request, url: URL, { session, token }: { session: string; token: string }): Response {
+  const given = Buffer.from(request.headers.get('authorization') ?? '');
+  const expected = Buffer.from(`Bearer ${token}`);
+
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    return Response.json({ message: 'Unauthenticated.' }, { status: 401 });
+  }
+
+  const cookie = request.headers.get('cookie') ?? '';
+  const isLoggedIn = cookie.split(';').some((part) => part.trim() === `${DEV.sessionCookie}=${session}`);
+
+  if (url.pathname === '/internal/session' && request.method === 'GET') {
+    return isLoggedIn
+      ? Response.json({ email: DEV.email, expires_at: Math.floor(Date.now() / 1000) + DEV.loginSeconds })
+      : Response.json({ message: 'Unauthenticated.' }, { status: 401 });
+  }
+
+  if (url.pathname === '/internal/session/password') {
+    return Response.json({ error: 'wrong_password' }, { status: 403 });
+  }
+
+  return request.method === 'PUT' ? Response.json({ created: false }) : Response.json({ message: 'The dev install has no login accounts.' }, { status: 404 });
 }
 
 async function dev() {
@@ -191,31 +203,8 @@ async function dev() {
     users: { [DEV.email]: { id: DEV.user, name: DEV.name, daemonUrl: `http://127.0.0.1:${ports.daemon}`, socketPath: path.join(data, 'data/ipc/rpc.sock') } },
   }));
 
-  const key = await devKey(path.join(hubData, 'dev-access-key.json'));
-
-  async function mint(seconds: number): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
-
-    const header = encode({
-      alg: 'RS256',
-      kid: DEV.kid,
-      typ: 'JWT',
-    });
-
-    const claims = encode({
-      iss: door,
-      aud: [DEV.audience],
-      email: DEV.email,
-      iat: now,
-      nbf: now,
-      exp: now + seconds,
-      type: 'app',
-    });
-
-    const signature = await crypto.subtle.sign(algorithm, key.privateKey, new TextEncoder().encode(`${header}.${claims}`));
-
-    return `${header}.${claims}.${Buffer.from(signature).toString('base64url')}`;
-  }
+  const session = await devSession(path.join(hubData, 'dev-session'));
+  const accountsToken = randomBytes(32).toString('hex');
 
   async function forward(request: Request, server: Server<DevSocket>): Promise<Response | undefined> {
     const url = new URL(request.url);
@@ -223,17 +212,16 @@ async function dev() {
     const headers = new Headers(request.headers);
 
     headers.delete('host');
-    headers.delete(DEV.accessHeader);
 
-    // The hub checks the cookie's signature; without one there is nothing to check.
-    if (!request.headers.get('cookie')?.includes(`${DEV.accessCookie}=`)) {
+    // The hub checks the login with the door's /internal/session; without a cookie there is nothing to check.
+    if (!request.headers.get('cookie')?.includes(`${DEV.sessionCookie}=`)) {
       return new Response('Not logged in: open the login link that `bun run dev:web` printed, once in this browser.\n', { status: 401 });
     }
 
     if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
       target.protocol = 'ws:';
 
-      const relayed = ['origin', 'cookie', DEV.accessHeader].flatMap((name) => {
+      const relayed = ['origin', 'cookie'].flatMap((name) => {
         const value = headers.get(name);
 
         return value ? [[name, value]] : [];
@@ -258,14 +246,14 @@ async function dev() {
     });
   }
 
-  async function login(url: URL): Promise<Response> {
+  function login(url: URL): Response {
     const given = Buffer.from(url.searchParams.get('secret') ?? '');
 
     if (given.length !== secret.length || !timingSafeEqual(given, Buffer.from(secret))) {
       return new Response(null, { status: 403 });
     }
 
-    const cookie = `${DEV.accessCookie}=${await mint(DEV.loginSeconds)}; Path=/; Max-Age=${DEV.loginSeconds}; HttpOnly; SameSite=Lax`;
+    const cookie = `${DEV.sessionCookie}=${session}; Path=/; Max-Age=${DEV.loginSeconds}; HttpOnly; SameSite=Lax`;
 
     return new Response(null, { status: 303, headers: { 'Location': '/', 'Set-Cookie': cookie, 'Cache-Control': 'no-store' } });
   }
@@ -277,8 +265,14 @@ async function dev() {
     fetch: (request, bun) => {
       const url = new URL(request.url);
 
-      if (url.pathname === DEV.certsPath) {
-        return Response.json({ keys: [key.publicJwk] });
+      if (url.pathname.startsWith(DEV.internalPath)) {
+        return devInternal(request, url, { session, token: accountsToken });
+      }
+
+      if (url.pathname === DEV.logoutPath) {
+        return new Response('Logged out of the dev install: open the login link that `bun run dev:web` printed to log in again.\n', {
+          headers: { 'Set-Cookie': `${DEV.sessionCookie}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax`, 'Cache-Control': 'no-store' },
+        });
       }
 
       if (url.pathname === DEV.loginPath) {
@@ -338,8 +332,8 @@ async function dev() {
         HUB_WEB_URL: `http://127.0.0.1:${ports.web}`,
         HUB_PUBLIC_URL: publicUrl,
         HUB_ADMIN_EMAILS: DEV.email,
-        ACCESS_TEAM_DOMAIN: door,
-        ACCESS_AUD: DEV.audience,
+        HUB_ACCOUNTS_URL: door,
+        HUB_ACCOUNTS_TOKEN: accountsToken,
       },
       stdout: 'inherit',
       stderr: 'inherit',

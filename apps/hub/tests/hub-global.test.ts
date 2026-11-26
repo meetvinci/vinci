@@ -6,7 +6,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
 import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
-import { HUB_GLOBAL_FIXTURE } from './support/hub.fixture';
+import { HUB_GLOBAL_FIXTURE, hubFixtureCookie } from './support/hub.fixture';
 
 const SUGGESTED = { name: 'Suggested', handle: 'suggested', modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'medium', instructions: 'Team instructions' };
 const DEFAULT_MODEL = { modelProvider: 'anthropic', modelId: 'claude-opus-5-5', thinkingLevel: 'high', fallbackModel: null };
@@ -255,7 +255,7 @@ describe('global settings and the template workspace', () => {
 
     const redeemed = await fetch(`${hub}/rpc/pairing/redeem`, {
       method: 'POST',
-      headers: { 'cf-access-jwt-assertion': tokens.alice, 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
+      headers: { 'cookie': hubFixtureCookie(tokens.alice), 'origin': publicOrigin, 'content-type': 'application/json', 'x-bots-protocol': '1' },
       body: JSON.stringify({ json: { pin, name: 'alice secrets test' } }),
     });
 
@@ -268,7 +268,7 @@ describe('global settings and the template workspace', () => {
       fetch: (url, init) => {
         const headers = new Headers(init.headers);
 
-        headers.set('cf-access-jwt-assertion', tokens.alice);
+        headers.set('cookie', hubFixtureCookie(tokens.alice));
         headers.set('origin', publicOrigin);
 
         return fetch(url, { ...init, headers });

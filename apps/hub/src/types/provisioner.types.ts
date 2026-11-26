@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { userId } from './user.types';
 
-const provisionerAccess = z.enum(['synced', 'manual']);
-
 const provisionerUser = z.object({
   id: userId,
   name: z.string(),
@@ -14,22 +12,9 @@ const provisionerUser = z.object({
 
 export const provisionerUsers = z.object({ users: z.array(provisionerUser) });
 
-export const provisionerReply = z.looseObject({ access: provisionerAccess });
+export const provisionerReply = z.looseObject({});
 
 export const provisionerRemoved = z.object({ removed: z.boolean() });
-
-export const provisionerAccessRule = z.object({
-  domains: z.array(z.string().toLowerCase()),
-  emails: z.array(z.email().transform((email) => email.toLowerCase())).nullable(),
-});
-
-export type ProvisionerAccessRule = z.infer<typeof provisionerAccessRule>;
-
-export type ProvisionerAccessState = 'allowed' | 'not-allowed' | 'unknown';
-
-export type ProvisionerAccessMode = 'emails' | 'domain' | 'unknown';
-
-export type ProvisionerAccess = z.infer<typeof provisionerAccess>;
 
 export type ProvisionerUser = z.infer<typeof provisionerUser>;
 
@@ -45,19 +30,9 @@ export interface ProvisionerConfig {
 
 export interface ProvisionerServiceDeps {
   config: ProvisionerConfig | null;
-  state: ProvisionerState;
-}
-
-export interface ProvisionerState {
-  access: { at: number; rule: Promise<ProvisionerAccessRule> } | null;
 }
 
 export type ProvisionerChangeParams = Omit<ProvisionerRequest<typeof provisionerReply>, 'schema' | 'timeoutMs'>;
-
-export interface ProvisionerAccessOfParams {
-  rule: ProvisionerAccessRule;
-  email: string;
-}
 
 export interface ProvisionerPutParams {
   user: Omit<ProvisionerUser, 'state'>;
