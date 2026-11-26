@@ -35,13 +35,6 @@ export interface BotConfiguration {
 
 export type BotChangeListener = () => void;
 
-export interface BotStartParams {
-  canStart: boolean;
-}
-
-export type BotCreateParams = UniversalTypes.BotCreateInput & BotStartParams;
-export type BotUpdateParams = UniversalTypes.BotUpdateInput & BotStartParams;
-
 export interface BotPreferences {
   isPinned: boolean;
   isHidden: boolean;

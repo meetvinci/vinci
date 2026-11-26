@@ -1,6 +1,6 @@
 import { botSection } from '@repo/contracts/universal';
 import { match } from 'ts-pattern';
-import type { BotDialogView, BotDialogViewParams } from '@/types/bot.types';
+import type { BotDialogView, BotDialogViewParams, BotPathParams } from '@/types/bot.types';
 
 export function botDialogView({ path, params }: BotDialogViewParams): BotDialogView | null {
   const { botId = '', tab, routineId = '', todoId = '', server = '' } = params;
@@ -21,4 +21,10 @@ export function botDialogView({ path, params }: BotDialogViewParams): BotDialogV
     .with('/$botId/mcp/edit', () => ({ kind: 'mcp-edit', botId }))
     .with('/$botId/mcp/$server/remove', () => ({ kind: 'mcp-remove', botId, server }))
     .otherwise(() => null);
+}
+
+export function botPath({ pathname, botId }: BotPathParams): string {
+  const parts = pathname.split('/');
+
+  return parts.slice(0, parts.indexOf(encodeURIComponent(botId)) + 1).join('/');
 }

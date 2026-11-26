@@ -151,7 +151,7 @@
   "admin_preview_setting_gif_provider": "Fornecedor de GIF",
   "admin_preview_setting_approval_rules": "Regras de aprovação",
   "admin_preview_setting_approval_timeout": "Tempo limite de aprovação",
-  "admin_preview_setting_jev_key": "Chave de API do Jev",
+  "admin_preview_setting_jev_key": "Chave de API do Jev (aprovação automática de comandos)",
   "admin_preview_setting_secret_mode": "Como os bots usam segredos",
   "admin_preview_setting_skills": "Pastas de skills",
   "admin_preview_setting_instructions": "Ficheiros de instruções",

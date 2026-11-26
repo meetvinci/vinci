@@ -281,8 +281,13 @@ async function checkLogin(server: string, host: string, admin: string) {
 
   console.log(`Logged in as the admin: whoami names them as admin, the browser paired with daemon ${identity.serverId}, and the chat's bots.list answers 200`);
 
-  // Logging out ends the login in the API: the same cookie, kept as a copy, no longer gets in once the hub's 5 s trust
-  // in the last check runs out.
+  return access;
+}
+
+// Logging out ends the login in the API: the same cookie, kept as a copy, no longer gets in once the hub's 5 s trust in
+// the last check runs out.
+async function checkLogout(host: string, access: string) {
+  const origin = `https://${host}`;
   const logout = await fetch(`${origin}${LOGOUT}`, { headers: { cookie: access }, redirect: 'manual' });
 
   await Bun.sleep(SESSION_TRUST_MS);
@@ -294,6 +299,19 @@ async function checkLogin(server: string, host: string, admin: string) {
   }
 
   console.log('Logged out: /hub/whoami with a copy of the old cookie answers 401 within 6 s');
+}
+
+// deploy.ts's check of the public address, logged in as the admin when it could, so the hub, web app and daemon answer too.
+function checkDisclosures(host: string, access: string | undefined) {
+  const result = Bun.spawnSync(['bun', path.join(root, 'scripts/deploy.ts'), 'check', `https://${host}`], {
+    env: { ...process.env, VINCI_CHECK_COOKIE: access?.slice(SESSION_COOKIE.length + 1) ?? '' },
+    stdout: 'inherit',
+    stderr: 'inherit',
+  });
+
+  if (!result.success) {
+    fail(`https://${host} names the software or a version behind it.`);
+  }
 }
 
 async function rebuild() {
@@ -332,7 +350,7 @@ async function rebuild() {
   }
 
   await checkPublic(install.host);
-  await checkLogin(server, install.host, install.admin);
+  await checkSession(server, install);
   console.log(`[${elapsed()}] Done: https://${install.host}/`);
 }
 
@@ -341,7 +359,18 @@ async function checkCommand() {
   const install = installOptions(server, values);
 
   await checkPublic(install.host);
-  await checkLogin(server, install.host, install.admin);
+  await checkSession(server, install);
+}
+
+// The admin's login, the public address's disclosure check while logged in, then logout ending the login.
+async function checkSession(server: string, install: Install) {
+  const access = await checkLogin(server, install.host, install.admin);
+
+  checkDisclosures(install.host, access);
+
+  if (access !== undefined) {
+    await checkLogout(install.host, access);
+  }
 }
 
 function status() {
@@ -381,7 +410,7 @@ if (!(command in commands)) {
   fail([
     `Usage (servers: ${Object.keys(SERVERS).join(', ')}):`,
     '  bun scripts/test-server.ts rebuild <server> --admin <email> [--host <fqdn>] [--ref <git ref>] [--tag <image tag>] [--images registry|local]',
-    '  bun scripts/test-server.ts check <server> --admin <email> [--host <fqdn>]    the HTTPS and login checks alone',
+    '  bun scripts/test-server.ts check <server> --admin <email> [--host <fqdn>]    the HTTPS, login and disclosure checks alone',
     '  bun scripts/test-server.ts status <server>                                  install result, step timings, containers',
     '  bun scripts/test-server.ts password <server>                                print the admin\'s first password',
     '  bun scripts/test-server.ts render [<server>] --admin <email> [...]          print the user-data rebuild would send',

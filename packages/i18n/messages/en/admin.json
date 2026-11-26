@@ -151,7 +151,7 @@
   "admin_preview_setting_gif_provider": "GIF provider",
   "admin_preview_setting_approval_rules": "Approval rules",
   "admin_preview_setting_approval_timeout": "Approval timeout",
-  "admin_preview_setting_jev_key": "Jev API key",
+  "admin_preview_setting_jev_key": "Jev API key (automatic command approval)",
   "admin_preview_setting_secret_mode": "How bots use secrets",
   "admin_preview_setting_skills": "Skill folders",
   "admin_preview_setting_instructions": "Instruction files",

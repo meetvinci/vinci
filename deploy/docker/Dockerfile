@@ -171,7 +171,8 @@ WORKDIR /app
 COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction
 
-# Apache hands PHP the Authorization header only through SetEnvIf: the hub's bearer token for /internal.
+# Apache hands PHP the Authorization header only through SetEnvIf: the hub's bearer token for /internal. Neither Apache
+# nor PHP names itself or its version in a header or an error page, and PHP never prints an error (php.ini-production).
 FROM php:8.4-apache AS api
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpq-dev \
@@ -191,7 +192,10 @@ RUN mkdir bootstrap/cache \
  && php artisan package:discover --no-ansi \
  && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
  && sed -i 's|\*:80>|*:8080>|; s|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf \
- && printf 'ServerName localhost\nSetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf
+ && printf 'ServerName localhost\nSetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf \
+ && sed -i 's/^ServerTokens .*/ServerTokens Prod/; s/^ServerSignature .*/ServerSignature Off/' /etc/apache2/conf-enabled/security.conf \
+ && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+ && printf 'expose_php = Off\n' > "$PHP_INI_DIR/conf.d/vinci-api.ini"
 # The login form's session lives in an encrypted cookie sent only to the login pages; the login rate limiter counts in
 # PostgreSQL (CACHE_STORE database), shared by every Apache worker. Nothing is written inside the read-only root.
 ENV APP_ENV=production LOG_CHANNEL=stderr CACHE_STORE=database \

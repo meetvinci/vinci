@@ -147,19 +147,8 @@ export function botBubble({ avatar }: BotTypes.BotBubbleParams): BotTypes.BotBub
 
 export function botUsageLabel(usage: ChatUsage): string {
   const tokens = new Intl.NumberFormat(getLocale(), { notation: 'compact' });
-  const label = m.rooms_chat_usage({ input: tokens.format(usage.input + usage.cacheRead), output: tokens.format(usage.output) });
 
-  return match(usage.cost.total > 0)
-    .with(false, () => label)
-    .with(true, () => m.rooms_chat_usage_cost({
-      usage: label,
-      cost: new Intl.NumberFormat(getLocale(), {
-        style: 'currency',
-        currency: 'USD',
-        maximumSignificantDigits: 2,
-      }).format(usage.cost.total),
-    }))
-    .exhaustive();
+  return m.rooms_chat_usage({ input: tokens.format(usage.input + usage.cacheRead), output: tokens.format(usage.output) });
 }
 
 export function botModelUsage({ bots }: BotTypes.BotModelUsageParams): Map<string, BotTypes.BotModelUsage> {

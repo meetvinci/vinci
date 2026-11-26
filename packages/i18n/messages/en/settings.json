@@ -94,6 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Jev API key",
   "settings_tools_jev_placeholder": "Paste a Jev API key",
+  "settings_tools_jev_hint": "Jev decides automatically whether a command is safe to run without asking.",
   "settings_tools_jev_set": "A key is set.",
   "settings_tools_jev_unset": "No key is set.",
   "settings_secret_saved": "Saved. Type a new value to replace it.",

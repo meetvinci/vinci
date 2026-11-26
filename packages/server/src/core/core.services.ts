@@ -55,6 +55,7 @@ export async function makeServices({
     permissions: tools,
     collaboration,
     gifs,
+    settings,
   });
 
   try {

@@ -37,5 +37,8 @@
   "layout_disconnect": "Déconnecter cet appareil",
   "layout_sign_out": "Se déconnecter",
   "layout_connected": "Connecté",
-  "layout_unreachable": "Le daemon est injoignable"
+  "layout_unreachable": "Le daemon est injoignable",
+  "layout_unsaved_title": "Quitter sans enregistrer ?",
+  "layout_unsaved_description": "Vos modifications non enregistrées seront perdues.",
+  "layout_unsaved_leave": "Abandonner les modifications"
 }

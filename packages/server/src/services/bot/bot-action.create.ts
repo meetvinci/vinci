@@ -1,11 +1,11 @@
 import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import { botActionConfigure } from './bot-action.configure';
-import { botActionStart } from './bot-action.start';
 import { botValues } from './bot.utils';
-import type { BotCreateParams, BotServiceDeps } from '../../types/bot.types';
+import type { BotServiceDeps } from '../../types/bot.types';
+import type { BotCreateInput } from '@repo/contracts/universal';
 
-export async function botActionCreate(deps: BotServiceDeps, { canStart, ...params }: BotCreateParams) {
+export async function botActionCreate(deps: BotServiceDeps, params: BotCreateInput) {
   deps.runtime.queries.validateModel(params);
 
   const botId = await deps.database.db.transaction().execute(async (tx) => {
@@ -27,10 +27,7 @@ export async function botActionCreate(deps: BotServiceDeps, { canStart, ...param
         throw new Errors.CONFLICT();
       });
 
-    await match(!canStart && Boolean(params.instructions.trim()))
-      .with(true, () => tx.insertInto('botStart').values({ botId: id }).execute())
-      .with(false, () => undefined)
-      .exhaustive();
+    await tx.insertInto('botStart').values({ botId: id }).execute();
 
     // SAFETY: the folder is made before the row commits, so a full disk never leaves a bot without one.
     await deps.workspace.actions.prepareDirectory({ botId: id });
@@ -42,11 +39,5 @@ export async function botActionCreate(deps: BotServiceDeps, { canStart, ...param
     listener();
   }
 
-  const bot = await botActionConfigure(deps, { botId });
-
-  if (canStart && bot.instructions.trim()) {
-    await botActionStart(deps, { botId });
-  }
-
-  return bot;
+  return botActionConfigure(deps, { botId });
 }
