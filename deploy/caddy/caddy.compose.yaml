@@ -52,6 +52,9 @@ services:
           # Only the login pages set identity; a visitor's own Access headers never reach the hub.
           request_header -Cf-Access-*
 
+          # Browsers keep to HTTPS for a year. Not for subdomains, which may be other people's sites, and not preloaded.
+          header Strict-Transport-Security "max-age=31536000"
+
           # The hub's account routes on the API are never public.
           @internal path /internal /internal/*
           handle @internal {
