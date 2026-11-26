@@ -386,6 +386,29 @@ Fill in the angle brackets and paste:
 
 > Install Vinci for my team by following `docs/team-workspace/install.md` in my Vinci checkout, steps 1 to 9 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `vinci-<team>`. Cloudflare lets in `<everyone @<company domain>, or "a list of emails" plus the small server token at <op://…>>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and the nightly backup of step 9 and tell me the address to log in at and the admin panel address (`/admin`), and remind me to set Global settings and the suggested bots there before people log in.
 
+## Install with cloud-init
+
+A new server can install itself on its first boot, with no Cloudflare: [Login with Vinci accounts](#login-with-vinci-accounts-no-cloudflare), done for you. People log in with an email and a password that Vinci keeps, and Caddy serves HTTPS with a Let's Encrypt certificate. You need a server as in [Before you start](#before-you-start), Ubuntu 24.04 or 26.04, and a hostname whose DNS A record points at it.
+
+Fill in [`deploy/cloud-init/user-data.yaml`](../../deploy/cloud-init/user-data.yaml) and give it to your cloud provider as the server's user data (Hetzner: **Cloud config** when you create or rebuild the server). It has five values:
+
+- `{{host}}`: the hostname, for example `acme.example.com`.
+- `{{admin}}`: the email of the first admin. They also get a Vinci of their own.
+- `{{ref}}`: the Vinci release whose deployment files to use, for example `v0.2.0`.
+- `{{tag}}`: the image tag, the same release.
+- `{{registry}}`: `ghcr.io/meetvinci/`, where the images come from.
+
+`bun scripts/test-server.ts render --host <hostname> --admin <email> --ref <release> --tag <release>` prints it filled in. The file holds no secret: the server makes every secret itself.
+
+The server installs Docker, the deployment files, `.env` and `users.yaml`, starts everything, creates the admin's login and turns on nightly backups. It takes about two minutes after the server boots, plus the image download. Then:
+
+```sh
+ssh root@<server> 'cat /var/log/vinci-install.result; grep "^== " /var/log/vinci-install.log'
+ssh root@<server> 'cat /opt/vinci/admin-password'
+```
+
+Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel. The password file stays on the server, readable by root only.
+
 ## Next
 
 [Admin tasks](admin.md): global settings and suggested bots, add and remove people, model keys, backups and upgrades.

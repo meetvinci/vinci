@@ -1,0 +1,148 @@
+#cloud-config
+# Vinci on a fresh Ubuntu 24.04 or 26.04 x86 server, logins through the Laravel API (VINCI_AUTH=laravel) behind Caddy.
+# Render with `bun scripts/test-server.ts render`, or replace the five {{…}} values by hand. Every secret is generated
+# on the server: this file holds none, since the cloud provider keeps user-data in its metadata service.
+# Progress and timings: /var/log/vinci-install.log. Result: /var/log/vinci-install.result, `ok` or `failed: <step>`.
+# The admin's first password: /opt/vinci/admin-password (root only).
+write_files:
+  - path: /etc/vinci-install.env
+    permissions: '0644'
+    content: |
+      VINCI_HOST={{host}}
+      VINCI_ADMIN={{admin}}
+      VINCI_REF={{ref}}
+      VINCI_TAG={{tag}}
+      # Empty: the seven vinci-* images are loaded by hand (`docker load`) while the install waits for them.
+      VINCI_REGISTRY={{registry}}
+  - path: /usr/local/sbin/vinci-install
+    permissions: '0700'
+    content: |
+      #!/bin/bash
+      # Installs Vinci as docs/team-workspace/install.md does, with Laravel logins. Safe to run again: it keeps .env's
+      # secrets and the admin's password and repeats the rest.
+      set -Eeuo pipefail
+      umask 077
+      . /etc/vinci-install.env
+      exec >> /var/log/vinci-install.log 2>&1
+      chmod 600 /var/log/vinci-install.log
+      rm -f /var/log/vinci-install.result
+
+      images="daemon sandbox web hub provisioner firewall api"
+      apt_get() { DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 -q "$@"; }
+      step_name=
+      install_start=$(date +%s)
+      step() {
+        [ -z "$step_name" ] || echo "== $step_name done in $(( $(date +%s) - step_start ))s"
+        step_name=$1
+        step_start=$(date +%s)
+        echo "== $step_name ($(date -u +%FT%TZ))"
+      }
+      trap 'echo "== FAILED in $step_name"; echo "failed: $step_name" > /var/log/vinci-install.result' ERR
+      # Sets KEY=value in .env, replacing an earlier line. printf is a shell builtin: values never reach a command line.
+      set_env() {
+        { grep -v "^$1=" .env || true; printf '%s=%s\n' "$1" "$2"; } > .env.new
+        mv .env.new .env
+      }
+      # Sets a secret only when .env has no value for it yet.
+      set_secret() {
+        grep -q "^$1=." .env || set_env "$1" "$2"
+      }
+
+      step docker
+      apt_get update
+      apt_get install -y ca-certificates curl openssl
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      . /etc/os-release
+      printf 'Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: %s\nComponents: stable\nSigned-By: /etc/apt/keyrings/docker.asc\n' \
+        "${UBUNTU_CODENAME:-$VERSION_CODENAME}" > /etc/apt/sources.list.d/docker.sources
+      chmod 644 /etc/apt/sources.list.d/docker.sources
+      apt_get update
+      apt_get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      systemctl enable --now docker
+      docker version --format 'Docker {{.Server.Version}}'
+      docker compose version
+      # Vinci's firewall needs the nf_tables iptables.
+      iptables --version | grep -q nf_tables
+
+      step files
+      install -d -m 700 /opt/vinci
+      cd /opt/vinci
+      source=$(mktemp -d)
+      curl -fsSL "https://api.github.com/repos/meetvinci/vinci/tarball/$VINCI_REF" | tar -xz -C "$source" --strip-components=1
+      # Laravel logins: Caddy in place of cloudflared.
+      install -m 600 "$source"/deploy/compose/compose.yaml "$source"/deploy/compose/daemon.yaml "$source"/deploy/compose/sandbox.yaml \
+        "$source"/deploy/caddy/caddy.compose.yaml "$source"/scripts/deploy.ts /opt/vinci/
+      test -e .env || install -m 600 "$source"/deploy/.env.example .env
+      rm -rf "$source"
+      ls -l /opt/vinci
+
+      step settings
+      set_env COMPOSE_FILE compose.yaml:caddy.compose.yaml:users.compose.yaml
+      set_env VINCI_AUTH laravel
+      set_env VINCI_REGISTRY "$VINCI_REGISTRY"
+      set_env VINCI_TAG "$VINCI_TAG"
+      set_env VINCI_PUBLIC_HOST "$VINCI_HOST"
+      set_env HUB_ADMIN_EMAILS "$VINCI_ADMIN"
+      set_env ACCESS_TEAM_DOMAIN http://api:8080
+      set_secret ACCESS_AUD "$(openssl rand -hex 32)"
+      set_secret API_APP_KEY "base64:$(openssl rand -base64 32)"
+      set_secret API_INTERNAL_TOKEN "$(openssl rand -hex 32)"
+      set_secret PROVISIONER_TOKEN "$(openssl rand -hex 32)"
+      set_secret VINCI_DB_PASSWORD "$(openssl rand -hex 32)"
+      set_secret VINCI_POSTGRES_PASSWORD "$(openssl rand -hex 32)"
+      chmod 600 .env
+      # The admin gets a Vinci of their own too, under an id made from their email.
+      if [ ! -e users.yaml ]; then
+        id=$(printf '%s' "${VINCI_ADMIN%%@*}" | tr 'A-Z' 'a-z' | tr -c 'a-z0-9-' '-' | sed 's/^-*//; s/-*$//')
+        [ -n "$id" ] && [ "$id" != template ] || id=admin
+        printf 'users:\n  %s: %s\nadmins:\n  - %s\n' "$id" "$VINCI_ADMIN" "$VINCI_ADMIN" > users.yaml
+      fi
+      stat -c '%a %n' .env users.yaml
+
+      step images
+      if [ -n "$VINCI_REGISTRY" ]; then
+        for image in $images; do docker pull -q "$VINCI_REGISTRY"vinci-$image:"$VINCI_TAG"; done
+      else
+        echo "Waiting for vinci-*:$VINCI_TAG to be loaded with docker load"
+        deadline=$(( $(date +%s) + 3600 ))
+        for image in $images; do
+          until docker image inspect vinci-$image:"$VINCI_TAG" > /dev/null 2>&1; do
+            [ "$(date +%s)" -lt "$deadline" ] || { echo "vinci-$image:$VINCI_TAG was not loaded within an hour"; false; }
+            sleep 5
+          done
+        done
+      fi
+
+      step bun
+      docker run --rm --entrypoint cat "$VINCI_REGISTRY"vinci-daemon:"$VINCI_TAG" /usr/local/bin/bun > /usr/local/bin/bun.new
+      chmod 755 /usr/local/bin/bun.new
+      mv /usr/local/bin/bun.new /usr/local/bin/bun
+      bun --version
+      # The server requirements; a later Ubuntu or a test-sized disk is a warning, not a failure.
+      bun deploy.ts check
+
+      step apply
+      # deploy.ts writes folders the hub (uid 1000) reads, with root's usual umask, as in the install guide.
+      umask 022
+      bun deploy.ts apply
+
+      step admin
+      if [ ! -s admin-password ]; then
+        umask 077
+        # --quiet prints the new password alone; it goes to the file, never to this log.
+        docker compose exec -T api php artisan vinci:user "$VINCI_ADMIN" --quiet | tr -d '[:space:]' > admin-password
+        test -s admin-password
+      fi
+      chmod 600 admin-password
+
+      step backups
+      bun deploy.ts nightly install
+
+      step done
+      docker compose ps --format '{{.Name}} {{.Status}}'
+      echo "== Installed in $(( $(date +%s) - install_start ))s"
+      echo ok > /var/log/vinci-install.result
+runcmd:
+  - [/usr/local/sbin/vinci-install]
