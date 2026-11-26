@@ -345,7 +345,7 @@ A person on their own installs the same thing as a team. There is no smaller ver
 
 **For testing for now.** Production installs use Cloudflare Access, steps 1 to 9 above. This mode needs no Cloudflare account and no domain on Cloudflare: people log in with an email and a password that Vinci keeps, and the server answers on ports 80 and 443 itself.
 
-How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) plays the part of Cloudflare Access: it shows the login page at `/cdn-cgi/access/login`, signs the same `CF_Authorization` cookie with its own key, and serves that key at `/cdn-cgi/access/certs`. The hub checks the cookie as it checks Cloudflare's, against the key at `ACCESS_TEAM_DOMAIN`, here the API. A visitor without the cookie is sent to the login page and back to where they were after it. Logins last 7 days; `/cdn-cgi/access/logout` ends one.
+How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) plays the part of Cloudflare Access: it shows the login page at `/cdn-cgi/access/login`, signs the same `CF_Authorization` cookie with its own key, and serves that key at `/cdn-cgi/access/certs`. The hub checks the cookie as it checks Cloudflare's, against the key at `ACCESS_TEAM_DOMAIN`, here the API. A visitor without the cookie, or with an expired one, is sent to the login page and back to where they were after it. Logins last 7 days; `/cdn-cgi/access/logout` ends one.
 
 What changes from the steps above:
 

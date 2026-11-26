@@ -75,6 +75,22 @@ services:
             }
           }
 
+          # A login cookie the hub refuses (expired after its 7 days, or signed with a key the API no longer has): a page
+          # load goes back to the login page like a visit without the cookie, not to an empty 401. Other requests (the
+          # app's RPC, files) keep the 401.
+          @page header Sec-Fetch-Mode navigate
+          handle @page {
+            reverse_proxy hub:47192 {
+              @refused status 401
+              handle_response @refused {
+                rewrite * /cdn-cgi/access/required
+                reverse_proxy api:8080 {
+                  header_up X-Vinci-Original-Uri {http.request.orig_uri}
+                }
+              }
+            }
+          }
+
           handle {
             reverse_proxy hub:47192
           }
