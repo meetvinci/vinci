@@ -4,11 +4,10 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 // Rebuilds one of Vinci's Hetzner test servers from deploy/cloud-init/user-data.yaml and checks the install from
-// outside, logging in as the admin. Only the servers below, all three disposable: a rebuild wipes the disk.
+// outside, logging in as the admin. Only the servers below, both disposable: a rebuild wipes the disk.
 const SERVERS: Partial<Record<string, string>> = {
   'test-server-1': '203.0.113.1',
   'test-server-2': '203.0.113.2',
-  'test-server-3': '203.0.113.3',
 };
 
 const HCLOUD = ['hcloud', '--context', 'example'];
