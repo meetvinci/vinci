@@ -64,14 +64,14 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
 
       change.detail = email;
 
-      return Response.json({ email, access: await services.admins.actions.add({ email, by }) }, { headers: NO_STORE });
+      return Response.json({ email, ...await services.admins.actions.add({ email, by }) }, { headers: NO_STORE });
     }))
     .with({ method: 'DELETE', segments: ['admins', P.string] }, ({ segments: [, encoded] }) => coreAuditChange(services, context, { action: 'admins/remove' }, async (change) => {
       const { email } = coreAdminValid(adminInput.safeParse({ email: coreAdminDecode(encoded) }));
 
       change.detail = email;
 
-      return Response.json({ access: await services.admins.actions.remove({ email, by }) }, { headers: NO_STORE });
+      return Response.json({ access: (await services.admins.actions.remove({ email, by })).access }, { headers: NO_STORE });
     }))
     .with({ method: 'GET', segments: ['users'] }, async () => {
       const [users, rule] = await Promise.all([

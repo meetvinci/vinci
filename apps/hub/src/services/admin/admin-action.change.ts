@@ -3,13 +3,13 @@ import { log } from '@repo/logger/server';
 import { adminActionReload } from './admin-action.reload';
 import { adminActionSync } from './admin-action.sync';
 import { adminDriverWrite } from './admin.driver';
+import { adminAccountPut, adminAccountRemove, adminAccountUndo } from './admin.utils';
 import type * as AdminTypes from '../../types/admin.types';
-import type { ProvisionerAccess } from '../../types/provisioner.types';
 
 export async function adminActionChange(
   deps: AdminTypes.AdminServiceDeps,
   { email, by, isAdding }: AdminTypes.AdminChangeKindParams,
-): Promise<ProvisionerAccess> {
+): Promise<AdminTypes.AdminChanged> {
   const { state } = deps;
 
   const saved = state.saving.then(async () => {
@@ -30,8 +30,20 @@ export async function adminActionChange(
     }
 
     const admins = isAdding ? [...new Set([...state.admins, email])] : state.admins.filter((admin) => admin !== email);
+    const account = isAdding ? await adminAccountPut(deps, { email, by }) : null;
 
-    state.mtimeMs = await adminDriverWrite(deps.path, admins);
+    if (!isAdding) {
+      await adminAccountRemove(deps, { email, by });
+    }
+
+    state.mtimeMs = await adminDriverWrite(deps.path, admins).catch(async (error: unknown) => {
+      await adminAccountUndo(deps, {
+        email,
+        by,
+        account,
+      });
+      throw error;
+    });
     state.admins = admins;
     log.info({
       tag: 'hub',
@@ -40,7 +52,7 @@ export async function adminActionChange(
       admin: email,
     });
 
-    return adminActionSync(deps, { by, attempts: 1 });
+    return { access: await adminActionSync(deps, { by, attempts: 1 }), password: account?.password };
   });
 
   state.saving = saved.then(() => undefined, () => undefined);

@@ -10,10 +10,11 @@ interface AdminPasswordProps {
   title: string
   email: string
   password: string
+  once?: string
   onDone: () => void
 }
 
-export function AdminPassword({ title, email, password, onDone }: AdminPasswordProps) {
+export function AdminPassword({ title, email, password, once = m.admin_password_once(), onDone }: AdminPasswordProps) {
   const clipboard = useClipboardCopy();
 
   return (
@@ -36,7 +37,7 @@ export function AdminPassword({ title, email, password, onDone }: AdminPasswordP
             {m.admin_password_copy()}
           </Button>
         </div>
-        <p className="text-sm font-medium">{m.admin_password_once()}</p>
+        <p className="text-sm font-medium">{once}</p>
         <DialogFooter>
           <Button type="button" onClick={onDone}>{m.admin_password_done()}</Button>
         </DialogFooter>

@@ -31,6 +31,7 @@ The admin panel lives at `https://<team>.<domain>/admin`. Only the emails in `/o
 - The first admin comes from `HUB_ADMIN_EMAILS` in `.env`, written to `admins.json` the first time the hub starts with an empty list.
 - `admins.json` is the list that counts. The hub copies it to `admins:` in `users.yaml` when it starts and after every change, so Cloudflare Access lets the same people in.
 - In the panel, admins add and remove other admins. The last admin cannot be removed.
+- With Vinci accounts (`VINCI_AUTH=laravel`), **Add admin** also makes a login for someone who has none and shows the password once; give it to them. If it is lost, remove the admin and add them again. **Remove** deletes that login too, unless the email is also a user: their login and workspace stay.
 - Each admin must also be allowed by Cloudflare Access. When the server has a Cloudflare token, the panel updates Access itself; otherwise it says so, and you add the email with the `cloudflare emails` command below.
 - The panel changes a person's settings and bots through that person's owner socket. It never pairs as a device and cannot send messages or answer questions as them.
 - Every change made in the panel is recorded with the admin's email: see [Activity](#activity).

@@ -369,7 +369,7 @@ What changes from the steps above:
   ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan vinci:user admin@example.com'
   ```
 
-  The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel.
+  The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel: **Add user**, and **Add admin** for an admin who is not a user, show the new password once.
 - **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `ss -tlnp` also shows Docker on ports 80 and 443.
 
 Trust: whoever controls the key at `ACCESS_TEAM_DOMAIN` can log in as anyone. Here that is the API's key, kept in PostgreSQL and encrypted with `API_APP_KEY`; changing `API_APP_KEY` makes the key unreadable, so keep it. `/internal/users`, the routes the admin panel uses to add accounts, are reachable only from the hub, and only with `API_INTERNAL_TOKEN`.

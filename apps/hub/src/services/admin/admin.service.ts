@@ -8,10 +8,11 @@ import { ADMIN } from './admin.constants';
 import { adminDriverWrite } from './admin.driver';
 import type * as AdminTypes from '../../types/admin.types';
 
-export async function makeAdminService({ directory, seed, provisioner }: AdminTypes.AdminServiceParams): Promise<AdminTypes.AdminService> {
+export async function makeAdminService({ directory, seed, provisioner, accounts }: AdminTypes.AdminServiceParams): Promise<AdminTypes.AdminService> {
   const deps: AdminTypes.AdminServiceDeps = {
     path: join(directory, ADMIN.file),
     provisioner,
+    accounts,
     state: { admins: [], isBroken: false, mtimeMs: undefined, checkedAt: 0, saving: Promise.resolve() },
   };
 
