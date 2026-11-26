@@ -80,7 +80,6 @@ const serverUbuntu = '24.04';
 // its version, any header named like a version, and on errors a body with a stack trace or a versioned product name.
 // Cloudflare sends `Server: cloudflare` on everything it serves and lets nobody remove it: the one value allowed.
 const disclosureHeaders = ['server', 'x-powered-by', 'via', 'x-generator', 'x-runtime', 'x-served-by', 'x-backend-server', 'x-aspnet-version', 'x-aspnetmvc-version'];
-const disclosureAllowed: Partial<Record<string, string>> = { server: 'cloudflare' };
 const disclosureVersion = /\b[A-Za-z][\w-]*\/v?\d+(?:\.\d+)+/u;
 const disclosureBody = /stack ?trace|\bat \S+ \(\S+:\d+:\d+\)|\.php(?: on line |:|\()\d+|\b(?:apache|nginx|caddy|php|laravel|symfony|bun|node)\/?\s?v?\d+\.\d+/iu;
 // Each edge's paths: the app, the admin panel, the RPC, the hub's public health and icons, the login pages, and a path
@@ -2498,7 +2497,7 @@ function checkDisk(freeGb: number): 'ok' | 'warning' | 'failed' {
 
 // What one response tells about the software behind it, as `name: value` lines; none when it tells nothing.
 async function disclosures(response: Response): Promise<string[]> {
-  const headers = [...response.headers].filter(([name, value]) => name !== 'set-cookie' && name !== 'date' && disclosureAllowed[name] !== value.toLowerCase()).filter(([name, value]) => disclosureHeaders.includes(name) || name.includes('version') || disclosureVersion.test(value));
+  const headers = [...response.headers].filter(([name, value]) => name !== 'set-cookie' && !(name === 'server' && value === 'cloudflare') && (disclosureHeaders.includes(name) || name.includes('version') || disclosureVersion.test(value)));
   const body = response.status >= 400 ? disclosureBody.exec(await response.text())?.[0] : undefined;
 
   return [...headers.map(([name, value]) => `${name}: ${value}`), ...(body === undefined ? [] : [`body: …${body}…`])];
@@ -2515,6 +2514,7 @@ async function checkAddress(address: string) {
   }
 
   const cookie = process.env.VINCI_CHECK_COOKIE;
+
   const requests: [string, URL, RequestInit][] = [
     ...disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), {}]),
     ...(cookie ? disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), { headers: { cookie: `CF_Authorization=${cookie}` } }]) : []),
@@ -2524,7 +2524,13 @@ async function checkAddress(address: string) {
 
   const results = await Promise.all(requests.map(async ([method, url, init]) => {
     const label = `${method} ${url.href}${init.headers ? ' (logged in)' : ''}`;
-    const response = await fetch(url, { ...init, method, redirect: 'manual', signal: AbortSignal.timeout(disclosureTimeoutMs) }).catch((error: unknown) => fail(`${label}: ${errorMessage(error)}`));
+
+    const response = await fetch(url, {
+      ...init,
+      method,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(disclosureTimeoutMs),
+    }).catch((error: unknown) => fail(`${label}: ${errorMessage(error)}`));
 
     return { label, status: response.status, found: await disclosures(response) };
   }));
@@ -2542,10 +2548,8 @@ async function checkAddress(address: string) {
 // 30 to 40 GB free are warnings, enough for a test server; anything less fails. With an address, its public responses
 // instead (checkAddress).
 async function check() {
-  const address = process.argv[3];
-
-  if (address !== undefined) {
-    await checkAddress(address);
+  if (process.argv.length > 3) {
+    await checkAddress(process.argv[3]);
 
     return;
   }
