@@ -1,4 +1,4 @@
-import { Errors } from '@repo/errors/universal';
+import { Errors, isAppError } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import { runtimeQueryConversation } from './runtime-query.conversation';
 import { runtimeBot } from './runtime.constants';
@@ -27,4 +27,16 @@ export async function runtimeToolBotTarget(deps: Pick<RuntimeServiceDeps, 'harne
 
 export function runtimeToolOutput<T>(value: T) {
   return { output: [{ type: 'text' as const, text: JSON.stringify(value) }] };
+}
+
+export async function runtimeToolValidated<T>(result: Promise<T>) {
+  try {
+    return runtimeToolOutput(await result);
+  } catch (error) {
+    if (isAppError(error) && error.code === 'VALIDATION_ERROR') {
+      return { isError: true, output: [{ type: 'text' as const, text: error.internal }] };
+    }
+
+    throw error;
+  }
 }

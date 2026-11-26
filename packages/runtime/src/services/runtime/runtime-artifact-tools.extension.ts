@@ -9,7 +9,7 @@ import {
   artifactToolUpdate,
   artifactToolUpdateParameters,
 } from '../../types/artifact-tool.types';
-import { runtimeToolOutput, runtimeToolTarget } from './runtime-tool.utils';
+import { runtimeToolOutput, runtimeToolTarget, runtimeToolValidated } from './runtime-tool.utils';
 import type { ArtifactToolDeps } from '../../types/artifact-tool.types';
 
 export function runtimeArtifactToolsExtension(deps: ArtifactToolDeps) {
@@ -52,7 +52,7 @@ export function runtimeArtifactToolsExtension(deps: ArtifactToolDeps) {
     execute: async (params, api, context) => {
       const input = artifactToolCreate.parse(params);
       const target = await runtimeToolTarget(api, context);
-      return runtimeToolOutput(await deps.artifacts.actions.create({ ...input, ...target }, context));
+      return runtimeToolValidated(deps.artifacts.actions.create({ ...input, ...target }, context));
     },
   });
 
@@ -64,7 +64,7 @@ export function runtimeArtifactToolsExtension(deps: ArtifactToolDeps) {
     execute: async (params, api, context) => {
       const input = artifactToolUpdate.parse(params);
       const target = await runtimeToolTarget(api, context);
-      return runtimeToolOutput(await deps.artifacts.actions.update({ ...input, ...target }, context));
+      return runtimeToolValidated(deps.artifacts.actions.update({ ...input, ...target }, context));
     },
   });
 
