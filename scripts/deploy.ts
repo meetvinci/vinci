@@ -55,11 +55,13 @@ const internalRanges = ['0.0.0.0/8', '10.0.0.0/8', '100.64.0.0/10', '127.0.0.0/8
 // No leading zeros: iptables reads 010.0.0.1 as octal, 8.0.0.1.
 const internalAllowPattern = /^(?<address>(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)):(?<port>\d{1,5})$/u;
 const backupsFolder = 'backups';
-// One nightly run: backups/<UTC time>/ with each volume, the hub folder, the deployment files and manifest.json.
+// One nightly run: backups/<UTC time>/ with each volume, the hub folder, the API's database, the deployment files and
+// manifest.json.
 const nightlyFolder = /^\d{4}-\d{2}-\d{2}T\d{6}Z$/u;
 const nightlyStatusFile = path.join(backupsFolder, 'nightly.json');
 const nightlyManifest = 'manifest.json';
 const nightlyHubFile = 'hub.tar.gz';
+const nightlyDatabaseFile = 'postgres.sql.gz';
 const nightlyDeploymentFile = 'deployment.tar.gz';
 // What a fresh server needs next to the volumes and the hub folder, with the edge file of VINCI_AUTH; COMPOSE_FILE in
 // .env may name more.
@@ -1078,6 +1080,19 @@ function nightlyDeploymentFiles(): string[] {
   return [...new Set(files)].filter((file) => !file.startsWith('..') && existsSync(file));
 }
 
+// The API's PostgreSQL database: login accounts and the key that signs logins (encrypted with API_APP_KEY in .env).
+// pg_dump reads one consistent snapshot while it runs, so nobody is stopped. Without owners or grants: the restore runs
+// as the database's owner, vinci.
+async function dumpDatabase(file: string) {
+  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; pg_dump -U postgres -d vinci --no-owner --no-privileges | gzip'], { output: file });
+}
+
+// Into the empty database a fresh server's PostgreSQL makes on its first start, before the API's first start migrates it.
+async function restoreDatabase(file: string) {
+  await docker(['compose', 'up', '--detach', '--wait', 'postgres']);
+  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; gunzip | psql -U vinci -d vinci -v ON_ERROR_STOP=1 --single-transaction --quiet'], { input: file });
+}
+
 // A run that fails takes its folder with it: an unfinished folder is no backup, and a full disk gets its space back.
 async function nightlyBackup(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
   mkdirSync(folder, { mode: 0o700 });
@@ -1090,8 +1105,8 @@ async function nightlyBackup(folder: string, startedAt: Date, signal: AbortSigna
   }
 }
 
-// Everyone one at a time (each person's daemon is down only for their own copy), then the hub folder with the hub
-// stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and whole: a folder
+// Everyone one at a time (each person's daemon is down only for their own copy), then the API's database, then the hub
+// folder with the hub stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and whole: a folder
 // without it is an unfinished run. A signal stops the run before the next stop.
 async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
   const current = team();
@@ -1115,6 +1130,8 @@ async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal)
   }, Promise.resolve([]));
 
   signal.throwIfAborted();
+  await dumpDatabase(path.join(folder, nightlyDatabaseFile));
+  console.log('Backed up the API database');
 
   const hubStopped = Date.now();
 
@@ -1730,6 +1747,12 @@ async function restoreInstall(folder: string) {
     await fillVolume(id, path.join(folder, `${id}.tar.gz`));
     console.log(`Restored ${id}.`);
   }, Promise.resolve());
+
+  // Runs from before the database was backed up have none: their accounts are made again with vinci:user.
+  if (nightlyDatabaseFile in manifest.files) {
+    await restoreDatabase(await nightlyVerified(folder, nightlyDatabaseFile));
+    console.log('Restored the API database.');
+  }
 
   await applyTeam();
   console.log(`Restored the whole install from ${folder} (tag ${manifest.tag}).`);

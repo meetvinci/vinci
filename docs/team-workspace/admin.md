@@ -534,6 +534,7 @@ Each run writes one folder, `backups/<time>/` (UTC, such as `2026-11-13T030000Z`
 | File | What it holds |
 | --- | --- |
 | `<id>.tar.gz` | One person's whole volume and sandbox disk except their bots' download caches (`bot-home/.cache`, which npm, pip, uv and Bun fill again on the next install), for everyone in `users.yaml` (disabled people too) and `template.tar.gz` for the template workspace. Someone removed from `users.yaml` is no longer backed up: back them up by hand before you remove them if you may need their data. |
+| `postgres.sql.gz` | The API's PostgreSQL database, dumped while it runs (nobody is stopped for it): with [Vinci accounts](install.md#login-with-vinci-accounts-no-cloudflare), every login account and the key that signs logins, encrypted with `API_APP_KEY` from `.env`. |
 | `hub.tar.gz` | The hub's folder: `users.json`, `admins.json`, `pins.json`, `global.json` and the audit trail `audit.sqlite`. |
 | `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`, and any other file `COMPOSE_FILE` loads. |
 | `manifest.json` | The image tag, each person (enabled, advanced, how long they were stopped), and each file's size and SHA-256. Written last: a folder without it is a run that did not finish. |
@@ -690,7 +691,7 @@ From one run folder alone, for example when the server is lost. Images are not i
    ssh root@<new server> 'cd /opt/vinci && bun deploy.ts restore backups/<time>'
    ```
 
-   It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
+   It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, loads the API's database (login accounts and their signing key; a run from before the database was backed up has none, so make each account again with `vinci:user`), and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
 5. Turn the nightly backup on again: `bun deploy.ts nightly install`. Note that the next run's retention deletes the folder you restored from once it is older than the 7 newest days with a run; copy it under a name that is not a run's time first if you want to keep it.
 
 Nothing changes in Cloudflare: the tunnel token in `.env` connects the new server to the same tunnel, and the hostname, Access and DNS stay. For people, the install is as it was at backup time: browsers paired before the backup open Vinci as usual and chats continue; a browser paired after the backup pairs again by itself; anything done after the backup (chats, settings, panel changes, people added) is gone and needs doing again. Admins, pins and section modes are the backup's, and the audit trail ends at the backup.
