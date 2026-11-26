@@ -52,5 +52,6 @@ export function databaseDriverLoadMigrations() {
     '0005_bot_disabled_skills': readFileSync(new URL('./migrations/0005_bot_disabled_skills.sql', import.meta.url), 'utf8'),
     '0006_bot_start': readFileSync(new URL('./migrations/0006_bot_start.sql', import.meta.url), 'utf8'),
     '0007_device_web_push': readFileSync(new URL('./migrations/0007_device_web_push.sql', import.meta.url), 'utf8'),
+    '0008_bot_sandbox_permission': readFileSync(new URL('./migrations/0008_bot_sandbox_permission.sql', import.meta.url), 'utf8'),
   };
 }

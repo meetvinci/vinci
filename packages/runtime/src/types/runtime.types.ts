@@ -25,6 +25,7 @@ export interface RuntimeServiceParams {
   alarm: AlarmService;
   models: Models;
   env: NonNullable<PiDurableTypes.HarnessOptions['env']>;
+  isSandboxed: boolean;
   permissions: RuntimeToolPolicy;
   collaboration: CollaborationPolicy;
   gifs: RuntimeGifs;
@@ -91,7 +92,7 @@ export interface RuntimeToolPolicy {
   approvalTimeoutMs(): Promise<number>;
 }
 
-export interface RuntimeToolsDeps extends Pick<RuntimeServiceDeps, 'harness' | 'readOnlyTools' | 'ownTools'> {
+export interface RuntimeToolsDeps extends Pick<RuntimeServiceDeps, 'harness' | 'readOnlyTools' | 'ownTools'>, Pick<RuntimeSharedDeps, 'sandboxTools'> {
   permissions: RuntimeToolPolicy;
 }
 
@@ -102,6 +103,7 @@ export interface RuntimeToolCall {
   arguments: ToolCall['arguments'];
   isReadOnly: boolean;
   isOwn: boolean;
+  isSandboxed: boolean;
   getRequest: () => Promise<string>;
   approved?: boolean;
 }
@@ -119,6 +121,7 @@ export interface RuntimeSharedDeps extends RuntimeModelsDeps {
   extensions: PiDurableTypes.Extension[];
   readOnlyTools: PiDurableTypes.ToolRegistration[];
   ownTools: PiDurableTypes.ToolRegistration[];
+  sandboxTools: PiDurableTypes.ToolRegistration[];
   directory: CollaborationDirectory;
 }
 
@@ -172,7 +175,7 @@ export interface RuntimeBotParams extends UniversalTypes.ModelSelection {
   instructionFiles: { path: string; content: string }[];
   plugins: PiDurableTypes.Extension[];
   tools: PiDurableTypes.ToolRegistration[];
-  permission: 'read-only' | 'ask' | 'auto' | 'full';
+  permission: 'read-only' | 'ask' | 'sandbox' | 'auto' | 'full';
 }
 
 export type RuntimeModelParams = Pick<RuntimeBotParams, 'modelProvider' | 'modelId' | 'thinkingLevel' | 'fallbackModel'>;
