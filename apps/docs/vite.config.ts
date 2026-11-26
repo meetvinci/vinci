@@ -30,6 +30,10 @@ export default defineConfig({
         // The shell is the site's index.html: it answers / and sends the reader to the first page.
         prerender: { enabled: true, crawlLinks: true, outputPath: '/index.html' },
       },
+      // Standalone pages in public/ are copied as they are; the crawler must not try to render them.
+      prerender: {
+        filter: ({ path }) => !path.endsWith('.html'),
+      },
       pages: DOCS.languages.map((language) => ({ path: `/${language}` })),
     }),
     viteReact(),
