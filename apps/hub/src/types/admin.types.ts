@@ -1,6 +1,8 @@
 import { conversationTarget } from '@repo/contracts/universal';
 import { z } from 'zod';
+import type { AccountsService } from '../services/accounts/accounts.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
+import type { AccountsPut } from './accounts.types';
 import type { ProvisionerAccess } from './provisioner.types';
 
 const adminEmail = z.email().transform((email) => email.toLowerCase());
@@ -33,11 +35,13 @@ export interface AdminServiceParams {
   directory: string;
   seed: string[];
   provisioner: ProvisionerService;
+  accounts: AccountsService;
 }
 
 export interface AdminServiceDeps {
   path: string;
   provisioner: ProvisionerService;
+  accounts: AccountsService;
   state: AdminState;
 }
 
@@ -65,13 +69,22 @@ export interface AdminChangeKindParams extends AdminChangeParams {
   isAdding: boolean;
 }
 
+export interface AdminChanged {
+  access: ProvisionerAccess;
+  password?: string;
+}
+
+export interface AdminAccountUndoParams extends AdminChangeParams {
+  account: AccountsPut | null;
+}
+
 export interface AdminService {
   queries: {
     list: () => Promise<string[]>;
     has: (params: AdminEmailParams) => Promise<boolean>;
   };
   actions: {
-    add: (params: AdminChangeParams) => Promise<ProvisionerAccess>;
-    remove: (params: AdminChangeParams) => Promise<ProvisionerAccess>;
+    add: (params: AdminChangeParams) => Promise<AdminChanged>;
+    remove: (params: AdminChangeParams) => Promise<AdminChanged>;
   };
 }

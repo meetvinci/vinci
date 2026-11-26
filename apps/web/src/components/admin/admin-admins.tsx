@@ -8,11 +8,13 @@ import { FormInput } from '@repo/ui/forms/form-input';
 import { Panel, PanelContent, PanelDescription, PanelRow, PanelTitle } from '@repo/ui/panel';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AdminAccess, AdminAccessNotice } from '@/components/admin/admin-access';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
+import { AdminPassword } from '@/components/admin/admin-password';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
-import { adminAddAdmin, adminAdminsQuery, adminMeQuery } from '@/services/admin/admin.client';
+import { adminAddAdmin, adminAdminsQuery, adminHasAccountsQuery, adminMeQuery } from '@/services/admin/admin.client';
 import { adminProblem } from '@/services/admin/admin.utils';
 
 export function AdminAdmins() {
@@ -20,6 +22,8 @@ export function AdminAdmins() {
   const notice = useAdminNotice();
   const { data: admins } = useSuspenseQuery(adminAdminsQuery());
   const { data: me } = useSuspenseQuery(adminMeQuery());
+  const { data: hasAccounts } = useSuspenseQuery(adminHasAccountsQuery());
+  const [created, setCreated] = useState<{ email: string, password: string } | null>(null);
   const isLast = admins.length <= 1;
 
   const form = useForm({
@@ -30,7 +34,7 @@ export function AdminAdmins() {
   const add = useMutation({
     mutationFn: adminAddAdmin,
     meta: { success: m.admin_admins_added() },
-    onSuccess: async ({ access }, { email }) => {
+    onSuccess: async ({ access, password }, { email }) => {
       await queryClient.invalidateQueries({ queryKey: adminAdminsQuery().queryKey });
       notice({
         access,
@@ -38,12 +42,25 @@ export function AdminAdmins() {
         change: 'add',
       });
       form.reset();
+
+      if (password) {
+        setCreated({ email, password });
+      }
     },
   });
 
   return (
     <>
-      <AdminPageHeader description={m.admin_admins_hint()} title={m.admin_admins_title()} />
+      {created ? (
+        <AdminPassword
+          email={created.email}
+          once={m.admin_admins_password_once()}
+          password={created.password}
+          title={m.admin_password_created_title({ name: created.email })}
+          onDone={() => setCreated(null)}
+        />
+      ) : null}
+      <AdminPageHeader description={hasAccounts ? m.admin_admins_hint_accounts() : m.admin_admins_hint()} title={m.admin_admins_title()} />
       <AdminAccessNotice domains={undefined} isUnknown={admins.some((item) => item.access === 'unknown')} />
       <Panel className="max-w-3xl">
         {admins.map((item) => (

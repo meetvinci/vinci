@@ -27,12 +27,12 @@ export interface AccountsServiceDeps {
 
 export interface AccountsTarget {
   email: string;
-  userId: string;
+  userId?: string;
   by: string;
 }
 
 export interface AccountsPutParams extends AccountsTarget {
-  name: string;
+  name: string | null;
 }
 
 export interface AccountsCallParams<T extends z.ZodType> extends AccountsTarget {

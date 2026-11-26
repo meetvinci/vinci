@@ -62,6 +62,7 @@ export async function coreNativeRun(): Promise<void> {
     directory,
     seed: env.HUB_ADMIN_EMAILS,
     provisioner,
+    accounts,
   });
 
   const users = await makeUserService({

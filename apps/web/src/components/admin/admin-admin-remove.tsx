@@ -1,9 +1,9 @@
 import { ORPCError } from '@orpc/client';
 import { m } from '@repo/i18n/client';
 import { ConfirmationDialog } from '@repo/ui/alert-dialog';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
-import { adminAdminsQuery, adminRemoveAdmin } from '@/services/admin/admin.client';
+import { adminAdminsQuery, adminHasAccountsQuery, adminRemoveAdmin } from '@/services/admin/admin.client';
 import { adminProblem } from '@/services/admin/admin.utils';
 
 interface AdminAdminRemoveProps {
@@ -15,6 +15,7 @@ interface AdminAdminRemoveProps {
 export function AdminAdminRemove({ email, onDone, onOpenChange }: AdminAdminRemoveProps) {
   const queryClient = useQueryClient();
   const notice = useAdminNotice();
+  const { data: hasAccounts = false } = useQuery(adminHasAccountsQuery());
 
   const remove = useMutation({
     mutationFn: adminRemoveAdmin,
@@ -44,7 +45,7 @@ export function AdminAdminRemove({ email, onDone, onOpenChange }: AdminAdminRemo
       onConfirm={() => remove.mutate({ email })}
       onOpenChange={onOpenChange}
     >
-      {m.admin_admins_remove_description()}
+      {hasAccounts ? m.admin_admins_remove_description_accounts() : m.admin_admins_remove_description()}
     </ConfirmationDialog>
   );
 }
