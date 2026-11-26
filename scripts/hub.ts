@@ -7,25 +7,24 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Server, ServerWebSocket, Subprocess } from 'bun';
 
-// `bun run dev:web`: the dev daemon, a local hub and Vite behind a dev door that plays Cloudflare Access with one
+// `bun run dev:web`: the dev daemon, a local hub and Vite behind a dev door that plays the Laravel API's login with one
 // fixed identity. Development only: the hub image bundles apps/hub alone, and the hub has no switch for this door.
-// The hub trusts the door only because ACCESS_TEAM_DOMAIN points at it, which this script sets for its own hub.
-// The identity comes only from the login cookie that the run's printed link sets, never from where a request comes
-// from: every container on the Mac (a bot in the dev sandbox too) reaches this Mac's loopback ports through
-// host.docker.internal and arrives as 127.0.0.1.
+// The hub trusts the door only because HUB_ACCOUNTS_URL points at it with this run's token, which this script sets
+// for its own hub. The identity comes only from the login cookie that the run's printed link sets, never from where a
+// request comes from: every container on the Mac (a bot in the dev sandbox too) reaches this Mac's loopback ports
+// through host.docker.internal and arrives as 127.0.0.1.
 const DEV = {
   email: 'dev@example.com',
   user: 'dev',
   name: 'Developer',
-  audience: 'vinci-dev',
-  kid: 'vinci-dev',
   port: 47190,
   data: '~/.config/vinci-dev',
   loginSeconds: 30 * 24 * 3600,
-  certsPath: '/cdn-cgi/access/certs',
-  loginPath: '/cdn-cgi/access/login',
-  accessHeader: 'cf-access-jwt-assertion',
-  accessCookie: 'CF_Authorization',
+  loginPath: '/auth/login',
+  logoutPath: '/auth/logout',
+  // The API's routes the hub calls: whose login a cookie is, and the admin panel's accounts.
+  internalPath: '/internal/',
+  sessionCookie: 'vinci_session',
   stopSignals: ['SIGINT', 'SIGTERM'],
   stopGraceMs: 3000,
 } as const;
