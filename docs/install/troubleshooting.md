@@ -165,7 +165,7 @@ Each person's Vinci limits pairing attempts, and too many wrong codes cancel all
 
 ## A model key change does nothing
 
-Vinci reads `models.json` only when it starts. A key entered in **Settings → Providers** also wins over `models.json`.
+Vinci reads `models.json` only when it starts. A key entered in **Settings → Models** also wins over `models.json`.
 
 - Fix: restart that person's container after editing `models.json`. If they set their own key in Settings, theirs is used.
 
@@ -240,7 +240,7 @@ bun deploy.ts restore <id> <their latest backup>
 
 ## What a bot can do
 
-A bot's commands and file tools run in its person's sandbox, not in their Vinci ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). With the **Full** permission it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, install programs into the home folder all of that person's bots share, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. MCP servers that run a command run in the same sandbox, so the person's bots can read their `env`. Give bots the read-only or ask permission mode when they don't need more.
+A bot's commands and file tools run in its person's sandbox, not in their Vinci ([what a bot can reach](admin.md#what-a-bot-can-do-and-reach)). On **Normal** or **No questions**, where commands in the sandbox run without asking, it can still read, change and delete every file in all of that person's bots' folders, read their shared skills and instructions, use their saved secrets through the proxy (only toward each secret's hosts, never seeing the value), run any program as an ordinary user, install programs into the home folder all of that person's bots share, and reach the public internet, so it can send whatever those folders hold anywhere. It can no longer read the model keys, the secrets' values, the database or the person's devices, nor act as the person through their private door, nor touch the folder the hub uses to pair browsers. MCP servers that run a command run in the same sandbox, so the person's bots can read their `env`. Give a bot the **Read only** mode when it doesn't need more.
 
 ## Bots say "Bot tools are off"
 

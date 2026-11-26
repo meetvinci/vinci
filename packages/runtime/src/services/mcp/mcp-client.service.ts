@@ -1,7 +1,9 @@
 import { mcpActionPrepare } from './mcp-action.prepare';
 import { mcpActionRefresh } from './mcp-action.refresh';
 import { mcpQueryCatalog } from './mcp-query.catalog';
-import type { McpClientParams, McpClientServiceDeps } from '../../types/mcp.types';
+import { mcpQueryServers } from './mcp-query.servers';
+import { mcpQueryTool } from './mcp-query.tool';
+import type { McpClientParams, McpClientServiceDeps, McpToolParams } from '../../types/mcp.types';
 import type { BotGetInput } from '@repo/contracts/universal';
 
 export function makeMcpClientService({ root, auth, executionEnv }: Omit<McpClientServiceDeps, 'connections'>) {
@@ -14,6 +16,8 @@ export function makeMcpClientService({ root, auth, executionEnv }: Omit<McpClien
     },
     queries: {
       catalog: (params: McpClientParams) => mcpQueryCatalog(deps, params),
+      tool: (params: McpToolParams) => mcpQueryTool(deps, params),
+      servers: () => mcpQueryServers(deps),
     },
     close: async () => {
       const connections = [...deps.connections.values()];

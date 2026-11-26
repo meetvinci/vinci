@@ -27,18 +27,14 @@ export const BOT_ACTIVITY_LABELS = {
 
 export const BOT_PERMISSION_LABELS = {
   'read-only': m.rooms_bot_permission_read_only,
-  ask: m.rooms_bot_permission_ask,
-  sandbox: m.rooms_bot_permission_sandbox,
-  auto: m.rooms_bot_permission_auto,
-  full: m.rooms_bot_permission_full,
+  normal: m.rooms_bot_permission_normal,
+  'no-questions': m.rooms_bot_permission_no_questions,
 } satisfies Record<BotTypes.BotPermission, () => string>;
 
 export const BOT_PERMISSION_HINTS = {
   'read-only': m.rooms_bot_permission_read_only_hint,
-  ask: m.rooms_bot_permission_ask_hint,
-  sandbox: m.rooms_bot_permission_sandbox_hint,
-  auto: m.rooms_bot_permission_auto_hint,
-  full: m.rooms_bot_permission_full_hint,
+  normal: m.rooms_bot_permission_normal_hint,
+  'no-questions': m.rooms_bot_permission_no_questions_hint,
 } satisfies Record<BotTypes.BotPermission, () => string>;
 
 export const BOT_THINKING_LEVEL_LABELS = {

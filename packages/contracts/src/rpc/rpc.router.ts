@@ -123,15 +123,16 @@ import {
 import { skillCatalog, skillConfigure, skillDiscover, skillSettings, skillStatus } from '../types/skill.types';
 import { todo, todoCreate, todoList, todoRemoveResult, todoReorder, todoTarget, todoUpdate } from '../types/todo.types';
 import {
-  toolAlwaysAllowed,
-  toolAlwaysAllowedClear,
   toolAnswer,
   toolAnswerResult,
   toolApprovalList,
   toolConfigure,
+  toolControlChange,
   toolExport,
   toolPending,
+  toolServers,
   toolSettings,
+  toolTrust,
 } from '../types/tool.types';
 import { workspaceExport, workspaceFiles, workspaceImportResult } from '../types/workspace.types';
 
@@ -335,9 +336,11 @@ export const contract = {
 
     answer: ocFind.input(toolAnswer).output(toolAnswerResult),
 
-    alwaysAllowed: ocAuth.input(toolPending).output(toolAlwaysAllowed),
+    servers: ocAuth.output(toolServers),
 
-    clearAlwaysAllowed: ocAuth.input(toolAlwaysAllowedClear).output(toolAlwaysAllowed),
+    control: ocAuth.input(toolControlChange).output(toolSettings),
+
+    trust: ocAuth.input(toolTrust).output(toolSettings),
 
     export: ocAdmin.output(toolExport),
   },

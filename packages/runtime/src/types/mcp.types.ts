@@ -59,6 +59,8 @@ export interface McpConfig {
 }
 
 export interface McpConnection {
+  server: string;
+  key: string;
   fingerprint: string;
   sourceFingerprint: string;
   client: PiMcpTypes.McpClient;
@@ -75,6 +77,23 @@ export interface McpConnection {
 export interface McpConnectParams {
   botId: string;
   entry: McpEntry;
+}
+
+export interface McpToolParams {
+  botId: string;
+  name: string;
+}
+
+export interface McpToolInfo {
+  server: string;
+  key: string;
+  tool: PiMcpTypes.Tool;
+}
+
+export interface McpServerTools {
+  key: string;
+  names: string[];
+  tools: PiMcpTypes.Tool[];
 }
 
 export interface McpClientParams {

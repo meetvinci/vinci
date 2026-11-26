@@ -8,7 +8,7 @@ It is an early version, meant for people who trust each other.
 
 ## Install
 
-Read the [install overview](docs/install/README.md), then follow the [install guide](docs/install/install.md).
+Start with the [install overview](docs/install/README.md): how login works, the three ways to install, and how to upgrade. Then follow the [install guide](docs/install/install.md). Running an install: [admin tasks](docs/install/admin.md), [upgrades](docs/install/admin.md#upgrades) and [troubleshooting](docs/install/troubleshooting.md).
 
 ## Develop
 

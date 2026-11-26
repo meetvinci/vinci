@@ -8,7 +8,7 @@ export const GLOBAL = {
   sections: [
     { id: 'models', procedures: ['providers/', 'models/'] },
     { id: 'chat', procedures: ['conversation/settings', 'conversation/configure'] },
-    { id: 'tools', procedures: ['tools/settings', 'tools/configure'] },
+    { id: 'tools', procedures: ['tools/settings', 'tools/configure', 'tools/control', 'tools/trust'] },
     { id: 'secrets', procedures: ['secrets/', 'credentials/'] },
     {
       id: 'sources',

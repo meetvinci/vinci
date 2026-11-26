@@ -41,6 +41,7 @@ export * from './hooks/use-settings-provider-logout';
 export * from './hooks/use-settings-provider-session';
 export * from './hooks/use-settings-providers';
 export * from './hooks/use-settings-sources';
+export * from './hooks/use-settings-tool-policy';
 export * from './hooks/use-settings-secrets';
 export * from './hooks/use-settings-tools';
 export * from './hooks/use-chat-elapsed';

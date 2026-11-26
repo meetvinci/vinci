@@ -111,7 +111,7 @@ cd /opt/vinci</span></pre></div>
 
 <section id="picture">
   <h2><span class="n">1</span>The picture</h2>
-  <p>One server, one Docker Compose project called <code>vinci</code>. Eight containers are shared. Each person gets two more: a <b>daemon</b> (their own Vinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
+  <p>One server, one Docker Compose project called <code>vinci</code>. Seven containers are shared (eight with the optional tunnel). Each person gets two more: a <b>daemon</b> (their own Vinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
   <div class="diagram" role="img" aria-label="Diagram of the containers on the server and who talks to whom"><pre>   browser ── https://team.example.com   (or through the optional Cloudflare Tunnel)
       │
 ┌─────┼─────────────────────────────── server ──────────────────────────────┐
@@ -238,7 +238,7 @@ drwxrwx--- 2 1000 root   4096 hub
   <p class="note">An install on <code>b285c406</code> or older never writes <code>new-users.json</code>: there, people added in <code>users.yaml</code> start with every section overridden.</p>
 
   <h3>Docker's part: images, volumes, networks</h3>
-  <p>Docker keeps containers, volumes and networks under <code>/var/lib/docker</code>. On this Docker (29, with the containerd image store) the images themselves are under <code>/var/lib/containerd</code>. Seven images, about 1.3 GB:</p>
+  <p>Docker keeps containers, volumes and networks under <code>/var/lib/docker</code>. On this Docker (29, with the containerd image store) the images themselves are under <code>/var/lib/containerd</code>. On <code>main</code> there are seven Vinci images, <code>ghcr.io/meetvinci/vinci-*</code>, plus Caddy and PostgreSQL from Docker Hub. The listing below, read on an older tag, shows the names without the registry and leaves out <code>vinci-api</code>:</p>
   <div class="term"><div class="bar"><span>images and space</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker image ls --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"</span>
 REPOSITORY               TAG         SIZE
 vinci-firewall       b285c406    289MB
@@ -254,7 +254,7 @@ TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
 Images          7         7         1.311GB   0B (0%)
 Containers      11        11        61.44kB   0B (0%)
 Local Volumes   7         7         1.657MB   0B (0%)</pre></div>
-  <p class="note">Sizes overlap: the images share layers. After an upgrade the old tag's images stay until you remove them by name (<code>docker rmi vinci-daemon:&lt;old tag&gt; …</code>); keep them until the upgrade is checked, they are your rollback.</p>
+  <p class="note">Sizes overlap: the images share layers. After an upgrade the old tag's images stay until you remove them by name (<code>docker rmi ghcr.io/meetvinci/vinci-daemon:&lt;old tag&gt; …</code>); keep them until the upgrade is checked, they are your rollback.</p>
   <div class="term"><div class="bar"><span>volumes, three per person plus one shared</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ du -sh /var/lib/docker/volumes/vinci_*/_data</span>
 1.1M  /var/lib/docker/volumes/vinci_data-bob/_data
 504K  /var/lib/docker/volumes/vinci_data-alice/_data
@@ -483,7 +483,7 @@ No check found a problem since the container started.</pre></div>
     <tr><th>Task</th><th>How</th><th>Details</th></tr>
     <tr><td>Add a person</td><td>Admin panel → <b>Add user</b>. By hand: a line in <code>users.yaml</code>, then <code>bun deploy.ts apply</code>. Watch two containers start in the events.</td><td><a href="admin.md#add-a-person">Add a person</a></td></tr>
     <tr><td>Disable or remove a person</td><td>Admin panel. Their container goes; their volume and disk stay until <code>bun deploy.ts purge &lt;id&gt;</code>.</td><td><a href="admin.md#remove-a-person">Remove a person</a></td></tr>
-    <tr><td>Upgrade</td><td>Load the new images, copy the deployment files, <code>bun deploy.ts nightly</code>, set <code>VINCI_TAG</code>, <code>docker compose up -d --wait</code>, <code>bun deploy.ts apply</code>.</td><td><a href="admin.md#upgrades">Upgrades</a></td></tr>
+    <tr><td>Upgrade</td><td>Pull the new images, copy the deployment files, <code>bun deploy.ts nightly</code>, set <code>VINCI_TAG</code>, <code>docker compose up -d --wait</code>, <code>bun deploy.ts apply</code>.</td><td><a href="admin.md#upgrades">Upgrades</a></td></tr>
     <tr><td>Roll back</td><td>The old version's deployment files and tag, then the same two commands. Some versions need a restore: read the section first.</td><td><a href="admin.md#upgrades">Upgrades</a>, last part</td></tr>
     <tr><td>Restore one person</td><td><code>bun deploy.ts restore alice backups/&lt;time&gt;</code>. It saves their current data first; nobody else stops.</td><td><a href="admin.md#restore-one-person">Restore one person</a></td></tr>
     <tr><td>Read the nightly result</td><td><code>bun deploy.ts nightly status</code></td><td><a href="admin.md#nightly-backups">Nightly backups</a></td></tr>
@@ -507,7 +507,7 @@ alice.tar.gz  bob.tar.gz  deployment.tar.gz  hub.tar.gz  manifest.json  template
     <tr><th>Step</th><th>What appears on the server</th><th>Look with</th></tr>
     <tr><td><a href="install.md#1-check-the-server">1. Check the server</a></td><td>Nothing yet. <code>x86_64</code>, Ubuntu 24.04, <code>avx2</code>, 3.7 GiB or more, 40 GB free.</td><td><code>free -h; df -h /</code></td></tr>
     <tr><td><a href="install.md#2-install-docker">2. Install Docker</a></td><td><code>/var/lib/docker</code> and <code>/var/lib/containerd</code>, the <code>docker</code> service enabled, three default networks (<code>bridge</code>, <code>host</code>, <code>none</code>).</td><td><code>systemctl is-enabled docker; docker network ls</code></td></tr>
-    <tr><td><a href="install.md#3-get-vinci-onto-the-server">3. Get Vinci on</a></td><td>Six <code>vinci-*</code> images with your tag. <code>/opt/vinci</code> (mode 700) with the five shipped files and <code>.env</code> (mode 600). <code>/usr/local/bin/bun</code>.</td><td><code>docker image ls; ls -la /opt/vinci; bun --version</code></td></tr>
+    <tr><td><a href="install.md#3-get-vinci-onto-the-server">3. Get Vinci on</a></td><td>Seven <code>ghcr.io/meetvinci/vinci-*</code> images with your tag. <code>/opt/vinci</code> (mode 700) with the five shipped files and <code>.env</code> (mode 600). <code>/usr/local/bin/bun</code>.</td><td><code>docker image ls; ls -la /opt/vinci; bun --version</code></td></tr>
     <tr><td><a href="install.md#4-write-the-team-list">4. Write the team list</a></td><td><code>users.yaml</code>. No container yet.</td><td><code>ls -l users.yaml</code> (not <code>cat</code>: emails)</td></tr>
     <tr><td><a href="install.md#5-point-the-hostname-at-the-server">5. Hostname</a></td><td>Nothing on the server: a DNS record (or, with the tunnel, <code>cloudflare.env</code> on your computer, merged into <code>.env</code>).</td><td><code>dig +short &lt;host&gt;</code></td></tr>
     <tr><td><a href="install.md#6-set-the-login-secrets">6. Login secrets</a></td><td><code>COMPOSE_FILE</code>, <code>VINCI_PUBLIC_HOST</code>, <code>API_INTERNAL_TOKEN</code> and <code>API_APP_KEY</code> in <code>.env</code>, still <code>600 root</code>.</td><td><code>stat -c "%a %U" .env</code></td></tr>

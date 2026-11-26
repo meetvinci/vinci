@@ -1,4 +1,4 @@
-import { ROOMS_APPROVAL_CHOICES, roomsApprovalText, toolPresentation } from '@repo/client/client';
+import { roomsApprovalText } from '@repo/client/client';
 import { useChatApproval } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { Question, QuestionDescription, QuestionHeader, QuestionHeading, QuestionOption, QuestionOptions, QuestionTitle } from '../ai/question';
@@ -21,13 +21,13 @@ export function RoomsChatApproval({ approval, botName, className }: RoomsChatApp
       <QuestionHeader>
         <QuestionHeading>
           <QuestionTitle>{m.rooms_chat_approval_title({ bot: botName })}</QuestionTitle>
-          <QuestionDescription title={approval.toolName}>{toolPresentation({ toolName: approval.toolName }).label}</QuestionDescription>
+          <QuestionDescription title={approval.toolName}>{answer.sentence}</QuestionDescription>
           {text.description ? <QuestionDescription>{text.description}</QuestionDescription> : null}
         </QuestionHeading>
       </QuestionHeader>
       {text.code ? <ToolCodeBlock>{text.code}</ToolCodeBlock> : <ToolInput input={approval.arguments} />}
       <QuestionOptions>
-        {ROOMS_APPROVAL_CHOICES.map((choice, index) => (
+        {answer.choices.map((choice, index) => (
           <QuestionOption
             aria-pressed={answer.chosen === choice.decision}
             disabled={answer.isAnswered}

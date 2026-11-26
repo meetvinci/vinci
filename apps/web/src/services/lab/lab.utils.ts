@@ -375,6 +375,7 @@ export function labChatFixture(now: number, video: ChatPart | null): LabChatFixt
       privateWith: null,
       toolName: 'bash',
       arguments: { command: 'git push origin launch-recap', description: 'Push the launch recap branch' },
+      action: { server: null, serverName: null, tool: 'bash', canAllowAlways: true },
       createdAt: labAgo(3),
       expiresAt: now + 5 * LAB_CHAT.minuteMs,
     }],

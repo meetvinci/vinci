@@ -8,6 +8,7 @@ import { SettingsProviders } from './settings-providers';
 import { SettingsSecrets } from './settings-secrets';
 import { SettingsServer } from './settings-server';
 import { SettingsSources } from './settings-sources';
+import { SettingsToolPolicy } from './settings-tool-policy';
 import { SettingsTools } from './settings-tools';
 
 export function SettingsScreen() {
@@ -26,6 +27,7 @@ export function SettingsScreen() {
         <SettingsGeneral />
         <SettingsProviders />
         <SettingsModels />
+        <SettingsToolPolicy />
         <SettingsTools />
         <SettingsSecrets />
         <SettingsSources />

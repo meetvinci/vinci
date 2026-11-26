@@ -2,8 +2,10 @@ export const TOOL = {
   jevCredential: 'typesafe.apiKey',
   approvalRulesSetting: 'tools.approvalRules',
   approvalTimeoutSetting: 'tools.approvalTimeoutMinutes',
-  alwaysAllowSettingPrefix: 'tools.alwaysAllow.',
+  policySetting: 'tools.policy',
+  policyDefaultsSetting: 'tools.policyDefaults',
   askFirstTools: ['bot_mcp_add', 'bot_note'],
+  emptyPolicy: { controls: [], trusted: [] },
   judgeTimeoutMs: 5000,
   minuteMs: 60_000,
   judgeThreshold: 0.9,
@@ -11,4 +13,3 @@ export const TOOL = {
   judgeInputLimit: 2000,
   judgeRequestLimit: 8000,
 } as const;
-
