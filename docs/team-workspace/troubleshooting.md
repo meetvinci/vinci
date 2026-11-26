@@ -165,7 +165,7 @@ Each person's Vinci limits pairing attempts, and too many wrong codes cancel all
 
 ## A model key change does nothing
 
-Vinci reads `models.json` only when it starts. A key entered in **Settings → Providers** also wins over `models.json`.
+Vinci reads `models.json` only when it starts. A key entered in **Settings → Models** also wins over `models.json`.
 
 - Fix: restart that person's container after editing `models.json`. If they set their own key in Settings, theirs is used.
 

@@ -8,7 +8,7 @@ You need your team's address, for example `https://acme.example.com`, and the em
 
 Needs iOS or iPadOS 16.4 or later (Settings → General → About → iOS Version).
 
-1. Open your team's address in **Safari** and log in with the code from your email.
+1. Open your team's address in **Safari** and log in with your email and password.
 2. Tap **Share** (the square with an arrow), then **Add to Home Screen**. Keep **Open as Web App** on and tap **Add**.
 3. Open Vinci from the new icon on your home screen. Notifications only work from this icon, not from a Safari tab.
 4. In Vinci, open **Settings → General → Notifications** and tap **Turn on**, then **Allow**. You can also allow when Vinci asks after your first message.

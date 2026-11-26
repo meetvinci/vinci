@@ -8,7 +8,7 @@ It is an early version, meant for people who trust each other.
 
 ## Install
 
-Read the [install overview](docs/team-workspace/README.md), then follow the [install guide](docs/team-workspace/install.md).
+Start with the [install overview](docs/team-workspace/README.md): how login works, the three ways to install, and how to upgrade. Then follow the [install guide](docs/team-workspace/install.md). Running an install: [admin tasks](docs/team-workspace/admin.md), [upgrades](docs/team-workspace/admin.md#upgrades) and [troubleshooting](docs/team-workspace/troubleshooting.md).
 
 ## Develop
 
