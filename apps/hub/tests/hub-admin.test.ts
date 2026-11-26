@@ -43,7 +43,7 @@ describe('admin access', () => {
 
     expect(page.path).toBe('/admin/users?x=1');
     expect(page.headers['cf-access-jwt-assertion']).toBe(tokens.root);
-    expect(me.json).toEqual({ email: admin });
+    expect(me.json).toEqual({ email: admin, hasPassword: false });
     expect(unknown.map(({ status }) => status)).toEqual([404, 404, 404]);
   });
 

@@ -19,6 +19,26 @@ They passed the Cloudflare login, but Vinci has no user with that email. With a 
 
 > On `root@<server>`, in `/opt/vinci`, check whether `<email>` is in `users.yaml` (and enabled) or in `hub/admins.json`. Report which, without printing the other emails. Change nothing.
 
+## The login page says "Too many attempts"
+
+With Vinci accounts (`VINCI_AUTH=laravel`), the login page locks one email after 5 wrong passwords from one address in a minute, or 20 from any addresses in an hour; wrong current passwords at **Change password** count toward the same hourly limit. The page names how long the lock lasts. An email with no account is locked the same way, so the page never tells which accounts exist. If the person forgot their password, an admin gives them a new one (**Reset password** on their page in the admin panel); the lock still applies until it ends.
+
+A real person locked out by someone else's guesses waits out the hour, or an admin lifts every lock at once (the counters live in Laravel's cache, in PostgreSQL; nothing else is in that cache):
+
+```sh
+ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan cache:clear'
+```
+
+> On `root@<server>`, in `/opt/vinci`, run `docker compose exec -T api php artisan cache:clear` to lift the login lock for `<email>`, then check `docker compose logs caddy --since 1h` for many `POST /cdn-cgi/access/login` lines from one address and report the address and count, without printing anything else.
+
+## Someone is still signed in after a password change, or not signed in after logging in
+
+With Vinci accounts, a login is a token the API keeps; the hub asks the API about it on every request and trusts the answer for at most 5 seconds. **Sign out**, **Change password** (other browsers), **Reset password** and **Remove** end logins within those 5 seconds, open chats included. A browser that was signed out comes back to the login page on its next page load; a chat that was open shows the connection lost.
+
+If a login works and the next page sends the person back to the login page, the hub cannot check logins with the API: `docker compose logs hub --since 5m` says *The accounts service* answered or did not answer, and every page then answers 502 with `accounts_unavailable`. `bun deploy.ts status` should show `vinci-api-1` and `vinci-postgres-1` `running (healthy)`.
+
+> On `root@<server>`, in `/opt/vinci`, check that `vinci-api-1` and `vinci-postgres-1` are healthy (`bun deploy.ts status`) and that `docker compose logs hub --since 10m` has no "accounts service" errors. If the API is unhealthy, report `docker compose logs api --since 10m` without any line that shows a cookie, token or password.
+
 ## Nobody can get in, and the hub log says the users file is invalid
 
 `/opt/vinci/hub/users.json` is missing or was edited by hand, so the hub lets nobody in. `bun deploy.ts apply` writes it from `users.yaml` and checks the list first. After a rollback the log says `unrecognized_keys`: the older hub does not know a newer file. Copy that version's deployment files into `/opt/vinci` and run its `bun deploy.ts apply` ([Upgrades](admin.md#upgrades)).

@@ -345,7 +345,14 @@ A person on their own installs the same thing as a team. There is no smaller ver
 
 **For testing for now.** Production installs use Cloudflare Access, steps 1 to 9 above. This mode needs no Cloudflare account and no domain on Cloudflare: people log in with an email and a password that Vinci keeps, and the server answers on ports 80 and 443 itself.
 
-How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) plays the part of Cloudflare Access: it shows the login page at `/cdn-cgi/access/login`, signs the same `CF_Authorization` cookie with its own key, and serves that key at `/cdn-cgi/access/certs`. The hub checks the cookie as it checks Cloudflare's, against the key at `ACCESS_TEAM_DOMAIN`, here the API. A visitor without the cookie, or with an expired one, is sent to the login page and back to where they were after it. Logins last 7 days; `/cdn-cgi/access/logout` ends one. After 5 wrong passwords for one email from one address in a minute, or 20 for one email from any addresses in an hour, the login page answers *Too many attempts* for that email until the time it names; an email with no account is limited the same way, so the page never tells which accounts exist. A real person locked out by someone else's guesses waits out the hour, or an admin runs `docker compose exec api php artisan cache:clear`. Caddy tells browsers to use only HTTPS for this hostname for a year (`Strict-Transport-Security`, without subdomains), and the login pages cannot be shown inside another site's frame.
+How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) shows the login page at `/cdn-cgi/access/login`. A login is a [Laravel Sanctum](https://laravel.com/docs/sanctum) token in the `vinci_session` cookie (HttpOnly, Secure, SameSite=Lax), one per browser, stored in PostgreSQL. The hub asks the API whose login a cookie is on every request (`GET /internal/session`, on the network only the two share, with `API_INTERNAL_TOKEN`), trusts the answer for at most 5 seconds, and checks every open connection again every 5 seconds. So ending a login in the API ends it everywhere at once:
+
+- **Sign out** (`/cdn-cgi/access/logout`) deletes this browser's login, not only its cookie: a copy of the cookie stops working too.
+- **Change password** (avatar menu → **Settings** → **General**, or **Change password** in the admin panel's header) asks for the current password and ends the person's other logins; this browser stays signed in.
+- **Reset password** in the admin panel, and `vinci:user` for an existing account, end all of that person's logins; so does **Remove**. **Disable** keeps the login but the hub refuses it with *Your sign-in is turned off*.
+- A login lasts at most 7 days, then the login page comes back.
+
+A visitor without the cookie, or whose login ended, is sent to the login page and back to where they were after it. Caddy only checks that the cookie is there; it vouches for nobody, and the hub trusts no header for identity. After 5 wrong passwords for one email from one address in a minute, or 20 for one email from any addresses in an hour, the login page answers *Too many attempts* for that email until the time it names; wrong current passwords at **Change password** count toward the same hourly limit. An email with no account is limited the same way, so the page never tells which accounts exist. A real person locked out by someone else's guesses waits out the hour, or an admin lifts every lock with `docker compose exec api php artisan cache:clear` ([Troubleshooting](troubleshooting.md#the-login-page-says-too-many-attempts)). Caddy tells browsers to use only HTTPS for this hostname for a year (`Strict-Transport-Security`, without subdomains), and the login pages cannot be shown inside another site's frame.
 
 What changes from the steps above:
 
@@ -358,8 +365,7 @@ What changes from the steps above:
     set_env VINCI_AUTH laravel
     set_env COMPOSE_FILE compose.yaml:caddy.compose.yaml:users.compose.yaml
     set_env VINCI_PUBLIC_HOST vinci.example.com
-    set_env ACCESS_TEAM_DOMAIN http://api:8080
-    for key in ACCESS_AUD API_INTERNAL_TOKEN; do grep -q "^$key=." .env || set_env $key "$(openssl rand -hex 32)"; done
+    grep -q "^API_INTERNAL_TOKEN=." .env || set_env API_INTERNAL_TOKEN "$(openssl rand -hex 32)"
     grep -q "^API_APP_KEY=." .env || set_env API_APP_KEY "base64:$(openssl rand -base64 32)"'
   ```
 
@@ -372,7 +378,7 @@ What changes from the steps above:
   The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel: **Add user**, and **Add admin** for an admin who is not a user, show the new password once.
 - **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `ss -tlnp` also shows Docker on ports 80 and 443.
 
-Trust: whoever controls the key at `ACCESS_TEAM_DOMAIN` can log in as anyone. Here that is the API's key, kept in PostgreSQL and encrypted with `API_APP_KEY`; changing `API_APP_KEY` makes the key unreadable, so keep it. `/internal/users`, the routes the admin panel uses to add accounts, are reachable only from the hub, and only with `API_INTERNAL_TOKEN`.
+Trust: whoever holds `API_INTERNAL_TOKEN` and reaches the API can ask whose login a token is and manage accounts; the `/internal` routes are reachable only from the hub (Caddy answers 404 for them), and only with that token. Logins are random tokens the API stores only as hashes. `API_APP_KEY` encrypts the login form's own session cookie; changing it only makes open login forms start over. An install from before Sanctum sessions still has `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` in `.env`; nothing reads them in this mode any more, and people log in once more after the upgrade.
 
 To go back to Cloudflare, set `VINCI_AUTH=access` (or delete the line), put `cloudflared.compose.yaml` back in `COMPOSE_FILE`, follow steps 5 and 6, and run `docker compose up -d --remove-orphans` and then `bun deploy.ts apply`.
 
@@ -407,7 +413,9 @@ ssh root@<server> 'cat /var/log/vinci-install.result; grep "^== " /var/log/vinci
 ssh root@<server> 'cat /opt/vinci/admin-password'
 ```
 
-Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made. A wrong release goes in `/etc/vinci-install.env` (`VINCI_REF`, `VINCI_TAG`) before the new run. The script installs the release named there: after an [upgrade](admin.md#upgrades), update both values, or running it again puts the old version back. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel. The password file stays on the server, readable by root only.
+Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made, the admin's account and password included. A wrong release goes in `/etc/vinci-install.env` (`VINCI_REF`, `VINCI_TAG`) before the new run. The script installs the release named there: after an [upgrade](admin.md#upgrades), update both values, or running it again puts the old version back. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel.
+
+The password file is readable by root only, and it is temporary: change the password right away (avatar menu → **Settings** → **General** → **Change password**), and the hub has the provisioner delete `/opt/vinci/admin-password`. The rule: a password change by an email in `HUB_ADMIN_EMAILS` (the install's first admins, here `{{admin}}`) deletes the file. Until then it holds a working password, so treat the server's root login as that admin's login.
 
 ## Next
 
