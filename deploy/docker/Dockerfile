@@ -179,17 +179,26 @@ RUN apt-get update \
 WORKDIR /var/www/html
 COPY --from=api-dependencies /app/vendor ./vendor
 COPY apps/api/artisan ./artisan
+COPY apps/api/app ./app
 COPY apps/api/bootstrap ./bootstrap
+COPY apps/api/config ./config
+COPY apps/api/database ./database
 COPY apps/api/public ./public
+COPY apps/api/resources ./resources
 COPY apps/api/routes ./routes
 RUN mkdir bootstrap/cache \
  && php artisan package:discover --no-ansi \
  && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
  && sed -i 's|\*:80>|*:8080>|; s|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf \
  && printf 'ServerName localhost\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf
-ENV APP_ENV=production LOG_CHANNEL=stderr \
+# The login form's session lives in an encrypted cookie sent only to the login pages; the login rate limiter counts in
+# PostgreSQL (CACHE_STORE database), shared by every Apache worker. Nothing is written inside the read-only root.
+ENV APP_ENV=production LOG_CHANNEL=stderr CACHE_STORE=database \
+    SESSION_DRIVER=cookie SESSION_COOKIE=vinci_login SESSION_PATH=/cdn-cgi/access SESSION_SECURE_COOKIE=true \
     APACHE_PID_FILE=/tmp/apache2.pid APACHE_RUN_DIR=/tmp APACHE_LOCK_DIR=/tmp
 USER www-data
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=4s --start-period=10s --start-interval=1s \
   CMD ["php", "-r", "exit(file_get_contents('http://127.0.0.1:8080/') === 'ok' ? 0 : 1);"]
+# Migrations run at every start, before Apache serves anything.
+CMD ["sh", "-c", "php artisan migrate --force --no-interaction && exec apache2-foreground"]

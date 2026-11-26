@@ -61,8 +61,19 @@ const nightlyStatusFile = path.join(backupsFolder, 'nightly.json');
 const nightlyManifest = 'manifest.json';
 const nightlyHubFile = 'hub.tar.gz';
 const nightlyDeploymentFile = 'deployment.tar.gz';
-// What a fresh server needs next to the volumes and the hub folder; COMPOSE_FILE in .env may name more.
-const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'sandbox.yaml', 'cloudflared.compose.yaml', 'deploy.ts'];
+// What a fresh server needs next to the volumes and the hub folder, with the edge file of VINCI_AUTH; COMPOSE_FILE in
+// .env may name more.
+const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml', 'daemon.yaml', 'sandbox.yaml', 'deploy.ts'];
+// How people log in, VINCI_AUTH in .env, and the Compose file of each mode's edge: Cloudflare Access through cloudflared
+// (the default), or Vinci accounts in the Laravel API behind Caddy, which publishes 80 and 443 itself.
+const authEdges = { access: 'cloudflared.compose.yaml', laravel: 'caddy.compose.yaml' };
+// In laravel mode the API is the hub's Access issuer, on the network only the two share.
+const laravelIssuer = 'http://api:8080';
+const laravelSecretLength = 32;
+// `check`: what a production server needs, and the least a test server gets away with (a warning, not a failure).
+const serverMemoryGib = 3.7;
+const serverDiskGb = { production: 40, test: 30 };
+const serverUbuntu = '24.04';
 // `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
 const nightlyStaleMs = 36 * 60 * 60 * 1000;
 // The timer's service is stopped after this long; `nightly status` counts a run still `running` after it as failed.
@@ -724,6 +735,41 @@ async function apply() {
   await locked(() => applyTeam());
 }
 
+function authMode(): keyof typeof authEdges {
+  const mode = envValue('VINCI_AUTH') ?? 'access';
+
+  if (mode !== 'access' && mode !== 'laravel') {
+    fail(`VINCI_AUTH in .env must be access or laravel, not ${mode}.`);
+  }
+
+  return mode;
+}
+
+// The edge of the other mode would publish a second way in, and laravel mode cannot start without its secrets.
+function authCheck() {
+  const mode = authMode();
+  const listed = new Set((process.env.COMPOSE_FILE ?? '').split(':').map((file) => path.basename(file)));
+  const other = mode === 'access' ? authEdges.laravel : authEdges.access;
+
+  if (listed.has(other) || (mode === 'laravel' && !listed.has(authEdges.laravel))) {
+    fail(`With VINCI_AUTH=${mode}, COMPOSE_FILE in .env must load ${authEdges[mode]}, not ${other} (configuration.md).`);
+  }
+
+  if (mode === 'access') {
+    return;
+  }
+
+  if (envValue('ACCESS_TEAM_DOMAIN') !== laravelIssuer) {
+    fail(`With VINCI_AUTH=laravel, ACCESS_TEAM_DOMAIN in .env must be ${laravelIssuer}: the hub trusts the key the API serves there.`);
+  }
+
+  const secrets = ['ACCESS_AUD', 'API_INTERNAL_TOKEN'].filter((name) => (envValue(name) ?? '').length < laravelSecretLength);
+
+  if (secrets.length > 0 || !(envValue('API_APP_KEY') ?? '').startsWith('base64:')) {
+    fail(`With VINCI_AUTH=laravel, .env needs ${[...secrets, 'API_APP_KEY'].join(', ')}: ${laravelSecretLength} or more random characters each, and API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
+  }
+}
+
 // Brings the stack in line with users.yaml: first start, add, disable or remove a person.
 // users.json is written first, so a removed or disabled person loses access before their container stops.
 // By hand it waits for every service to be healthy; the provisioner waits only for the person it changed, so another
@@ -735,6 +781,7 @@ async function applyTeam(waitFor?: string[]) {
 
   // A bad value would leave the firewall restarting while apply reports success. Bun reads it from /opt/vinci/.env.
   internalAllow();
+  authCheck();
   writeFileSync('users.compose.yaml', renderCompose(daemons));
   await firewallUp();
   await moveOldNetworks(daemons, waitFor === undefined);
@@ -1023,7 +1070,7 @@ function envCount(name: string, fallback: number): number {
 // The deployment files to keep: the usual ones and whatever COMPOSE_FILE in .env loads, as far as they exist.
 function nightlyDeploymentFiles(): string[] {
   const listed = (process.env.COMPOSE_FILE ?? '').split(':').filter(Boolean);
-  const files = [...deploymentFiles, ...listed].map((file) => path.relative(process.cwd(), path.resolve(file)));
+  const files = [...deploymentFiles, authEdges[authMode()], ...listed].map((file) => path.relative(process.cwd(), path.resolve(file)));
 
   return [...new Set(files)].filter((file) => !file.startsWith('..') && existsSync(file));
 }
@@ -2368,11 +2415,22 @@ async function stackStatus() {
 
   console.log(`Server disk: ${gib(bavail * bsize)} free of ${gib(blocks * bsize)}${isLow ? ', LOW' : ''}`);
 
-  const down = lines.filter(([, daemon, sandbox]) => daemon !== 'running (healthy)' || sandbox !== 'running (healthy)').map(([id]) => id);
+  // In laravel mode nobody logs in without Caddy and the API.
+  const edge = authMode() === 'laravel' ? ['caddy', 'api'] : [];
+
+  for (const service of edge) {
+    console.log(`${service.padEnd(width)}  ${shown(service)}`);
+  }
+
+  const down = [
+    ...lines.filter(([, daemon, sandbox]) => daemon !== 'running (healthy)' || sandbox !== 'running (healthy)').map(([id]) => id),
+    ...edge.filter((service) => shown(service) !== 'running (healthy)'),
+  ];
+
   const full = lines.filter(([, , , , isOk]) => !isOk).map(([id]) => id);
 
   if (down.length > 0) {
-    fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> shows why; bun deploy.ts apply starts what is missing.`);
+    fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> (or caddy, api) shows why; bun deploy.ts apply starts what is missing.`);
   }
 
   if (full.length > 0) {
@@ -2381,6 +2439,52 @@ async function stackStatus() {
 
   if (isLow) {
     fail('The server\'s disk is almost full: the hub\'s audit trail and the backups need room. See troubleshooting.md, The disk fills up.');
+  }
+}
+
+function checkSystem(id: string | undefined, version: string): 'ok' | 'warning' | 'failed' {
+  if (id !== 'ubuntu' || Number.parseFloat(version) < Number.parseFloat(serverUbuntu)) {
+    return 'failed';
+  }
+
+  return version === serverUbuntu ? 'ok' : 'warning';
+}
+
+function checkDisk(freeGb: number): 'ok' | 'warning' | 'failed' {
+  if (freeGb < serverDiskGb.test) {
+    return 'failed';
+  }
+
+  return freeGb >= serverDiskGb.production ? 'ok' : 'warning';
+}
+
+// The server requirements of install.md, step 1. A production install needs every line ok. Ubuntu after 24.04 and
+// 30 to 40 GB free are warnings, enough for a test server; anything less fails.
+function check() {
+  const os: Partial<Record<string, string>> = Object.fromEntries(readFileSync('/etc/os-release', 'utf8').split('\n').map((line) => line.split('=', 2)).map(([key = '', value = '']) => [key, value.replaceAll('"', '')]));
+  const memoryKib = Number(/^MemTotal:\s+(?<kib>\d+)/mu.exec(readFileSync('/proc/meminfo', 'utf8'))?.groups?.kib ?? 0);
+  const { bavail, bsize } = statfsSync('/');
+  const freeGb = (bavail * bsize) / 1e9;
+  const arch = process.arch;
+  const version = os.VERSION_ID ?? '';
+
+  const results: [string, 'ok' | 'warning' | 'failed', string][] = [
+    ['CPU', arch === 'x64' && !/\bavx2\b/u.test(readFileSync('/proc/cpuinfo', 'utf8')) ? 'failed' : 'ok', `${arch}${arch === 'x64' ? ', AVX2 needed' : ''}`],
+    ['System', checkSystem(os.ID, version), `${os.PRETTY_NAME ?? 'unknown'}, ${serverUbuntu} expected`],
+    ['Memory', memoryKib / 1024 ** 2 >= serverMemoryGib ? 'ok' : 'failed', `${(memoryKib / 1024 ** 2).toFixed(1)} GiB, at least ${serverMemoryGib} needed`],
+    ['Disk', checkDisk(freeGb), `${freeGb.toFixed(0)} GB free on /, ${serverDiskGb.production} needed (${serverDiskGb.test} for a test server)`],
+  ];
+
+  for (const [name, result, detail] of results) {
+    console.log(`${name.padEnd(7)} ${result.padEnd(8)} ${detail}`);
+  }
+
+  if (results.some(([, result]) => result === 'failed')) {
+    fail('This server cannot run Vinci (install.md, Before you start).');
+  }
+
+  if (results.some(([, result]) => result === 'warning')) {
+    console.log('Warnings: fine for a test server, not for a team\'s production install.');
   }
 }
 
@@ -2860,7 +2964,7 @@ function firewallCheck(restored: string[], bypassed: string[]) {
   console.log('Firewall on: rules in place.');
 }
 
-const commands = { images, cloudflare, apply, status: stackStatus, backup, nightly, restore, purge, provisioner, firewall, disks: disksCommand };
+const commands = { images, cloudflare, check, apply, status: stackStatus, backup, nightly, restore, purge, provisioner, firewall, disks: disksCommand };
 const command = process.argv[2] ?? '';
 
 try {
@@ -2870,6 +2974,7 @@ try {
       '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
       '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
       'On the server, in /opt/vinci:',
+      '  bun deploy.ts check                     the server requirements: memory, disk, CPU and Ubuntu version',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',
       '  bun deploy.ts status                    each person\'s daemon and sandbox: running, starting or stopped',
       '  bun deploy.ts backup <id>               copy one person\'s volume to backups/',

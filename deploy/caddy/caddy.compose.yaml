@@ -1,0 +1,122 @@
+# The edge of a team install that logs people in with Vinci accounts (VINCI_AUTH=laravel) instead of Cloudflare Access:
+# the counterpart of deploy/cloudflare/cloudflared.compose.yaml, loaded in its place through COMPOSE_FILE in .env.
+# Caddy publishes 80 and 443 with an automatic certificate for VINCI_PUBLIC_HOST, sends /cdn-cgi/access/* to the
+# Laravel API (the login pages and the key the hub trusts) and everything else to the hub. Laravel plays Cloudflare
+# Access: it signs the CF_Authorization cookie, and the hub verifies it with the key at ACCESS_TEAM_DOMAIN
+# (http://api:8080). The Caddyfile is inline below, so this is the only file the mode adds to /opt/vinci.
+x-logging: &logging
+  options:
+    max-size: 10m
+    max-file: '3'
+
+services:
+  caddy:
+    image: caddy:2.11.9-alpine
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    read_only: true
+    tmpfs:
+      - /config:rw,nosuid,nodev,noexec,size=1m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 64
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8099/]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+    volumes:
+      # Certificates and the ACME account: kept, so a restart does not ask Let's Encrypt again.
+      - caddy-data:/data
+    networks:
+      # The hub, and the internet for certificates.
+      tunnel: {}
+      # The API's login pages.
+      login: {}
+
+  hub:
+    environment:
+      # The admin panel adds, resets and removes login accounts through the API's /internal/users routes.
+      HUB_ACCOUNTS_URL: http://api:8080
+      HUB_ACCOUNTS_TOKEN: ${API_INTERNAL_TOKEN:?set API_INTERNAL_TOKEN in .env}
+    networks:
+      accounts: {}
+
+  api:
+    environment:
+      APP_KEY: ${API_APP_KEY:?set API_APP_KEY in .env}
+      APP_URL: https://${VINCI_PUBLIC_HOST:?set VINCI_PUBLIC_HOST in .env}
+      API_INTERNAL_TOKEN: ${API_INTERNAL_TOKEN:?set API_INTERNAL_TOKEN in .env}
+      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
+      ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
+    networks:
+      login: {}
+      accounts: {}
+
+configs:
+  caddyfile:
+    content: |
+      {
+        admin off
+      }
+
+      # The health check only, inside the container.
+      http://127.0.0.1:8099 {
+        bind 127.0.0.1
+        respond "ok"
+      }
+
+      ${VINCI_PUBLIC_HOST} {
+        # Only the login pages set identity; a visitor's own Access headers never reach the hub.
+        request_header -Cf-Access-*
+
+        # The hub's account routes on the API are never public.
+        @internal path /internal /internal/*
+        handle @internal {
+          respond 404
+        }
+
+        handle /cdn-cgi/access/* {
+          reverse_proxy api:8080
+        }
+
+        # No login cookie: the API answers with a redirect to the login page that returns here after login. The hub's
+        # icons stay public, as with Cloudflare Access.
+        @anonymous {
+          not header_regexp Cookie (^|;\s*)CF_Authorization=
+          not path /favicon.ico /img/favicon/*
+        }
+        handle @anonymous {
+          rewrite * /cdn-cgi/access/required
+          reverse_proxy api:8080 {
+            header_up X-Vinci-Original-Uri {http.request.orig_uri}
+          }
+        }
+
+        handle {
+          reverse_proxy hub:47192
+        }
+      }
+
+networks:
+  # The edge and the hub. Not internal: Caddy gets its certificates from Let's Encrypt.
+  tunnel: {}
+  # Caddy and the API only. No internet.
+  login:
+    internal: true
+  # The hub and the API only: the hub fetches the login key and manages accounts. No internet, no PostgreSQL.
+  accounts:
+    internal: true
+
+volumes:
+  caddy-data: {}
