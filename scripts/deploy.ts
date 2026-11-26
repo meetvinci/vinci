@@ -1107,8 +1107,8 @@ async function nightlyBackup(folder: string, startedAt: Date, signal: AbortSigna
 }
 
 // Everyone one at a time (each person's daemon is down only for their own copy), then the API's database, then the hub
-// folder with the hub stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and whole: a folder
-// without it is an unfinished run. A signal stops the run before the next stop.
+// folder with the hub stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and
+// whole: a folder without it is an unfinished run. A signal stops the run before the next stop.
 async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
   const current = team();
   const people: [string, Person][] = [known(templateId), ...current.users];
