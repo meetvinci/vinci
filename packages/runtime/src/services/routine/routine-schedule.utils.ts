@@ -31,8 +31,16 @@ export function routineScheduleAssertFuture(schedule: RoutineSchedule, now: numb
     .with({ kind: 'once', runAt: P.number.lt(now - ROUTINE.pastRunAtGraceMs) }, ({ runAt }) => {
       throw new Errors.VALIDATION_ERROR({
         fields: { schedule: { message: 'validation_routine_run_at' } },
-        internal: `runAt ${new Date(runAt).toISOString()} is in the past (now ${new Date(now).toISOString()}); give runAt in epoch milliseconds`,
+        internal: routineScheduleRunAtHint(runAt, now),
       });
     })
     .otherwise(() => undefined);
+}
+
+function routineScheduleRunAtHint(runAt: number, now: number) {
+  const past = `runAt ${runAt} is ${new Date(runAt).toISOString()}, in the past. Now is ${now} (${new Date(now).toISOString()}): runAt is epoch milliseconds.`;
+
+  return match(runAt)
+    .with(P.number.lt(ROUTINE.secondsRunAtBelow), () => `${past} It looks like seconds: ${runAt * 1000} would be ${new Date(runAt * 1000).toISOString()}.`)
+    .otherwise(() => past);
 }
