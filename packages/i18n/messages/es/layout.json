@@ -35,6 +35,7 @@
   "layout_scroll_more_left": "Más ←",
   "layout_scroll_more_right": "Más →",
   "layout_disconnect": "Desconectar este dispositivo",
+  "layout_sign_out": "Cerrar sesión",
   "layout_connected": "Conectado",
   "layout_unreachable": "No se puede acceder al daemon"
 }

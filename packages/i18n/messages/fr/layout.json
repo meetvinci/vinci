@@ -35,6 +35,7 @@
   "layout_scroll_more_left": "Plus ←",
   "layout_scroll_more_right": "Plus →",
   "layout_disconnect": "Déconnecter cet appareil",
+  "layout_sign_out": "Se déconnecter",
   "layout_connected": "Connecté",
   "layout_unreachable": "Le daemon est injoignable"
 }

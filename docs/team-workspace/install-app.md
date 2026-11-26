@@ -41,6 +41,10 @@ One device gets each notification, so your phone and computer do not ring togeth
 
 Muted chats never notify. Tapping a notification opens that chat; a waiting approval or question is at the bottom.
 
+## Sign out
+
+Open the menu under your name at the bottom of the sidebar and choose **Sign out**. It removes this device from **Settings → Devices** and ends your login in this browser; on a shared computer, do this before you leave.
+
 ## If notifications do not arrive
 
 **Settings → General → Notifications** says what it can:

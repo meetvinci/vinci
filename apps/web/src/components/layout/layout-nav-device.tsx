@@ -12,6 +12,7 @@ import { localeChoice, localeChoose, localeSystem } from '@/services/locale/loca
 import { LOCALE_FLAGS } from '@/services/locale/locale.constants';
 import { rpc } from '@/services/rpc/rpc.client';
 import { teamQuery } from '@/services/team/team.client';
+import { TEAM } from '@/services/team/team.constants';
 import BrandsLogo from '~icons/brands/logo';
 import LucideChevronsUpDown from '~icons/lucide/chevrons-up-down';
 import IconLanguages from '~icons/lucide/languages';
@@ -86,7 +87,7 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
   async function disconnect() {
     await rpc.devices.revoke.call({ id: connection.deviceId }).catch(() => undefined);
     await connectionForget();
-    location.assign('/connect');
+    location.assign(team ? TEAM.signOutPath : '/connect');
   }
 
   return (
@@ -136,7 +137,7 @@ export function LayoutNavDevice({ connection }: LayoutNavDeviceProps) {
             <DropdownMenu.DropdownMenuSeparator />
             <DropdownMenu.DropdownMenuItem onSelect={() => void disconnect()}>
               <IconLogOut className="size-4" />
-              <span className="flex-1">{m.layout_disconnect()}</span>
+              <span className="flex-1">{team ? m.layout_sign_out() : m.layout_disconnect()}</span>
             </DropdownMenu.DropdownMenuItem>
             {hydrated && window.__electrobunSendToHost ? (
               <DropdownMenu.DropdownMenuItem onSelect={() => window.__electrobunSendToHost?.({ quit: true })}>
