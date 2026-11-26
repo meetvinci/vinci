@@ -4,13 +4,16 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 
 // Rebuilds one of Vinci's Hetzner test servers from deploy/cloud-init/user-data.yaml and checks the install from
-// outside, logging in as the admin. Only the servers below, both disposable: a rebuild wipes the disk.
-const SERVERS: Partial<Record<string, string>> = {
-  'test-server-1': '203.0.113.1',
-  'test-server-2': '203.0.113.2',
-};
+// outside, logging in as the admin. Only the servers named in TEST_SERVERS (`name=address,name=address`, in the
+// untracked .env), all disposable: a rebuild wipes the disk.
+const SERVERS: Partial<Record<string, string>> = Object.fromEntries(
+  (process.env.TEST_SERVERS ?? '')
+    .split(',')
+    .map((entry) => entry.trim().split('='))
+    .filter(([name, address]) => name && address),
+);
 
-const HCLOUD = ['hcloud', '--context', 'example'];
+const HCLOUD = ['hcloud', ...(process.env.TEST_SERVERS_HCLOUD_CONTEXT ? ['--context', process.env.TEST_SERVERS_HCLOUD_CONTEXT] : [])];
 const IMAGE = 'ubuntu-26.04';
 const REGISTRY = 'ghcr.io/meetvinci/';
 const IMAGES = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall', 'api'];
@@ -66,7 +69,7 @@ function serverIp(server: string): string {
   const ip = SERVERS[server];
 
   if (ip === undefined) {
-    fail(`Unknown test server ${server || '(none)'}. Choose from ${Object.keys(SERVERS).join(', ')}.`);
+    fail(`Unknown test server ${server || '(none)'}. Choose from ${Object.keys(SERVERS).join(', ') || 'none: set TEST_SERVERS in .env'}.`);
   }
 
   return ip;
