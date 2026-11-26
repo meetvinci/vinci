@@ -31,7 +31,7 @@ export const runtimeBotConversations = defineDocFamily<RuntimeBotBinding, null>(
 
 export const RUNTIME_MAX_MODEL_REQUESTS = 4;
 
-export const RUNTIME_MODEL_STALL = { timeoutMs: 90_000, retries: 1 } as const;
+export const RUNTIME_MODEL_STALL = { timeoutMs: 180_000, retries: 1 } as const;
 
 export const RUNTIME_TOOL_GUARD = {
   maxRepeatedFailures: 3,
