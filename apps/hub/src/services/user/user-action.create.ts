@@ -1,7 +1,7 @@
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { USER } from './user.constants';
-import { userNewId } from './user.utils';
+import { userAccountPut, userAccountUndo, userNewId } from './user.utils';
 import type * as UserTypes from '../../types/user.types';
 
 export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, email, by }: Omit<UserTypes.UserCreateParams, 'bots'>): Promise<UserTypes.UserChanged> {
@@ -13,7 +13,20 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
     }
 
     const id = userNewId(name, email, new Set([...users.map((user) => user.id), ...deps.daemons.queries.pinned(), ...USER.reservedIds]));
-    const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true, advanced: false } });
+
+    const target = {
+      email,
+      userId: id,
+      by,
+    };
+
+    const account = await userAccountPut(deps, { ...target, name });
+
+    const access = await deps.provisioner.actions.put({ user: { id, name, email, enabled: true, advanced: false } }).catch(async (error: unknown) => {
+      await userAccountUndo(deps, { ...target, account });
+      throw error;
+    });
+
     const listed = (await deps.provisioner.queries.list()).find((user) => user.id === id);
 
     log.info({
@@ -22,13 +35,14 @@ export async function userActionCreate(deps: UserTypes.UserServiceDeps, { name, 
       by,
       user: id,
       access,
+      account: account?.created ?? null,
     });
 
     if (!listed) {
       throw new Errors.INTERNAL_ERROR({ internal: `The provisioner did not list ${id} after creating it` });
     }
 
-    return { ...listed, access };
+    return { ...listed, access, password: account?.password };
   });
 
   deps.state.creating = created.then(() => undefined, () => undefined);

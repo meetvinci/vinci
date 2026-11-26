@@ -10,6 +10,11 @@ export interface AdminNoticeParams extends AdminNotice {
   access: UniversalTypes.AdminAccess | undefined
 }
 
+export interface AdminUserCreated {
+  user: UniversalTypes.AdminUser
+  password: string
+}
+
 export interface AdminRpcParams {
   userId: string
 }

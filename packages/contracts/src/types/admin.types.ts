@@ -26,6 +26,7 @@ export const adminUserList = z.object({
   users: z.array(adminUser.extend({ access: adminAccessState })),
   accessMode: adminAccessMode,
   accessDomains: z.array(z.string()).optional(),
+  hasAccounts: z.boolean(),
 });
 
 export const adminTemplateId = 'template';
@@ -36,7 +37,11 @@ export const adminUserCreate = z.object({
   bots: z.array(z.uuid()).max(50).optional(),
 });
 
-export const adminChangeResult = z.object({ access: adminAccess.optional() });
+export const adminChangeResult = z.object({ access: adminAccess.optional(), password: z.string().min(1).optional() });
+
+export const adminPassword = z.object({ password: z.string().min(1) });
+
+export const adminAccountsRefusal = z.object({ error: z.literal('accounts_unavailable') });
 
 export const adminOutsideInput = z.strictObject({ botId: z.uuid(), conversationId: z.number().int().positive() });
 

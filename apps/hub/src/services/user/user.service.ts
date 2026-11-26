@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { userActionCreate } from './user-action.create';
+import { userActionPassword } from './user-action.password';
 import { userActionReload } from './user-action.reload';
 import { userActionRemove } from './user-action.remove';
 import { userActionUpdate } from './user-action.update';
@@ -36,6 +37,7 @@ export async function makeUserService({ directory, ...services }: UserTypes.User
       create: (input) => userActionCreate(deps, input),
       update: (input) => userActionUpdate(deps, input),
       remove: (input) => userActionRemove(deps, input),
+      password: (input) => userActionPassword(deps, input),
       reload: () => userActionReload(deps),
     },
   };

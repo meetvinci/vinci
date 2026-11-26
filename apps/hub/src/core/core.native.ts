@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { match, P } from 'ts-pattern';
 import { makeAccessService } from '../services/access/access.service';
+import { makeAccountsService } from '../services/accounts/accounts.service';
 import { makeAdminService } from '../services/admin/admin.service';
 import { makeAuditService } from '../services/audit/audit.service';
 import { makeDaemonService } from '../services/daemon/daemon.service';
@@ -42,14 +43,33 @@ export async function coreNativeRun(): Promise<void> {
     throw new Errors.INTERNAL_ERROR({ internal: 'PROVISIONER_TOKEN is required with PROVISIONER_URL' });
   }
 
+  if (env.HUB_ACCOUNTS_URL && !env.HUB_ACCOUNTS_TOKEN) {
+    throw new Errors.INTERNAL_ERROR({ internal: 'HUB_ACCOUNTS_TOKEN is required with HUB_ACCOUNTS_URL' });
+  }
+
   const directory = resolve(env.HUB_DATA_DIR.replace(/^~(?=\/|$)/u, homedir()));
   const daemons = await makeDaemonService({ directory });
   const provisioner = makeProvisionerService({ url: env.PROVISIONER_URL, token: env.PROVISIONER_TOKEN });
+  const audit = makeAuditService({ directory });
+
+  const accounts = makeAccountsService({
+    url: env.HUB_ACCOUNTS_URL,
+    token: env.HUB_ACCOUNTS_TOKEN,
+    audit,
+  });
+
+  const admins = await makeAdminService({
+    directory,
+    seed: env.HUB_ADMIN_EMAILS,
+    provisioner,
+  });
 
   const users = await makeUserService({
     directory,
     provisioner,
     daemons,
+    accounts,
+    admins,
   });
 
   const services: CoreTypes.CoreServices = {
@@ -62,13 +82,10 @@ export async function coreNativeRun(): Promise<void> {
       daemons,
     }),
     pairing: makePairingService({ daemons }),
-    admins: await makeAdminService({
-      directory,
-      seed: env.HUB_ADMIN_EMAILS,
-      provisioner,
-    }),
+    admins,
     provisioner,
-    audit: makeAuditService({ directory }),
+    accounts,
+    audit,
   };
 
   const stopped = new Promise<void>((done) => {
@@ -91,6 +108,7 @@ export async function coreNativeRun(): Promise<void> {
     port: server.port,
     web: env.HUB_WEB_URL,
     provisioner: env.PROVISIONER_URL ?? null,
+    accounts: env.HUB_ACCOUNTS_URL ?? null,
     publicUrl: publicUrl.origin,
   });
 

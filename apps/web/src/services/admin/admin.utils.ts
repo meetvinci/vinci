@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/client';
-import { adminRelayRefusal, adminSectionId } from '@repo/contracts/universal';
+import { adminAccountsRefusal, adminRelayRefusal, adminSectionId } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { m } from '@repo/i18n/client';
 import { linkOptions } from '@tanstack/react-router';
@@ -157,6 +157,7 @@ export function adminProblem({ error, failed }: AdminTypes.AdminProblemParams): 
     .with(P.instanceOf(ORPCError), (failure) => match(failure.code)
       .with('UNAUTHORIZED', () => m.admin_signed_out())
       .with('FORBIDDEN', () => m.admin_forbidden())
+      .with('ACCOUNTS_UNAVAILABLE', () => m.admin_accounts_failed())
       .otherwise(() => failed))
     .otherwise(() => failed);
 }
@@ -171,6 +172,10 @@ export async function adminRequest<T>({ path, schema, method = 'GET', body }: Ad
   });
 
   if (!response.ok) {
+    if (response.status === 502 && adminAccountsRefusal.safeParse(await response.json().catch(() => null)).success) {
+      throw new Errors.ACCOUNTS_UNAVAILABLE({ internal: `Admin API ${method} ${path}: the accounts service failed` });
+    }
+
     throw match(response.status)
       .with(0, 401, () => new Errors.UNAUTHORIZED({ internal: `Admin API ${method} ${path}: signed out` }))
       .with(403, () => new Errors.FORBIDDEN({ internal: `Admin API ${method} ${path}` }))

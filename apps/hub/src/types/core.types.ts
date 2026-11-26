@@ -1,4 +1,5 @@
 import type { AccessService } from '../services/access/access.service';
+import type { AccountsService } from '../services/accounts/accounts.service';
 import type { AuditService } from '../services/audit/audit.service';
 import type { PairingService } from '../services/pairing/pairing.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
@@ -17,6 +18,7 @@ export interface CoreServices {
   pairing: PairingService;
   admins: AdminService;
   provisioner: ProvisionerService;
+  accounts: AccountsService;
   audit: AuditService;
 }
 
