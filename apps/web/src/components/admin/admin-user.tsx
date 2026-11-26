@@ -11,16 +11,18 @@ import { StatusDot } from '@repo/ui/status-dot';
 import { Switch } from '@repo/ui/switch';
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router';
-import { useId, useTransition } from 'react';
+import { useId, useState, useTransition } from 'react';
 import { match } from 'ts-pattern';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
+import { AdminPassword } from '@/components/admin/admin-password';
 import { AdminUserLimits } from '@/components/admin/admin-user-limits';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useSectionScope } from '@/hooks/use-section-scope';
-import { adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
+import { adminHasAccountsQuery, adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminProblem, adminQueriesStatus, adminStateLabel } from '@/services/admin/admin.utils';
 import IconActivity from '~icons/lucide/activity';
 import IconChevronRight from '~icons/lucide/chevron-right';
+import IconKeyRound from '~icons/lucide/key-round';
 import IconTrash from '~icons/lucide/trash-2';
 import type { AdminQueriesStatus } from '@/types/admin.types';
 import type { AdminUser as AdminUserData } from '@repo/contracts/universal';
@@ -101,11 +103,14 @@ interface AdminUserActionsProps {
 function AdminUserActions({ user }: AdminUserActionsProps) {
   const queryClient = useQueryClient();
   const notice = useAdminNotice();
+  const { data: hasAccounts } = useSuspenseQuery(adminHasAccountsQuery());
+  const [password, setPassword] = useState<string | null>(null);
 
   const toggle = useMutation({
     mutationFn: adminUpdateUser,
     meta: { success: user.enabled ? m.admin_user_login_turned_off() : m.admin_user_login_turned_on() },
-    onSuccess: async ({ access }, { enabled }) => {
+    onSuccess: async ({ access, password: created }, { enabled }) => {
+      setPassword(created ?? null);
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
       notice({
         access,
@@ -127,6 +132,18 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
       >
         {user.enabled ? m.admin_user_login_turn_off() : m.admin_user_login_turn_on()}
       </ButtonLoading>
+      {hasAccounts ? (
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+        >
+          <Link params={{ userId: user.id }} to="/admin/users/$userId/password">
+            <IconKeyRound />
+            {m.admin_password_reset()}
+          </Link>
+        </Button>
+      ) : null}
       <Button
         asChild
         size="sm"
@@ -147,6 +164,14 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
           {m.admin_user_remove()}
         </Link>
       </Button>
+      {password ? (
+        <AdminPassword
+          email={user.email}
+          password={password}
+          title={m.admin_password_created_title({ name: user.name })}
+          onDone={() => setPassword(null)}
+        />
+      ) : null}
     </>
   );
 }

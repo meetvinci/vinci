@@ -67,6 +67,9 @@ services:
       HUB_VERSION: ${VINCI_TAG}
       PROVISIONER_URL: http://provisioner:47193
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
+      # Set only when VINCI_AUTH=laravel: the panel creates and resets login accounts in apps/api.
+      HUB_ACCOUNTS_URL: ${HUB_ACCOUNTS_URL:-}
+      HUB_ACCOUNTS_TOKEN: ${API_INTERNAL_TOKEN:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./hub:/data

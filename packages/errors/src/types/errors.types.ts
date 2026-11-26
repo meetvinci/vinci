@@ -44,6 +44,7 @@ export const errorSchemas = {
   },
   SERVER_MISMATCH: { message: 'This address belongs to a different server', status: 409, reportable: false },
   SERVER_UNREACHABLE: { message: "Can't reach your server", status: 503, reportable: false },
+  ACCOUNTS_UNAVAILABLE: { message: "Can't reach the login accounts service", status: 502, reportable: false },
   SANDBOX_UNAVAILABLE: {
     message: 'Bot tools are off: the sandbox where they run is not running, and they never run anywhere else. Ask your admin to check it (bun deploy.ts status on the server).',
     status: 503,

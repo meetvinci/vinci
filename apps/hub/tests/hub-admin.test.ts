@@ -176,6 +176,7 @@ describe('admin users', () => {
         },
       ],
       accessMode: 'emails',
+      hasAccounts: false,
     });
     expect(carol.json).toEqual({
       id: 'carol-doe',

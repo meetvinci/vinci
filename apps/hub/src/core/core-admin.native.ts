@@ -88,6 +88,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
       return Response.json({
         users: users.map((user) => ({ ...user, access: provisionerAccessOf({ rule, email: user.email }) })),
         accessMode,
+        hasAccounts: services.accounts.queries.isConfigured(),
         ...body,
       }, { headers: NO_STORE });
     })
@@ -104,6 +105,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
       attachmentId,
       isPoster: true,
     }))
+    .with({ method: 'POST', segments: ['users', P.string, 'password'] }, async ({ segments: [, id] }) => Response.json(await services.users.actions.password({ id, by }), { headers: NO_STORE }))
     .with({ method: 'POST', segments: ['users', P.string, 'outside'] }, async ({ segments: [, id] }) => coreAuditOutside(services, context, { target: await coreAdminBody(request, adminOutsideInput), user: await coreAdminTarget(services, id) }))
     .with({ method: 'POST', segments: ['users', P.string, 'rpc', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminRpc(services, context, { id, procedure: rest.join('/') }))
     .with({ method: 'GET', segments: ['global'] }, async () => Response.json(await services.global.queries.global(), { headers: NO_STORE }))

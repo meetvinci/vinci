@@ -11,10 +11,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AdminBotChecklist } from '@/components/admin/admin-bot-checklist';
+import { AdminPassword } from '@/components/admin/admin-password';
 import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useAdminTemplateBots } from '@/hooks/use-admin-template-bots';
 import { adminCreateUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminBotCopyProblem, adminBotCopySkipped, adminProblem } from '@/services/admin/admin.utils';
+import type { AdminUserCreated } from '@/types/admin.types';
 import type { AdminUser } from '@repo/contracts/universal';
 
 interface AdminUserCreateProps {
@@ -28,6 +30,7 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
   const templateBots = useAdminTemplateBots();
   const suggested = templateBots.data ?? [];
   const [skipped, setSkipped] = useState<string[]>([]);
+  const [created, setCreated] = useState<AdminUserCreated | null>(null);
   const bots = suggested.map((bot) => bot.id).filter((id) => !skipped.includes(id));
 
   const form = useForm({
@@ -38,7 +41,7 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
   const create = useMutation({
     mutationFn: adminCreateUser,
     meta: { success: m.admin_user_created() },
-    onSuccess: async ({ access, bots: copies = [], ...user }) => {
+    onSuccess: async ({ access, password, bots: copies = [], ...user }) => {
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
       const failed = adminBotCopyProblem({ copies, bots: suggested });
       const leftOut = adminBotCopySkipped({ copies, bots: suggested });
@@ -56,9 +59,26 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
         email: user.email,
         change: 'add',
       });
+
+      if (password) {
+        setCreated({ user, password });
+        return;
+      }
+
       onCreated(user);
     },
   });
+
+  if (created) {
+    return (
+      <AdminPassword
+        email={created.user.email}
+        password={created.password}
+        title={m.admin_password_created_title({ name: created.user.name })}
+        onDone={() => onCreated(created.user)}
+      />
+    );
+  }
 
   return (
     <Dialog open onOpenChange={(open) => !create.isPending && onOpenChange(open)}>

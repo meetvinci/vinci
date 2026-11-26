@@ -1,6 +1,9 @@
 import { adminTemplateId } from '@repo/contracts/universal';
 import { z } from 'zod';
+import type { AccountsService } from '../services/accounts/accounts.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
+import type { AccountsPut } from './accounts.types';
+import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
 import type { ProvisionerAccess, ProvisionerUser } from './provisioner.types';
 
@@ -54,6 +57,8 @@ export interface UserServiceParams {
   directory: string;
   provisioner: ProvisionerService;
   daemons: DaemonService;
+  accounts: AccountsService;
+  admins: AdminService;
 }
 
 export interface UserServiceDeps extends Omit<UserServiceParams, 'directory'> {
@@ -91,8 +96,26 @@ export interface UserRemoveParams {
   by: string;
 }
 
+export type UserPasswordParams = UserRemoveParams;
+
+export interface UserAccountParams {
+  email: string;
+  name: string;
+  userId: string;
+  by: string;
+}
+
+export interface UserAccountUndoParams extends Omit<UserAccountParams, 'name'> {
+  account: AccountsPut | null;
+}
+
 export interface UserChanged extends ProvisionerUser {
   access: ProvisionerAccess;
+  password?: string;
+}
+
+export interface UserPassword {
+  password: string;
 }
 
 export interface UserRemoved {
@@ -110,6 +133,7 @@ export interface UserService {
     create: (params: Omit<UserCreateParams, 'bots'>) => Promise<UserChanged>;
     update: (params: UserUpdateParams) => Promise<UserChanged>;
     remove: (params: UserRemoveParams) => Promise<UserRemoved>;
+    password: (params: UserPasswordParams) => Promise<UserPassword>;
     reload: () => Promise<void>;
   };
 }

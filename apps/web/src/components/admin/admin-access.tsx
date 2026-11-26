@@ -1,7 +1,9 @@
 import { m } from '@repo/i18n/client';
 import { Alert, AlertDescription } from '@repo/ui/alert';
 import { Badge } from '@repo/ui/badge';
+import { useQuery } from '@tanstack/react-query';
 import { match } from 'ts-pattern';
+import { adminHasAccountsQuery } from '@/services/admin/admin.client';
 import IconCircleCheck from '~icons/lucide/circle-check';
 import IconCircleHelp from '~icons/lucide/circle-help';
 import IconGlobe from '~icons/lucide/globe';
@@ -15,6 +17,12 @@ interface AdminAccessProps {
 }
 
 export function AdminAccess({ access, isEnabled = true }: AdminAccessProps) {
+  const { data: hasAccounts = false } = useQuery(adminHasAccountsQuery());
+
+  if (hasAccounts) {
+    return null;
+  }
+
   return match({ access, isEnabled })
     .with({ access: 'not-allowed', isEnabled: true }, () => (
       <Badge title={m.admin_access_not_allowed_hint()} variant="warning">
@@ -52,6 +60,12 @@ interface AdminAccessNoticeProps {
 }
 
 export function AdminAccessNotice({ domains, isUnknown }: AdminAccessNoticeProps) {
+  const { data: hasAccounts = false } = useQuery(adminHasAccountsQuery());
+
+  if (hasAccounts) {
+    return null;
+  }
+
   return (
     <>
       {domains && domains.length > 0 ? (

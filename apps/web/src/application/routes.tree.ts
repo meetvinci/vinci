@@ -44,6 +44,7 @@ import { Route as adminAdminDotusersDotuserIdDotindexRouteImport } from "./../ro
 import { Route as adminAdminDotusersDotuserIdDotbotsRouteImport } from "./../routes/admin/admin.users.$userId.bots";
 import { Route as adminAdminDotusersDotuserIdDotconversationsRouteImport } from "./../routes/admin/admin.users.$userId.conversations";
 import { Route as adminAdminDotusersDotuserIdDotdevicesRouteImport } from "./../routes/admin/admin.users.$userId.devices";
+import { Route as adminAdminDotusersDotuserIdDotpasswordRouteImport } from "./../routes/admin/admin.users.$userId.password";
 import { Route as adminAdminDotusersDotuserIdDotremoveRouteImport } from "./../routes/admin/admin.users.$userId.remove";
 import { Route as adminAdminDotusersDotuserIdDotsettingsRouteImport } from "./../routes/admin/admin.users.$userId.settings";
 import { Route as adminAdminDotusersDotuserIdDotstatusRouteImport } from "./../routes/admin/admin.users.$userId.status";
@@ -269,6 +270,12 @@ const adminAdminDotusersDotuserIdDotdevicesRoute =
   adminAdminDotusersDotuserIdDotdevicesRouteImport.update({
     id: "/devices",
     path: "/devices",
+    getParentRoute: () => adminAdminDotusersDotuserIdRoute,
+  } as any);
+const adminAdminDotusersDotuserIdDotpasswordRoute =
+  adminAdminDotusersDotuserIdDotpasswordRouteImport.update({
+    id: "/password",
+    path: "/password",
     getParentRoute: () => adminAdminDotusersDotuserIdRoute,
   } as any);
 const adminAdminDotusersDotuserIdDotremoveRoute =
@@ -527,6 +534,7 @@ export interface FileRoutesByFullPath {
   "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
   "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/password": typeof adminAdminDotusersDotuserIdDotpasswordRoute;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
   "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
@@ -592,6 +600,7 @@ export interface FileRoutesByTo {
   "/admin/admins/$email/remove": typeof adminAdminDotadminsDotemailDotremoveRoute;
   "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/password": typeof adminAdminDotusersDotuserIdDotpasswordRoute;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
   "/bots/$botId": typeof botsBotsDotbotIdDotindexRoute;
@@ -664,6 +673,7 @@ export interface FileRoutesById {
   "/admin/users/$userId/bots": typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
   "/admin/users/$userId/conversations": typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   "/admin/users/$userId/devices": typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  "/admin/users/$userId/password": typeof adminAdminDotusersDotuserIdDotpasswordRoute;
   "/admin/users/$userId/remove": typeof adminAdminDotusersDotuserIdDotremoveRoute;
   "/admin/users/$userId/settings": typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
   "/admin/users/$userId/status": typeof adminAdminDotusersDotuserIdDotstatusRoute;
@@ -738,6 +748,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/bots"
     | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/password"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
     | "/admin/users/$userId/status"
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | "/admin/admins/$email/remove"
     | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/password"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/status"
     | "/bots/$botId"
@@ -874,6 +886,7 @@ export interface FileRouteTypes {
     | "/admin/users/$userId/bots"
     | "/admin/users/$userId/conversations"
     | "/admin/users/$userId/devices"
+    | "/admin/users/$userId/password"
     | "/admin/users/$userId/remove"
     | "/admin/users/$userId/settings"
     | "/admin/users/$userId/status"
@@ -1169,6 +1182,13 @@ declare module "@tanstack/react-router" {
       path: "/devices";
       fullPath: "/admin/users/$userId/devices";
       preLoaderRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteImport;
+      parentRoute: typeof adminAdminDotusersDotuserIdRoute;
+    };
+    "/admin/users/$userId/password": {
+      id: "/admin/users/$userId/password";
+      path: "/password";
+      fullPath: "/admin/users/$userId/password";
+      preLoaderRoute: typeof adminAdminDotusersDotuserIdDotpasswordRouteImport;
       parentRoute: typeof adminAdminDotusersDotuserIdRoute;
     };
     "/admin/users/$userId/remove": {
@@ -1744,6 +1764,7 @@ interface adminAdminDotusersDotuserIdRouteChildren {
   adminAdminDotusersDotuserIdDotbotsRoute: typeof adminAdminDotusersDotuserIdDotbotsRouteWithChildren;
   adminAdminDotusersDotuserIdDotconversationsRoute: typeof adminAdminDotusersDotuserIdDotconversationsRouteWithChildren;
   adminAdminDotusersDotuserIdDotdevicesRoute: typeof adminAdminDotusersDotuserIdDotdevicesRouteWithChildren;
+  adminAdminDotusersDotuserIdDotpasswordRoute: typeof adminAdminDotusersDotuserIdDotpasswordRoute;
   adminAdminDotusersDotuserIdDotremoveRoute: typeof adminAdminDotusersDotuserIdDotremoveRoute;
   adminAdminDotusersDotuserIdDotsettingsRoute: typeof adminAdminDotusersDotuserIdDotsettingsRouteWithChildren;
   adminAdminDotusersDotuserIdDotstatusRoute: typeof adminAdminDotusersDotuserIdDotstatusRoute;
@@ -1758,6 +1779,8 @@ const adminAdminDotusersDotuserIdRouteChildren: adminAdminDotusersDotuserIdRoute
       adminAdminDotusersDotuserIdDotconversationsRouteWithChildren,
     adminAdminDotusersDotuserIdDotdevicesRoute:
       adminAdminDotusersDotuserIdDotdevicesRouteWithChildren,
+    adminAdminDotusersDotuserIdDotpasswordRoute:
+      adminAdminDotusersDotuserIdDotpasswordRoute,
     adminAdminDotusersDotuserIdDotremoveRoute:
       adminAdminDotusersDotuserIdDotremoveRoute,
     adminAdminDotusersDotuserIdDotsettingsRoute:

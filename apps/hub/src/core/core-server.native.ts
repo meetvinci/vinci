@@ -122,7 +122,9 @@ async function coreServerHandle(
       .with(502, () => log.error({ ...fields, error }))
       .otherwise(() => log.warn(fields));
 
-    return new Response(null, { status, headers: { 'Cache-Control': 'no-store' } });
+    return match(failure?.code)
+      .with('ACCOUNTS_UNAVAILABLE', () => Response.json({ error: 'accounts_unavailable' }, { status, headers: { 'Cache-Control': 'no-store' } }))
+      .otherwise(() => new Response(null, { status, headers: { 'Cache-Control': 'no-store' } }));
   }
 }
 

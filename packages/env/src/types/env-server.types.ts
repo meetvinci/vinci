@@ -39,4 +39,6 @@ export const envServerSchema = {
     .pipe(z.array(z.email())),
   PROVISIONER_URL: z.url({ protocol: /^https?$/ }).transform((url) => new URL(url).origin).optional(),
   PROVISIONER_TOKEN: z.string().trim().min(16).optional(),
+  HUB_ACCOUNTS_URL: z.url({ protocol: /^https?$/ }).transform((url) => new URL(url).origin).optional(),
+  HUB_ACCOUNTS_TOKEN: z.string().trim().min(16).optional(),
 };

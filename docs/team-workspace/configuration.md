@@ -72,6 +72,8 @@ A required value that is missing stops `docker compose` with a message naming it
 | `HUB_VERSION` | the image tag, `VINCI_TAG` from `.env` (set by Compose) | The version whose start the hub copies the global settings on. A restart on the same version copies nothing (`hub/start-sync.json`). Without it every start copies them. Give each upgrade its own tag: new images under the same tag (such as `latest`) count as the same version, so press *Sync now* after such an upgrade. |
 | `PROVISIONER_URL` | `http://provisioner:47193` (set by Compose) | Where the hub asks for people to be added, changed or removed. Without it (outside Compose) the panel lists people but changes answer 501. |
 | `PROVISIONER_TOKEN` | generated into `.env` at install (set by Compose) | Sent to the provisioner on every call. Required with `PROVISIONER_URL`; the hub won't start without it. Secret. |
+| `HUB_ACCOUNTS_URL` | `http://api:8080` with `VINCI_AUTH=laravel`, unset otherwise (from `.env`, set by Compose) | Where the hub creates, resets and removes login accounts in the Laravel API when people log in with a password. Unset (Cloudflare Access), the panel shows no password controls. |
+| `HUB_ACCOUNTS_TOKEN` | `API_INTERNAL_TOKEN` from `.env` (set by Compose) | Sent to the Laravel API's internal routes on every call. Required with `HUB_ACCOUNTS_URL`; the hub won't start without it. Secret. |
 
 The hub runs as the same user as the daemons (uid 1000), because it talks to their owner sockets.
 
