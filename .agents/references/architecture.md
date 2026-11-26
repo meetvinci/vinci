@@ -177,7 +177,7 @@ apps/daemon/src/
 apps/hub/
 ├── src/entry.native.ts                 the hub entry
 ├── src/core/core.native.ts             startup composition, signals and shutdown
-├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page
+├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page, password change
 ├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner, global, audit
 ├── src/types/<domain>.types.ts         hub schemas, deps and service types
 ├── vitest.config.ts                    only the global setup below
