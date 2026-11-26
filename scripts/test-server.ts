@@ -23,6 +23,8 @@ const LOGIN = '/cdn-cgi/access/login';
 const LOGOUT = '/cdn-cgi/access/logout';
 // A login: the API's Sanctum token, which the hub checks with the API on every request.
 const SESSION_COOKIE = 'vinci_session';
+// How long the hub trusts a checked login (ACCOUNTS.sessionCacheMs in apps/hub), plus a second.
+const SESSION_TRUST_MS = 6000;
 // The daemon's oRPC protocol (packages/contracts, SERVER_PROTOCOL), as the web app speaks it through the hub.
 const RPC_HEADERS = { 'content-type': 'application/json', 'x-bots-protocol': '1' };
 
@@ -279,15 +281,19 @@ async function checkLogin(server: string, host: string, admin: string) {
 
   console.log(`Logged in as the admin: whoami names them as admin, the browser paired with daemon ${identity.serverId}, and the chat's bots.list answers 200`);
 
-  // Logging out ends the login in the API: the same cookie, kept as a copy, no longer gets in.
+  // Logging out ends the login in the API: the same cookie, kept as a copy, no longer gets in once the hub's 5 s trust
+  // in the last check runs out.
   const logout = await fetch(`${origin}${LOGOUT}`, { headers: { cookie: access }, redirect: 'manual' });
+
+  await Bun.sleep(SESSION_TRUST_MS);
+
   const after = await fetch(`${origin}/hub/whoami`, { headers: { cookie: access }, redirect: 'manual' });
 
   if (logout.status !== 302 || after.status !== 401) {
     fail(`Logout answered ${logout.status}; /hub/whoami with the old cookie then answered ${after.status}, not 401.`);
   }
 
-  console.log('Logged out: /hub/whoami with a copy of the old cookie answers 401');
+  console.log('Logged out: /hub/whoami with a copy of the old cookie answers 401 within 6 s');
 }
 
 async function rebuild() {
