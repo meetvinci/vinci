@@ -81,8 +81,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # The checkout as the context (source: .), so .dockerignore applies.
+      # No provenance in the metadata output: on a push it carries the whole event payload, too large for the env of
+      # the next step ("Argument list too long"). The images keep their provenance attestations.
       - name: Build
         id: bake
+        env:
+          BUILDX_METADATA_PROVENANCE: disabled
         uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
         with:
           source: .
