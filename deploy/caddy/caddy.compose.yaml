@@ -1,9 +1,10 @@
 # The edge of a team install that logs people in with Vinci accounts (VINCI_AUTH=laravel) instead of Cloudflare Access:
 # the counterpart of deploy/cloudflare/cloudflared.compose.yaml, loaded in its place through COMPOSE_FILE in .env.
 # Caddy publishes 80 and 443 with an automatic certificate for VINCI_PUBLIC_HOST, sends /cdn-cgi/access/* to the
-# Laravel API (the login pages and the key the hub trusts) and everything else to the hub. Laravel plays Cloudflare
-# Access: it signs the CF_Authorization cookie, and the hub verifies it with the key at ACCESS_TEAM_DOMAIN
-# (http://api:8080). The Caddyfile is inline below (CADDYFILE), so this is the only file the mode adds to /opt/vinci.
+# Laravel API (the login pages) and everything else to the hub. A login is a Sanctum token in the vinci_session cookie;
+# the hub checks it with the API (GET /internal/session, on the accounts network) for every request and every open
+# socket, so a logout or a password change ends it at once. Caddy vouches for nobody: it only sends a visit without the
+# cookie to the login page. The Caddyfile is inline below (CADDYFILE), so this is the only file the mode adds.
 x-logging: &logging
   options:
     max-size: 10m
@@ -49,7 +50,7 @@ services:
         }
 
         ${VINCI_PUBLIC_HOST} {
-          # Only the login pages set identity; a visitor's own Access headers never reach the hub.
+          # The hub trusts no header for identity; a visitor's own Access headers still never reach it.
           request_header -Cf-Access-*
 
           # Browsers keep to HTTPS for a year. Not for subdomains, which may be other people's sites, and not preloaded.
@@ -68,7 +69,7 @@ services:
           # No login cookie: the API answers with a redirect to the login page that returns here after login. The hub's
           # icons stay public, as with Cloudflare Access.
           @anonymous {
-            not header_regexp Cookie (^|;\s*)CF_Authorization=
+            not header_regexp Cookie (^|;\s*)vinci_session=
             not path /favicon.ico /img/favicon/*
           }
           handle @anonymous {
@@ -78,7 +79,7 @@ services:
             }
           }
 
-          # A login cookie the hub refuses (expired after its 7 days, or signed with a key the API no longer has): a page
+          # A login cookie the hub refuses (logged out, ended by a password change or reset, or past its 7 days): a page
           # load goes back to the login page like a visit without the cookie, not to an empty 401. Other requests (the
           # app's RPC, files) keep the 401.
           @page header Sec-Fetch-Mode navigate
@@ -109,7 +110,8 @@ services:
 
   hub:
     environment:
-      # The admin panel adds, resets and removes login accounts through the API's /internal/users routes.
+      # The hub checks each login and a person's own password change through the API's /internal/session routes, and the
+      # admin panel adds, resets and removes accounts through /internal/users.
       HUB_ACCOUNTS_URL: http://api:8080
       HUB_ACCOUNTS_TOKEN: ${API_INTERNAL_TOKEN:?set API_INTERNAL_TOKEN in .env}
     networks:
@@ -120,8 +122,6 @@ services:
       APP_KEY: ${API_APP_KEY:?set API_APP_KEY in .env}
       APP_URL: https://${VINCI_PUBLIC_HOST:?set VINCI_PUBLIC_HOST in .env}
       API_INTERNAL_TOKEN: ${API_INTERNAL_TOKEN:?set API_INTERNAL_TOKEN in .env}
-      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
-      ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
     networks:
       login: {}
       accounts: {}
@@ -132,7 +132,7 @@ networks:
   # Caddy and the API only. No internet.
   login:
     internal: true
-  # The hub and the API only: the hub fetches the login key and manages accounts. No internet, no PostgreSQL.
+  # The hub and the API only: the hub checks logins and manages accounts. No internet, no PostgreSQL.
   accounts:
     internal: true
 

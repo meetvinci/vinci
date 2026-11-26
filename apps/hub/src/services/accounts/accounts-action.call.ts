@@ -1,4 +1,4 @@
-import { Errors } from '@repo/errors/universal';
+import { Errors, errorSchemas, isAppError } from '@repo/errors/universal';
 import { accountsDriverRequest } from './accounts.driver';
 import { accountsRecord } from './accounts.utils';
 import type * as AccountsTypes from '../../types/accounts.types';
@@ -26,7 +26,7 @@ export async function accountsActionCall<T extends z.ZodType>(
 
     return reply;
   } catch (error) {
-    accountsRecord(deps, { ...target, status: 502 });
+    accountsRecord(deps, { ...target, status: isAppError(error) ? errorSchemas[error.code].status : 502 });
 
     throw error;
   }

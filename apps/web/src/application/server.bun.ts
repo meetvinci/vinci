@@ -127,7 +127,7 @@ try {
         return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
       }
 
-      if (env.WEB_HUB_URL && pathname !== HUB_PUBLIC_PATH && Object.keys(connectionAccessHeaders(request.headers)).length === 0) {
+      if (env.WEB_HUB_URL && pathname !== HUB_PUBLIC_PATH && [...connectionAccessHeaders(request.headers).keys()].length === 0) {
         return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
       }
 

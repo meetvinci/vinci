@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\AccessController;
+use App\Accounts\Sessions;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,8 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(using: fn () => require __DIR__.'/../routes/web.php')
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware) {
-        // The hub reads the login token as is.
-        $middleware->encryptCookies(except: [AccessController::COOKIE]);
+        // Sanctum reads the login token as is, also on the routes without the cookie middleware.
+        $middleware->encryptCookies(except: [Sessions::COOKIE]);
+        // No login route to send guests to: an unknown or ended login is a 401 for the hub.
+        $middleware->redirectGuestsTo(fn () => null);
         // Reached only through the edge (Caddy), which sets X-Forwarded-For, and from the hub: the login rate limit
         // counts the visitor's address, not Caddy's.
         $middleware->trustProxies(at: '*');

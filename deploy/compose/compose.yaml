@@ -58,8 +58,9 @@ services:
       start_period: 30s
       start_interval: 1s
     environment:
-      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
-      ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
+      # Cloudflare Access only: with Vinci accounts (caddy.compose.yaml) the hub checks logins with the API instead.
+      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:-}
+      ACCESS_AUD: ${ACCESS_AUD:-}
       HUB_PUBLIC_URL: https://${VINCI_PUBLIC_HOST}
       HUB_WEB_URL: http://web:47190
       HUB_ADMIN_EMAILS: ${HUB_ADMIN_EMAILS:?set HUB_ADMIN_EMAILS in .env}

@@ -33,5 +33,6 @@
   "validation_mcp_http": "Verwende https für {server}: http geht nur für eine IPv4-Adresse mit Port, die auf dem Server in VINCI_INTERNAL_ALLOW steht.",
   "validation_provider_import_prompt": "Dieser Anbieter verlangt mehr als einen API-Schlüssel und seine Einstellungen und kann daher nicht kopiert werden.",
   "validation_workspace_path": "Jede Datei muss in ihrem Ordner bleiben.",
-  "validation_workspace_too_large": "Diese Dateien sind zu groß, um sie auf einmal zu kopieren."
+  "validation_workspace_too_large": "Diese Dateien sind zu groß, um sie auf einmal zu kopieren.",
+  "validation_password_short": "Verwende mindestens {minimum} Zeichen."
 }

@@ -1,4 +1,4 @@
-import { provisionerUsers } from '../../types/provisioner.types';
+import { provisionerRemoved, provisionerUsers } from '../../types/provisioner.types';
 import { provisionerActionChange } from './provisioner-action.change';
 import { provisionerQueryAccess } from './provisioner-query.access';
 import { provisionerDriverRequest } from './provisioner.driver';
@@ -31,6 +31,11 @@ export function makeProvisionerService({ url, token }: ProvisionerTypes.Provisio
         method: 'PUT',
         path: '/access/admins',
         body: { emails },
+      }),
+      forgetFirstPassword: () => provisionerDriverRequest(deps.config, {
+        method: 'DELETE',
+        path: '/admin-password',
+        schema: provisionerRemoved,
       }),
     },
   };

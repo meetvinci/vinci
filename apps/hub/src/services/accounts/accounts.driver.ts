@@ -1,15 +1,27 @@
 import { Errors } from '@repo/errors/universal';
+import { match } from 'ts-pattern';
+import { accountsRefusal } from '../../types/accounts.types';
 import { ACCOUNTS } from './accounts.constants';
 import type * as AccountsTypes from '../../types/accounts.types';
 import type { z } from 'zod';
 
 export async function accountsDriverRequest<T extends z.ZodType>(
   config: AccountsTypes.AccountsConfig,
-  { method, path, body, schema }: AccountsTypes.AccountsRequest<T>,
+  { method, path, body, cookie, schema }: AccountsTypes.AccountsRequest<T>,
 ): Promise<z.output<T>> {
+  const headers = new Headers({
+    'authorization': `Bearer ${config.token}`,
+    'accept': 'application/json',
+    'content-type': 'application/json',
+  });
+
+  if (cookie !== undefined) {
+    headers.set('cookie', cookie);
+  }
+
   const response = await fetch(new URL(path, config.url), {
     method,
-    headers: { 'authorization': `Bearer ${config.token}`, 'accept': 'application/json', 'content-type': 'application/json' },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
     redirect: 'error',
     signal: AbortSignal.timeout(ACCOUNTS.timeoutMs),
@@ -18,8 +30,15 @@ export async function accountsDriverRequest<T extends z.ZodType>(
   });
 
   if (!response.ok) {
-    await response.body?.cancel();
-    throw new Errors.ACCOUNTS_UNAVAILABLE({ internal: `The accounts service answered ${response.status} to ${method} ${path}` });
+    const refusal = accountsRefusal.safeParse(await response.json().catch(() => null)).data;
+    const internal = `The accounts service answered ${response.status} to ${method} ${path}`;
+
+    throw match(response.status)
+      .with(401, () => new Errors.UNAUTHORIZED({ internal }))
+      .with(403, () => new Errors.FORBIDDEN({ internal }))
+      .with(422, () => new Errors.VALIDATION_ERROR({ internal, fields: {} }))
+      .with(429, () => new Errors.RATE_LIMITED({ internal, retryAfter: refusal?.seconds ?? 60 }))
+      .otherwise(() => new Errors.ACCOUNTS_UNAVAILABLE({ internal }));
   }
 
   const parsed = schema.safeParse(await response.json().catch(() => null));

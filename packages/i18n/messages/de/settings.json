@@ -196,5 +196,15 @@
   "settings_managed": "Von deinem Admin verwaltet.",
   "settings_managed_override": "Für mich ändern",
   "settings_managed_override_failed": "Dieser Bereich konnte nicht übernommen werden. Versuche es erneut.",
-  "settings_chat_workspace": "Chat in diesem Workspace"
+  "settings_chat_workspace": "Chat in diesem Workspace",
+  "settings_password": "Passwort",
+  "settings_password_description": "Das Passwort, mit dem du dich anmeldest. Wenn du es änderst, wirst du in allen anderen Browsern abgemeldet.",
+  "settings_password_change": "Passwort ändern",
+  "settings_password_current": "Aktuelles Passwort",
+  "settings_password_new": "Neues Passwort",
+  "settings_password_new_hint": "Mindestens {minimum} Zeichen.",
+  "settings_password_changed": "Passwort geändert. Du bist in allen anderen Browsern abgemeldet.",
+  "settings_password_wrong": "Das aktuelle Passwort ist falsch.",
+  "settings_password_too_many": "Zu viele falsche Passwörter. Versuche es in {minutes} Min. erneut.",
+  "settings_password_failed": "Das Passwort konnte nicht geändert werden. Versuche es erneut."
 }

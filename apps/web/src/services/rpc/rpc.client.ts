@@ -16,7 +16,7 @@ export const rpcClient = createIsomorphicFn()
 
     const { target, access } = await match(env.WEB_HUB_URL)
       .with(P.string, (hub) => ({ target: { url: hub, isMismatch: false }, access: connectionAccessHeaders(request.headers) }))
-      .otherwise(async () => ({ target: await connectionTarget(getRequestHeader('cookie') ?? ''), access: {} }));
+      .otherwise(async () => ({ target: await connectionTarget(getRequestHeader('cookie') ?? ''), access: new Headers() }));
 
     if (target.isMismatch) {
       throw new Errors.SERVER_MISMATCH();
@@ -32,7 +32,7 @@ export const rpcClient = createIsomorphicFn()
       token: () => connection?.token,
       fetch: (url, init) => {
         const headers = new Headers(init.headers);
-        Object.entries(access).forEach(([name, value]) => headers.set(name, value));
+        access.forEach((value, name) => headers.set(name, value));
 
         return fetch(url, {
           ...init,

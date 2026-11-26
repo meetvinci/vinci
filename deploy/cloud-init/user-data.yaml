@@ -3,7 +3,7 @@
 # Render with `bun scripts/test-server.ts render`, or replace the five {{…}} values by hand. Every secret is generated
 # on the server: this file holds none, since the cloud provider keeps user-data in its metadata service.
 # Progress and timings: /var/log/vinci-install.log. Result: /var/log/vinci-install.result, `ok` or `failed: <step>`.
-# The admin's first password: /opt/vinci/admin-password (root only).
+# The admin's first password: /opt/vinci/admin-password (root only), deleted once the admin changes their password.
 write_files:
   - path: /etc/vinci-install.env
     permissions: '0644'
@@ -85,8 +85,6 @@ write_files:
       set_env VINCI_TAG "$VINCI_TAG"
       set_env VINCI_PUBLIC_HOST "$VINCI_HOST"
       set_env HUB_ADMIN_EMAILS "$VINCI_ADMIN"
-      set_env ACCESS_TEAM_DOMAIN http://api:8080
-      set_secret ACCESS_AUD "$(openssl rand -hex 32)"
       set_secret API_APP_KEY "base64:$(openssl rand -base64 32)"
       set_secret API_INTERNAL_TOKEN "$(openssl rand -hex 32)"
       set_secret PROVISIONER_TOKEN "$(openssl rand -hex 32)"
@@ -129,13 +127,12 @@ write_files:
       bun deploy.ts apply
 
       step admin
-      if [ ! -s admin-password ]; then
-        umask 077
-        # --quiet prints the new password alone; it goes to the file, never to this log.
-        docker compose exec -T api php artisan vinci:user "$VINCI_ADMIN" --quiet | tr -d '[:space:]' > admin-password
-        test -s admin-password
-      fi
-      chmod 600 admin-password
+      # --quiet prints the new password alone; it goes to the file, never to this log. --new: an existing account keeps
+      # its password, so running this again never resets it, also after the hub deleted the file because the admin
+      # changed their password.
+      password=$(docker compose exec -T api php artisan vinci:user "$VINCI_ADMIN" --new --quiet | tr -d '[:space:]')
+      umask 077
+      [ -z "$password" ] || printf '%s' "$password" > admin-password
 
       step backups
       bun deploy.ts nightly install

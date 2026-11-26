@@ -11,6 +11,8 @@ const dockerfile = path.join(root, 'deploy/docker/Dockerfile');
 const targets = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall', 'api'];
 const usersFile = 'users.yaml';
 const lockFile = 'users.yaml.lock';
+// The first admin's password, written by cloud-init; the provisioner deletes it once that admin changed theirs.
+const firstPasswordFile = 'admin-password';
 const lockStaleMs = 10 * 60 * 1000;
 const hubData = 'hub';
 // Created once and never recreated by apply: recreating the hub drops every WebSocket, and the provisioner runs apply.
@@ -69,8 +71,6 @@ const deploymentFiles = ['.env', usersFile, 'users.compose.yaml', 'compose.yaml'
 // How people log in, VINCI_AUTH in .env, and the Compose file of each mode's edge: Cloudflare Access through cloudflared
 // (the default), or Vinci accounts in the Laravel API behind Caddy, which publishes 80 and 443 itself.
 const authEdges = { access: 'cloudflared.compose.yaml', laravel: 'caddy.compose.yaml' };
-// In laravel mode the API is the hub's Access issuer, on the network only the two share.
-const laravelIssuer = 'http://api:8080';
 const laravelSecretLength = 32;
 // `check`: what a production server needs, and the least a test server gets away with (a warning, not a failure).
 const serverMemoryGib = 3.7;
@@ -761,17 +761,13 @@ function authCheck() {
     return;
   }
 
-  if (envValue('ACCESS_TEAM_DOMAIN') !== laravelIssuer) {
-    fail(`With VINCI_AUTH=laravel, ACCESS_TEAM_DOMAIN in .env must be ${laravelIssuer}: the hub trusts the key the API serves there.`);
-  }
-
   const missing = [
-    ...['ACCESS_AUD', 'API_INTERNAL_TOKEN'].filter((name) => (envValue(name) ?? '').length < laravelSecretLength),
+    ...((envValue('API_INTERNAL_TOKEN') ?? '').length < laravelSecretLength ? ['API_INTERNAL_TOKEN'] : []),
     ...((envValue('API_APP_KEY') ?? '').startsWith('base64:') ? [] : ['API_APP_KEY']),
   ];
 
   if (missing.length > 0) {
-    fail(`With VINCI_AUTH=laravel, .env needs ${missing.join(', ')}: ACCESS_AUD and API_INTERNAL_TOKEN ${laravelSecretLength} or more random characters, API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
+    fail(`With VINCI_AUTH=laravel, .env needs ${missing.join(', ')}: API_INTERNAL_TOKEN ${laravelSecretLength} or more random characters, API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
   }
 }
 
@@ -2688,6 +2684,15 @@ async function provisioner() {
       const emails = (await readBody(request, ['emails']))?.emails;
 
       return Array.isArray(emails) && emails.length <= 100 && emails.every(isEmail) ? putAdmins(emails) : reply(400, { error: 'Send { emails: [<email>] }.' });
+    }
+
+    // The first admin changed their own password: cloud-init's copy of the first one goes.
+    if (pathname === '/admin-password' && request.method === 'DELETE') {
+      const removed = existsSync(firstPasswordFile);
+
+      rmSync(firstPasswordFile, { force: true });
+
+      return reply(200, { removed });
     }
 
     if (userPath === undefined || !['PUT', 'DELETE'].includes(request.method)) {

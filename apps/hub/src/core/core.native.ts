@@ -23,20 +23,21 @@ const ADOPT_BY = 'apply';
 const ADOPT_CHECK_MS = 2000;
 
 export async function coreNativeRun(): Promise<void> {
-  const settings = {
+  const publicUrl = match(env.HUB_PUBLIC_URL)
+    .with(P.instanceOf(URL), (url) => url)
+    .otherwise(() => {
+      throw new Errors.INTERNAL_ERROR({ internal: 'HUB_PUBLIC_URL is required' });
+    });
+
+  const access = match({
+    accounts: env.HUB_ACCOUNTS_URL,
     teamDomain: env.ACCESS_TEAM_DOMAIN,
     audience: env.ACCESS_AUD,
-    publicUrl: env.HUB_PUBLIC_URL,
-  };
-
-  const { publicUrl, ...access } = match(settings)
-    .with({
-      teamDomain: P.string,
-      audience: P.string,
-      publicUrl: P.instanceOf(URL),
-    }, (required) => required)
+  })
+    .with({ accounts: P.string }, () => null)
+    .with({ teamDomain: P.string, audience: P.string }, ({ teamDomain, audience }) => makeAccessService({ teamDomain, audience }))
     .otherwise(() => {
-      throw new Errors.INTERNAL_ERROR({ internal: 'ACCESS_TEAM_DOMAIN, ACCESS_AUD and HUB_PUBLIC_URL are required' });
+      throw new Errors.INTERNAL_ERROR({ internal: 'ACCESS_TEAM_DOMAIN and ACCESS_AUD are required without HUB_ACCOUNTS_URL' });
     });
 
   if (env.PROVISIONER_URL && !env.PROVISIONER_TOKEN) {
@@ -74,7 +75,7 @@ export async function coreNativeRun(): Promise<void> {
   });
 
   const services: CoreTypes.CoreServices = {
-    access: makeAccessService(access),
+    access,
     users,
     daemons,
     global: await makeGlobalService({

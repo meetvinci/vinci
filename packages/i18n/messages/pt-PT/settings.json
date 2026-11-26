@@ -196,5 +196,15 @@
   "settings_managed": "Gerido pelo seu administrador.",
   "settings_managed_override": "Alterar para mim",
   "settings_managed_override_failed": "Não foi possível assumir esta secção. Tente novamente.",
-  "settings_chat_workspace": "Conversa neste espaço de trabalho"
+  "settings_chat_workspace": "Conversa neste espaço de trabalho",
+  "settings_password": "Palavra-passe",
+  "settings_password_description": "A palavra-passe com que inicia sessão. Ao alterá-la, a sessão termina em todos os outros navegadores.",
+  "settings_password_change": "Alterar palavra-passe",
+  "settings_password_current": "Palavra-passe atual",
+  "settings_password_new": "Nova palavra-passe",
+  "settings_password_new_hint": "Pelo menos {minimum} caracteres.",
+  "settings_password_changed": "Palavra-passe alterada. A sessão terminou em todos os outros navegadores.",
+  "settings_password_wrong": "A palavra-passe atual está errada.",
+  "settings_password_too_many": "Demasiadas palavras-passe erradas. Tente novamente dentro de {minutes} min.",
+  "settings_password_failed": "Não foi possível alterar a palavra-passe. Tente novamente."
 }
