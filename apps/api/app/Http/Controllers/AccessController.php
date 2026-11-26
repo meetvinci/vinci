@@ -26,6 +26,20 @@ class AccessController
 
     private const DECAY = 60;
 
+    // Failed logins allowed per email from all addresses together in EMAIL_DECAY seconds: guesses spread over many
+    // addresses stay capped. Unknown emails count the same, so the limit does not tell which accounts exist.
+    private const EMAIL_ATTEMPTS = 20;
+
+    private const EMAIL_DECAY = 3600;
+
+    // The login pages are never framed, sniffed or sent as a referrer to another site.
+    private const HEADERS = [
+        'Cache-Control' => 'no-store',
+        'Content-Security-Policy' => "frame-ancestors 'none'",
+        'X-Content-Type-Options' => 'nosniff',
+        'Referrer-Policy' => 'same-origin',
+    ];
+
     // A failed password check costs as much for an unknown email, so timing does not tell which accounts exist.
     private const DUMMY_HASH = '$2y$12$Dj5L3obSv2UhUn449AaQ9.O/ibOZHEpivWRY06BkB6m77D/b1c6CC';
 
@@ -41,9 +55,13 @@ class AccessController
         ['email' => $email, 'password' => $password] = $request->validate(['email' => ['required', 'string'], 'password' => ['required', 'string']]);
         $email = Str::lower(trim($email));
         $key = 'login|'.$email.'|'.$request->ip();
+        $emailKey = 'login-email|'.$email;
+        $blocked = array_filter([$key => self::ATTEMPTS, $emailKey => self::EMAIL_ATTEMPTS], fn (int $attempts, string $limit) => RateLimiter::tooManyAttempts($limit, $attempts), ARRAY_FILTER_USE_BOTH);
 
-        if (RateLimiter::tooManyAttempts($key, self::ATTEMPTS)) {
-            return $this->page($request, $email, 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.', 429);
+        if ($blocked !== []) {
+            $seconds = max(array_map(fn (string $limit) => RateLimiter::availableIn($limit), array_keys($blocked)));
+
+            return $this->page($request, $email, 'Too many attempts. Try again in '.$seconds.' seconds.', 429);
         }
 
         try {
@@ -54,11 +72,13 @@ class AccessController
 
         if (! Hash::check($password, $user?->password ?? self::DUMMY_HASH) || $user === null) {
             RateLimiter::hit($key, self::DECAY);
+            RateLimiter::hit($emailKey, self::EMAIL_DECAY);
 
             return $this->page($request, $email, 'Wrong email or password.', 401);
         }
 
         RateLimiter::clear($key);
+        RateLimiter::clear($emailKey);
         $request->session()->regenerate();
 
         return $this->redirect(self::safePath($request->input('redirect_url')))
@@ -99,13 +119,13 @@ class AccessController
             'error' => $error,
             'email' => $email,
             'redirectUrl' => self::safePath($request->input('redirect_url')),
-        ], $status)->header('Cache-Control', 'no-store');
+        ], $status)->withHeaders(self::HEADERS);
     }
 
     // Relative, so it works whatever host and port the edge answers on.
     private function redirect(string $path): Response
     {
-        return response('', 302, ['Location' => $path, 'Cache-Control' => 'no-store']);
+        return response('', 302, ['Location' => $path, ...self::HEADERS]);
     }
 
     private function cookie(string $value, int $minutes): Cookie
