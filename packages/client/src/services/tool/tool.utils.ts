@@ -182,7 +182,7 @@ export function toolPolicyServers({ policy, defaults, servers }: ToolTypes.ToolP
         return {
           name: tool.name,
           title: tool.title,
-          isRead,
+          declaresReadOnly: tool.declaresReadOnly,
           choice: toolFind(policy.controls, server.key, tool.name) ?? 'default',
           fallback: ownServer ?? toolFind(defaults.controls, server.key, tool.name) ?? adminServer ?? (isRead ? 'allow' as const : 'ask' as const),
         };

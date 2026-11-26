@@ -82,7 +82,7 @@ function SettingsToolsPolicyServer({ server, policy }: SettingsToolsPolicyServer
             <Item key={tool.name} size="sm">
               <ItemContent className="min-w-0">
                 <ItemTitle className="w-full"><span className="truncate" title={tool.name}>{tool.title}</span></ItemTitle>
-                <ItemDescription>{tool.isRead ? m.settings_tools_policy_read() : m.settings_tools_policy_effect()}</ItemDescription>
+                <ItemDescription>{tool.declaresReadOnly ? m.settings_tools_policy_read() : m.settings_tools_policy_effect()}</ItemDescription>
               </ItemContent>
               <ItemActions>
                 <SettingsToolsPolicySelect

@@ -95,12 +95,6 @@ export interface ToolApprovalSentence {
 
 export type ToolPolicyChoice = UniversalTypes.ToolControl['behavior'] | 'default';
 
-export interface ToolPolicyChange {
-  server: string | null;
-  tool: string | null;
-  behavior: UniversalTypes.ToolControl['behavior'] | null;
-}
-
 export interface ToolPolicyServersParams {
   policy: UniversalTypes.ToolPolicy;
   defaults: UniversalTypes.ToolPolicy;
@@ -110,7 +104,7 @@ export interface ToolPolicyServersParams {
 export interface ToolPolicyToolRow {
   name: string;
   title: string;
-  isRead: boolean;
+  declaresReadOnly: boolean;
   choice: ToolPolicyChoice;
   fallback: UniversalTypes.ToolControl['behavior'];
 }

@@ -16,11 +16,18 @@ export const toolApprovalTimeout = z.number().int().min(1).max(10);
 
 export const toolServerKey = z.string().min(1).max(2048);
 
-export const toolControl = z.object({
+const toolControlFields = z.object({
   server: toolServerKey.nullable(),
   tool: z.string().min(1).max(200).nullable(),
   behavior: z.enum(['allow', 'ask']),
-}).refine(({ server, tool }) => server !== null || tool !== null);
+});
+
+export const toolControl = toolControlFields.refine(({ server, tool }) => server !== null || tool !== null);
+
+export const toolControlChange = toolControlFields.extend({ behavior: toolControlFields.shape.behavior.nullable() })
+  .refine(({ server, tool }) => server !== null || tool !== null);
+
+export const toolTrust = z.object({ server: toolServerKey, isTrusted: z.boolean() });
 
 export const toolPolicy = z.object({
   controls: z.array(toolControl).max(TOOL_APPROVAL.maxControls),
@@ -105,6 +112,8 @@ export type ToolAnswerInput = z.infer<typeof toolAnswer>;
 export type ToolSettingsForm = z.infer<typeof toolSettingsForm>;
 export type ToolApprovalRule = z.infer<typeof toolApprovalRules>[number];
 export type ToolControl = z.infer<typeof toolControl>;
+export type ToolControlChangeInput = z.infer<typeof toolControlChange>;
+export type ToolTrustInput = z.infer<typeof toolTrust>;
 export type ToolPolicy = z.infer<typeof toolPolicy>;
 export type ToolServer = z.infer<typeof toolServer>;
 export type ToolAction = z.infer<typeof toolAction>;

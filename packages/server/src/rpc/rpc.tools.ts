@@ -21,6 +21,8 @@ export const tools = {
   export: localRouter.tools.export.handler(async ({ context }) => context.tools.queries.export()),
   pending: ownerRouter.tools.pending.handler(async ({ context, input }) => context.conversation.queries.approvals(input)),
   servers: ownerRouter.tools.servers.handler(async ({ context }) => context.tools.queries.servers()),
+  control: ownerRouter.tools.control.handler(async ({ context, input }) => context.tools.actions.control(input)),
+  trust: ownerRouter.tools.trust.handler(async ({ context, input }) => context.tools.actions.trust(input)),
   answer: authedRouter.tools.answer.handler(async ({ context, input }) => (
     context.conversation.actions.approve({ ...input, answeredBy: context.device.id })
   )),

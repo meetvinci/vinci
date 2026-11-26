@@ -10,7 +10,7 @@ import type { ToolApproval } from '@repo/contracts/universal';
 
 export function useChatApproval(approval: ToolApproval) {
   const { rpc } = useRpc();
-  const answer = useMutation(rpc.tools.answer.mutationOptions({ meta: { invalidates: [rpc.tools.pending.key()] } }));
+  const answer = useMutation(rpc.tools.answer.mutationOptions({ meta: { invalidates: [rpc.tools.pending.key(), rpc.tools.settings.key()] } }));
   const isGone = (answer.error instanceof ORPCError && answer.error.code === 'NOT_FOUND') || answer.data?.accepted === false;
 
   return {

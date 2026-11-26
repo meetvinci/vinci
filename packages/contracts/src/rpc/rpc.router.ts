@@ -127,10 +127,12 @@ import {
   toolAnswerResult,
   toolApprovalList,
   toolConfigure,
+  toolControlChange,
   toolExport,
   toolPending,
   toolServers,
   toolSettings,
+  toolTrust,
 } from '../types/tool.types';
 import { workspaceExport, workspaceFiles, workspaceImportResult } from '../types/workspace.types';
 
@@ -335,6 +337,10 @@ export const contract = {
     answer: ocFind.input(toolAnswer).output(toolAnswerResult),
 
     servers: ocAuth.output(toolServers),
+
+    control: ocAuth.input(toolControlChange).output(toolSettings),
+
+    trust: ocAuth.input(toolTrust).output(toolSettings),
 
     export: ocAdmin.output(toolExport),
   },

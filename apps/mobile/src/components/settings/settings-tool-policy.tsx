@@ -8,13 +8,13 @@ import { BotSettingsMenuRow } from '@/components/bots/bot-settings-menu-row';
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from '@/components/ui/item';
 import { LabelDescription } from '@/components/ui/label';
 import type { MenuItem } from '@/types/menu.types';
-import type { ToolPolicyChange, ToolPolicyChoice } from '@repo/client/client';
-import type { ToolControl } from '@repo/contracts/universal';
+import type { ToolPolicyChoice } from '@repo/client/client';
+import type { ToolControl, ToolControlChangeInput } from '@repo/contracts/universal';
 
 export function SettingsToolPolicy() {
   const policy = useSettingsToolPolicy();
 
-  const items = (choice: ToolPolicyChoice, fallback: ToolControl['behavior'] | null, target: Omit<ToolPolicyChange, 'behavior'>): MenuItem[] => (
+  const items = (choice: ToolPolicyChoice, fallback: ToolControl['behavior'] | null, target: Omit<ToolControlChangeInput, 'behavior'>): MenuItem[] => (
     TOOL_POLICY_CHOICES.map((option) => ({
       label: toolPolicyChoiceLabel(option, fallback),
       systemImage: option === choice ? 'checkmark' : undefined,
@@ -54,7 +54,7 @@ export function SettingsToolPolicy() {
           )}
           {server.tools.map((tool) => (
             <BotSettingsMenuRow
-              description={tool.isRead ? m.settings_tools_policy_read() : m.settings_tools_policy_effect()}
+              description={tool.declaresReadOnly ? m.settings_tools_policy_read() : m.settings_tools_policy_effect()}
               icon={Wrench}
               isDisabled={policy.isPending}
               items={items(tool.choice, tool.fallback, { server: server.key, tool: tool.name })}
