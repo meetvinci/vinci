@@ -1,11 +1,10 @@
 import { getRouteApi, notFound } from '@tanstack/react-router';
-import { useFumadocsLoader } from 'fumadocs-core/source/client';
 import { DocsLayout } from 'fumadocs-ui/layouts/docs';
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/layouts/docs/page';
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Suspense, use } from 'react';
 import { DOCS } from '@/services/docs/docs.constants';
-import { docsCollection } from '@/services/docs/docs.utils';
+import { docsCollection, docsSource } from '@/services/docs/docs.utils';
 
 const route = getRouteApi('/$lang/$');
 
@@ -35,10 +34,11 @@ function DocsPageContent({ path }: DocsPageContentProps) {
 }
 
 export function DocsPageRoute() {
-  const { path, pageTree } = useFumadocsLoader(route.useLoaderData());
+  const { path } = route.useLoaderData();
+  const { lang } = route.useParams();
 
   return (
-    <DocsLayout nav={{ title: DOCS.name }} tree={pageTree}>
+    <DocsLayout nav={{ title: DOCS.name }} tree={docsSource.getPageTree(lang)}>
       <Suspense>
         <DocsPageContent path={path} />
       </Suspense>

@@ -13,9 +13,6 @@ export const Route = createFileRoute('/$lang/$')({
 
     await docsCollection.getPage(page.path)?.preload();
 
-    return {
-      path: page.path,
-      pageTree: await docsSource.serializePageTree(docsSource.getPageTree(params.lang)),
-    };
+    return { path: page.path };
   },
 });
