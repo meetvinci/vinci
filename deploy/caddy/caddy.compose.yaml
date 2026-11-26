@@ -40,6 +40,18 @@ services:
       CADDYFILE: |
         {
           admin off
+          # The redirect to HTTPS is the http:// site below.
+          auto_https disable_redirects
+        }
+
+        # No response names the software behind it: Caddy's own Server and Via, and whatever the API, hub or web app
+        # send. Deleting a header waits until the response is written, so it covers what reverse_proxy copies in.
+        (anonymous_server) {
+          header {
+            -Server
+            -Via
+            -X-Powered-By
+          }
         }
 
         # The health check only, inside the container.
@@ -48,12 +60,28 @@ services:
           respond "ok"
         }
 
+        # Port 80, for any name: Caddy's automatic redirect would send its Server header. Let's Encrypt's HTTP
+        # challenge is answered before this.
+        http:// {
+          import anonymous_server
+          redir https://${VINCI_PUBLIC_HOST}{uri} 308
+        }
+
         ${VINCI_PUBLIC_HOST} {
+          import anonymous_server
+
           # Only the login pages set identity; a visitor's own Access headers never reach the hub.
           request_header -Cf-Access-*
 
           # Browsers keep to HTTPS for a year. Not for subdomains, which may be other people's sites, and not preloaded.
           header Strict-Transport-Security "max-age=31536000"
+
+          # Caddy's own errors (an upstream that does not answer) skip the headers above: the status alone, without them.
+          handle_errors {
+            import anonymous_server
+            header Strict-Transport-Security "max-age=31536000"
+            respond "" {err.status_code}
+          }
 
           # The hub's account routes on the API are never public.
           @internal path /internal /internal/*
