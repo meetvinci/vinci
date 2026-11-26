@@ -25,6 +25,12 @@ export function coreRefusalPage({ email, reason }: CoreTypes.CoreRefusal): Respo
       'Ask one of its admins to add you in the admin panel, under Admins.',
       `<a href="/">Open your own workspace</a> · <a href="${SIGN_OUT}">Sign out</a>`,
     ])
+    .with('sign-in-off', () => [
+      'Your sign-in is turned off',
+      `You are signed in as ${who}, but an admin of this Vinci workspace turned off sign-in for this email. Your workspace and bots are kept.`,
+      'Ask your team\'s Vinci admin to turn it back on in the admin panel.',
+      `<a href="${SIGN_OUT}">Sign out</a>`,
+    ])
     .with('no-user', () => [
       'No workspace for this email',
       `You are signed in as ${who}, but this Vinci workspace has no user with that email.`,

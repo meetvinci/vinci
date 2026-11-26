@@ -15,6 +15,8 @@ Either the daemon does not accept the team address, or the hub does not know the
 
 They passed the Cloudflare login, but Vinci has no user with that email. With a domain rule this is what everyone at the domain who is not on the team sees; it is expected. If they should be on the team, add them in the admin panel. If they signed in with the wrong address, the page's **Sign out** link lets them try another. *This page is for admins* means the same for `/admin`: their email is not on the admin list.
 
+*Your sign-in is turned off* means the person is on the team but an admin turned their sign-in off (**Turn on sign-in** on their page in the admin panel brings it back; their workspace was kept).
+
 > On `root@<server>`, in `/opt/vinci`, check whether `<email>` is in `users.yaml` (and enabled) or in `hub/admins.json`. Report which, without printing the other emails. Change nothing.
 
 ## Nobody can get in, and the hub log says the users file is invalid

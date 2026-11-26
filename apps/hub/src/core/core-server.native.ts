@@ -133,7 +133,7 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
 
   if (!await services.admins.queries.has({ email: identity.email })) {
     if (coreRefusalWanted(request)) {
-      return coreServerRefusal(context, url.pathname.startsWith('/admin') ? 'not-admin' : 'no-user');
+      return coreServerRefusal(context, await coreServerRefusalReason(services, context));
     }
 
     throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This Access identity is not an admin' : 'No hub user has this Access identity' });
@@ -150,6 +150,16 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
     .otherwise(() => {
       throw new Errors.FORBIDDEN({ internal: 'An admin without a hub user reaches only the admin panel' });
     });
+}
+
+async function coreServerRefusalReason(services: CoreTypes.CoreServices, { url, identity }: CoreTypes.CoreAdminContext): Promise<CoreTypes.CoreRefusal['reason']> {
+  if (url.pathname.startsWith('/admin')) {
+    return 'not-admin';
+  }
+
+  const users = services.provisioner.queries.isConfigured() ? await services.provisioner.queries.list().catch(() => []) : [];
+
+  return users.some((user) => user.email === identity.email && !user.enabled) ? 'sign-in-off' : 'no-user';
 }
 
 async function coreServerRefusal({ url, identity }: CoreTypes.CoreAdminContext, reason: CoreTypes.CoreRefusal['reason']): Promise<Response> {
