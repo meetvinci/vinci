@@ -31,4 +31,4 @@ export const SETTINGS_ADMIN_HIDDEN: readonly SettingsSection[] = ['general', 'de
 
 export const SETTINGS_TEAM_HIDDEN: readonly SettingsSection[] = ['server', 'desktop'];
 
-export const SETTINGS_TEAM_ADVANCED: readonly SettingsSection[] = ['models', 'tools', 'sources'];
+export const SETTINGS_TEAM_ADVANCED: readonly SettingsSection[] = ['models', 'sources'];

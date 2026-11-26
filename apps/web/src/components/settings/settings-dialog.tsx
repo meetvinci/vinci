@@ -216,7 +216,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
     .with('tools', () => (
       <div className="flex flex-col gap-8">
         <SettingsToolsPolicy />
-        <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged>
+        {scope.isAdmin || team.isAdvanced ? <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged> : null}
       </div>
     ))
     .with('secrets', () => (
