@@ -12,6 +12,7 @@
   "validation_command_id_arguments": "Introduza um ID inteiro positivo.",
   "validation_reaction_limit": "Uma mensagem pode ter no máximo {max} reações.",
   "validation_routine_schedule": "Escolha uma expressão cron de cinco campos e um fuso horário válidos.",
+  "validation_routine_run_at": "Escolha uma hora no futuro.",
   "validation_artifact_spec": "Use um esquema de artefacto e propriedades de bloco válidos, dentro do limite de tamanho.",
   "validation_oauth": "Não foi possível concluir a autorização. Verifique o callback e tente novamente.",
   "validation_provider_login_unsupported": "Este fornecedor não suporta o método de início de sessão selecionado.",
