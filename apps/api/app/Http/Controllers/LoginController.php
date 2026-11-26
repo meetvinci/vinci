@@ -12,11 +12,11 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Cookie;
 
-// Login for VINCI_AUTH=laravel, at the paths Cloudflare Access uses: the edge (Caddy) sends /cdn-cgi/access/* here
-// and every other path to the hub, which checks the vinci_session cookie set here with GET /internal/session.
-class AccessController
+// The install's login: the edge (Caddy) sends /auth/* here and every other path to the hub, which checks the
+// vinci_session cookie set here with GET /internal/session.
+class LoginController
 {
-    private const LOGIN = '/cdn-cgi/access/login';
+    private const LOGIN = '/auth/login';
 
     // The login pages are never framed, sniffed or sent as a referrer to another site.
     private const HEADERS = [
@@ -86,7 +86,7 @@ class AccessController
     {
         $isSafe = is_string($path)
             && preg_match('#^/(?![/\\\\])[^\\\\\x00-\x20\x7f]*$#', $path) === 1
-            && ! str_starts_with($path, '/cdn-cgi/');
+            && ! str_starts_with($path, '/auth/');
 
         return $isSafe ? $path : '/';
     }

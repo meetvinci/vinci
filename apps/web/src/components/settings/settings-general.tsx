@@ -131,7 +131,7 @@ export function SettingsGeneral() {
           </SelectContent>
         </Select>
       </PanelRow>
-      {team.hasPassword ? <SettingsPassword /> : null}
+      {team.isTeam ? <SettingsPassword /> : null}
     </SettingsGroup>
   );
 }

@@ -32,7 +32,7 @@
     <?php if ($error !== null) { ?>
       <div role="alert"><?= e($error) ?></div>
     <?php } ?>
-    <form method="post" action="/cdn-cgi/access/login">
+    <form method="post" action="/auth/login">
       <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
       <input type="hidden" name="redirect_url" value="<?= e($redirectUrl) ?>">
       <label>Email<input type="email" name="email" value="<?= e($email) ?>" autocomplete="username" required autofocus></label>

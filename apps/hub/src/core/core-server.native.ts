@@ -10,7 +10,7 @@ import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from '
 import { corePassword } from './core-password.native';
 import { coreRefusalPage, coreRefusalWanted } from './core-refusal.native';
 import { makeCoreRelay } from './core-relay.native';
-import type { AccessIdentity } from '../types/access.types';
+import type { AccountsSession } from '../types/accounts.types';
 import type * as CoreTypes from '../types/core.types';
 import type { Server } from 'bun';
 
@@ -21,8 +21,6 @@ const ADMIN_API = /^\/admin\/api(?:\/|$)/u;
 const ADMIN_WEB_FILES = [/^\/assets\//u];
 const URL_HEADERS = ['location', 'content-location'];
 const REFRESH_URL = /(?<prefix>url\s*=\s*)(?<url>\S+)/iu;
-const ACCESS_HEADER = 'cf-access-jwt-assertion';
-const ACCESS_COOKIE = 'CF_Authorization';
 const SESSION_COOKIE = 'vinci_session';
 
 const STRIPPED_HEADERS = new Set([
@@ -37,11 +35,6 @@ const STRIPPED_HEADERS = new Set([
   'content-length',
   'forwarded',
   'x-real-ip',
-  'cf-access-authenticated-user-email',
-  'cf-access-client-id',
-  'cf-access-client-secret',
-  'cf-access-token',
-  ACCESS_HEADER,
 ]);
 
 export function coreServer(services: CoreTypes.CoreServices, publicUrl: URL): Server<CoreTypes.CoreSocket> {
@@ -140,12 +133,8 @@ async function coreServerHandle(
   }
 }
 
-function coreServerIdentity(services: CoreTypes.CoreServices, request: Request): Promise<AccessIdentity> {
-  const cookies = parse(request.headers.get('cookie') ?? '');
-
-  return services.access
-    ? services.access.queries.verify({ token: request.headers.get(ACCESS_HEADER) ?? cookies[ACCESS_COOKIE] ?? '' })
-    : services.accounts.queries.session({ token: cookies[SESSION_COOKIE] ?? '' });
+function coreServerIdentity(services: CoreTypes.CoreServices, request: Request): Promise<AccountsSession> {
+  return services.accounts.queries.session({ token: parse(request.headers.get('cookie') ?? '')[SESSION_COOKIE] ?? '' });
 }
 
 async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTypes.CoreAdminContext): Promise<Response> {
@@ -156,7 +145,7 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
       return coreServerRefusal(context, await coreServerRefusalReason(services, context));
     }
 
-    throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This Access identity is not an admin' : 'No hub user has this Access identity' });
+    throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This login is not an admin' : 'No hub user has this login' });
   }
 
   const isRead = request.method === 'GET' || request.method === 'HEAD';
@@ -234,7 +223,6 @@ async function coreServerWhoami(services: CoreTypes.CoreServices, { identity, us
     serverId: daemon?.serverId ?? null,
     isAdvanced: user.advanced === true,
     isAdmin: await services.admins.queries.has({ email: identity.email }),
-    hasPassword: identity.kind === 'session',
     sections: services.global.queries.sections({ id: user.id }).map(({ id, mode }) => ({ id, mode })),
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
@@ -321,7 +309,7 @@ async function coreServerDaemon(
   });
 }
 
-async function coreServerWeb(context: CoreTypes.CoreForward, identity: AccessIdentity | null): Promise<Response> {
+async function coreServerWeb(context: CoreTypes.CoreForward, identity: AccountsSession | null): Promise<Response> {
   const { request, url } = context;
 
   if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
@@ -375,7 +363,7 @@ function coreServerTarget(base: string, url: URL): URL {
   return target;
 }
 
-function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, identity: AccessIdentity | null): Headers {
+function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, identity: AccountsSession | null): Headers {
   const headers = new Headers(request.headers);
 
   [...headers.keys()]
@@ -384,10 +372,9 @@ function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, identi
   headers.set('x-forwarded-proto', publicUrl.protocol.slice(0, -1));
   headers.set('x-forwarded-host', publicUrl.host);
 
-  match(identity)
-    .with({ kind: 'access' }, ({ token }) => headers.set(ACCESS_HEADER, token))
-    .with({ kind: 'session' }, () => undefined)
-    .otherwise(() => headers.delete('cookie'));
+  if (identity === null) {
+    headers.delete('cookie');
+  }
 
   return headers;
 }

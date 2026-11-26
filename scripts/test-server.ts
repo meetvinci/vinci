@@ -19,8 +19,8 @@ const IMAGES = ['daemon', 'sandbox', 'web', 'hub', 'provisioner', 'firewall', 'a
 const USER_DATA_LIMIT = 32 * 1024;
 const SSH_WAIT_MS = 10 * 60 * 1000;
 const HTTPS_WAIT_MS = 3 * 60 * 1000;
-const LOGIN = '/cdn-cgi/access/login';
-const LOGOUT = '/cdn-cgi/access/logout';
+const LOGIN = '/auth/login';
+const LOGOUT = '/auth/logout';
 // A login: the API's Sanctum token, which the hub checks with the API on every request.
 const SESSION_COOKIE = 'vinci_session';
 // How long the hub trusts a checked login (ACCOUNTS.sessionCacheMs in apps/hub), plus a second.

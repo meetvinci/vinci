@@ -3,7 +3,6 @@ import { z } from 'zod';
 import type { AccountsService } from '../services/accounts/accounts.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
 import type { AccountsPut } from './accounts.types';
-import type { ProvisionerAccess } from './provisioner.types';
 
 const adminEmail = z.email().transform((email) => email.toLowerCase());
 
@@ -70,7 +69,6 @@ export interface AdminChangeKindParams extends AdminChangeParams {
 }
 
 export interface AdminChanged {
-  access: ProvisionerAccess;
   password?: string;
 }
 

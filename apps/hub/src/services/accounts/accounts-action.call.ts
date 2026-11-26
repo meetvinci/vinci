@@ -1,4 +1,4 @@
-import { Errors, errorSchemas, isAppError } from '@repo/errors/universal';
+import { errorSchemas, isAppError } from '@repo/errors/universal';
 import { accountsDriverRequest } from './accounts.driver';
 import { accountsRecord } from './accounts.utils';
 import type * as AccountsTypes from '../../types/accounts.types';
@@ -8,10 +8,6 @@ export async function accountsActionCall<T extends z.ZodType>(
   deps: AccountsTypes.AccountsServiceDeps,
   { action, email, userId, by, ...request }: AccountsTypes.AccountsCallParams<T>,
 ): Promise<z.output<T>> {
-  if (!deps.config) {
-    throw new Errors.NOT_FOUND({ internal: 'HUB_ACCOUNTS_URL is not set' });
-  }
-
   const target = {
     action,
     email,

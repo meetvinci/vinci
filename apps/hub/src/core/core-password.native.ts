@@ -9,7 +9,7 @@ import type { TeamPasswordRefusal } from '@repo/contracts/universal';
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 export async function corePassword(services: CoreTypes.CoreServices, { request, publicUrl, identity }: CoreTypes.CoreAdminContext): Promise<Response> {
-  if (request.method !== 'POST' || identity.kind !== 'session') {
+  if (request.method !== 'POST') {
     return new Response(null, { status: 404, headers: NO_STORE });
   }
 

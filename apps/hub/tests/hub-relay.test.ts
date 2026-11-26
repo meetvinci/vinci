@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { describe, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
-import { HUB_RELAY_FIXTURE, hubFixtureFakeSocket } from './support/hub.fixture';
+import { HUB_RELAY_FIXTURE, hubFixtureCookie, hubFixtureFakeSocket } from './support/hub.fixture';
 
 const { hub, publicOrigin, emails } = HUB_RELAY_FIXTURE;
 const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite, person: hubAdminTestPerson } = hubAdminTestKit(HUB_RELAY_FIXTURE);
@@ -17,7 +17,7 @@ describe('admin relay to the private door', () => {
     const relay = (path: string, headers: Record<string, string> = {}, token = tokens.root) => hubAdminTestWrite(token, `/admin/api/users/${path}`, {
       body: { json: { probe: true } },
       headers: {
-        'cookie': `CF_Authorization=${tokens.root}; bots.connection=x`,
+        'cookie': `${hubFixtureCookie(token)}; bots.connection=x`,
         'authorization': 'Bearer device-token',
         'x-bots-protocol': '1',
         'x-bots-server-id': fixture.serverIds.bob,
@@ -41,7 +41,7 @@ describe('admin relay to the private door', () => {
     await fake.close();
 
     const [call] = fake.requests;
-    const leaked = ['origin', 'cookie', 'authorization', 'cf-access-jwt-assertion', 'x-forwarded-host'].filter((name) => name in call.headers);
+    const leaked = ['origin', 'cookie', 'authorization', 'x-forwarded-host'].filter((name) => name in call.headers);
 
     expect(relayed).toEqual({ status: 200, json: { json: { relayed: true } } });
     expect(refused.map(({ status }) => status)).toEqual([403, 403, 403, 403, 403]);
@@ -95,7 +95,7 @@ describe('admin relay to the private door', () => {
     // The panel's RPC client sends calls without input with no body and no Content-Type, only X-Bots-Protocol.
     const bots = await fetch(`${hub}/admin/api/users/alice/rpc/bots/list`, {
       method: 'POST',
-      headers: { 'cf-access-jwt-assertion': tokens.root, 'origin': publicOrigin, 'x-bots-protocol': '1' },
+      headers: { 'cookie': hubFixtureCookie(tokens.root), 'origin': publicOrigin, 'x-bots-protocol': '1' },
     });
 
     const info = await call('server/info');
@@ -120,7 +120,7 @@ describe('admin relay to the private door', () => {
       headers: { 'x-bots-protocol': '1' },
     })));
 
-    const asGet = await fetch(`${hub}/admin/api/users/alice/rpc/server/info`, { headers: { 'cf-access-jwt-assertion': tokens.root, 'origin': publicOrigin, 'x-bots-protocol': '1' } });
+    const asGet = await fetch(`${hub}/admin/api/users/alice/rpc/server/info`, { headers: { 'cookie': hubFixtureCookie(tokens.root), 'origin': publicOrigin, 'x-bots-protocol': '1' } });
 
     const { alice, bob } = { alice: fixture.users[emails.alice], bob: fixture.users[emails.bob] };
 
@@ -387,7 +387,7 @@ describe('conversation viewer through the relay', () => {
     })).status));
 
     const history = `${hub}/admin/api/users/alice/rpc/conversation/history`;
-    const headers = { 'cf-access-jwt-assertion': tokens.root, 'origin': publicOrigin, 'x-bots-protocol': '1' };
+    const headers = { 'cookie': hubFixtureCookie(tokens.root), 'origin': publicOrigin, 'x-bots-protocol': '1' };
     const form = new FormData();
 
     form.set('data', JSON.stringify({ json: { botId, limit: 1 } }));

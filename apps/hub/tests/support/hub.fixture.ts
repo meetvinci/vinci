@@ -16,7 +16,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 function hubFixtureConfig(base: number) {
   const ports = {
     hub: base,
-    access: base + 1,
+    accounts: base + 1,
     web: base + 2,
     alice: base + 3,
     bob: base + 4,
@@ -29,8 +29,8 @@ function hubFixtureConfig(base: number) {
   return {
     ports,
     hub: `http://127.0.0.1:${ports.hub}`,
-    teamDomain: `http://127.0.0.1:${ports.access}`,
-    audience: 'hub-test-audience',
+    accounts: `http://127.0.0.1:${ports.accounts}`,
+    accountsToken: 'hub-test-accounts-token',
     publicOrigin: 'https://team.example',
     web: `http://127.0.0.1:${ports.web}`,
     daemons: { alice: `http://127.0.0.1:${ports.alice}`, bob: `http://127.0.0.1:${ports.bob}` },
@@ -80,14 +80,15 @@ interface HubFixtureHubOptions {
   extra: Record<string, string>;
 }
 
-export interface HubFixtureMintOptions {
-  key?: CryptoKey;
-  kid?: string;
-  alg?: string;
+export interface HubFixtureMintClaims {
+  email: string;
+  // When the login ends, in seconds since the epoch: an hour from now by default.
+  exp?: number;
 }
 
-export function hubFixtureEncode(value: object): string {
-  return Buffer.from(JSON.stringify(value)).toString('base64url');
+// The browser's login cookie for a token from `mint`.
+export function hubFixtureCookie(token: string): string {
+  return `vinci_session=${token}`;
 }
 
 type HubFixtureHandler = (request: IncomingMessage, response: ServerResponse, body: string) => void;
@@ -193,8 +194,8 @@ function hubFixtureHub(config: HubFixtureConfig, { label, port, data, extra }: H
       HUB_PORT: String(port),
       HUB_DATA_DIR: data,
       HUB_WEB_URL: config.web,
-      ACCESS_TEAM_DOMAIN: config.teamDomain,
-      ACCESS_AUD: config.audience,
+      HUB_ACCOUNTS_URL: config.accounts,
+      HUB_ACCOUNTS_TOKEN: config.accountsToken,
       HUB_PUBLIC_URL: config.publicOrigin,
       HUB_ADMIN_EMAILS: `${config.admin},${config.emails.alice}`,
       ...extra,
@@ -241,19 +242,40 @@ export async function hubFixtureFakeSocket(path: string) {
   };
 }
 
+// The Laravel API's /internal routes as the hub calls them, with the hub's token only.
+function hubFixtureAccounts(
+  config: HubFixtureConfig,
+  sessions: Map<string, { email: string; exp: number }>,
+  request: IncomingMessage,
+  response: ServerResponse,
+): void {
+  const reply = (status: number, body: object) => response.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body));
+
+  if (request.headers.authorization !== `Bearer ${config.accountsToken}`) {
+    reply(401, { message: 'Unauthenticated.' });
+    return;
+  }
+
+  const token = /(?:^|;\s*)vinci_session=([^;]*)/u.exec(request.headers.cookie ?? '')?.[1] ?? '';
+  const session = sessions.get(token);
+  const isLive = session !== undefined && session.exp > Date.now() / 1000;
+  const url = request.url ?? '';
+
+  match({ method: request.method, url })
+    .with({ method: 'GET', url: '/internal/session' }, () => (isLive ? reply(200, { email: session.email, expires_at: session.exp }) : reply(401, { message: 'Unauthenticated.' })))
+    .with({ method: 'POST', url: '/internal/session/password' }, () => (isLive ? reply(200, { changed: true }) : reply(401, { message: 'Unauthenticated.' })))
+    .with({ method: 'PUT' }, () => reply(200, { created: false }))
+    .with({ method: 'POST' }, () => reply(200, { password: 'hub-test-new-password' }))
+    .with({ method: 'DELETE' }, () => reply(200, { deleted: true }))
+    .otherwise(() => reply(404, { message: 'Not found.' }));
+}
+
 export async function hubFixtureStart(config: HubFixtureConfig) {
   const { emails } = config;
   const root = await realpath(await mkdtemp(join(tmpdir(), 'vinci-hub-')));
   const hubData = join(root, 'hub');
-  const algorithm = { name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' };
-  const keys = { good: await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']), rogue: await crypto.subtle.generateKey(algorithm, true, ['sign', 'verify']) };
-
-  const jwk = {
-    ...(await crypto.subtle.exportKey('jwk', keys.good.publicKey)),
-    kid: 'kid-good',
-    alg: 'RS256',
-    use: 'sig',
-  };
+  // The Laravel API's logins, as the hub asks for them: token to email and end.
+  const sessions = new Map<string, { email: string; exp: number }>();
 
   const users = {
     [emails.alice]: { id: 'alice', name: 'Alice Example', daemonUrl: config.daemons.alice, socketPath: join(root, 'alice/data/ipc/rpc.sock') },
@@ -293,7 +315,7 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
 
   async function boot() {
     const listened = await Promise.allSettled([
-      hubFixtureListen('Access keys', config.ports.access, (_request, response) => response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ keys: [jwk] }))),
+      hubFixtureListen('accounts', config.ports.accounts, (request, response) => hubFixtureAccounts(config, sessions, request, response)),
       hubFixtureListen('web app', config.ports.web, (request, response, body) => {
         const relayed = Object.fromEntries(new URL(request.url ?? '/', config.web).searchParams);
 
@@ -352,28 +374,18 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
     throw error;
   });
 
-  async function mint(claims: Record<string, string | number | string[]>, { key = keys.good.privateKey, kid = 'kid-good', alg = 'RS256' }: HubFixtureMintOptions = {}): Promise<string> {
-    const now = Math.floor(Date.now() / 1000);
+  // A login as the API would make it, for the hub to check with the accounts stub.
+  async function mint({ email, exp = Math.floor(Date.now() / 1000) + 3600 }: HubFixtureMintClaims): Promise<string> {
+    const token = `${sessions.size + 1}|${crypto.randomUUID().replaceAll('-', '')}`;
 
-    const header = hubFixtureEncode({
-      alg,
-      kid,
-      typ: 'JWT',
-    });
+    sessions.set(token, { email, exp });
 
-    const payload = hubFixtureEncode({
-      iss: config.teamDomain,
-      aud: [config.audience],
-      iat: now,
-      nbf: now,
-      exp: now + 3600,
-      type: 'app',
-      ...claims,
-    });
+    return Promise.resolve(token);
+  }
 
-    const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${header}.${payload}`));
-
-    return `${header}.${payload}.${Buffer.from(signature).toString('base64url')}`;
+  // Logging out, a password change or a removal: the API forgets the token.
+  function revoke(token: string): void {
+    sessions.delete(token);
   }
 
   async function writeUsers(next: Record<string, HubFixtureUser> | null): Promise<void> {
@@ -391,13 +403,12 @@ export async function hubFixtureStart(config: HubFixtureConfig) {
   return {
     root,
     hubData,
-    keys,
     users,
     serverIds: booted.serverIds,
     provisioner: provisioner.calls,
-    access: provisioner.access,
     logs,
     mint,
+    revoke,
     writeUsers,
     restartHub,
     stop,

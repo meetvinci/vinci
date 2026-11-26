@@ -3,15 +3,12 @@ import { settingsSection } from './settings.types';
 
 export const adminEmail = z.email().max(254);
 export const adminUserId = z.string().regex(/^[a-z\d][a-z\d-]{0,62}$/u);
-export const adminAccess = z.enum(['synced', 'manual']);
-export const adminAccessState = z.enum(['allowed', 'not-allowed', 'unknown']);
-export const adminAccessMode = z.enum(['emails', 'domain', 'unknown']);
 export const adminUserState = z.enum(['running', 'starting', 'stopped', 'unknown']);
 
-export const adminMe = z.object({ email: adminEmail, hasPassword: z.boolean().default(false) });
+export const adminMe = z.object({ email: adminEmail });
 
 export const admin = z.object({ email: adminEmail });
-export const adminList = z.object({ admins: z.array(admin.extend({ access: adminAccessState })) });
+export const adminList = z.object({ admins: z.array(admin) });
 
 export const adminUser = z.object({
   id: adminUserId,
@@ -22,12 +19,7 @@ export const adminUser = z.object({
   state: adminUserState,
 });
 
-export const adminUserList = z.object({
-  users: z.array(adminUser.extend({ access: adminAccessState })),
-  accessMode: adminAccessMode,
-  accessDomains: z.array(z.string()).optional(),
-  hasAccounts: z.boolean(),
-});
+export const adminUserList = z.object({ users: z.array(adminUser) });
 
 export const adminTemplateId = 'template';
 
@@ -37,7 +29,7 @@ export const adminUserCreate = z.object({
   bots: z.array(z.uuid()).max(50).optional(),
 });
 
-export const adminChangeResult = z.object({ access: adminAccess.optional(), password: z.string().min(1).optional() });
+export const adminChangeResult = z.object({ password: z.string().min(1).optional() });
 
 export const adminPassword = z.object({ password: z.string().min(1) });
 
@@ -145,8 +137,6 @@ export const adminAuditFilter = z.object({
 });
 
 export type Admin = z.infer<typeof admin>;
-export type AdminAccess = z.infer<typeof adminAccess>;
-export type AdminAccessState = z.infer<typeof adminAccessState>;
 export type AdminUserList = z.infer<typeof adminUserList>;
 export type AdminUser = z.infer<typeof adminUser>;
 export type AdminUserCreate = z.infer<typeof adminUserCreate>;

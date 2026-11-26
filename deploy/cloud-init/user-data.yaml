@@ -1,5 +1,5 @@
 #cloud-config
-# Vinci on a fresh Ubuntu 24.04 or 26.04 x86 server, logins through the Laravel API (VINCI_AUTH=laravel) behind Caddy.
+# Vinci on a fresh Ubuntu 24.04 or 26.04 x86 server, logins through the Laravel API behind Caddy.
 # Render with `bun scripts/test-server.ts render`, or replace the five {{…}} values by hand. Every secret is generated
 # on the server: this file holds none, since the cloud provider keeps user-data in its metadata service.
 # Progress and timings: /var/log/vinci-install.log. Result: /var/log/vinci-install.result, `ok` or `failed: <step>`.
@@ -71,7 +71,6 @@ write_files:
       cd /opt/vinci
       source=$(mktemp -d)
       curl -fsSL "https://api.github.com/repos/meetvinci/vinci/tarball/$VINCI_REF" | tar -xz -C "$source" --strip-components=1
-      # Laravel logins: Caddy in place of cloudflared.
       install -m 600 "$source"/deploy/compose/compose.yaml "$source"/deploy/compose/daemon.yaml "$source"/deploy/compose/sandbox.yaml \
         "$source"/deploy/caddy/caddy.compose.yaml "$source"/scripts/deploy.ts /opt/vinci/
       test -e .env || install -m 600 "$source"/deploy/.env.example .env
@@ -80,7 +79,6 @@ write_files:
 
       step settings
       set_env COMPOSE_FILE compose.yaml:caddy.compose.yaml:users.compose.yaml
-      set_env VINCI_AUTH laravel
       set_env VINCI_REGISTRY "$VINCI_REGISTRY"
       set_env VINCI_TAG "$VINCI_TAG"
       set_env VINCI_PUBLIC_HOST "$VINCI_HOST"

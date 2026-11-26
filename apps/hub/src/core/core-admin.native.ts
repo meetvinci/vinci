@@ -2,7 +2,6 @@ import { adminOutsideInput, adminSectionId, adminTemplateId, attachmentGet, SERV
 import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
-import { provisionerAccessMode, provisionerAccessOf } from '../services/provisioner/provisioner.utils';
 import { adminEmptyReply, adminInput, adminListBody, adminReadBody, adminWriteBody } from '../types/admin.types';
 import { auditListInput } from '../types/audit.types';
 import { globalBotsInput, globalModeInput, globalSyncInput } from '../types/global.types';
@@ -45,20 +44,13 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
   }
 
   return match({ method: request.method, segments })
-    .with({ method: 'GET', segments: ['me'] }, async () => Response.json({ email: by, hasPassword: identity.kind === 'session' }, { headers: NO_STORE }))
+    .with({ method: 'GET', segments: ['me'] }, async () => Response.json({ email: by }, { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['audit'] }, async () => {
       const input = coreAdminValid(auditListInput.safeParse(Object.fromEntries(url.searchParams)));
 
       return Response.json(services.audit.queries.list(input), { headers: NO_STORE });
     })
-    .with({ method: 'GET', segments: ['admins'] }, async () => {
-      const [admins, rule] = await Promise.all([
-        services.admins.queries.list(),
-        services.provisioner.queries.access(),
-      ]);
-
-      return Response.json({ admins: admins.map((email) => ({ email, access: provisionerAccessOf({ rule, email }) })) }, { headers: NO_STORE });
-    })
+    .with({ method: 'GET', segments: ['admins'] }, async () => Response.json({ admins: (await services.admins.queries.list()).map((email) => ({ email })) }, { headers: NO_STORE }))
     .with({ method: 'POST', segments: ['admins'] }, () => coreAuditChange(services, context, { action: 'admins/add' }, async (change) => {
       const { email } = await coreAdminBody(request, adminInput);
 
@@ -71,27 +63,11 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
 
       change.detail = email;
 
-      return Response.json({ access: (await services.admins.actions.remove({ email, by })).access }, { headers: NO_STORE });
+      await services.admins.actions.remove({ email, by });
+
+      return Response.json({ removed: true }, { headers: NO_STORE });
     }))
-    .with({ method: 'GET', segments: ['users'] }, async () => {
-      const [users, rule] = await Promise.all([
-        services.users.queries.list(),
-        services.provisioner.queries.access(),
-      ]);
-
-      const accessMode = provisionerAccessMode(rule);
-
-      const body = match(accessMode)
-        .with('domain', () => ({ accessDomains: rule.domains }))
-        .otherwise(() => ({}));
-
-      return Response.json({
-        users: users.map((user) => ({ ...user, access: provisionerAccessOf({ rule, email: user.email }) })),
-        accessMode,
-        hasAccounts: services.accounts.queries.isConfigured(),
-        ...body,
-      }, { headers: NO_STORE });
-    })
+    .with({ method: 'GET', segments: ['users'] }, async () => Response.json({ users: await services.users.queries.list() }, { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['users', P.string, 'avatars', P.string, ...P.array(P.string)] }, ({ segments: [, id, , ...rest] }) => coreAdminAvatar(services, { id, file: rest.join('/') }))
     .with({ method: 'GET', segments: ['users', P.string, 'files', P.string, P.string] }, ({ segments: [, id, , botId, attachmentId] }) => coreAdminFile(services, context, {
       id,

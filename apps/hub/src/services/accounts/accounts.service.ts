@@ -6,11 +6,10 @@ import { accountsForget, accountsPath } from './accounts.utils';
 import type * as AccountsTypes from '../../types/accounts.types';
 
 export function makeAccountsService({ url, token, audit }: AccountsTypes.AccountsServiceParams) {
-  const deps: AccountsTypes.AccountsServiceDeps = { config: url && token ? { url, token } : null, audit, sessions: new Map() };
+  const deps: AccountsTypes.AccountsServiceDeps = { config: { url, token }, audit, sessions: new Map() };
 
   return {
     queries: {
-      isConfigured: () => deps.config !== null,
       session: (input: AccountsTypes.AccountsSessionParams) => accountsQuerySession(deps, input),
     },
     actions: {

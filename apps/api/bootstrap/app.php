@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         // An expired login form (Laravel turns the CSRF mismatch into a 419): show a fresh one rather than an error.
         $exceptions->render(fn (HttpException $error, Request $request) => $error->getPrevious() instanceof TokenMismatchException
-            ? response('', 302, ['Location' => '/cdn-cgi/access/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))])
+            ? response('', 302, ['Location' => '/auth/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))])
             : null);
         $exceptions->shouldRenderJsonWhen(fn () => true);
     })

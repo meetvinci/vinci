@@ -3,13 +3,6 @@ import { z } from 'zod';
 import type { HubFixtureConfig } from './hub.fixture';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-interface HubFixtureAccess {
-  domains: string[];
-  missing: string[];
-  isDown: boolean;
-  admins: string[];
-}
-
 export interface HubFixtureCall {
   method: string;
   url: string;
@@ -36,14 +29,6 @@ export function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureCo
     state: 'running',
   }]));
 
-  const access: HubFixtureAccess = { domains: [], missing: [], isDown: false, admins: [] };
-
-  const accessRule = () => ({
-    domains: access.domains,
-    emails: [...[...users.values()].filter((user) => user.enabled).map((user) => user.email), ...access.admins]
-      .filter((email) => !access.missing.includes(email) && !access.domains.some((domain) => email.endsWith(`@${domain}`))),
-  });
-
   const handle = (request: IncomingMessage, response: ServerResponse, body: string) => {
     const [, kind = '', id = ''] = (request.url ?? '').split('/');
 
@@ -67,21 +52,18 @@ export function hubFixtureProvisioner({ emails, provisionerToken }: HubFixtureCo
           ...userBody.parse(JSON.parse(body)),
           state: 'running',
         });
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+        response.writeHead(200, { 'content-type': 'application/json' }).end('{}');
       })
       .with({ method: 'DELETE', kind: 'users' }, () => {
         users.delete(id);
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+        response.writeHead(200, { 'content-type': 'application/json' }).end('{}');
       })
-      .with({ method: 'PUT', kind: 'access' }, () => {
-        access.admins = z.object({ emails: z.array(z.string()) }).parse(JSON.parse(body)).emails;
-        response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access: 'synced' }));
+      .with({ method: 'PUT', kind: 'admins' }, () => {
+        z.object({ emails: z.array(z.string()) }).parse(JSON.parse(body));
+        response.writeHead(200, { 'content-type': 'application/json' }).end('{}');
       })
-      .with({ method: 'GET', kind: 'access' }, () => (access.isDown
-        ? response.writeHead(500).end()
-        : response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(accessRule()))))
       .otherwise(() => response.writeHead(404).end());
   };
 
-  return { calls, access, handle };
+  return { calls, handle };
 }

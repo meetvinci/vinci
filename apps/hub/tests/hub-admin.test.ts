@@ -4,7 +4,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
 import { z } from 'zod';
 import { hubAdminTestKit } from './support/hub-admin.fixture';
-import { HUB_ADMIN_FIXTURE } from './support/hub.fixture';
+import { HUB_ADMIN_FIXTURE, hubFixtureCookie } from './support/hub.fixture';
 
 const { byHand, emails, admin, provisionerToken } = HUB_ADMIN_FIXTURE;
 const { it, get: hubAdminTestGet, read: hubAdminTestRead, write: hubAdminTestWrite } = hubAdminTestKit(HUB_ADMIN_FIXTURE);
@@ -36,14 +36,14 @@ describe('admin access', () => {
     expect((await hubAdminTestGet(path)).status).toBe(401);
   });
 
-  it('sends admin pages to the web app with the verified token, and other /admin paths nowhere', async ({ tokens }) => {
+  it('sends admin pages to the web app with the login cookie, and other /admin paths nowhere', async ({ tokens }) => {
     const page = webEcho.parse(await (await hubAdminTestGet('/admin/users?x=1', tokens.root)).json());
     const me = await hubAdminTestRead(tokens.root, '/admin/api/me');
     const unknown = await Promise.all(['/admin/api/nope', '/adminx', '/admin/api'].map((path) => hubAdminTestGet(path, tokens.alice)));
 
     expect(page.path).toBe('/admin/users?x=1');
-    expect(page.headers['cf-access-jwt-assertion']).toBe(tokens.root);
-    expect(me.json).toEqual({ email: admin, hasPassword: false });
+    expect(page.headers.cookie).toBe(hubFixtureCookie(tokens.root));
+    expect(me.json).toEqual({ email: admin });
     expect(unknown.map(({ status }) => status)).toEqual([404, 404, 404]);
   });
 
@@ -90,30 +90,24 @@ describe('admin access', () => {
 });
 
 describe('admin list', () => {
-  it('sends its admin list to the provisioner at start, so Access and the hub agree', async ({ fixture }) => {
-    const first = fixture.provisioner.find((call) => call.url === '/access/admins');
+  it('sends its admin list to the provisioner at start, so users.yaml and the hub agree', async ({ fixture }) => {
+    const first = fixture.provisioner.find((call) => call.url === '/admins');
 
     expect(first).toMatchObject({ method: 'PUT', body: JSON.stringify({ emails: [admin, emails.alice] }) });
   });
 
-  it('adds and removes admins, syncs Access through the provisioner and keeps the last admin', async ({ fixture, tokens }) => {
+  it('adds and removes admins, syncs users.yaml through the provisioner and keeps the last admin', async ({ fixture, tokens }) => {
     const added = await hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: 'Carol@Team.Example' } });
     const listed = await hubAdminTestRead(tokens.root, '/admin/api/admins');
-    const sync = fixture.provisioner.filter((call) => call.url === '/access/admins').at(-1);
+    const sync = fixture.provisioner.filter((call) => call.url === '/admins').at(-1);
     const invalid = await hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: 'not-an-email' } });
     const remove = (email: string) => hubAdminTestWrite(tokens.root, `/admin/api/admins/${encodeURIComponent(email)}`, { method: 'DELETE' });
     const removals = [await remove('carol@team.example'), await remove(emails.alice), await remove(admin)];
     const stored = JSON.parse(await readFile(join(fixture.hubData, 'admins.json'), 'utf8'));
     const restored = await hubAdminTestWrite(tokens.root, '/admin/api/admins', { body: { email: emails.alice } });
 
-    expect(added.json).toEqual({ email: 'carol@team.example', access: 'synced' });
-    expect(listed.json).toEqual({
-      admins: [
-        { email: admin, access: 'allowed' },
-        { email: emails.alice, access: 'allowed' },
-        { email: 'carol@team.example', access: 'allowed' },
-      ],
-    });
+    expect(added.json).toEqual({ email: 'carol@team.example' });
+    expect(listed.json).toEqual({ admins: [{ email: admin }, { email: emails.alice }, { email: 'carol@team.example' }] });
     expect(sync?.headers.authorization).toBe(`Bearer ${provisionerToken}`);
     expect(JSON.parse(sync?.body ?? '')).toEqual({ emails: [admin, emails.alice, 'carol@team.example'] });
     expect(invalid.status).toBe(422);
@@ -163,7 +157,6 @@ describe('admin users', () => {
           enabled: true,
           advanced: false,
           state: 'running',
-          access: 'allowed',
         },
         {
           id: 'bob',
@@ -172,11 +165,8 @@ describe('admin users', () => {
           enabled: true,
           advanced: false,
           state: 'running',
-          access: 'allowed',
         },
       ],
-      accessMode: 'emails',
-      hasAccounts: false,
     });
     expect(carol.json).toEqual({
       id: 'carol-doe',
@@ -185,7 +175,6 @@ describe('admin users', () => {
       enabled: true,
       advanced: false,
       state: 'running',
-      access: 'synced',
       bots: [],
     });
     expect(second.json).toMatchObject({ id: 'alice-2' });
@@ -195,7 +184,6 @@ describe('admin users', () => {
       id: 'carol-doe',
       enabled: false,
       advanced: true,
-      access: 'synced',
     });
     expect(JSON.parse(put?.body ?? '')).toEqual({
       name: 'Carol Doe',
@@ -209,7 +197,7 @@ describe('admin users', () => {
       userId: 'carol-doe',
       status: 200,
     })]) });
-    expect(removed.json).toEqual({ access: 'synced' });
+    expect(removed.json).toEqual({ removed: true });
     expect(fixture.provisioner.some((call) => call.method === 'DELETE' && call.url === '/users/carol-doe')).toBe(true);
   });
 
@@ -223,52 +211,11 @@ describe('admin users', () => {
     expect(created.json).toEqual({ error: 'provisioner_not_configured' });
     expect(listed.json).toMatchObject({
       users: [
-        { id: 'alice', email: emails.alice, state: 'unknown', access: 'unknown' },
-        { id: 'bob', email: emails.bob, state: 'unknown', access: 'unknown' },
+        { id: 'alice', email: emails.alice, state: 'unknown' },
+        { id: 'bob', email: emails.bob, state: 'unknown' },
       ],
-      accessMode: 'unknown',
     });
-    expect(added.json).toEqual({ email: 'carol@team.example', access: 'manual' });
-  });
-});
-
-describe('Cloudflare Access state', () => {
-  it('shows whom the allow policy lets in, by domain, by email or unknown, and reads it again after a change', async ({ fixture, tokens }) => {
-    const outsider = 'dave@outside.example';
-    const toggle = (method: 'POST' | 'DELETE') => hubAdminTestWrite(tokens.root, method === 'POST' ? '/admin/api/admins' : `/admin/api/admins/${encodeURIComponent(outsider)}`, { method, body: method === 'POST' ? { email: outsider } : undefined });
-    const users = async () => (await hubAdminTestRead(tokens.root, '/admin/api/users')).json;
-    const admins = async () => (await hubAdminTestRead(tokens.root, '/admin/api/admins')).json;
-
-    fixture.access.domains = ['team.example'];
-    await toggle('POST');
-
-    const byDomain = { users: await users(), admins: await admins() };
-
-    fixture.access.domains = [];
-    fixture.access.missing = [emails.bob];
-    await toggle('DELETE');
-
-    const cached = await users();
-
-    fixture.access.isDown = true;
-    await toggle('POST');
-
-    const down = { users: await users(), admins: await admins() };
-
-    fixture.access.isDown = false;
-    fixture.access.missing = [];
-    await toggle('DELETE');
-
-    expect(byDomain.users).toMatchObject({
-      users: [{ id: 'alice', access: 'allowed' }, { id: 'bob', access: 'allowed' }],
-      accessMode: 'domain',
-      accessDomains: ['team.example'],
-    });
-    expect(byDomain.admins).toEqual({ admins: [{ email: admin, access: 'allowed' }, { email: emails.alice, access: 'allowed' }, { email: outsider, access: 'allowed' }] });
-    expect(cached).toMatchObject({ users: [{ id: 'alice', access: 'allowed' }, { id: 'bob', access: 'not-allowed' }], accessMode: 'emails' });
-    expect(cached).not.toHaveProperty('accessDomains');
-    expect(down.users).toMatchObject({ users: [{ id: 'alice', access: 'unknown' }, { id: 'bob', access: 'unknown' }], accessMode: 'unknown' });
-    expect(down.admins).toMatchObject({ admins: [{ access: 'unknown' }, { access: 'unknown' }, { access: 'unknown' }] });
+    expect(added.json).toEqual({ email: 'carol@team.example' });
   });
 });
 

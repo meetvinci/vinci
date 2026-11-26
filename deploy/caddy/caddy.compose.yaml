@@ -1,7 +1,7 @@
-# The edge of a team install that logs people in with Vinci accounts (VINCI_AUTH=laravel) instead of Cloudflare Access:
-# the counterpart of deploy/cloudflare/cloudflared.compose.yaml, loaded in its place through COMPOSE_FILE in .env.
-# Caddy publishes 80 and 443 with an automatic certificate for VINCI_PUBLIC_HOST, sends /cdn-cgi/access/* to the
-# Laravel API (the login pages) and everything else to the hub. A login is a Sanctum token in the vinci_session cookie;
+# The edge of a team install, loaded through COMPOSE_FILE in .env. Caddy publishes 80 and 443 with an automatic
+# certificate for VINCI_PUBLIC_HOST, sends /auth/* to the Laravel API (the login pages) and everything else to the hub.
+# With the optional Cloudflare Tunnel, deploy/cloudflare/cloudflared.compose.yaml takes the ports away and has Caddy
+# serve plain HTTP to cloudflared, which carries HTTPS. A login is a Sanctum token in the vinci_session cookie;
 # the hub checks it with the API (GET /internal/session, on the accounts network) for every request and every open
 # socket, so a logout or a password change ends it at once. Caddy vouches for nobody: it only sends a visit without the
 # cookie to the login page. The Caddyfile is inline below (CADDYFILE), so this is the only file the mode adds.
@@ -38,6 +38,8 @@ services:
       timeout: 5s
       start_period: 15s
     environment:
+      # The site address: the hostname, for HTTPS with a certificate; cloudflared.compose.yaml makes it http://<host>.
+      VINCI_SITE: ${VINCI_PUBLIC_HOST:?set VINCI_PUBLIC_HOST in .env}
       CADDYFILE: |
         {
           admin off
@@ -49,10 +51,7 @@ services:
           respond "ok"
         }
 
-        ${VINCI_PUBLIC_HOST} {
-          # The hub trusts no header for identity; a visitor's own Access headers still never reach it.
-          request_header -Cf-Access-*
-
+        {$$VINCI_SITE} {
           # Browsers keep to HTTPS for a year. Not for subdomains, which may be other people's sites, and not preloaded.
           header Strict-Transport-Security "max-age=31536000"
 
@@ -62,18 +61,18 @@ services:
             respond 404
           }
 
-          handle /cdn-cgi/access/* {
+          handle /auth/* {
             reverse_proxy api:8080
           }
 
           # No login cookie: the API answers with a redirect to the login page that returns here after login. The hub's
-          # icons stay public, as with Cloudflare Access.
+          # icons stay public.
           @anonymous {
             not header_regexp Cookie (^|;\s*)vinci_session=
             not path /favicon.ico /img/favicon/*
           }
           handle @anonymous {
-            rewrite * /cdn-cgi/access/required
+            rewrite * /auth/required
             reverse_proxy api:8080 {
               header_up X-Vinci-Original-Uri {http.request.orig_uri}
             }
@@ -87,7 +86,7 @@ services:
             reverse_proxy hub:47192 {
               @refused status 401
               handle_response @refused {
-                rewrite * /cdn-cgi/access/required
+                rewrite * /auth/required
                 reverse_proxy api:8080 {
                   header_up X-Vinci-Original-Uri {http.request.orig_uri}
                 }
@@ -103,7 +102,9 @@ services:
       # Certificates and the ACME account: kept, so a restart does not ask Let's Encrypt again.
       - caddy-data:/data
     networks:
-      # The hub, and the internet for certificates.
+      # The hub only.
+      edge: {}
+      # The internet for certificates, and cloudflared with the tunnel.
       tunnel: {}
       # The API's login pages.
       login: {}
@@ -127,7 +128,8 @@ services:
       accounts: {}
 
 networks:
-  # The edge and the hub. Not internal: Caddy gets its certificates from Let's Encrypt.
+  # Caddy, and cloudflared with the tunnel. Not internal: Caddy gets its certificates from Let's Encrypt, and cloudflared
+  # dials out to Cloudflare.
   tunnel: {}
   # Caddy and the API only. No internet.
   login:

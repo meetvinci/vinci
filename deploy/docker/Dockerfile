@@ -40,9 +40,9 @@ FROM ${BUN_IMAGE}-slim AS tini
 RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/* \
  && mkdir /data && chown 1000:1000 /data
 
-# The hub: verifies Cloudflare Access and routes each user to their daemon. users.json and pins.json live
+# The hub: checks each login with the Laravel API and routes each user to their daemon. users.json and pins.json live
 # on the /data volume. It reaches daemon owner sockets, so it runs as the same uid as the daemons.
-# HUB_PUBLIC_URL, HUB_WEB_URL, ACCESS_TEAM_DOMAIN and ACCESS_AUD come at run time.
+# HUB_PUBLIC_URL, HUB_WEB_URL, HUB_ACCOUNTS_URL and HUB_ACCOUNTS_TOKEN come at run time.
 FROM ${BUN_IMAGE}-distroless AS hub
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=tini /data /data
@@ -195,7 +195,7 @@ RUN mkdir bootstrap/cache \
 # The login form's session lives in an encrypted cookie sent only to the login pages; the login rate limiter counts in
 # PostgreSQL (CACHE_STORE database), shared by every Apache worker. Nothing is written inside the read-only root.
 ENV APP_ENV=production LOG_CHANNEL=stderr CACHE_STORE=database \
-    SESSION_DRIVER=cookie SESSION_COOKIE=vinci_login SESSION_PATH=/cdn-cgi/access SESSION_SECURE_COOKIE=true \
+    SESSION_DRIVER=cookie SESSION_COOKIE=vinci_login SESSION_PATH=/auth SESSION_SECURE_COOKIE=true \
     APACHE_PID_FILE=/tmp/apache2.pid APACHE_RUN_DIR=/tmp APACHE_LOCK_DIR=/tmp
 USER www-data
 EXPOSE 8080

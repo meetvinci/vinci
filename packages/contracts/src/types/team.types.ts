@@ -8,7 +8,6 @@ export const teamWhoami = z.object({
   serverId: z.string().nullable(),
   isAdvanced: z.boolean(),
   isAdmin: z.boolean(),
-  hasPassword: z.boolean().default(false),
   sections: z.array(z.object({ id: adminSectionId, mode: adminSectionMode })),
 });
 
