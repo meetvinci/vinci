@@ -102,7 +102,6 @@
   "settings_tools_policy_empty": "No MCP servers yet. When one of your bots connects to one, its tools show up here.",
   "settings_tools_policy_shipped": "Ships with Vinci: its read-only tools run, and tools that change something ask.",
   "settings_tools_policy_trusted": "You trust this server: its read-only tools run, and tools that change something ask.",
-  "settings_tools_policy_admin_trusted": "Your admin trusts this server: its read-only tools run, and tools that change something ask.",
   "settings_tools_policy_untrusted": "Every tool asks. Trust this server to let the tools it marks read-only run.",
   "settings_tools_policy_trust": "Trust this server",
   "settings_tools_policy_default": "Default",

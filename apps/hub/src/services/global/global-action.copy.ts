@@ -28,7 +28,7 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
       await person.tools.configure({
         approvalRules,
         approvalTimeoutMinutes,
-        policyDefaults: policy,
+        policyDefaults: { ...policy, trusted: [] },
         jevApiKey,
       });
     })

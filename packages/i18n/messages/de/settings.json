@@ -102,7 +102,6 @@
   "settings_tools_policy_empty": "Noch keine MCP-Server. Sobald sich einer deiner Bots mit einem verbindet, erscheinen seine Tools hier.",
   "settings_tools_policy_shipped": "Kommt mit Vinci: reine Lese-Tools laufen, Tools, die etwas ändern, fragen.",
   "settings_tools_policy_trusted": "Du vertraust diesem Server: reine Lese-Tools laufen, Tools, die etwas ändern, fragen.",
-  "settings_tools_policy_admin_trusted": "Dein Admin vertraut diesem Server: reine Lese-Tools laufen, Tools, die etwas ändern, fragen.",
   "settings_tools_policy_untrusted": "Jedes Tool fragt. Vertraue diesem Server, damit die Tools laufen, die er als reine Lese-Tools kennzeichnet.",
   "settings_tools_policy_trust": "Diesem Server vertrauen",
   "settings_tools_policy_default": "Standard",

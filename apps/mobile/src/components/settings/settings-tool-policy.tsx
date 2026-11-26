@@ -39,7 +39,7 @@ export function SettingsToolPolicy() {
             title={server.title}
             value={toolPolicyChoiceLabel(server.choice, server.fallback)}
           />
-          {server.isShipped || server.isAdminTrusted ? null : (
+          {server.isShipped ? null : (
             <Item>
               <ItemContent>
                 <ItemTitle>{m.settings_tools_policy_trust()}</ItemTitle>

@@ -9,8 +9,9 @@ FROM (
   SELECT json_group_array(json_object('server', NULL, 'tool', name, 'behavior', 'allow')) AS controls, count(*) AS total
   FROM (
     SELECT DISTINCT listed.value AS name
-    FROM settings AS stored, json_each(stored.value) AS listed
-    WHERE stored.key LIKE 'tools.alwaysAllow.%' AND listed.type = 'text'
+    FROM (SELECT value FROM settings WHERE key LIKE 'tools.alwaysAllow.%' AND json_valid(value) AND json_type(value) = 'array') AS stored,
+      json_each(stored.value) AS listed
+    WHERE listed.type = 'text'
       AND listed.value NOT LIKE 'mcp\_%' ESCAPE '\' AND listed.value NOT IN ('bot_mcp_add', 'bot_note')
     LIMIT 500
   )

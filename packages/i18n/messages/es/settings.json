@@ -102,7 +102,6 @@
   "settings_tools_policy_empty": "Aún no hay servidores MCP. Cuando uno de tus bots se conecte a uno, sus herramientas aparecerán aquí.",
   "settings_tools_policy_shipped": "Viene con Vinci: sus herramientas de solo lectura se ejecutan y las que cambian algo preguntan.",
   "settings_tools_policy_trusted": "Confías en este servidor: sus herramientas de solo lectura se ejecutan y las que cambian algo preguntan.",
-  "settings_tools_policy_admin_trusted": "Tu admin confía en este servidor: sus herramientas de solo lectura se ejecutan y las que cambian algo preguntan.",
   "settings_tools_policy_untrusted": "Todas las herramientas preguntan. Confía en este servidor para que se ejecuten las que marca como de solo lectura.",
   "settings_tools_policy_trust": "Confiar en este servidor",
   "settings_tools_policy_default": "Predeterminado",

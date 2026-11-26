@@ -66,7 +66,7 @@ function SettingsToolsPolicyServer({ server, policy }: SettingsToolsPolicyServer
           })}
         />
       </div>
-      {server.isShipped || server.isAdminTrusted ? null : (
+      {server.isShipped ? null : (
         <label className="flex items-center justify-between gap-3 text-sm">
           {m.settings_tools_policy_trust()}
           <Switch

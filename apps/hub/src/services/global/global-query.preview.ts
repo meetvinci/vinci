@@ -62,7 +62,7 @@ export async function globalQueryPreview(
         settings: globalValues({
           approvalRules,
           approvalTimeoutMinutes,
-          approvalDefaults: isPerson ? policyDefaults : policy,
+          approvalDefaults: isPerson ? policyDefaults : { ...policy, trusted: [] },
           jevApiKey,
         }),
       };

@@ -4,7 +4,7 @@ Vinci installs one way: on one Linux server, with Docker, the hub and the admin 
 
 > [!WARNING]
 > This is a first version. It was installed from scratch on a test server by following these guides, the admin panel included (November 2026), but no team uses it yet.
-> Bots run their tools in a sandbox that cannot read keys or act as the person, but a bot with full permission can still read and send anything in that person's bot folders, and it can read the `env` values (secrets included) of MCP servers that run a command, which run in the same sandbox. Use this only with people you trust.
+> Bots run their tools in a sandbox that cannot read keys or act as the person, but a bot that runs commands (the **Normal** and **No questions** modes) can still read and send anything in that person's bot folders, and it can read the `env` values (secrets included) of MCP servers that run a command, which run in the same sandbox. Use this only with people you trust.
 
 ## What it is
 

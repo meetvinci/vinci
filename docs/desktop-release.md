@@ -74,7 +74,7 @@ Then it downloads the manifest from `DESKTOP_UPDATE_URL` and fails if the addres
 
 ### Settings it cannot change for now
 
-Every Vinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it hides those controls, as for a person in a team: a bot's permission level (new bots are on **Sandbox**, which asks before every command there because the app has no sandbox), approval rules and the approval timeout, and how bots use secrets. The default model and rate limits were never in the app. Its bots cannot add an MCP server that runs a command. Pairing (including **Pair a device** for a phone), **Settings → Server**, chat, secrets, web MCP servers, models, sources and the Jev key work as before.
+Every Vinci now leaves some settings to an admin, and the app's own local server has no admin. Until the app becomes a window on an installation, it hides those controls, as for a person in a team: a bot's mode (new bots are on **Normal**, which asks before every command there because the app has no sandbox), approval rules and the approval timeout, and how bots use secrets. The default model and rate limits were never in the app. Its bots cannot add an MCP server that runs a command. Pairing (including **Pair a device** for a phone), **Settings → Server**, chat, secrets, web MCP servers, models, sources and the Jev key work as before.
 
 ## What the check protects against
 

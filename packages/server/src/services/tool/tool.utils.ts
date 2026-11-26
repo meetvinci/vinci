@@ -13,10 +13,9 @@ export function toolControlFor({ policy, policyDefaults }: Pick<ToolSettings, 'p
   ]).find((control) => control !== undefined)?.behavior;
 }
 
-// SAFETY: annotations are hints a server writes about itself, so they count only for a server Vinci ships or one the person trusted.
-export function toolIsRead({ policy, policyDefaults }: Pick<ToolSettings, 'policy' | 'policyDefaults'>, target: ToolTarget): boolean {
-  const isTrusted = target.server !== null
-    && (toolIsShipped(target.server) || policy.trusted.includes(target.server) || policyDefaults.trusted.includes(target.server));
+// SAFETY: annotations are a server's own hints: only a shipped server's count, or one the person trusted (never the admin's defaults).
+export function toolIsRead({ policy }: Pick<ToolSettings, 'policy'>, target: ToolTarget): boolean {
+  const isTrusted = target.server !== null && (toolIsShipped(target.server) || policy.trusted.includes(target.server));
 
   return isTrusted && target.declaresReadOnly;
 }

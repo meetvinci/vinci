@@ -102,7 +102,6 @@
   "settings_tools_policy_empty": "Aucun serveur MCP pour l’instant. Quand l’un de vos bots se connecte à un serveur, ses outils apparaissent ici.",
   "settings_tools_policy_shipped": "Fourni avec Vinci : ses outils en lecture seule s’exécutent, ceux qui modifient quelque chose demandent.",
   "settings_tools_policy_trusted": "Vous faites confiance à ce serveur : ses outils en lecture seule s’exécutent, ceux qui modifient quelque chose demandent.",
-  "settings_tools_policy_admin_trusted": "Votre admin fait confiance à ce serveur : ses outils en lecture seule s’exécutent, ceux qui modifient quelque chose demandent.",
   "settings_tools_policy_untrusted": "Chaque outil demande. Faites confiance à ce serveur pour laisser s’exécuter les outils qu’il déclare en lecture seule.",
   "settings_tools_policy_trust": "Faire confiance à ce serveur",
   "settings_tools_policy_default": "Par défaut",

@@ -120,7 +120,6 @@ export interface ToolPolicyServerRow {
   title: string;
   isShipped: boolean;
   isTrusted: boolean;
-  isAdminTrusted: boolean;
   choice: ToolPolicyChoice;
   fallback: UniversalTypes.ToolControl['behavior'] | null;
   tools: ToolPolicyToolRow[];

@@ -165,7 +165,6 @@ export function toolPolicyServers({ policy, defaults, servers }: ToolTypes.ToolP
   ];
 
   return listed.map((server) => {
-    const isAdminTrusted = defaults.trusted.includes(server.key);
     const isTrusted = policy.trusted.includes(server.key);
     const ownServer = toolFind(policy.controls, server.key, null);
     const adminServer = toolFind(defaults.controls, server.key, null);
@@ -175,11 +174,10 @@ export function toolPolicyServers({ policy, defaults, servers }: ToolTypes.ToolP
       title: MCP_PRESETS.find((preset) => preset.url === server.key)?.title ?? (server.names.join(', ') || server.key),
       isShipped: server.isShipped,
       isTrusted,
-      isAdminTrusted,
       choice: ownServer ?? 'default',
       fallback: adminServer ?? null,
       tools: [...new Map(server.tools.map((tool) => [tool.name, tool])).values()].map((tool) => {
-        const isRead = tool.declaresReadOnly && (server.isShipped || isTrusted || isAdminTrusted);
+        const isRead = tool.declaresReadOnly && (server.isShipped || isTrusted);
 
         return {
           name: tool.name,
@@ -205,10 +203,9 @@ export function toolPolicyChoiceLabel(choice: ToolTypes.ToolPolicyChoice, fallba
     .exhaustive();
 }
 
-export function toolPolicyServerHint(server: Pick<ToolTypes.ToolPolicyServerRow, 'isShipped' | 'isTrusted' | 'isAdminTrusted'>): string {
+export function toolPolicyServerHint(server: Pick<ToolTypes.ToolPolicyServerRow, 'isShipped' | 'isTrusted'>): string {
   return match(server)
     .with({ isShipped: true }, () => m.settings_tools_policy_shipped())
-    .with({ isAdminTrusted: true }, () => m.settings_tools_policy_admin_trusted())
     .with({ isTrusted: true }, () => m.settings_tools_policy_trusted())
     .otherwise(() => m.settings_tools_policy_untrusted());
 }
