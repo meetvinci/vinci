@@ -1,27 +1,30 @@
 name: Images
 
 # Builds every Vinci image, including the API, from docker-bake.hcl for linux/amd64 and linux/arm64.
-# A release tag produces a vX.Y.Z image tag. A manual run tags the images with the full commit.
+# A release tag produces a vX.Y.Z image tag, a push to main the tags `main` and the full commit, and a manual run on
+# any branch the full commit.
 #
-# Images go to our private zot registry as registry.example.com/vinci/vinci-<target>, pushed as its `github-ci` user
-# (repository secrets REGISTRY_USERNAME and REGISTRY_PASSWORD; it can push but not delete). Each architecture pushes by
-# digest; `merge` joins them under the tag. The registry's own retention deletes old tags, so this workflow deletes
-# nothing. The registry sits behind Cloudflare, which refuses any request over 100 MB: every compressed layer must stay
-# under it (the largest is about 72 MB). Servers pull as the read-only `vinci-pull` user (docs/team-workspace/admin.md).
+# Images go to GitHub Container Registry as ghcr.io/meetvinci/vinci-<target>, pushed with the workflow's GITHUB_TOKEN.
+# The packages are public, so servers pull them without logging in (docs/team-workspace/admin.md). Each architecture
+# pushes by digest; `merge` joins them under the tags.
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
   workflow_dispatch:
 
+# A newer push to main replaces an older main build still running; release tags and manual runs always finish.
 concurrency:
   group: images-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
 
 permissions: {}
 
 env:
-  REGISTRY: registry.example.com/vinci
+  REGISTRY: ghcr.io/meetvinci
+  SOURCE: https://github.com/${{ github.repository }}
 
 jobs:
   tags:
@@ -33,25 +36,25 @@ jobs:
     outputs:
       tags: ${{ steps.meta.outputs.json }}
     steps:
-      # No images: plain tags, which the merge job puts on each vinci-<target>. One tag per build, because the registry
-      # keeps only the 10 newest tags of each image (or those pulled in the last 30 days). No `latest`: VINCI_TAG names a
-      # version.
+      # No images: plain tags, which the merge job puts on each vinci-<target>. No `latest`: VINCI_TAG names a version,
+      # `main` follows the main branch.
       - name: Compute tags
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           flavor: latest=false
           tags: |
-            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'push' }}
-            type=sha,prefix=,format=long,enable=${{ github.event_name != 'push' }}
+            type=semver,pattern=v{{version}},enable=${{ startsWith(github.ref, 'refs/tags/') }}
+            type=raw,value=main,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=sha,prefix=,format=long,enable=${{ !startsWith(github.ref, 'refs/tags/') }}
 
   build:
     name: Build ${{ matrix.arch }}
-    # Native runners, not QEMU: the build runs bun install and bundles the apps, far too slow emulated. Arm64 standard
-    # runners work in private repositories since 2026-01-29 (2 vCPU there, billed from the plan's minutes).
+    # Native runners, not QEMU: the build runs bun install and bundles the apps, far too slow emulated.
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
+      packages: write
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -73,9 +76,9 @@ jobs:
       - name: Log in to the registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          registry: registry.example.com
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # The checkout as the context (source: .), so .dockerignore applies.
       - name: Build
@@ -84,7 +87,10 @@ jobs:
         with:
           source: .
           files: docker-bake.hcl
-          set: '*.platform=linux/${{ matrix.arch }}'
+          set: |
+            *.platform=linux/${{ matrix.arch }}
+            *.labels.org.opencontainers.image.source=${{ env.SOURCE }}
+            *.labels.org.opencontainers.image.revision=${{ github.sha }}
           vars: |
             CACHE_SCOPE=images-${{ matrix.arch }}
             REGISTRY=${{ env.REGISTRY }}
@@ -103,11 +109,14 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
-  # Joins each image's two architectures into one multi-arch tag per tag from the `tags` job.
+  # Joins each image's two architectures into one multi-arch tag per tag from the `tags` job. The index carries the
+  # source annotation too, which is what links a multi-arch package to the repository on GitHub.
   merge:
     name: Publish
     needs: [tags, build]
     runs-on: ubuntu-24.04
+    permissions:
+      packages: write
     timeout-minutes: 10
     steps:
       - name: Download digests
@@ -123,9 +132,9 @@ jobs:
       - name: Log in to the registry
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          registry: registry.example.com
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create manifest lists
         env:
@@ -137,6 +146,6 @@ jobs:
             image="$REGISTRY/vinci-$target"
             mapfile -t tags < <(jq -r --arg image "$image" '.tags[] | "--tag=\($image):\(.)"' <<<"$TAGS")
             mapfile -t sources < <(jq -r --arg target "$target" --arg image "$image" '.[$target]["containerimage.digest"] | "\($image)@\(.)"' "$DIGESTS"/digests-*.json)
-            docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+            docker buildx imagetools create --annotation "index:org.opencontainers.image.source=$SOURCE" "${tags[@]}" "${sources[@]}"
             docker buildx imagetools inspect "$image:$(jq -r '.tags[0]' <<<"$TAGS")"
           done

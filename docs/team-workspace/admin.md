@@ -706,7 +706,7 @@ When the server is lost, or its disk no longer has the backup you want. You need
    ssh root@<new server> 'cd /opt/vinci && umask 077 && cat > .env'
    ```
 
-   Type or paste `VINCI_TAG=<tag>`, `VINCI_REGISTRY=registry.example.com/vinci/` (leave it out for images loaded by hand), every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
+   Type or paste `VINCI_TAG=<tag>`, `VINCI_REGISTRY=ghcr.io/meetvinci/` (leave it out for images loaded by hand), every `BACKUP_S3_` line and `BACKUP_PASSPHRASE=<passphrase>`, each on its own line, then press Ctrl-D.
 3. List the backups in the bucket and pick one (UTC times, oldest first):
 
    ```sh
@@ -749,7 +749,7 @@ bun deploy.ts apply
 
 Before the first upgrade that adds PostgreSQL, run the password generation command in [install, step 7](install.md#7-start-vinci). Set both values in `/opt/vinci/.env` before copying the new Compose file.
 
-New images arrive with a new release tag. Pull the release images (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`, `vinci-api`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again from a checkout of that tag (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun registry.example.com/vinci/vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Pull the images before changing the tag, so the switch below does not wait on the download. The first upgrade from images loaded by hand also needs `VINCI_REGISTRY=registry.example.com/vinci/` added to `.env` and the server logged in to the registry, both as in step 3. To switch:
+New images arrive with a new release tag. Pull the release images (`vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall`, `vinci-api`) as in [install, step 3](install.md#3-get-vinci-onto-the-server), and copy the deployment files again from a checkout of that tag (`compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `cloudflared.compose.yaml`, `deploy.ts`; never `.env`). If `docker run --rm --entrypoint /usr/local/bin/bun ghcr.io/meetvinci/vinci-daemon:<tag> --version` prints a different version than `bun --version` on the server, install Bun from the new image as in step 3; otherwise leave it. Pull the images before changing the tag, so the switch below does not wait on the download. The first upgrade from images loaded by hand, or from the old private registry (`registry.example.com/vinci/`, releases up to `v0.1.7`), also needs `VINCI_REGISTRY=ghcr.io/meetvinci/` in `.env`; the old registry's login can stay, unused (`docker logout registry.example.com` removes it). To switch:
 
 1. Back up everyone, the template workspace and the hub's folder with `bun deploy.ts nightly` ([above](#nightly-backups)), and confirm `bun deploy.ts nightly status` says `ok`. A new version can change the database; the old version may not read it again. The [audit trail](#activity) is a file in the hub's folder, so the upgrade keeps it. A backup restarts each person's Vinci as it was, on the old version, although the new deployment files are already in place; step 2 moves everyone to the new version. On the first upgrade to the version with nightly backups, the hub stops for about 7 seconds instead of 3: the running hub still has the old health check. Note the run's time (`Last run: backups/<time>`): it stays for 7 days like the nightly runs, a later run on the same day included, and is the one to restore if the new version goes wrong.
 
@@ -797,17 +797,19 @@ To roll back, copy the old version's deployment files into `/opt/vinci` again (f
 
 ### Images from CI
 
-Each release tag `vX.Y.Z` makes GitHub Actions (the **Images** workflow) build all Vinci images for amd64 and arm64 and publish them to Vinci's private registry, `registry.example.com` (zot, on the server `vinci01`), as `registry.example.com/vinci/vinci-<image>:vX.Y.Z`. There is no `latest`. You can also start the workflow by hand on any branch or tag; that build is tagged with the full commit instead. The workflow logs in as the registry's `github-ci` user, which can push but not delete, with the repository secrets `REGISTRY_USERNAME` and `REGISTRY_PASSWORD`.
+GitHub Actions (the **Images** workflow) builds all Vinci images for amd64 and arm64 and publishes them to GitHub Container Registry as `ghcr.io/meetvinci/vinci-<image>`:
 
-The registry deletes old images by itself once a day: of each image it keeps the 10 newest tags and any tag pulled in the last 30 days. A release older than that, which no server pulled in a month, is gone, and rolling back to it means building it again (run the workflow by hand on its tag, or [build it locally](install.md#3-get-vinci-onto-the-server)). Users, permissions and retention are set on `vinci01`, in `/opt/zot`, not in this repository.
+| Trigger | Tags |
+| --- | --- |
+| A release tag `vX.Y.Z` | `vX.Y.Z` |
+| A push to `main` | `main` and the full commit |
+| A manual run on any branch or tag (`gh workflow run images.yml --ref <branch>`) | the full commit |
 
-The registry is behind Cloudflare, which refuses any request over 100 MB, and a push sends each compressed layer in one request. Today the largest is about 72 MB (the sandbox image). If a push fails with `413` or `Request Entity Too Large`, a layer has grown past the limit: split the Dockerfile step that makes it. Pulls are not limited.
+There is no `latest`. The workflow pushes with its own `GITHUB_TOKEN`; it needs no secret. A newer push to main cancels a main build still running; release tags and manual runs always finish. GitHub keeps every version, so rolling back to any earlier release or commit only needs its tag.
 
-### Give a server access to the images
+The packages are public: servers pull them with no `docker login` and no password to keep. GitHub creates each package private the first time the workflow pushes it, so a new image needs an org owner to set it public once: the package's page under the `meetvinci` organization, **Package settings**, **Change visibility**, **Public**. Until then a server's pull fails with `unauthorized` or `denied`.
 
-Every server pulls as `vinci-pull`, the registry's read-only user: it can pull the `vinci/` images and nothing else, and cannot push or delete. Keep its password in the password manager and log each server in with it as in [install, step 3](install.md#3-get-vinci-onto-the-server).
-
-All servers share that one login. To cut a single server off, ask the registry's admin for its own read-only user on `vinci01` (an `htpasswd` line and a read-only rule in `/opt/zot/config.json`) and log that server in with it instead; removing the user later stops only that server. A server cut off keeps running the images it already has: it can no longer pull new versions.
+one client install still runs `v0.1.7` from the old private registry (`registry.example.com/vinci/`, logged in as `vinci-pull`) until it is upgraded; nothing new is published there.
 
 ## Status and logs
 
