@@ -1,3 +1,3 @@
 {
-  "pages": ["index", "install", "install-app", "admin", "configuration", "troubleshooting"]
+  "pages": ["index", "install", "install-app", "admin", "configuration", "troubleshooting", "external:[Server tour](/install/server-tour.html)"]
 }
