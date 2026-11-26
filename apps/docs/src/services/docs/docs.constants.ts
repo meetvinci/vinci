@@ -10,6 +10,7 @@ export const DOCS = {
     fr: 'Français',
   },
   homeSlug: 'install',
+  changelogSlug: 'changelog',
   repositoryUrl: 'https://github.com/meetvinci/vinci/blob/main',
 } as const;
 

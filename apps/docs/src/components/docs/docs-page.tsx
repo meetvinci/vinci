@@ -5,6 +5,7 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Suspense, use } from 'react';
 import { DOCS } from '@/services/docs/docs.constants';
 import { docsCollection, docsSource } from '@/services/docs/docs.utils';
+import { DocsChangelog } from './docs-changelog';
 import { DocsMdxBlockquote, DocsMdxLink, DocsMdxMermaid } from './docs-mdx';
 
 const route = getRouteApi('/$lang/$');
@@ -27,6 +28,7 @@ function DocsPageContent() {
       <DocsBody>
         <Mdx components={{ ...defaultMdxComponents, a: DocsMdxLink, blockquote: DocsMdxBlockquote, Mermaid: DocsMdxMermaid }} />
       </DocsBody>
+      {_splat === DOCS.changelogSlug ? <DocsChangelog /> : null}
     </DocsPage>
   );
 }
