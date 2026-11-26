@@ -407,7 +407,7 @@ ssh root@<server> 'cat /var/log/vinci-install.result; grep "^== " /var/log/vinci
 ssh root@<server> 'cat /opt/vinci/admin-password'
 ```
 
-Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel. The password file stays on the server, readable by root only.
+Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made. A wrong release goes in `/etc/vinci-install.env` (`VINCI_REF`, `VINCI_TAG`) before the new run. The script installs the release named there: after an [upgrade](admin.md#upgrades), update both values, or running it again puts the old version back. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel. The password file stays on the server, readable by root only.
 
 ## Next
 
