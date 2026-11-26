@@ -43,6 +43,8 @@ ssh root@<server> 'uname -m; lsb_release -d; grep -m1 -o avx2 /proc/cpuinfo; fre
 
 Expected: `x86_64`, `Ubuntu 24.04…`, `avx2`, a total memory of at least 3.7Gi, and at least 40G available. If `avx2` is missing, the images cannot run on this server.
 
+Once Bun is on the server (step 3), `bun deploy.ts check` in `/opt/vinci` runs the same checks and says `ok`, `warning` or `failed` for each. A later Ubuntu than 24.04, or 30 to 40 GB free, is a `warning`: enough for a test server (a 40 GB disk shows about 35 GB free), not for a team's production install. Less memory, less disk, no AVX2 or another system `failed`, and the command exits non-zero.
+
 **Give this to your agent:**
 
 > SSH to `root@<server>` and run `uname -m; lsb_release -d; grep -m1 -o avx2 /proc/cpuinfo; free -h; df -h /`. Confirm it is `x86_64`, Ubuntu 24.04, prints `avx2`, has at least 3.7 GiB of memory in total and 40 GB of free disk. Report what you find. Change nothing.
@@ -61,27 +63,21 @@ Expected: Docker 26 or newer, Compose 2.23.1 or newer, `enabled`, and an `iptabl
 
 ## 3. Get Vinci onto the server
 
-Vinci's images come from Vinci's private registry as `registry.example.com/vinci/vinci-<image>`, built for amd64 and arm64 by every release ([images from CI](admin.md#images-from-ci)). Choose a release tag, for example `v0.1.7` (`gh release list` in the Vinci repository lists them):
+Vinci's images are public on GitHub Container Registry as `ghcr.io/meetvinci/vinci-<image>`, built for amd64 and arm64 ([images from CI](admin.md#images-from-ci)). The server pulls them without logging in. Choose a tag: a release such as `v0.2.0` (`gh release list` in the Vinci repository lists them; releases before the move to GitHub Container Registry, up to `v0.1.7`, are only in the old private registry), `main` for the latest commit on main, or the full commit of a build:
 
 ```sh
-TAG=v0.1.7
+TAG=v0.2.0
 ```
 
-The server needs the registry's read-only login, `vinci-pull`, from whoever runs the Vinci registry ([give a server access to the images](admin.md#give-a-server-access-to-the-images)). Log the server in once, reading the password from your password manager so it never shows on screen:
+Pull the images:
 
 ```sh
-op read 'op://<vault>/<item>/password' | ssh root@<server> 'docker login registry.example.com --username vinci-pull --password-stdin'
+ssh root@<server> "for image in daemon sandbox web hub provisioner firewall api; do docker pull -q ghcr.io/meetvinci/vinci-\$image:$TAG; done"
 ```
 
-Expected: `Login Succeeded`. Docker keeps the password in `/root/.docker/config.json`, readable by root only, and uses it for every later pull. Then pull the release images:
+Expected: seven lines `ghcr.io/meetvinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
 
-```sh
-ssh root@<server> "for image in daemon sandbox web hub provisioner firewall api; do docker pull -q registry.example.com/vinci/vinci-\$image:$TAG; done"
-```
-
-Expected: seven lines `registry.example.com/vinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
-
-Copy the deployment files into `/opt/vinci`, from a checkout of the same tag (`git checkout $TAG`). Only the first time, also copy the settings template as `.env`; it already points `VINCI_REGISTRY` at the registry:
+Copy the deployment files into `/opt/vinci`, from a checkout of the same tag (`git checkout $TAG`). Only the first time, also copy the settings template as `.env`; it already points `VINCI_REGISTRY` at `ghcr.io/meetvinci/`:
 
 ```sh
 ssh root@<server> 'install -d -m 700 /opt/vinci'
@@ -92,16 +88,16 @@ ssh root@<server> 'test -e /opt/vinci/.env' || { scp deploy/.env.example root@<s
 The deploy commands need Bun on the server. Take it from the image you just pulled, so it matches:
 
 ```sh
-ssh root@<server> "docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun && bun --version"
+ssh root@<server> "docker run --rm --entrypoint cat ghcr.io/meetvinci/vinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun && bun --version"
 ```
 
 Expected: a Bun version such as `1.4.4`. The copy goes through `bun.new` because writing over a Bun that is running (a nightly backup during an upgrade, for example) fails with `Text file busy`.
 
-**A commit that is not a release** (to test a fix before releasing it): build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG vinci-api:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (seven `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=registry.example.com/vinci/` back when you return to a release.
+**A commit that is not a release** (to test a fix before releasing it): run the **Images** workflow on its branch (`gh workflow run images.yml --ref <branch>`) and use the full commit as the tag; every push to main is already built. Without CI, build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG vinci-api:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (seven `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=ghcr.io/meetvinci/` back when you return to a release.
 
 **Give this to your agent:**
 
-> On `root@<server>`, log Docker in to `registry.example.com` as `vinci-pull` with the password at `op://<vault>/<item>/password`, piping `op read` into `docker login --password-stdin` over ssh without printing it. Pull `registry.example.com/vinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> On `root@<server>`, pull `ghcr.io/meetvinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat ghcr.io/meetvinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -279,7 +275,7 @@ Then check how the provisioner sees Cloudflare: `ssh root@<server> 'cd /opt/vinc
 
 If it differs:
 
-- `pull access denied` or `manifest unknown` for an image: the server has no image of the tag in `.env`. Check `VINCI_TAG` and `VINCI_REGISTRY` in `.env`, `docker images`, and pull it as in step 3; `unauthorized` means the server's registry login (`vinci-pull`) was changed or removed; log it in again as in step 3.
+- `pull access denied` or `manifest unknown` for an image: the server has no image of the tag in `.env`. Check `VINCI_TAG` and `VINCI_REGISTRY` in `.env`, `docker images`, and pull it as in step 3; `unauthorized` or `denied` from `ghcr.io` means that image's package is not public yet ([images from CI](admin.md#images-from-ci)).
 - `set ACCESS_AUD in .env` or a similar message: step 6 did not merge the Cloudflare values. `set PROVISIONER_TOKEN in .env` or `set HUB_ADMIN_EMAILS in .env`: the two commands above did not run.
 - cloudflared unhealthy or no `Registered tunnel connection` line: check `docker compose logs cloudflared` for a token error, and run step 5 and 6 again.
 - The hub log warns `The provisioner did not take the admin list yet; trying again` a few times: normal on the first start, while `apply` still holds its lock. It stops once `docker compose logs provisioner` shows `PUT /access/admins 200`. If it goes on for more than a minute, read the provisioner log.
@@ -345,11 +341,73 @@ A person on their own installs the same thing as a team. There is no smaller ver
 - Memory: the smallest server in [Before you start](#before-you-start) is plenty. You are one person, plus the template workspace for global settings.
 - You log in with an email code, and the hub pairs your browser. Your bots' security settings, model keys and shared sources live in the admin panel at `/admin`, on your own page. Global settings are there too; you need them only if you add people later.
 
+## Login with Vinci accounts (no Cloudflare)
+
+**For testing for now.** Production installs use Cloudflare Access, steps 1 to 9 above. This mode needs no Cloudflare account and no domain on Cloudflare: people log in with an email and a password that Vinci keeps, and the server answers on ports 80 and 443 itself.
+
+How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) plays the part of Cloudflare Access: it shows the login page at `/cdn-cgi/access/login`, signs the same `CF_Authorization` cookie with its own key, and serves that key at `/cdn-cgi/access/certs`. The hub checks the cookie as it checks Cloudflare's, against the key at `ACCESS_TEAM_DOMAIN`, here the API. A visitor without the cookie is sent to the login page and back to where they were after it. Logins last 7 days; `/cdn-cgi/access/logout` ends one.
+
+What changes from the steps above:
+
+- **Before you start:** no Cloudflare domain or token. You need a DNS name that points at the server (an `A` record) and ports 80 and 443 open to the internet, for the certificate and for people.
+- **Step 3:** copy `deploy/caddy/caddy.compose.yaml` instead of `deploy/cloudflare/cloudflared.compose.yaml`.
+- **Steps 5 and 6:** skip them. Set these in `/opt/vinci/.env` instead, generating the secrets on the server so they never leave it:
+
+  ```sh
+  ssh root@<server> 'set -e; cd /opt/vinci; set_env() { sed -i "/^$1=/d" .env; printf "%s=%s\n" "$1" "$2" >> .env; }
+    set_env VINCI_AUTH laravel
+    set_env COMPOSE_FILE compose.yaml:caddy.compose.yaml:users.compose.yaml
+    set_env VINCI_PUBLIC_HOST vinci.example.com
+    set_env ACCESS_TEAM_DOMAIN http://api:8080
+    for key in ACCESS_AUD API_INTERNAL_TOKEN; do grep -q "^$key=." .env || set_env $key "$(openssl rand -hex 32)"; done
+    grep -q "^API_APP_KEY=." .env || set_env API_APP_KEY "base64:$(openssl rand -base64 32)"'
+  ```
+
+- **Step 7:** `bun deploy.ts apply` checks these values first and names what is missing. It starts `vinci-caddy-1` and `vinci-api-1` in place of cloudflared, and `bun deploy.ts status` lists both, which must be `running (healthy)`. Then create the first admin's account; the password is printed once, so put it in your password manager:
+
+  ```sh
+  ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan vinci:user admin@example.com'
+  ```
+
+  The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel.
+- **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `ss -tlnp` also shows Docker on ports 80 and 443.
+
+Trust: whoever controls the key at `ACCESS_TEAM_DOMAIN` can log in as anyone. Here that is the API's key, kept in PostgreSQL and encrypted with `API_APP_KEY`; changing `API_APP_KEY` makes the key unreadable, so keep it. `/internal/users`, the routes the admin panel uses to add accounts, are reachable only from the hub, and only with `API_INTERNAL_TOKEN`.
+
+To go back to Cloudflare, set `VINCI_AUTH=access` (or delete the line), put `cloudflared.compose.yaml` back in `COMPOSE_FILE`, follow steps 5 and 6, and run `docker compose up -d --remove-orphans` and then `bun deploy.ts apply`.
+
+**Give this to your agent:**
+
+> Install Vinci on `root@<server>` for testing with Vinci's own logins, following "Login with Vinci accounts (no Cloudflare)" in `docs/team-workspace/install.md`: steps 1 to 4 and 7 to 9 with its changes, skipping 5 and 6, at `<host>`, which already points at the server. Run `bun deploy.ts check` and report its warnings. Generate the secrets on the server and never print `.env`. Create the account of `<first admin email>` with `vinci:user` and tell me its password is in the output, once, without repeating it in a summary.
+
 ## The whole install in one prompt
 
 Fill in the angle brackets and paste:
 
 > Install Vinci for my team by following `docs/team-workspace/install.md` in my Vinci checkout, steps 1 to 9 in order, and stop at the first step whose check fails. Server: `root@<server>` (`<ssh options, if any>`). Cloudflare zone `<domain>`, team hostname `<team>.<domain>`, object name `vinci-<team>`. Cloudflare lets in `<everyone @<company domain>, or "a list of emails" plus the small server token at <op://…>>`. The Cloudflare API token is at `<op://… or where it is>`: read it inside the command that needs it, never print or save it. People (id: email): `<id>: <email>, …`. First admin of the admin panel: `<email>`. Model keys: `<where they are, or "none, people add their own">`. Never print secrets or emails in public places. Finish with the step 8 checks and the nightly backup of step 9 and tell me the address to log in at and the admin panel address (`/admin`), and remind me to set Global settings and the suggested bots there before people log in.
+
+## Install with cloud-init
+
+A new server can install itself on its first boot, with no Cloudflare: [Login with Vinci accounts](#login-with-vinci-accounts-no-cloudflare), done for you. People log in with an email and a password that Vinci keeps, and Caddy serves HTTPS with a Let's Encrypt certificate. You need a server as in [Before you start](#before-you-start), Ubuntu 24.04 or 26.04, and a hostname whose DNS A record points at it.
+
+Fill in [`deploy/cloud-init/user-data.yaml`](../../deploy/cloud-init/user-data.yaml) and give it to your cloud provider as the server's user data (Hetzner: **Cloud config** when you create or rebuild the server). It has five values:
+
+- `{{host}}`: the hostname, for example `acme.example.com`.
+- `{{admin}}`: the email of the first admin. They also get a Vinci of their own.
+- `{{ref}}`: the Vinci release whose deployment files to use, for example `v0.2.0`.
+- `{{tag}}`: the image tag, the same release.
+- `{{registry}}`: `ghcr.io/meetvinci/`, where the images come from.
+
+`bun scripts/test-server.ts render --host <hostname> --admin <email> --ref <release> --tag <release>` prints it filled in. The file holds no secret: the server makes every secret itself.
+
+The server installs Docker, the deployment files, `.env` and `users.yaml`, starts everything, creates the admin's login and turns on nightly backups. It takes about two minutes after the server boots, plus the image download. Then:
+
+```sh
+ssh root@<server> 'cat /var/log/vinci-install.result; grep "^== " /var/log/vinci-install.log'
+ssh root@<server> 'cat /opt/vinci/admin-password'
+```
+
+Expected: `ok` and one line per step with its time. If it says `failed: <step>`, `tail -n 60 /var/log/vinci-install.log` shows why; fix the cause and run `/usr/local/sbin/vinci-install` again, which keeps what it already made. The second command prints the admin's password: open `https://<hostname>`, log in with the admin's email and it, then continue with step 8 and the admin panel. The password file stays on the server, readable by root only.
 
 ## Next
 

@@ -44,3 +44,6 @@ credentials.json
 *.keychain-db
 
 packages/i18n/project.inlang/cache/
+
+# Composer dependencies of the Laravel API
+apps/api/vendor/

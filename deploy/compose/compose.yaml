@@ -2,9 +2,9 @@
 # sandbox.yaml and cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (per
 # person a daemon and a sandbox, each with its network and volume, extending daemon.yaml and sandbox.yaml) and
 # hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, cloudflared.compose.yaml and
-# users.compose.yaml together.
+# users.compose.yaml together; with VINCI_AUTH=laravel, caddy.compose.yaml (deploy/caddy) replaces cloudflared's.
 # The provisioner runs the same apply for the hub's admin panel.
-# Nothing is published on a host interface: cloudflared is the only way in.
+# Nothing here is published on a host interface: the edge (cloudflared, or Caddy on 80 and 443) is the only way in.
 name: vinci
 
 # At most 30 MB of Docker's log per container.
@@ -42,7 +42,7 @@ services:
     pid: host
     network_mode: none
 
-  # The only origin cloudflared reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
+  # The only origin cloudflared reaches (with Caddy, it also reaches the API's login pages). Sees each person's data/ipc folder (one volume, a subfolder per person) and
   # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
     image: ${VINCI_REGISTRY:-}vinci-hub:${VINCI_TAG}
@@ -67,9 +67,6 @@ services:
       HUB_VERSION: ${VINCI_TAG}
       PROVISIONER_URL: http://provisioner:47193
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
-      # Set only when VINCI_AUTH=laravel: the panel creates and resets login accounts in apps/api.
-      HUB_ACCOUNTS_URL: ${HUB_ACCOUNTS_URL:-}
-      HUB_ACCOUNTS_TOKEN: ${API_INTERNAL_TOKEN:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./hub:/data
