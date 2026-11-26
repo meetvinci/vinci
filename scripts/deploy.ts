@@ -84,7 +84,7 @@ const disclosureVersion = /\b[A-Za-z][\w-]*\/v?\d+(?:\.\d+)+/u;
 const disclosureBody = /stack ?trace|\bat \S+ \(\S+:\d+:\d+\)|\.php(?: on line |:|\()\d+|\b(?:apache|nginx|caddy|php|laravel|symfony|bun|node)\/?\s?v?\d+\.\d+/iu;
 // Each edge's paths: the app, the admin panel, the RPC, the hub's public health and icons, the login pages, and a path
 // nothing serves, on the hub and on the login pages.
-const disclosurePaths = ['/', '/admin', '/rpc', '/hub/health', '/favicon.ico', '/img/favicon/site.webmanifest', '/vinci-check-404', '/cdn-cgi/access/login', '/cdn-cgi/access/logout', '/cdn-cgi/access/vinci-check-404'];
+const disclosurePaths = ['/', '/admin', '/rpc', '/hub/health', '/favicon.ico', '/img/favicon/site.webmanifest', '/vinci-check-404', '/cdn-cgi/access/login', '/cdn-cgi/access/required', '/cdn-cgi/access/vinci-check-404'];
 const disclosureTimeoutMs = 15_000;
 // `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
 const nightlyStaleMs = 36 * 60 * 60 * 1000;
