@@ -489,7 +489,7 @@ docker compose exec daemon-<id> bun -e 'const gw = (await Bun.file("/proc/net/ro
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/vinci`, check what bots can reach: `bun deploy.ts firewall status` must say `healthy` (report any problem it lists); `iptables -S DOCKER-USER` and `iptables -S INPUT` must each start with a jump to `VINCI-DAEMONS` / `VINCI-DAEMONS-HOST` for `-i mv-d+`, and the `INPUT` policy must be unchanged. From one person's sandbox and from their Vinci, run the two checks in the "What a bot can reach" section of `docs/team-workspace/admin.md`: public 200, everything else blocked. `bun deploy.ts status` must exit 0. Don't change `VINCI_INTERNAL_ALLOW` unless I name an address.
+> On `root@<server>`, in `/opt/vinci`, check what bots can reach: `bun deploy.ts firewall status` must say `healthy` (report any problem it lists); `iptables -S DOCKER-USER` and `iptables -S INPUT` must each start with a jump to `VINCI-DAEMONS` / `VINCI-DAEMONS-HOST` for `-i mv-d+`, and the `INPUT` policy must be unchanged. From one person's sandbox and from their Vinci, run the two checks in the "What a bot can reach" section of `docs/install/admin.md`: public 200, everything else blocked. `bun deploy.ts status` must exit 0. Don't change `VINCI_INTERNAL_ALLOW` unless I name an address.
 
 ## Disk limits
 
@@ -803,7 +803,7 @@ If the new version changed someone's data, restore their backup from before the 
 
 **Give this to your agent:**
 
-> On `root@<server>`, upgrade Vinci in `/opt/vinci` to image tag `<tag>` as "The normal upgrade" in the Upgrades section of `docs/team-workspace/admin.md` says, after reading its "Notes for older versions" for every version between the installed `VINCI_TAG` and `<tag>`. Copy the deployment files from a checkout of `<tag>`, pull the seven images, back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `vinci-fw-undo` timer from those notes. Set `VINCI_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply` (on the first upgrade to the version with the firewall it recreates the hub and everyone's Vinci on new networks itself). Run every check in "Check after an upgrade", the `global/sync` by `hub start` line included; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. If anything fails, roll back as "Roll back" says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
+> On `root@<server>`, upgrade Vinci in `/opt/vinci` to image tag `<tag>` as "The normal upgrade" in the Upgrades section of `docs/install/admin.md` says, after reading its "Notes for older versions" for every version between the installed `VINCI_TAG` and `<tag>`. Copy the deployment files from a checkout of `<tag>`, pull the seven images, back up everyone with `bun deploy.ts nightly`, confirm `bun deploy.ts nightly status` says `ok` and note that run's time: it is the backup to restore if the upgrade goes wrong. On the first upgrade to the version with the firewall, first check that `iptables --version` says `(nf_tables)` (stop if not) and arm the 10-minute `vinci-fw-undo` timer from those notes. Set `VINCI_TAG=<tag>` in `.env`, run `docker compose up -d --wait`, then `bun deploy.ts apply` (on the first upgrade to the version with the firewall it recreates the hub and everyone's Vinci on new networks itself). Run every check in "Check after an upgrade", the `global/sync` by `hub start` line included; with the undo timer armed, cancel it only after a new SSH login works and `iptables -S INPUT` shows only our jump added. Don't switch anyone's settings sections to global. If anything fails, roll back as "Roll back" says: the previous version's deployment files, the previous tag, `docker compose up -d --wait`, then `bun deploy.ts apply`.
 
 ### Notes for older versions
 
@@ -823,7 +823,7 @@ Vinci no longer logs people in through Cloudflare Access: the Laravel API is the
 
 **Give this to your agent:**
 
-> On `root@<server>`, move the Vinci install from Cloudflare Access to Vinci accounts as "Move from Cloudflare Access" in `docs/team-workspace/admin.md` says: back up first, keep the tunnel `<yes or no>`, generate the secrets on the server, never print `.env` or a password. Report `bun deploy.ts status`, and tell me which people now have a login, without the passwords.
+> On `root@<server>`, move the Vinci install from Cloudflare Access to Vinci accounts as "Move from Cloudflare Access" in `docs/install/admin.md` says: back up first, keep the tunnel `<yes or no>`, generate the secrets on the server, never print `.env` or a password. Report `bun deploy.ts status`, and tell me which people now have a login, without the passwords.
 
 #### Images from GitHub Container Registry
 

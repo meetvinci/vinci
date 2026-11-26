@@ -208,6 +208,18 @@ apps/web/
     └── types/<domain>.types.ts         web-only types
 ```
 
+### apps/docs
+
+```
+apps/docs/
+├── vite.config.ts                      Vite config: Fumadocs MDX, TanStack Start in static mode, every page rendered at build
+└── src/
+    ├── application/router.tsx  routes.ts  styles.css    the router, its route config and global styles
+    ├── routes/<area>/<area>.<path>.tsx    one route file per URL, TanStack dot names
+    ├── components/<area>/<area>-<name>.tsx    feature components of one area
+    └── services/<domain>/<domain>.{utils,constants}.ts    the content source, languages and site constants
+```
+
 ### apps/mobile
 
 ```
@@ -264,6 +276,8 @@ packages/
 ├── DESIGN.md                           UI principles
 ├── README.md                           what Vinci is, setup, scripts
 ├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
+├── docs/<topic>/<name>[.<locale>].mdx  a page of the public docs site; no locale is English, a locale suffix its translation
+├── docs/meta.json                      the order of the docs site's sections
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
 ├── scripts/deploy.ts                   container images and deployment, a subcommand per step; `provisioner` serves apply to the hub
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds
@@ -295,6 +309,7 @@ packages/
 | `packages/contracts` | Public schemas, input and output types, oRPC contracts and errors, including the schemas clients validate forms, search params, pairing codes and stored preferences with. No implementations. |
 | `packages/client` | Typed RPC calls, reconnect, applying Pi view updates, and the data and view helpers web and mobile share. Chat and bot hooks live here, not in the apps. `./client` stays free of React. No UI components; apps keep route-bound hooks, toasts and navigation. |
 | Shared packages | Env, errors, logging, i18n, avatars and the secret proxy. No application dependencies. |
+| `apps/docs` | The public documentation site: a static Fumadocs build of the pages in `docs/`. No server, no login, no calls to an install. |
 | `docs/` | Human setup and operation guides. Agent references stay in `.agents/references/`. |
 
 Native code stays in its owning package behind `/native`. Using files, SQLite or subprocesses does **not** make code daemon logic.

@@ -5,7 +5,7 @@ name: Images
 # any branch the full commit.
 #
 # Images go to GitHub Container Registry as ghcr.io/meetvinci/vinci-<target>, pushed with the workflow's GITHUB_TOKEN.
-# The packages are public, so servers pull them without logging in (docs/team-workspace/admin.md). Each architecture
+# The packages are public, so servers pull them without logging in (docs/install/admin.md). Each architecture
 # pushes by digest; `merge` joins them under the tags.
 on:
   push:

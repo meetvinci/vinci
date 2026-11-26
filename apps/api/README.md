@@ -9,7 +9,7 @@ The image runs the migrations at every start, before Apache.
 This app is the install's login: the
 `/auth/*` pages, Sanctum tokens as logins in the `vinci_session` cookie, the hub's `/internal/session`
 (check a login, change one's own password) and `/internal/users/*` routes, and `php artisan vinci:user`.
-See "Login with Vinci accounts" in `docs/team-workspace/install.md` and `.agents/references/team-workspace.md`.
+See "Login with Vinci accounts" in `docs/install/install.md` and `.agents/references/team-workspace.md`.
 
 Build the image from the repository root with `bun run build:images api`.
 On an installed stack, check the route with:

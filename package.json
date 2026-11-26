@@ -11,6 +11,7 @@
     "apps/hub",
     "apps/mobile",
     "apps/web",
+    "apps/docs",
     "packages/*"
   ],
   "catalog": {
@@ -121,7 +122,11 @@
     "unplugin-icons": "^24.0.0",
     "vite": "^8.3.1",
     "tsrs": "0.18.0-ts7.1.0-dev.20260929",
-    "takumi-js": "^2.17.1"
+    "takumi-js": "^2.17.1",
+    "fumadocs-core": "16.19.7",
+    "fumadocs-mdx": "15.6.4",
+    "fumadocs-ui": "16.19.7",
+    "@types/mdx": "^2.0.14"
   },
   "catalogs": {
     "mobile": {
