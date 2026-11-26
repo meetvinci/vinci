@@ -12,15 +12,15 @@ export const tools = {
         const current = await context.tools.queries.settings();
 
         return (input.approvalRules !== undefined && !isDeepStrictEqual(input.approvalRules, current.approvalRules))
-          || (input.approvalTimeoutMinutes !== undefined && input.approvalTimeoutMinutes !== current.approvalTimeoutMinutes);
+          || (input.approvalTimeoutMinutes !== undefined && input.approvalTimeoutMinutes !== current.approvalTimeoutMinutes)
+          || (input.policyDefaults !== undefined && !isDeepStrictEqual(input.policyDefaults, current.policyDefaults));
       },
     });
     return context.tools.actions.configure(input);
   }),
   export: localRouter.tools.export.handler(async ({ context }) => context.tools.queries.export()),
   pending: ownerRouter.tools.pending.handler(async ({ context, input }) => context.conversation.queries.approvals(input)),
-  alwaysAllowed: ownerRouter.tools.alwaysAllowed.handler(async ({ context, input }) => context.tools.queries.alwaysAllowed(input)),
-  clearAlwaysAllowed: ownerRouter.tools.clearAlwaysAllowed.handler(async ({ context, input }) => context.tools.actions.clearAlwaysAllowed(input)),
+  servers: ownerRouter.tools.servers.handler(async ({ context }) => context.tools.queries.servers()),
   answer: authedRouter.tools.answer.handler(async ({ context, input }) => (
     context.conversation.actions.approve({ ...input, answeredBy: context.device.id })
   )),

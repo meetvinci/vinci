@@ -12,6 +12,7 @@ import { SettingsSecrets } from '@repo/ui/settings/settings-secrets';
 import { SettingsServer } from '@repo/ui/settings/settings-server';
 import { SettingsSources } from '@repo/ui/settings/settings-sources';
 import { SettingsThemeCreate } from '@repo/ui/settings/settings-theme-create';
+import { SettingsToolsPolicy } from '@repo/ui/settings/settings-tools-policy';
 import { Skeleton } from '@repo/ui/skeleton';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ClientOnly, Link, Navigate, useHydrated, useNavigate } from '@tanstack/react-router';
@@ -212,7 +213,12 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
         <SettingsModels />
       </SettingsManaged>
     )))
-    .with('tools', () => <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged>)
+    .with('tools', () => (
+      <div className="flex flex-col gap-8">
+        <SettingsToolsPolicy />
+        <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged>
+      </div>
+    ))
     .with('secrets', () => (
       <SettingsSecrets
         canRemoveGlobal={scope.isAdmin ? !isLocked : false}

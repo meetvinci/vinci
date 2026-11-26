@@ -14,7 +14,6 @@ import { Link, useLocation, useNavigate, useRouter } from '@tanstack/react-route
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { match, P } from 'ts-pattern';
-import { BotAlwaysAllowed } from '@/components/bots/bot-always-allowed';
 import { BotDialogNav } from '@/components/bots/bot-dialog-nav';
 import { BotFormSection } from '@/components/bots/bot-form-section';
 import { BotFormSkills } from '@/components/bots/bot-form-skills';
@@ -153,14 +152,11 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
               />
             ))
             .with({ kind: 'section', section: 'tools' }, () => (
-              <div className="flex flex-col gap-8">
-                <BotFormSection
-                  busy={save.isPending}
-                  section="tools"
-                  onSubmit={() => void submit()}
-                />
-                <BotAlwaysAllowed bot={bot} />
-              </div>
+              <BotFormSection
+                busy={save.isPending}
+                section="tools"
+                onSubmit={() => void submit()}
+              />
             ))
             .with({ kind: 'section', section: 'skills' }, () => (
               <form onSubmit={submit}>

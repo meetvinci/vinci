@@ -8,7 +8,7 @@ import { mcpMessageFetch } from './mcp-message.utils';
 import { mcpTools } from './mcp-tools.utils';
 import { mcpTransportSandbox } from './mcp-transport.utils';
 import { MCP } from './mcp.constants';
-import { mcpFingerprint } from './mcp.utils';
+import { mcpFingerprint, mcpServerKey } from './mcp.utils';
 import type { McpClientServiceDeps, McpConnection, McpConnectParams } from '../../types/mcp.types';
 
 export async function mcpActionConnect(deps: McpClientServiceDeps, { botId, entry }: McpConnectParams) {
@@ -53,6 +53,8 @@ export async function mcpActionConnect(deps: McpClientServiceDeps, { botId, entr
       });
 
       const connection: McpConnection = {
+        server: entry.name,
+        key: mcpServerKey(entry.config),
         fingerprint,
         sourceFingerprint,
         client,

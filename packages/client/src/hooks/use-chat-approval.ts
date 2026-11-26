@@ -2,6 +2,8 @@ import { ORPCError } from '@orpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { match } from 'ts-pattern';
 import { chatAnswerProblem } from '../services/chat/chat.utils';
+import { ROOMS_APPROVAL_CHOICES } from '../services/rooms/rooms.constants';
+import { toolApprovalSentence } from '../services/tool/tool.utils';
 import { useRpc } from './use-rpc';
 import type { ChatApprovalDecision } from '../types/chat.types';
 import type { ToolApproval } from '@repo/contracts/universal';
@@ -12,6 +14,8 @@ export function useChatApproval(approval: ToolApproval) {
   const isGone = (answer.error instanceof ORPCError && answer.error.code === 'NOT_FOUND') || answer.data?.accepted === false;
 
   return {
+    sentence: toolApprovalSentence(approval),
+    choices: ROOMS_APPROVAL_CHOICES.filter((choice) => choice.decision !== 'always' || approval.action.canAllowAlways),
     chosen: match(answer.variables)
       .with({ approved: true, always: true }, () => 'always' as const)
       .with({ approved: true }, () => 'approve' as const)

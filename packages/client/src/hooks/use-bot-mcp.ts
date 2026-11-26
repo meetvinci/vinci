@@ -1,8 +1,8 @@
+import { MCP_PRESETS } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { match } from 'ts-pattern';
-import { MCP } from '../services/mcp/mcp.constants';
 import { SETTINGS } from '../services/settings/settings.constants';
 import { useBotUpdate } from './use-bot-update';
 import { useRpc } from './use-rpc';
@@ -33,7 +33,7 @@ export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
   const rows: Omit<BotMcpRow, 'needsLogin'>[] = [
     ...servers.map((server) => ({
       name: server.name,
-      title: MCP.presets.find((preset) => preset.name === server.name)?.title ?? server.name,
+      title: MCP_PRESETS.find((preset) => preset.name === server.name)?.title ?? server.name,
       server,
       isShared: !server.isOwned && sharedNames.includes(server.name),
       isOn: true,
@@ -125,8 +125,8 @@ export function useBotMcp({ bot, login: target, canStart }: BotMcpParams) {
     rows: rows.map((row) => ({ ...row, needsLogin: row.isOn && (pending === row.name || row.server?.auth === 'required') })),
     toggle,
     refreshTools: () => prepareServers({ botId }),
-    presets: MCP.presets.filter((preset) => !discover.data?.servers.some((server) => server.name === preset.name)),
-    add: (preset: typeof MCP.presets[number]) => add.mutate({
+    presets: MCP_PRESETS.filter((preset) => !discover.data?.servers.some((server) => server.name === preset.name)),
+    add: (preset: typeof MCP_PRESETS[number]) => add.mutate({
       botId,
       name: preset.name,
       url: preset.url,

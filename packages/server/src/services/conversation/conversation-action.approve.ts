@@ -8,7 +8,7 @@ export async function conversationActionApprove({ runtime, bots, tools }: Conver
   const result = await runtime.actions.approve(params);
 
   if (result.accepted && approval) {
-    await tools.actions.allowAlways({ botId: params.botId, toolName: approval.toolName });
+    await tools.actions.allow({ botId: params.botId, toolName: approval.toolName });
   }
 
   return result;

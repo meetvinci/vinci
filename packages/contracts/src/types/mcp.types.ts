@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { secretName } from './secret.types';
 
+export const MCP_PRESETS = [
+  { name: 'cloudflare', title: 'Cloudflare', url: 'https://mcp.cloudflare.com/mcp' },
+  { name: 'linear', title: 'Linear', url: 'https://mcp.linear.app/mcp' },
+  { name: 'notion', title: 'Notion', url: 'https://mcp.notion.com/mcp' },
+  { name: 'sentry', title: 'Sentry', url: 'https://mcp.sentry.dev/mcp' },
+] as const;
+
 export const mcpSettings = z.object({
   paths: z.array(z.string().trim().min(1).max(4096)).max(50),
 });

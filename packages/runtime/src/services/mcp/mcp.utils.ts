@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { match, P } from 'ts-pattern';
 import type { McpEntry } from '../../types/mcp.types';
 
 export function mcpFingerprint(entry: McpEntry): string {
@@ -9,4 +10,10 @@ export function mcpToolName(server: string, tool: string, fingerprint: string): 
   const prefix = `mcp_${server}_${tool}`.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 35);
   const suffix = createHash('sha256').update(JSON.stringify([server, tool, fingerprint])).digest('hex').slice(0, 24);
   return `${prefix}_${suffix}`;
+}
+
+export function mcpServerKey(config: McpEntry['config']): string {
+  return match(config)
+    .with({ url: P.string }, ({ url }) => url)
+    .otherwise(({ command, args = [] }) => [command, ...args].join(' '));
 }

@@ -10,7 +10,7 @@ import { workspaceExport, workspaceFiles } from './workspace.types';
 
 export const BOT_FIELDS = {
   maxInstructions: 64_000,
-  defaultPermission: 'sandbox',
+  defaultPermission: 'normal',
 } as const;
 
 export const botAvatarImage = z.object({ kind: z.literal('image'), src: z.string().regex(/^\/avatars\/[\da-f-]{36}\.webp$/) });
@@ -41,7 +41,7 @@ export const botFields = z.object({
   instructions: z.string().max(BOT_FIELDS.maxInstructions),
   ...modelSelection.shape,
   fallbackModel: modelSelection.nullable(),
-  permission: z.enum(['read-only', 'ask', 'sandbox', 'auto', 'full']),
+  permission: z.enum(['read-only', 'normal', 'no-questions']),
   inherit: botInherit,
   sharedSkills: z.array(z.string().trim().min(1).max(128)).max(500).nullable(),
   sharedMcp: z.array(z.string().trim().min(1).max(128)).max(200).nullable(),

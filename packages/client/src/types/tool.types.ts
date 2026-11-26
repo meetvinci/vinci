@@ -87,3 +87,41 @@ export interface ToolActivityTopicPattern {
   topic: ToolActivityTopic;
   pattern: RegExp;
 }
+
+export interface ToolApprovalSentence {
+  sentence: (params: { subject: string }) => string;
+  keys: string[];
+}
+
+export type ToolPolicyChoice = UniversalTypes.ToolControl['behavior'] | 'default';
+
+export interface ToolPolicyChange {
+  server: string | null;
+  tool: string | null;
+  behavior: UniversalTypes.ToolControl['behavior'] | null;
+}
+
+export interface ToolPolicyServersParams {
+  policy: UniversalTypes.ToolPolicy;
+  defaults: UniversalTypes.ToolPolicy;
+  servers: UniversalTypes.ToolServer[];
+}
+
+export interface ToolPolicyToolRow {
+  name: string;
+  title: string;
+  isRead: boolean;
+  choice: ToolPolicyChoice;
+  fallback: UniversalTypes.ToolControl['behavior'];
+}
+
+export interface ToolPolicyServerRow {
+  key: string;
+  title: string;
+  isShipped: boolean;
+  isTrusted: boolean;
+  isAdminTrusted: boolean;
+  choice: ToolPolicyChoice;
+  fallback: UniversalTypes.ToolControl['behavior'] | null;
+  tools: ToolPolicyToolRow[];
+}

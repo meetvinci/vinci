@@ -20,7 +20,7 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
       await person.conversation.configure(await template.conversation.settings());
     })
     .with('tools', async () => {
-      const [{ approvalRules, approvalTimeoutMinutes }, { jevApiKey }] = await Promise.all([
+      const [{ approvalRules, approvalTimeoutMinutes, policy }, { jevApiKey }] = await Promise.all([
         template.tools.settings(),
         template.tools.export(),
       ]);
@@ -28,6 +28,7 @@ export async function globalActionCopy(deps: GlobalTypes.GlobalServiceDeps, { us
       await person.tools.configure({
         approvalRules,
         approvalTimeoutMinutes,
+        policyDefaults: policy,
         jevApiKey,
       });
     })
