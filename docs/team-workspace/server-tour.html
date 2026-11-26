@@ -111,14 +111,14 @@ cd /opt/vinci</span></pre></div>
 
 <section id="picture">
   <h2><span class="n">1</span>The picture</h2>
-  <p>One server, one Docker Compose project called <code>vinci</code>. Five containers are shared. Each person gets two more: a <b>daemon</b> (their own Vinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
-  <div class="diagram" role="img" aria-label="Diagram of the containers on the server and who talks to whom"><pre>   browser ── https://team.example.com
+  <p>One server, one Docker Compose project called <code>vinci</code>. Eight containers are shared. Each person gets two more: a <b>daemon</b> (their own Vinci: bots, chats, keys) and a <b>sandbox</b> (where their bots' commands run, with no keys). The <b>template</b> is a hidden person that holds Global settings and the suggested bots; nobody logs into it.</p>
+  <div class="diagram" role="img" aria-label="Diagram of the containers on the server and who talks to whom"><pre>   browser ── https://team.example.com   (or through the optional Cloudflare Tunnel)
       │
-   <b>Cloudflare Access</b>  email code; adds a signed header with the email
-      │  the tunnel: cloudflared dialled out; nothing listens on the server
 ┌─────┼─────────────────────────────── server ──────────────────────────────┐
-│     ▼                                                                     │
-│  <b>cloudflared</b> ──tunnel──▶ <b>hub</b> :47192 ──web──────────▶ <b>web</b> :47190           │
+│     ▼  :80 :443                                                           │
+│  <b>caddy</b> ──/auth/*──▶ <b>api</b> :8080 (login, sessions) ──▶ <b>postgres</b>              │
+│     │                     ▲ /internal/session                             │
+│     └──────────────▶ <b>hub</b> :47192 ──web──────────▶ <b>web</b> :47190                  │
 │                          │ └──provisioner──▶ <b>provisioner</b> :47193           │
 │                          │                   Docker socket; runs apply    │
 │        ┌─────────────────┼───────────────────┐                            │
@@ -133,8 +133,9 @@ cd /opt/vinci</span></pre></div>
    daemons and sandboxes reach the public internet and DNS, nothing internal</pre></div>
   <div class="tablewrap"><table>
     <tr><th>Container</th><th>What it does</th></tr>
-    <tr><td><code>cloudflared</code></td><td>The tunnel connector. Dials out to Cloudflare and forwards the team hostname to the hub.</td></tr>
-    <tr><td><code>hub</code></td><td>The front door. Checks the Cloudflare signature, finds the person by email, sends their app's data calls to their daemon and everything else to <code>web</code>. Relays the admin panel to each daemon's owner socket and writes the audit trail.</td></tr>
+    <tr><td><code>caddy</code></td><td>The way in: HTTPS on ports 80 and 443 with a Let's Encrypt certificate (plain HTTP to cloudflared, no ports, with the optional tunnel). Sends <code>/auth/*</code> to the API, everything else to the hub, and a visit without the login cookie to the login page.</td></tr>
+    <tr><td><code>api</code>, <code>postgres</code></td><td>The Laravel login: the login page, the accounts and each browser's login (a Sanctum token in the <code>vinci_session</code> cookie), in PostgreSQL.</td></tr>
+    <tr><td><code>hub</code></td><td>The front door behind Caddy. Checks every request's login with the API, finds the person by email, sends their app's data calls to their daemon and everything else to <code>web</code>. Relays the admin panel to each daemon's owner socket and writes the audit trail.</td></tr>
     <tr><td><code>web</code></td><td>The one web app, the admin panel included. Talks only to the hub.</td></tr>
     <tr><td><code>provisioner</code></td><td>The only container with the Docker socket. Adds, disables and removes people for the admin panel by running <code>bun deploy.ts apply</code>. Answers only the hub.</td></tr>
     <tr><td><code>firewall</code></td><td>Keeps daemons and sandboxes off the server's internal addresses. Checks its rules every 2 seconds.</td></tr>
@@ -143,12 +144,14 @@ cd /opt/vinci</span></pre></div>
   </table></div>
   <div class="term"><div class="bar"><span>what runs</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ docker compose ps --format "table {{.Service}}\t{{.Image}}\t{{.Status}}"</span>
 SERVICE            IMAGE                              STATUS
-cloudflared        cloudflare/cloudflared:2026.10.7   Up 2 days (healthy)
+api                vinci-api:b285c406             Up 12 hours (healthy)
+caddy              caddy:2.11.9-alpine            Up 2 days (healthy)
 daemon-alice       vinci-daemon:b285c406          Up 12 hours (healthy)
 daemon-bob         vinci-daemon:b285c406          Up 12 hours (healthy)
 daemon-template    vinci-daemon:b285c406          Up 12 hours (healthy)
 firewall           vinci-firewall:b285c406        Up 2 days (healthy)
 hub                vinci-hub:b285c406             Up 12 hours (healthy)
+postgres           postgres:18-alpine             Up 2 days (healthy)
 provisioner        vinci-provisioner:b285c406     Up 2 days (healthy)
 sandbox-alice      vinci-sandbox:b285c406         Up 12 hours (healthy)
 sandbox-bob        vinci-sandbox:b285c406         Up 12 hours (healthy)
@@ -157,14 +160,17 @@ web                vinci-web:b285c406             Up 2 days (healthy)</pre></div
   <p>Healthy looks like this: every line <code>(healthy)</code>, two lines per person plus the template's two. "Up 12 hours" on the people and the hub is normal: the nightly backup at 03:00 stops and starts each of them.</p>
 
   <h3>Who can talk to whom</h3>
-  <p>Each person's daemon shares a network only with the hub; each sandbox is alone on its own. People's networks get a bridge named <code>mv-d…</code>, which is what the firewall's rules match. <code>web</code> and <code>provisioner</code> are internal: no internet.</p>
+  <p>Each person's daemon shares a network only with the hub; each sandbox is alone on its own. People's networks get a bridge named <code>mv-d…</code>, which is what the firewall's rules match. <code>web</code>, <code>provisioner</code>, <code>api</code> and the edge networks are internal: no internet. Caddy alone is on <code>vinci_tunnel</code>, for its certificates (and cloudflared, with the tunnel).</p>
   <div class="term"><div class="bar"><span>networks and their members</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ for n in $(docker network ls --format "{{.Name}}" | grep ^vinci_); do printf "%-26s internal=%-5s " $n $(docker network inspect $n -f "{{.Internal}}"); docker network inspect $n -f "{{range .Containers}}{{.Name}} {{end}}"; done</span>
-vinci_egress           internal=false vinci-provisioner-1
+vinci_accounts         internal=true  vinci-api-1 vinci-hub-1
+vinci_api              internal=true  vinci-api-1 vinci-postgres-1
+vinci_edge             internal=true  vinci-hub-1 vinci-caddy-1
+vinci_login            internal=true  vinci-api-1 vinci-caddy-1
 vinci_provisioner      internal=true  vinci-provisioner-1 vinci-hub-1
 vinci_sandbox-alice    internal=false vinci-sandbox-alice-1
 vinci_sandbox-bob      internal=false vinci-sandbox-bob-1
 vinci_sandbox-template internal=false vinci-sandbox-template-1
-vinci_tunnel           internal=false vinci-cloudflared-1 vinci-hub-1
+vinci_tunnel           internal=false vinci-caddy-1
 vinci_user-alice       internal=false vinci-daemon-alice-1 vinci-hub-1
 vinci_user-bob         internal=false vinci-daemon-bob-1 vinci-hub-1
 vinci_user-template    internal=false vinci-daemon-template-1 vinci-hub-1
@@ -172,19 +178,22 @@ vinci_web              internal=true  vinci-hub-1 vinci-web-1</pre></div>
   <p class="note">The daemon and its sandbox share no network. They meet through a socket file, <code>exec.sock</code>, in the small volume <code>vinci_sandbox-&lt;id&gt;</code>.</p>
 
   <h3>How a request travels</h3>
-  <div class="path" role="img" aria-label="Browser, then Cloudflare Access, then cloudflared, then the hub, then the person's daemon or the web app">
+  <div class="path" role="img" aria-label="Browser, then Caddy, then the hub, which checks the login with the API, then the person's daemon or the web app">
     <div class="hop"><b>Browser</b><small>team.example.com</small></div><span class="arrow">→</span>
-    <div class="hop"><b>Cloudflare Access</b><small>email code; signs the email</small></div><span class="arrow">→</span>
-    <div class="hop"><b>cloudflared</b><small>the tunnel, dialled out</small></div><span class="arrow">→</span>
-    <div class="hop key"><b>hub</b><small>checks the signature, looks the email up in <code>hub/users.json</code></small></div><span class="arrow">→</span>
+    <div class="hop"><b>Caddy</b><small>HTTPS; no cookie: the login page</small></div><span class="arrow">→</span>
+    <div class="hop key"><b>hub</b><small>asks the API whose <code>vinci_session</code> it is, looks the email up in <code>hub/users.json</code></small></div><span class="arrow">→</span>
     <div class="hop"><b>daemon-&lt;id&gt;</b><small><code>/rpc</code>, <code>/files/</code>, <code>/avatars/</code>, <code>/embed/</code>, <code>/health</code></small></div>
   </div>
   <p>Every other path (the pages, scripts and images of the app) goes from the hub to <code>web</code>. An admin's change in the panel goes browser → hub → that person's <b>owner socket</b> (<code>/ipc/&lt;id&gt;/rpc.sock</code>), never as a device of the person. Adding someone goes hub → provisioner → <code>apply</code>. A bot's tool call goes daemon → sandbox through <code>exec.sock</code>; its model request goes daemon → internet.</p>
-  <div class="term"><div class="bar"><span>nothing listens on the network</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ss -ltnH | awk '{print $4}'</span>
+  <div class="term"><div class="bar"><span>only Caddy listens on the network</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ss -ltnH | awk '{print $4}'</span>
 127.0.0.54:53        <span class="d"># the local DNS resolver</span>
 127.0.0.53%lo:53
 0.0.0.0:22           <span class="d"># sshd</span>
-[::]:22</pre></div>
+[::]:22
+0.0.0.0:80           <span class="d"># Caddy, through Docker; none with the tunnel</span>
+0.0.0.0:443
+[::]:80
+[::]:443</pre></div>
 </section>
 
 <section id="disk">
@@ -192,7 +201,7 @@ vinci_web              internal=true  vinci-hub-1 vinci-web-1</pre></div>
   <h3>/opt/vinci</h3>
   <div class="term"><div class="bar"><span>the install folder</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ ls -la /opt/vinci</span>
 drwx------ 5 root root   4096 backups
--rw-r--r-- 1 root root   1466 cloudflared.compose.yaml
+-rw------- 1 root root   6337 caddy.compose.yaml
 -rw-r--r-- 1 root root   7277 compose.yaml
 -rw-r--r-- 1 root root   1993 daemon.yaml
 -rw-r--r-- 1 root root 129637 deploy.ts
@@ -204,10 +213,10 @@ drwxrwx--- 2 1000 root   4096 hub
 -rw------- 1 root root    366 users.yaml</pre></div>
   <div class="tablewrap"><table>
     <tr><th>File</th><th>What it is</th><th>Who writes it</th><th>Secret?</th></tr>
-    <tr><td><code>.env</code></td><td>Hostname, Cloudflare values and tunnel token, image tag (<code>VINCI_TAG</code>), shared model keys, provisioner token, limits. Never print it.</td><td>You</td><td><span class="tag no">Yes</span></td></tr>
+    <tr><td><code>.env</code></td><td>Hostname, the API's secrets (and the tunnel token with the tunnel), image tag (<code>VINCI_TAG</code>), shared model keys, provisioner token, limits. Never print it.</td><td>You</td><td><span class="tag no">Yes</span></td></tr>
     <tr><td><code>users.yaml</code></td><td>The list of people and admins.</td><td>You, the provisioner (panel), the hub (admins)</td><td><span class="tag warn">Emails</span></td></tr>
     <tr><td><code>compose.yaml</code></td><td>The shared containers: hub, web, provisioner, firewall, and two one-off job containers (<code>tools</code>, <code>disks</code>).</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
-    <tr><td><code>cloudflared.compose.yaml</code></td><td>The tunnel connector. Its routes live in Cloudflare.</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
+    <tr><td><code>caddy.compose.yaml</code></td><td>The edge: Caddy with its Caddyfile, and the API's and hub's login settings. (<code>cloudflared.compose.yaml</code> too, only with the tunnel.)</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
     <tr><td><code>daemon.yaml</code>, <code>sandbox.yaml</code></td><td>The template for every daemon and sandbox: read-only, no privileges, 512 MiB, 1 CPU, 256 processes.</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
     <tr><td><code>users.compose.yaml</code></td><td>Per person: daemon, sandbox, two networks, three volumes.</td><td><code>apply</code>. Never by hand</td><td><span class="tag ok">No</span></td></tr>
     <tr><td><code>deploy.ts</code></td><td>The script for everything on the server: apply, status, backups, restore, firewall.</td><td>Shipped</td><td><span class="tag ok">No</span></td></tr>
@@ -238,7 +247,8 @@ vinci-hub            b285c406    188MB
 vinci-web            b285c406    229MB
 vinci-sandbox        b285c406    791MB
 vinci-daemon         b285c406    367MB
-cloudflare/cloudflared   2026.10.7   98.6MB
+caddy                    2.11.9-alpine  92MB
+postgres                 18-alpine      434MB
 <span class="c">$ docker system df</span>
 TYPE            TOTAL     ACTIVE    SIZE      RECLAIMABLE
 Images          7         7         1.311GB   0B (0%)
@@ -307,7 +317,7 @@ Tue 2026-11-17 03:00:00 UTC  12h Mon 2026-11-16 03:00:05 UTC 11h ago vinci-backu
     <li>Makes each owner-socket folder in the <code>ipc</code> volume, and checks the folders the sandbox will mount (it replaces a planted link, removes a planted hard link).</li>
     <li>Creates, mounts and grows each <b>sandbox disk</b>, and the first time moves the person's bot folders onto it. Warns if the disks could outgrow the server.</li>
     <li>By hand only: writes <code>vinci-disks.service</code>.</li>
-    <li><code>docker compose up</code>: web, cloudflared, every daemon and sandbox; then the hub and the provisioner without recreating them. By hand it waits until everything is healthy.</li>
+    <li><code>docker compose up</code>: Caddy, the API and PostgreSQL, web, every daemon and sandbox; then the hub and the provisioner without recreating them. By hand it waits until everything is healthy.</li>
     <li>Joins the hub to each person's network and prints <code>Applied 2 users: alice, bob (and the template workspace)</code>.</li>
   </ol>
 
@@ -351,7 +361,7 @@ hub-1              |   ├─ message: Hub started
 hub-1              |   └─ message: The global sync at start already ran for this version
 daemon-alice-1     |   └─ message: Daemon stopped
 daemon-alice-1     |   ├─ message: Daemon started
-cloudflared-1      | 2026-11-16T10:59:16Z INF Registered tunnel connection connIndex=1 ... protocol=quic</pre></div>
+</pre></div>
   <p class="note">The <code>sed</code> removes colour codes; the first <code>grep</code> drops the provisioner's health checks, which are most of its log. For one person: <code>docker compose logs -f daemon-alice sandbox-alice</code>.</p>
   <div class="term"><div class="bar"><span>the state, every few seconds</span><button class="copy" type="button">Copy</button></div><pre><span class="c">$ watch -n 5 'bun deploy.ts status; docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.CPUPerc}}"'</span>
 template  daemon running (healthy)    sandbox running (healthy)    disk 0.0 GiB of 4.8 GiB, 0% of files
@@ -365,7 +375,7 @@ vinci-daemon-template-1    60.77MiB / 512MiB   0.02%
 vinci-sandbox-alice-1      2.656MiB / 512MiB   0.00%
 vinci-web-1                130.5MiB / 256MiB   0.00%
 vinci-provisioner-1        61.89MiB / 256MiB   0.00%
-vinci-cloudflared-1        38.01MiB / 256MiB   0.24%
+vinci-caddy-1              11.34MiB / 256MiB   0.00%
 vinci-firewall-1           31.92MiB / 128MiB   0.00%
 vinci-hub-1                16.5MiB / 256MiB    0.10%
 ...</pre></div>
@@ -385,8 +395,8 @@ vinci-hub-1                16.5MiB / 256MiB    0.10%
     <tr><td><code>The sandbox connection closed; the next tool call connects again.</code></td><td>The sandbox stopped (the nightly backup stops it too). Harmless if the next line is a start.</td></tr>
     <tr><td><code>Waiting for the firewall</code>, <code>The firewall confines this container after … ms</code></td><td>A daemon or sandbox starting after a reboot. Normal.</td></tr>
     <tr><td><code>Firewall on (iptables-nft): …</code></td><td>The firewall wrote its rules.</td></tr>
-    <tr><td><code>Registered tunnel connection</code></td><td>cloudflared connected. It keeps 4; the count grows after reconnects.</td></tr>
-    <tr><td><code>WRN Connection terminated … Application error 0x0 (remote)</code></td><td>Cloudflare closed one tunnel connection; a <code>Registered</code> line follows within seconds. Harmless.</td></tr>
+    <tr><td><code>Request refused</code> … <code>401</code></td><td>A request without a login, or with one that ended (logged out, password changed or reset, 7 days). The browser goes back to the login page.</td></tr>
+    <tr><td><code>Registered tunnel connection</code> (tunnel only)</td><td>cloudflared connected. It keeps 4; the count grows after reconnects.</td></tr>
     <tr><td><code>Could not decode sourcemap</code>, <code>The web app is reachable from your network</code></td><td>Noise at start. <code>web</code> sits on an internal network only the hub can reach.</td></tr>
   </table></div>
 </section>
@@ -454,7 +464,7 @@ $ setpriv --reuid=1000 --regid=1000 --clear-groups nano AGENTS.md</span></pre></
   <div class="tablewrap"><table>
     <tr><th>From a sandbox or daemon</th><th>Reachable</th></tr>
     <tr><td>Public internet and DNS: model providers, web pages, MCP servers over https</td><td><span class="tag ok">Yes</span></td></tr>
-    <tr><td>The hub, web, provisioner, cloudflared</td><td><span class="tag no">No</span></td></tr>
+    <tr><td>The hub, web, provisioner, Caddy, the API, cloudflared</td><td><span class="tag no">No</span></td></tr>
     <tr><td>Other people's daemons and sandboxes, the template</td><td><span class="tag no">No</span></td></tr>
     <tr><td>Its own daemon, from the sandbox (only the shared socket)</td><td><span class="tag no">No</span></td></tr>
     <tr><td>The server itself (SSH, Docker's gateways), the metadata service, private ranges, IPv6</td><td><span class="tag no">No</span></td></tr>
@@ -499,9 +509,9 @@ alice.tar.gz  bob.tar.gz  deployment.tar.gz  hub.tar.gz  manifest.json  template
     <tr><td><a href="install.md#2-install-docker">2. Install Docker</a></td><td><code>/var/lib/docker</code> and <code>/var/lib/containerd</code>, the <code>docker</code> service enabled, three default networks (<code>bridge</code>, <code>host</code>, <code>none</code>).</td><td><code>systemctl is-enabled docker; docker network ls</code></td></tr>
     <tr><td><a href="install.md#3-get-vinci-onto-the-server">3. Get Vinci on</a></td><td>Six <code>vinci-*</code> images with your tag. <code>/opt/vinci</code> (mode 700) with the five shipped files and <code>.env</code> (mode 600). <code>/usr/local/bin/bun</code>.</td><td><code>docker image ls; ls -la /opt/vinci; bun --version</code></td></tr>
     <tr><td><a href="install.md#4-write-the-team-list">4. Write the team list</a></td><td><code>users.yaml</code>. No container yet.</td><td><code>ls -l users.yaml</code> (not <code>cat</code>: emails)</td></tr>
-    <tr><td><a href="install.md#5-create-the-cloudflare-objects">5. Cloudflare objects</a></td><td>Nothing on the server: this runs on your computer and writes <code>cloudflare.env</code> there.</td><td>The script's output</td></tr>
-    <tr><td><a href="install.md#6-put-the-tunnel-token-on-the-server">6. Tunnel token</a></td><td>The Cloudflare lines merged into <code>.env</code> (seven with a domain rule, six without), still <code>600 root</code>.</td><td><code>stat -c "%a %U" .env</code></td></tr>
-    <tr><td><a href="install.md#7-start-vinci">7. Start Vinci</a></td><td>In the events: firewall first, then web, cloudflared, each daemon and sandbox, then hub and provisioner. On disk: <code>users.compose.yaml</code>, <code>hub/</code> with <code>users.json</code>, <code>disks/&lt;id&gt;.img</code> and their mounts, <code>vinci-disks.service</code>. The hub then creates <code>admins.json</code>, <code>audit.sqlite</code>, <code>pins.json</code> as it reaches each daemon, and <code>global.json</code> once people follow Global settings. The cloudflared log shows 4 <code>Registered tunnel connection</code>. The cloudflared image is pulled from Docker Hub the first time.</td><td><code>docker compose ps; bun deploy.ts status; ls -la hub disks</code></td></tr>
+    <tr><td><a href="install.md#5-point-the-hostname-at-the-server">5. Hostname</a></td><td>Nothing on the server: a DNS record (or, with the tunnel, <code>cloudflare.env</code> on your computer, merged into <code>.env</code>).</td><td><code>dig +short &lt;host&gt;</code></td></tr>
+    <tr><td><a href="install.md#6-set-the-login-secrets">6. Login secrets</a></td><td><code>COMPOSE_FILE</code>, <code>VINCI_PUBLIC_HOST</code>, <code>API_INTERNAL_TOKEN</code> and <code>API_APP_KEY</code> in <code>.env</code>, still <code>600 root</code>.</td><td><code>stat -c "%a %U" .env</code></td></tr>
+    <tr><td><a href="install.md#7-start-vinci">7. Start Vinci</a></td><td>In the events: firewall first, then Caddy, the API and PostgreSQL, web, each daemon and sandbox, then hub and provisioner. On disk: <code>users.compose.yaml</code>, <code>hub/</code> with <code>users.json</code>, <code>disks/&lt;id&gt;.img</code> and their mounts, <code>vinci-disks.service</code>. The hub then creates <code>admins.json</code>, <code>audit.sqlite</code>, <code>pins.json</code> as it reaches each daemon, and <code>global.json</code> once people follow Global settings. The Caddy and PostgreSQL images are pulled from Docker Hub the first time. Then <code>vinci:user</code> makes the first admin's login.</td><td><code>docker compose ps; bun deploy.ts status; ls -la hub disks</code></td></tr>
     <tr><td><a href="install.md#8-check-it-works">8. Check it works</a></td><td>On the first login: <code>Pairing grant issued through the hub</code> in the hub log. In the panel: Activity rows for each change you make in Global settings, and <code>Admin call relayed to a private door</code> lines in the hub log.</td><td>The live log filter</td></tr>
     <tr><td><a href="install.md#9-turn-on-nightly-backups">9. Nightly backups</a></td><td>The two backup units, then one run: each person's daemon and sandbox stop and start in turn (watch the events), the hub stops for about 2 seconds, and a folder <code>backups/&lt;time&gt;/</code> with <code>nightly.json</code> beside it.</td><td><code>bun deploy.ts nightly status</code></td></tr>
   </table></div>
