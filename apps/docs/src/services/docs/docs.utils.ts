@@ -25,10 +25,10 @@ export const docsCollection = defineDocs({
   dir: '../../docs',
   docs: {
     async: true,
-    files: ['install/**/*.mdx', 'use/**/*.mdx', 'changelog/**/*.mdx'],
+    files: ['install/**/*.{md,mdx}', 'use/**/*.mdx', 'changelog/**/*.mdx'],
   },
   meta: {
-    files: ['meta*.json'],
+    files: ['**/meta*.json'],
   },
 });
 
@@ -37,3 +37,22 @@ export const docsSource = loader({
   baseUrl: '/',
   i18n: docsI18n,
 });
+
+export function docsPageHref(href: string, slugs: string[], language: string) {
+  const page = docsSource.getPage(slugs, language);
+
+  if (!page || /^([a-z]+:|\/|#)/.test(href)) {
+    return href;
+  }
+
+  const relative = href.startsWith('.') ? href : `./${href}`;
+  const resolved = docsSource.resolveHref(relative, page);
+
+  if (resolved !== relative) {
+    return resolved;
+  }
+
+  const { pathname, hash } = new URL(relative, `file:///docs/${page.path}`);
+
+  return `${DOCS.repositoryUrl}${pathname}${hash}`;
+}

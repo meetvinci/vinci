@@ -12,7 +12,5 @@ export const Route = createFileRoute('/$lang/$')({
     }
 
     await docsCollection.getPage(page.path)?.preload();
-
-    return { path: page.path };
   },
 });

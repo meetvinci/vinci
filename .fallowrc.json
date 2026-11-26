@@ -13,6 +13,7 @@
     "apps/web/vite/**/*.ts",
     "apps/docs/src/application/routes.ts",
     "apps/docs/src/application/router.tsx",
+    "apps/docs/source.config.ts",
     "scripts/**/*.ts",
     "apps/desktop/src/desktop.ts",
     "apps/desktop/src/views/connect/index.ts",

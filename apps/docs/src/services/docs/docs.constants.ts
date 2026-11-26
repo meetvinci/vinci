@@ -10,4 +10,17 @@ export const DOCS = {
     fr: 'Français',
   },
   homeSlug: 'install',
+  repositoryUrl: 'https://github.com/meetvinci/vinci/blob/main',
+} as const;
+
+export const DOCS_ALERT = {
+  attribute: 'data-alert',
+  calloutTypes: ['info', 'idea', 'warn', 'error'],
+  markers: [
+    { marker: '[!NOTE]', type: 'info' },
+    { marker: '[!TIP]', type: 'idea' },
+    { marker: '[!IMPORTANT]', type: 'info' },
+    { marker: '[!WARNING]', type: 'warn' },
+    { marker: '[!CAUTION]', type: 'error' },
+  ],
 } as const;
