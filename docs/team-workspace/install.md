@@ -295,6 +295,14 @@ curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/favicon.ico  #
 curl -s -o /dev/null -w '%{http_code}\n' https://acme.example.com/img/favicon/site.webmanifest  # 200: the home-screen app manifest
 ```
 
+No response names the software behind the address or its version. From your checkout:
+
+```sh
+bun scripts/deploy.ts check https://acme.example.com
+```
+
+It asks for `/`, `/admin`, `/rpc`, `/hub/health`, the icons, the login pages (`/cdn-cgi/access/login` and `/cdn-cgi/access/certs`), a path that does not exist, a method a route does not take and plain `http://`, and prints one line per answer. Every line must end in `ok`; otherwise it names the header (`Server`, `X-Powered-By`, `Via`, a header named like a version, or any value such as `Apache/2.4`) or the error page's stack trace, and exits non-zero. Cloudflare's own `Server: cloudflare` is allowed: Cloudflare adds it to everything it serves and lets nobody remove it.
+
 On the server, nothing of Vinci or Docker listens on a network address, and one person's Vinci cannot reach another's:
 
 ```sh
@@ -315,7 +323,7 @@ Then log in:
 
 **Give this to your agent:**
 
-> Check the Vinci install on `root@<server>`, in `/opt/vinci`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`; then the check in the "What a bot can reach" section of `docs/team-workspace/admin.md` for one person: public 200, the rest blocked. Confirm `/opt/vinci/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
+> Check the Vinci install on `root@<server>`, in `/opt/vinci`: run the four `curl` checks in step 8 of `docs/team-workspace/install.md` from this computer (302, 302, 200, 200) and `bun scripts/deploy.ts check https://<team>.<domain>` (every line `ok`), confirm `docker compose ps` shows every container healthy, that `ss -tlnp` shows nothing but sshd and the local resolver, and run the isolation check from step 8: every daemon-to-daemon line must say `blocked` and every hub line `200`; then the check in the "What a bot can reach" section of `docs/team-workspace/admin.md` for one person: public 200, the rest blocked. Confirm `/opt/vinci/hub/admins.json` lists `<first admin email>` and that `docker compose logs hub` has no `Admins file` error. Then tell me to open `https://<team>.<domain>` in a private window and log in, and to open `/admin` as the first admin.
 
 ## 9. Turn on nightly backups
 
@@ -370,7 +378,7 @@ What changes from the steps above:
   ```
 
   The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel: **Add user**, and **Add admin** for an admin who is not a user, show the new password once.
-- **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `ss -tlnp` also shows Docker on ports 80 and 443.
+- **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `bun scripts/deploy.ts check https://<host>` allows no `Server` header at all: Caddy removes its own and the API's, and answers port 80 with its redirect to HTTPS without one. `ss -tlnp` also shows Docker on ports 80 and 443.
 
 Trust: whoever controls the key at `ACCESS_TEAM_DOMAIN` can log in as anyone. Here that is the API's key, kept in PostgreSQL and encrypted with `API_APP_KEY`; changing `API_APP_KEY` makes the key unreadable, so keep it. `/internal/users`, the routes the admin panel uses to add accounts, are reachable only from the hub, and only with `API_INTERNAL_TOKEN`.
 
