@@ -1,15 +1,17 @@
 import { match, P } from 'ts-pattern';
+import { RUNTIME_CLOCK } from '@repo/runtime/server';
 import { conversationQuerySettings } from './conversation-query.settings';
 import type { ConversationServiceDeps } from '../../types/conversation.types';
 import type { ConversationSubmitInput } from '@repo/contracts/universal';
 
 export async function conversationActionSubmit(
   deps: ConversationServiceDeps,
-  { content, skills, attachmentIds, ...params }: ConversationSubmitInput,
+  { content, skills, attachmentIds, timezone, ...params }: ConversationSubmitInput,
 ) {
-  const { runtime, bots, skill, attachments } = deps;
+  const { runtime, bots, skill, attachments, settings } = deps;
 
   await bots.queries.get({ botId: params.botId });
+  await settings.actions.set({ records: timezone ? [{ key: RUNTIME_CLOCK.timezoneSetting, value: timezone }] : [] });
   const existing = await runtime.queries.submission(params);
 
   return match(existing)

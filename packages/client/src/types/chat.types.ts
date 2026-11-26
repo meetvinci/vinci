@@ -55,6 +55,7 @@ export type ChatPart = ChatMessage['parts'][number];
 
 export interface ChatActivitySteps {
   steps: number;
+  failed: number;
   seconds: number | null;
 }
 

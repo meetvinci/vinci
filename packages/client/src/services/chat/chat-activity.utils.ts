@@ -40,7 +40,9 @@ export function chatActivityStartedAt(messages: readonly ChatTypes.ChatMessage[]
 }
 
 export function chatActivitySteps(message: ChatTypes.ChatMessage): ChatTypes.ChatActivitySteps | null {
-  const steps = toolBlocks({ parts: message.parts }).reduce((count, block) => count + (block.kind === 'reasoning' || block.kind === 'tools' ? block.parts.length : 0), 0);
+  const blocks = toolBlocks({ parts: message.parts });
+  const steps = blocks.reduce((count, block) => count + (block.kind === 'reasoning' || block.kind === 'tools' ? block.parts.length : 0), 0);
+  const failed = blocks.reduce((count, block) => count + (block.kind === 'tools' ? block.parts.filter((part) => part.state === 'output-error').length : 0), 0);
   const { startedAt, endedAt } = message.metadata ?? {};
 
   const hasAnswer = message.parts.some((part) => part.type === 'text');
@@ -49,7 +51,7 @@ export function chatActivitySteps(message: ChatTypes.ChatMessage): ChatTypes.Cha
     return null;
   }
 
-  return { steps, seconds: startedAt === undefined || endedAt === undefined ? null : Math.max(0, Math.round((endedAt - startedAt) / 1000)) };
+  return { steps, failed, seconds: startedAt === undefined || endedAt === undefined ? null : Math.max(0, Math.round((endedAt - startedAt) / 1000)) };
 }
 
 export function chatActivityDetail({ draft, bots, canSeeSteps }: ChatTypes.ChatActivityDetailParams): string | null {
@@ -108,10 +110,15 @@ function chatActivityPlain(line: string) {
   return line.replace(/^\s*(?:#+|[-*>]|\d+\.)\s+/u, '').replace(/[*_`~]+/gu, '').replace(/\[([^\]]*)\]\([^)]*\)/gu, '$1').trim();
 }
 
-export function chatActivityStepsLabel({ steps, seconds }: ChatTypes.ChatActivitySteps): string {
-  const count = steps === 1 ? m.rooms_activity_step() : m.rooms_activity_steps({ steps });
+export function chatActivityStepsLabel({ steps, failed, seconds }: ChatTypes.ChatActivitySteps): string {
+  const total = steps === 1 ? m.rooms_activity_step() : m.rooms_activity_steps({ steps });
+  const count = failed === 0 ? total : m.rooms_activity_steps_failed_of({ steps: total, failed: chatActivityFailedLabel(failed) });
 
   return seconds === null ? count : m.rooms_activity_steps_time({ steps: count, seconds });
+}
+
+export function chatActivityFailedLabel(failed: number): string {
+  return failed === 1 ? m.rooms_activity_step_failed() : m.rooms_activity_steps_failed({ failed });
 }
 
 export function chatActivityWaitingOn(approvalCount: number, questionCount: number): ChatTypes.ChatActivityWait | undefined {

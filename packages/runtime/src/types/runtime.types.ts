@@ -28,6 +28,7 @@ export interface RuntimeServiceParams {
   permissions: RuntimeToolPolicy;
   collaboration: CollaborationPolicy;
   gifs: RuntimeGifs;
+  settings: RuntimeSettings;
   images?: ImageProcessor;
   secrets?: RuntimeSecrets;
   toolExtensions?: PiDurableTypes.Extension[];
@@ -40,6 +41,16 @@ export interface RuntimeGifs {
   queries: {
     provider: () => Promise<UniversalTypes.GifProvider>;
   };
+}
+
+export interface RuntimeSettings {
+  queries: {
+    get: (params: { keys: string[] }) => Promise<{ key: string; value: string }[]>;
+  };
+}
+
+export interface RuntimeClockParams {
+  settings: RuntimeSettings;
 }
 
 export interface RuntimeChatToolsParams {

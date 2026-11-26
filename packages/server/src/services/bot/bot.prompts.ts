@@ -1,4 +1,4 @@
-export const botPromptsStart = `You have just been created. Introduce yourself to your owner briefly, using your configured name and instructions.
+export const botPromptsStart = `You have just been created. Introduce yourself to your owner briefly, using your configured name and instructions. If you have no instructions yet, say in a sentence what you can help with and ask what they would like you to do.
 
 Use your configured instructions and available tools to do useful, safe immediate work that those instructions clearly request. Follow your configured permission and approval policy. Do not claim that you completed anything unless you verified it; explain blockers plainly and ask for the information or approval you need.
 

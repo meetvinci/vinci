@@ -1,10 +1,10 @@
-import { chatActivitySteps, chatActivityStepsLabel, mentionMarkdown, mentionTarget } from '@repo/client/client';
+import { chatActivityFailedLabel, chatActivitySteps, chatActivityStepsLabel, mentionMarkdown, mentionTarget } from '@repo/client/client';
 import { useChatHideVerbose } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable } from 'react-native';
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { EventLabel, EventLine, EventList } from '@/components/ui/event';
 import { Markdown } from '@/components/ui/markdown';
 import { Message, MessageBubble, MessageQuote } from '@/components/ui/message';
@@ -66,7 +66,8 @@ export function ChatMessage({
   const router = useRouter();
   const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const [isExpanded, setIsExpanded] = useState(false);
-  const steps = canSeeSteps && hideVerbose && !isLive ? chatActivitySteps(message) : null;
+  // SAFETY: a person who cannot see steps still learns that one failed, so a bot's claim of success is not the only trace.
+  const steps = hideVerbose && !isLive ? chatActivitySteps(message) : null;
 
   const segments = chatMessageSegments({
     message,
@@ -153,19 +154,28 @@ export function ChatMessage({
   return (
     <>
       {timeLabel}
-      {steps ? (
-        <EventList>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: isExpanded }}
-            onPress={() => setIsExpanded(!isExpanded)}
-          >
-            <EventLine>
-              <EventLabel>{isExpanded ? m.rooms_activity_steps_hide() : chatActivityStepsLabel(steps)}</EventLabel>
+      {match({ steps, canSeeSteps })
+        .with({ steps: P.nonNullable, canSeeSteps: true }, ({ steps: shown }) => (
+          <EventList>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isExpanded }}
+              onPress={() => setIsExpanded(!isExpanded)}
+            >
+              <EventLine status={!isExpanded && shown.failed > 0 ? 'error' : undefined}>
+                <EventLabel>{isExpanded ? m.rooms_activity_steps_hide() : chatActivityStepsLabel(shown)}</EventLabel>
+              </EventLine>
+            </Pressable>
+          </EventList>
+        ))
+        .with({ steps: { failed: P.number.positive() } }, ({ steps: shown }) => (
+          <EventList>
+            <EventLine status="error">
+              <EventLabel>{chatActivityFailedLabel(shown.failed)}</EventLabel>
             </EventLine>
-          </Pressable>
-        </EventList>
-      ) : null}
+          </EventList>
+        ))
+        .otherwise(() => null)}
       {segments.map((segment) => match(segment)
         .with({ kind: 'tools' }, (tools) => <ChatTools key={tools.key} parts={tools.parts} />)
         .with({ kind: 'events' }, (events) => (
