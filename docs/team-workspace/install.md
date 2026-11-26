@@ -301,7 +301,7 @@ No response names the software behind the address or its version. From your chec
 bun scripts/deploy.ts check https://acme.example.com
 ```
 
-It asks for `/`, `/admin`, `/rpc`, `/hub/health`, the icons, the login pages (`/cdn-cgi/access/login` and `/cdn-cgi/access/certs`), a path that does not exist, a method a route does not take and plain `http://`, and prints one line per answer. Every line must end in `ok`; otherwise it names the header (`Server`, `X-Powered-By`, `Via`, a header named like a version, or any value such as `Apache/2.4`) or the error page's stack trace, and exits non-zero. Cloudflare's own `Server: cloudflare` is allowed: Cloudflare adds it to everything it serves and lets nobody remove it.
+It asks for `/`, `/admin`, `/rpc`, `/hub/health`, the icons, the login pages (`/cdn-cgi/access/login` and `/cdn-cgi/access/required`), a path that does not exist, a method a route does not take and plain `http://`, and prints one line per answer. Every line must end in `ok`; otherwise it names the header (`Server`, `X-Powered-By`, `Via`, a header named like a version, or any value such as `Apache/2.4`) or the error page's stack trace, and exits non-zero. Cloudflare's own `Server: cloudflare` is allowed: Cloudflare adds it to everything it serves and lets nobody remove it.
 
 On the server, nothing of Vinci or Docker listens on a network address, and one person's Vinci cannot reach another's:
 
