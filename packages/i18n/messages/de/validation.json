@@ -12,6 +12,7 @@
   "validation_command_id_arguments": "Gib eine positive ganze Zahl als ID ein.",
   "validation_reaction_limit": "Eine Nachricht kann höchstens {max} Reaktionen haben.",
   "validation_routine_schedule": "Wähle einen gültigen Cron-Ausdruck mit fünf Feldern und eine Zeitzone.",
+  "validation_routine_run_at": "Wähle einen Zeitpunkt in der Zukunft.",
   "validation_artifact_spec": "Verwende ein gültiges Artefakt-Layout und gültige Block-Eigenschaften innerhalb der Größenbeschränkung.",
   "validation_oauth": "Die Autorisierung konnte nicht abgeschlossen werden. Prüfe den Callback und versuche es erneut.",
   "validation_provider_login_unsupported": "Dieser Anbieter unterstützt die gewählte Anmeldemethode nicht.",

@@ -1,5 +1,5 @@
 import { match, P } from 'ts-pattern';
-import { routineScheduleNextRunAt } from './routine-schedule.utils';
+import { routineScheduleAssertFuture, routineScheduleNextRunAt } from './routine-schedule.utils';
 import { routineDocument } from './routine.constants';
 import { routineTask } from './routine.task';
 import { routineCopy } from './routine.utils';
@@ -10,6 +10,7 @@ export async function routineActionCreate(
   { context, ...params }: RoutineTypes.RoutineCreateParams & RoutineTypes.RoutineContextParams,
 ) {
   const now = Date.now();
+  routineScheduleAssertFuture(params.schedule, now);
   const nextRunAt = routineScheduleNextRunAt(params.schedule, now);
   const id = params.id ?? crypto.randomUUID();
 

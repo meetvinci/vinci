@@ -11,7 +11,7 @@ import {
   routineToolUpdate,
   routineToolUpdateParameters,
 } from '../../types/routine-tool.types';
-import { runtimeToolBotTarget, runtimeToolOutput } from './runtime-tool.utils';
+import { runtimeToolBotTarget, runtimeToolOutput, runtimeToolValidated } from './runtime-tool.utils';
 import type { RoutineToolDeps } from '../../types/routine-tool.types';
 
 export function runtimeRoutineToolsExtension(deps: RoutineToolDeps) {
@@ -34,7 +34,7 @@ export function runtimeRoutineToolsExtension(deps: RoutineToolDeps) {
     execute: async (params, api, context) => {
       const input = routineToolCreate.parse(params);
       const target = await runtimeToolBotTarget(deps, api, context);
-      return runtimeToolOutput(await deps.routines.actions.create({ ...input, ...target }, context));
+      return runtimeToolValidated(deps.routines.actions.create({ ...input, ...target }, context));
     },
   });
 
@@ -46,7 +46,7 @@ export function runtimeRoutineToolsExtension(deps: RoutineToolDeps) {
     execute: async (params, api, context) => {
       const input = routineToolUpdate.parse(params);
       const target = await runtimeToolBotTarget(deps, api, context);
-      return runtimeToolOutput(await deps.routines.actions.update({ ...input, ...target }, context));
+      return runtimeToolValidated(deps.routines.actions.update({ ...input, ...target }, context));
     },
   });
 

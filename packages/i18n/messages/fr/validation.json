@@ -12,6 +12,7 @@
   "validation_command_id_arguments": "Saisissez un identifiant entier positif.",
   "validation_reaction_limit": "Un message peut avoir au maximum {max} réactions.",
   "validation_routine_schedule": "Choisissez une expression cron à cinq champs et un fuseau horaire valides.",
+  "validation_routine_run_at": "Choisissez une heure dans le futur.",
   "validation_artifact_spec": "Utilisez une mise en page d’artefact et des propriétés de bloc valides, dans la limite de taille.",
   "validation_oauth": "Impossible de terminer l’autorisation. Vérifiez le rappel et réessayez.",
   "validation_provider_login_unsupported": "Ce fournisseur ne prend pas en charge la méthode de connexion choisie.",
