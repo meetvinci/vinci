@@ -875,6 +875,10 @@ On the first upgrade to the version with nightly backups, step 2's backup stops 
 
 **The first upgrade to the version with [disk limits](#disk-limits) needs no extra step either**: step 4's `apply` gives every person and the template a sandbox disk of `SANDBOX_DISK` (5 GB unless `.env` says otherwise), stops each one for a moment, moves their bot folders and their bots' home (`bot-home`, with whatever bots installed there) onto it and starts them again (about 10 seconds in all for three people; it fails with a clear message, changing nothing, when someone's bot folders and home do not fit). It also writes the boot unit. Check with `bun deploy.ts status`: a `disk … of 4.8 GiB` column for everyone (5 GB less the file system's own space).
 
+#### Bot modes and approvals
+
+**The first upgrade to the version with bot modes and [approvals](#approvals) needs no extra step.** Each person's Vinci migrates its database on start (`0010_bot_modes`): **Ask first**, **Sandbox** and **Auto** become **Normal**, **Full access** becomes **No questions**, **Read only** stays. Each bot's **Always approve** list becomes the person's own **Never ask** choices for those tools, across their bots; MCP tools in those lists ask once more. A bot that was on **Ask first** no longer asks before commands in its sandbox. The hub's start sync gives everyone who follows Tools your approval defaults from Global settings (empty until you set some). Ask people to reload open browser tabs and update the phone app: an app from before this version still shows the old levels and the old *Always approved* list, and its bot form and Tools tab fail until it updates. Rolling back needs a restore ([Rolling back past older versions](#rolling-back-past-older-versions)).
+
 #### Rolling back past older versions
 
 The [normal rollback](#roll-back) plus, for each version you roll back past:
@@ -890,6 +894,7 @@ The [normal rollback](#roll-back) plus, for each version you roll back past:
   - the version where a copied bot starts on first open: `0006_bot_start`;
   - the version where bots start on **Sandbox**: `0008_bot_sandbox_permission`;
   - the version where every bot greets on its first open: `0009_bot_start_all`.
+  - the version with three bot modes and [approvals](#approvals): `0010_bot_modes`. A backup from before it brings back each bot's level (**Ask first**, **Sandbox**, **Auto**, **Full access**) and its **Always approve** list; the person's approvals, their trusted servers and **Don't ask again** answers made since are lost.
 
 ### Images from CI
 
