@@ -64,8 +64,7 @@ describe('audit trail', () => {
 
     const updated = await rpc('bots/update', { botId, instructions: secret });
     const quiet = await Promise.all(['bots/list', 'secrets/list', 'server/info'].map((procedure) => rpc(procedure, null)));
-    const alwaysAllowed = await rpc('tools/alwaysAllowed', { botId });
-    const cleared = await rpc('tools/clearAlwaysAllowed', { botId, toolName: 'bash' });
+    const servers = await rpc('tools/servers', null);
 
     const history = await rpc('conversation/history', {
       botId,
@@ -84,13 +83,7 @@ describe('audit trail', () => {
 
     expect([saved.status, updated.status, history.status, reactions.status, added.status, removed.status]).toEqual([200, 200, 404, 200, 200, 200]);
     expect(quiet.map(({ status }) => status)).toEqual([200, 200, 200]);
-    expect([alwaysAllowed.status, cleared.status]).toEqual([200, 200]);
-    expect(row('tools/clearAlwaysAllowed')).toMatchObject({
-      kind: 'change',
-      userId: 'alice',
-      botId,
-      status: 200,
-    });
+    expect(servers.status).toBe(200);
     expect(row('bots/create')).toMatchObject({
       kind: 'change',
       userId: 'alice',
@@ -129,7 +122,7 @@ describe('audit trail', () => {
     });
     expect(refused.status).toBe(403);
     expect(row('workspace/export')).toMatchObject({ kind: 'change', status: 403 });
-    expect(rows.filter((entry) => /^(?:bots|secrets)\/list$|^server\/info$|^conversation\/reactions$|^tools\/alwaysAllowed$/u.test(entry.action))).toEqual([]);
+    expect(rows.filter((entry) => /^(?:bots|secrets)\/list$|^server\/info$|^conversation\/reactions$|^tools\/servers$/u.test(entry.action))).toEqual([]);
     expect(file.includes(secret)).toBe(false);
     expect(fixture.logs.join('')).not.toContain(secret);
   });

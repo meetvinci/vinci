@@ -144,6 +144,7 @@ export function adminPreviewName({ kind, name }: UniversalTypes.AdminPreviewItem
     .with({ kind: 'toolSetting', name: 'approvalRules' }, () => m.admin_preview_setting_approval_rules())
     .with({ kind: 'toolSetting', name: 'approvalTimeoutMinutes' }, () => m.admin_preview_setting_approval_timeout())
     .with({ kind: 'toolSetting', name: 'jevApiKey' }, () => m.admin_preview_setting_jev_key())
+    .with({ kind: 'toolSetting', name: 'approvalDefaults' }, () => m.admin_preview_setting_approval_defaults())
     .with({ kind: 'secretSetting', name: 'mode' }, () => m.admin_preview_setting_secret_mode())
     .with({ kind: 'sourceSetting', name: 'skills' }, () => m.admin_preview_setting_skills())
     .with({ kind: 'sourceSetting', name: 'instructions' }, () => m.admin_preview_setting_instructions())

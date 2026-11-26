@@ -124,3 +124,41 @@ export const TOOL_ACTIVITY_TOPIC_LABELS = {
   gif: [m.rooms_activity_tool_gif],
   working: [m.rooms_activity_friendly_working, m.rooms_activity_friendly_working_ready],
 } as const satisfies Record<ToolTypes.ToolActivityTopic, readonly [() => string, ...(() => string)[]]>;
+
+export const TOOL_APPROVAL_SENTENCES = new Map<string, Map<string, ToolTypes.ToolApprovalSentence>>([
+  ['https://mcp.cloudflare.com/mcp', new Map([
+    ['execute', { sentence: m.tool_approval_cloudflare_execute, keys: [] }],
+  ])],
+  ['https://mcp.linear.app/mcp', new Map([
+    ['create_issue', { sentence: m.tool_approval_linear_create_issue, keys: ['title'] }],
+    ['update_issue', { sentence: m.tool_approval_linear_update_issue, keys: ['id', 'identifier'] }],
+    ['save_issue', { sentence: m.tool_approval_linear_save_issue, keys: ['id', 'title'] }],
+    ['create_comment', { sentence: m.tool_approval_linear_create_comment, keys: ['issueId', 'issue'] }],
+    ['save_comment', { sentence: m.tool_approval_linear_create_comment, keys: ['issueId', 'issue'] }],
+    ['delete_comment', { sentence: m.tool_approval_linear_delete_comment, keys: [] }],
+    ['create_project', { sentence: m.tool_approval_linear_create_project, keys: ['name'] }],
+    ['update_project', { sentence: m.tool_approval_linear_update_project, keys: ['id', 'name'] }],
+    ['save_project', { sentence: m.tool_approval_linear_update_project, keys: ['id', 'name'] }],
+    ['create_issue_label', { sentence: m.tool_approval_linear_create_label, keys: ['name'] }],
+  ])],
+  ['https://mcp.notion.com/mcp', new Map([
+    ['notion-create-pages', { sentence: m.tool_approval_notion_create_pages, keys: [] }],
+    ['notion-update-page', { sentence: m.tool_approval_notion_update_page, keys: ['page_id'] }],
+    ['notion-move-pages', { sentence: m.tool_approval_notion_move_pages, keys: [] }],
+    ['notion-duplicate-page', { sentence: m.tool_approval_notion_duplicate_page, keys: ['page_id'] }],
+    ['notion-create-database', { sentence: m.tool_approval_notion_create_database, keys: [] }],
+    ['notion-update-database', { sentence: m.tool_approval_notion_update_database, keys: [] }],
+    ['notion-update-data-source', { sentence: m.tool_approval_notion_update_database, keys: [] }],
+    ['notion-create-comment', { sentence: m.tool_approval_notion_create_comment, keys: [] }],
+  ])],
+  ['https://mcp.sentry.dev/mcp', new Map([
+    ['update_issue', { sentence: m.tool_approval_sentry_update_issue, keys: ['issueId', 'issueUrl'] }],
+    ['create_team', { sentence: m.tool_approval_sentry_create_team, keys: ['name'] }],
+    ['create_project', { sentence: m.tool_approval_sentry_create_project, keys: ['name'] }],
+    ['update_project', { sentence: m.tool_approval_sentry_update_project, keys: ['projectSlug'] }],
+    ['create_dsn', { sentence: m.tool_approval_sentry_create_dsn, keys: [] }],
+    ['analyze_issue_with_seer', { sentence: m.tool_approval_sentry_analyze_issue, keys: ['issueId', 'issueUrl'] }],
+  ])],
+]);
+
+export const TOOL_POLICY_CHOICES = ['default', 'allow', 'ask'] as const satisfies ToolTypes.ToolPolicyChoice[];

@@ -1,4 +1,4 @@
-import { ROOMS_APPROVAL_CHOICES, roomsApprovalText, toolPresentation } from '@repo/client/client';
+import { roomsApprovalText } from '@repo/client/client';
 import { useChatApproval } from '@repo/client/react';
 import { m } from '@repo/i18n/client';
 import { MessageCode } from '@/components/ui/message';
@@ -14,14 +14,16 @@ interface ChatApprovalProps {
 export function ChatApproval({ approval, botName }: ChatApprovalProps) {
   const answer = useChatApproval(approval);
   const text = roomsApprovalText({ input: approval.arguments });
-  const label = toolPresentation({ toolName: approval.toolName }).label;
 
   return (
     <QuestionCard>
-      <QuestionCardHeader descriptions={[label, ...(text.description ? [text.description] : [])]} title={m.rooms_chat_approval_title({ bot: botName })} />
+      <QuestionCardHeader
+        descriptions={[answer.sentence, ...(text.description ? [text.description] : [])]}
+        title={m.rooms_chat_approval_title({ bot: botName })}
+      />
       {text.code ? <MessageCode>{text.code}</MessageCode> : null}
       <QuestionCardOptions>
-        {ROOMS_APPROVAL_CHOICES.map((choice, index) => (
+        {answer.choices.map((choice, index) => (
           <QuestionCardOption
             disabled={answer.isAnswered}
             index={index}

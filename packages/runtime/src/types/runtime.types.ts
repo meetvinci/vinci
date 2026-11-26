@@ -188,7 +188,7 @@ export interface RuntimeBotParams extends UniversalTypes.ModelSelection {
   instructionFiles: { path: string; content: string }[];
   plugins: PiDurableTypes.Extension[];
   tools: PiDurableTypes.ToolRegistration[];
-  permission: 'read-only' | 'ask' | 'sandbox' | 'auto' | 'full';
+  permission: 'read-only' | 'normal' | 'no-questions';
 }
 
 export type RuntimeModelParams = Pick<RuntimeBotParams, 'modelProvider' | 'modelId' | 'thinkingLevel' | 'fallbackModel'>;

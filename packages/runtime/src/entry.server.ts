@@ -6,7 +6,7 @@ export type { StorageService } from './types/storage.types';
 export type { CollaborationBotParams, CollaborationPolicy, CollaborationRecipientParams } from './types/collaboration.types';
 export type { ToolRegistration } from '@earendil-works/pi-durable';
 export { mcpDocument, mcpServer } from './types/mcp.types';
-export type { McpClientParams, McpConfig, McpEntry, McpSource } from './types/mcp.types';
+export type { McpClientParams, McpConfig, McpEntry, McpServerTools, McpSource, McpToolInfo, McpToolParams } from './types/mcp.types';
 export type { McpClientService } from './services/mcp/mcp-client.service';
 export type { McpAuthService } from './services/mcp-auth/mcp-auth.service';
 export type { McpAuthCallbackParams } from './types/mcp-auth.types';

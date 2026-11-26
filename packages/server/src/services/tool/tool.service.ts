@@ -1,14 +1,16 @@
-import { toolActionAllowAlways } from './tool-action.allow-always';
+import { toolActionAllow } from './tool-action.allow';
 import { toolActionAuthorize } from './tool-action.authorize';
-import { toolActionClearAlwaysAllowed } from './tool-action.clear-always-allowed';
 import { toolActionConfigure } from './tool-action.configure';
-import { toolQueryAlwaysAllowed } from './tool-query.always-allowed';
+import { toolActionControl } from './tool-action.control';
+import { toolActionTrust } from './tool-action.trust';
+import { toolQueryAction } from './tool-query.action';
 import { toolQueryExport } from './tool-query.export';
+import { toolQueryServers } from './tool-query.servers';
 import { toolQuerySettings } from './tool-query.settings';
 import { TOOL } from './tool.constants';
-import type { ToolAllowAlwaysParams, ToolAlwaysAllowedParams, ToolServiceDeps } from '../../types/tool.types';
+import type { ToolServiceDeps, ToolTargetParams } from '../../types/tool.types';
 import type { Context } from '@earendil-works/chord/context';
-import type { ToolAlwaysAllowedClearInput, ToolConfigureInput } from '@repo/contracts/universal';
+import type { ToolConfigureInput, ToolControlChangeInput, ToolTrustInput } from '@repo/contracts/universal';
 import type { RuntimeToolCall } from '@repo/runtime/server';
 
 export function makeToolService(deps: ToolServiceDeps) {
@@ -17,13 +19,15 @@ export function makeToolService(deps: ToolServiceDeps) {
     approvalTimeoutMs: async () => (await toolQuerySettings(deps)).approvalTimeoutMinutes * TOOL.minuteMs,
     actions: {
       configure: (params: ToolConfigureInput) => toolActionConfigure(deps, params),
-      allowAlways: (params: ToolAllowAlwaysParams) => toolActionAllowAlways(deps, params),
-      clearAlwaysAllowed: (params: ToolAlwaysAllowedClearInput) => toolActionClearAlwaysAllowed(deps, params),
+      allow: (params: ToolTargetParams) => toolActionAllow(deps, params),
+      control: (params: ToolControlChangeInput) => toolActionControl(deps, params),
+      trust: (params: ToolTrustInput) => toolActionTrust(deps, params),
     },
     queries: {
       settings: () => toolQuerySettings(deps),
       export: () => toolQueryExport(deps),
-      alwaysAllowed: (params: ToolAlwaysAllowedParams) => toolQueryAlwaysAllowed(deps, params),
+      servers: () => toolQueryServers(deps),
+      action: (params: ToolTargetParams) => toolQueryAction(deps, params),
     },
   };
 }

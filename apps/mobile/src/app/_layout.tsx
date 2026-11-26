@@ -94,7 +94,6 @@ function RootLayoutStack() {
           <Stack.Screen name="bots/[botId]/delete" options={DIALOG} />
           <Stack.Screen name="bots/[botId]/todos/[todoId]/delete" options={DIALOG} />
           <Stack.Screen name="bots/[botId]/mcp/[server]/remove" options={DIALOG} />
-          <Stack.Screen name="bots/[botId]/always-approved/clear" options={DIALOG} />
           <Stack.Screen name="bots/[botId]/routines/[routineId]/edit" options={{ headerShown: true, title: m.rooms_routines_edit(), headerBackButtonDisplayMode: 'minimal' }} />
           <Stack.Screen name="bots/[botId]/routines/[routineId]/delete" options={DIALOG} />
           <Stack.Screen name="sections/create" options={SHEET_FIT} />

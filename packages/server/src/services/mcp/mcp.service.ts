@@ -13,6 +13,7 @@ import { mcpQueryShared } from './mcp-query.shared';
 import { mcpQueryTarget } from './mcp-query.target';
 import type * as McpTypes from '../../types/mcp.types';
 import type * as UniversalTypes from '@repo/contracts/universal';
+import type { McpToolParams } from '@repo/runtime/server';
 
 export function makeMcpService(deps: McpTypes.McpServiceDeps) {
   return {
@@ -33,6 +34,8 @@ export function makeMcpService(deps: McpTypes.McpServiceDeps) {
       target: (params: McpTypes.McpTargetParams) => mcpQueryTarget(deps, params),
       owned: (params: UniversalTypes.BotGetInput) => mcpQueryOwned(deps, params),
       file: (params: UniversalTypes.BotGetInput) => mcpQueryFile(deps, params),
+      tool: (params: McpToolParams) => deps.clients.queries.tool(params),
+      servers: () => deps.clients.queries.servers(),
     },
   };
 }
