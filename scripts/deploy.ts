@@ -763,10 +763,13 @@ function authCheck() {
     fail(`With VINCI_AUTH=laravel, ACCESS_TEAM_DOMAIN in .env must be ${laravelIssuer}: the hub trusts the key the API serves there.`);
   }
 
-  const secrets = ['ACCESS_AUD', 'API_INTERNAL_TOKEN'].filter((name) => (envValue(name) ?? '').length < laravelSecretLength);
+  const missing = [
+    ...['ACCESS_AUD', 'API_INTERNAL_TOKEN'].filter((name) => (envValue(name) ?? '').length < laravelSecretLength),
+    ...((envValue('API_APP_KEY') ?? '').startsWith('base64:') ? [] : ['API_APP_KEY']),
+  ];
 
-  if (secrets.length > 0 || !(envValue('API_APP_KEY') ?? '').startsWith('base64:')) {
-    fail(`With VINCI_AUTH=laravel, .env needs ${[...secrets, 'API_APP_KEY'].join(', ')}: ${laravelSecretLength} or more random characters each, and API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
+  if (missing.length > 0) {
+    fail(`With VINCI_AUTH=laravel, .env needs ${missing.join(', ')}: ACCESS_AUD and API_INTERNAL_TOKEN ${laravelSecretLength} or more random characters, API_APP_KEY a Laravel base64: key (install.md, Login with Vinci accounts).`);
   }
 }
 

@@ -33,17 +33,17 @@ class AccessController
 
     public function form(Request $request): Response
     {
-        return $this->page($request, null, 200);
+        return $this->page($request, '', null, 200);
     }
 
     public function login(Request $request): Response
     {
-        $email = Str::lower(trim((string) $request->input('email')));
-        $password = (string) $request->input('password');
+        ['email' => $email, 'password' => $password] = $request->validate(['email' => ['required', 'string'], 'password' => ['required', 'string']]);
+        $email = Str::lower(trim($email));
         $key = 'login|'.$email.'|'.$request->ip();
 
         if (RateLimiter::tooManyAttempts($key, self::ATTEMPTS)) {
-            return $this->page($request, 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.', 429);
+            return $this->page($request, $email, 'Too many attempts. Try again in '.RateLimiter::availableIn($key).' seconds.', 429);
         }
 
         try {
@@ -55,14 +55,14 @@ class AccessController
         if (! Hash::check($password, $user?->password ?? self::DUMMY_HASH) || $user === null) {
             RateLimiter::hit($key, self::DECAY);
 
-            return $this->page($request, 'Wrong email or password.', 401);
+            return $this->page($request, $email, 'Wrong email or password.', 401);
         }
 
         RateLimiter::clear($key);
         $request->session()->regenerate();
 
         return $this->redirect(self::safePath($request->input('redirect_url')))
-            ->withCookie($this->cookie($this->tokens->issue($user), $this->tokens->lifetimeSeconds() / 60));
+            ->withCookie($this->cookie($this->tokens->issue($user), AccessTokens::LIFETIME_SECONDS / 60));
     }
 
     public function logout(): Response
@@ -93,11 +93,11 @@ class AccessController
         return $isSafe ? $path : '/';
     }
 
-    private function page(Request $request, ?string $error, int $status): Response
+    private function page(Request $request, string $email, ?string $error, int $status): Response
     {
         return response()->view('login', [
             'error' => $error,
-            'email' => (string) $request->input('email', ''),
+            'email' => $email,
             'redirectUrl' => self::safePath($request->input('redirect_url')),
         ], $status)->header('Cache-Control', 'no-store');
     }

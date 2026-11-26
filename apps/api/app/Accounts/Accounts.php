@@ -29,6 +29,7 @@ class Accounts
     /** @return array{created: bool, password?: string} */
     public function ensure(string $email, ?string $name): array
     {
+        $email = self::normalize($email);
         $user = $this->find($email);
 
         if ($user !== null) {
@@ -40,7 +41,7 @@ class Accounts
         }
 
         $password = self::password();
-        User::query()->create(['email' => self::normalize($email), 'name' => $name, 'password' => $password]);
+        User::query()->create(['email' => $email, 'name' => $name, 'password' => $password]);
 
         return ['created' => true, 'password' => $password];
     }

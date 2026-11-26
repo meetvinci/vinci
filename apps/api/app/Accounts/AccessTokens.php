@@ -10,6 +10,9 @@ use Firebase\JWT\JWT;
 // in PostgreSQL: the container's root is read-only.
 class AccessTokens
 {
+    // How long a login lasts: the token's lifetime and the cookie's.
+    public const LIFETIME_SECONDS = 7 * 86400;
+
     public function issue(User $user): string
     {
         $key = $this->key();
@@ -22,13 +25,8 @@ class AccessTokens
             'sub' => (string) $user->id,
             'iat' => $now,
             'nbf' => $now,
-            'exp' => $now + $this->lifetimeSeconds(),
+            'exp' => $now + self::LIFETIME_SECONDS,
         ], $key->private_key, 'RS256', $key->kid);
-    }
-
-    public function lifetimeSeconds(): int
-    {
-        return config('vinci.session_days') * 86400;
     }
 
     public function jwks(): array

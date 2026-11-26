@@ -7,8 +7,6 @@ return [
     'team_domain' => env('ACCESS_TEAM_DOMAIN'),
     // The audience the hub checks: its ACCESS_AUD.
     'audience' => env('ACCESS_AUD'),
-    // How long a login lasts: the token's lifetime and the cookie's.
-    'session_days' => 7,
     // The bearer secret of the hub's /internal/users routes.
     'internal_token' => env('API_INTERNAL_TOKEN'),
 ];
