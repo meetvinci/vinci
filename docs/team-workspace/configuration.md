@@ -8,8 +8,7 @@ Every setting and file in a team install. "Set by the image" means the container
 
 | Setting | Example | What it does |
 | --- | --- | --- |
-| `VINCI_AUTH` | `access` | How people log in: `access` (the default when unset), Cloudflare Access through cloudflared; or `laravel`, Vinci accounts in the API behind Caddy, for testing for now ([login with Vinci accounts](install.md#login-with-vinci-accounts-no-cloudflare)). `apply` refuses a `COMPOSE_FILE` that loads the other mode's edge. |
-| `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is; with `VINCI_AUTH=laravel` it is `compose.yaml:caddy.compose.yaml:users.compose.yaml`. |
+| `COMPOSE_FILE` | `compose.yaml:caddy.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is; with the [Cloudflare Tunnel](install.md#optional-cloudflare-tunnel), add `cloudflared.compose.yaml` after `caddy.compose.yaml`. `apply` refuses a list without `caddy.compose.yaml`, and stops on a leftover `VINCI_AUTH=access` ([Move from Cloudflare Access](admin.md#move-from-cloudflare-access)). |
 | `VINCI_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
 | `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` images. Change it to upgrade or roll back. CI builds them from each release tag ([images from CI](admin.md#images-from-ci)). |
 | `VINCI_REGISTRY` | `ghcr.io/meetvinci/` | Where Compose takes the images from, ending in `/`. The images on GitHub Container Registry are public: the server pulls them without logging in. Empty uses images loaded by hand with `docker load` ([install, step 3](install.md#3-get-vinci-onto-the-server)). |
@@ -22,16 +21,15 @@ Every setting and file in a team install. "Set by the image" means the container
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
 | `VINCI_DB_PASSWORD`, `VINCI_POSTGRES_PASSWORD` | 64 hex characters each | PostgreSQL passwords for Laravel's database owner and the PostgreSQL administrator. Generate once in [install, step 7](install.md#7-start-vinci). Required. |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. With `VINCI_AUTH=laravel` none of them: an older install's `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are ignored. |
-| `API_APP_KEY` | `base64:` and 32 random bytes | `VINCI_AUTH=laravel` only: Laravel's `APP_KEY`. Encrypts the login form's own session cookie; changing it only makes open login forms start over. Secret. |
-| `API_INTERNAL_TOKEN` | 64 hex characters | `VINCI_AUTH=laravel` only: the secret the hub sends to the API's `/internal` routes: `/internal/session` to check each login and change a person's own password, `/internal/users` to add, reset and remove accounts for the admin panel. Secret. |
+| `TUNNEL_TOKEN` | | Only with the optional Cloudflare Tunnel: lets cloudflared connect it. Written by `cloudflare apply --env-out`. Secret. |
+| `API_APP_KEY` | `base64:` and 32 random bytes | Laravel's `APP_KEY`. Encrypts the login form's own session cookie; changing it only makes open login forms start over. Required. Secret. |
+| `API_INTERNAL_TOKEN` | 64 hex characters | The secret the hub sends to the API's `/internal` routes: `/internal/session` to check each login and change a person's own password, `/internal/users` to add, reset and remove accounts for the admin panel. Required. Secret. |
 | `BACKUP_TIME` | `03:00` | When the nightly backup runs, in server time. Read by `bun deploy.ts nightly install`; run it again after a change. |
 | `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY` | `7`, `4` | How many days and weeks of nightly backups to keep. See [backups](admin.md#nightly-backups). |
 | `BACKUP_S3_BUCKET` | empty | Optional: an S3-compatible bucket that receives an encrypted copy of each good nightly backup. See [off-site copy](admin.md#off-site-copy). |
 | `BACKUP_S3_ENDPOINT`, `BACKUP_S3_REGION`, `BACKUP_S3_PREFIX` | empty | The provider's S3 address (empty for Amazon S3), the bucket's region (`auto` for R2) and an optional folder in the bucket. |
 | `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY` | empty | The bucket's access key: list, read, write and delete. |
 | `BACKUP_PASSPHRASE` | empty | Encrypts every off-site upload, at least 20 characters, letters and digits. Required with `BACKUP_S3_BUCKET`. Without it the off-site copies cannot be restored: keep it in a password manager too. |
-| `CLOUDFLARE_API_TOKEN` | empty | Optional secret: lets the provisioner update the Access allow policy and show the panel whom it lets in. Recommended with a list of emails. See [admin tasks](admin.md#let-the-server-update-cloudflare-access). |
 
 A required value that is missing stops `docker compose` with a message naming it.
 
@@ -64,10 +62,8 @@ A required value that is missing stops `docker compose` with a message naming it
 
 | Setting | Value in a team install | What it does |
 | --- | --- | --- |
-| `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | Where the hub fetches Cloudflare's keys to check logins. Required without `HUB_ACCOUNTS_URL`: the hub won't start without it. |
-| `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required without `HUB_ACCOUNTS_URL`. |
 | `HUB_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. Outside the image the default is `127.0.0.1`. |
-| `HUB_PORT` | `47192` (set by the image) | The port cloudflared connects to. Internal only. |
+| `HUB_PORT` | `47192` (set by the image) | The port Caddy connects to. Internal only. |
 | `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json`, `admins.json`, `pins.json`, `global.json` and `audit.sqlite`. Compose mounts the server folder `/opt/vinci/hub` there. |
 | `HUB_WEB_URL` | `http://web:47190` (set by Compose) | Where the hub sends everything that is not for a daemon. Not the same as the web app's `WEB_HUB_URL`. |
 | `HUB_PUBLIC_URL` | `https://<team>.<domain>` (set by Compose) | The team address, so the web app knows it is served over HTTPS at that name. Required. |
@@ -75,20 +71,18 @@ A required value that is missing stops `docker compose` with a message naming it
 | `HUB_VERSION` | the image tag, `VINCI_TAG` from `.env` (set by Compose) | The version whose start the hub copies the global settings on. A restart on the same version copies nothing (`hub/start-sync.json`). Without it every start copies them. Give each upgrade its own tag: new images under the same tag (such as `latest`) count as the same version, so press *Sync now* after such an upgrade. |
 | `PROVISIONER_URL` | `http://provisioner:47193` (set by Compose) | Where the hub asks for people to be added, changed or removed. Without it (outside Compose) the panel lists people but changes answer 501. |
 | `PROVISIONER_TOKEN` | generated into `.env` at install (set by Compose) | Sent to the provisioner on every call. Required with `PROVISIONER_URL`; the hub won't start without it. Secret. |
-| `HUB_ACCOUNTS_URL`, `HUB_ACCOUNTS_TOKEN` | `http://api:8080` and `API_INTERNAL_TOKEN` (set by `caddy.compose.yaml`) | `VINCI_AUTH=laravel` only: where the hub checks logins (the `vinci_session` cookie, trusted for 5 seconds) and manages login accounts, and its secret. With it set the hub ignores `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`. Unset with Cloudflare Access. |
+| `HUB_ACCOUNTS_URL`, `HUB_ACCOUNTS_TOKEN` | `http://api:8080` and `API_INTERNAL_TOKEN` (set by `caddy.compose.yaml`) | Where the hub checks every login (the `vinci_session` cookie, trusted for 5 seconds) and manages login accounts, and its secret. Required: the hub won't start without them. |
 
 The hub runs as the same user as the daemons (uid 1000), because it talks to their owner sockets.
 
 ## Provisioner (one per team)
 
-Adds, disables and removes people for the admin panel by running `bun deploy.ts apply` in `/opt/vinci`, and updates the Access allow policy when it has a token. It is the only container with the Docker socket.
+Adds, disables and removes people for the admin panel by running `bun deploy.ts apply` in `/opt/vinci`, and deletes `/opt/vinci/admin-password` once the first admin changed their password. It is the only container with the Docker socket.
 
 | Setting | Value in a team install | What it does |
 | --- | --- | --- |
 | `PROVISIONER_TOKEN` | from `.env` (set by Compose) | Every request must carry it as `Authorization: Bearer <token>`. At least 32 characters, or it won't start. |
 | `PROVISIONER_PORT` | `47193` (set by the image) | Port on the `vinci_provisioner` network. Never published. |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME` | from `.env` (set by Compose) | With a token it updates the policy `<CLOUDFLARE_NAME>-allow` after each change (keeping its domain rule) and reads it for the panel; with a token but no zone or name it won't start. Without a token a change says `manual` unless it only touches emails inside `CLOUDFLARE_ACCESS_DOMAINS`. |
-| `CLOUDFLARE_ACCESS_DOMAINS` | from `.env` (set by Compose) | The policy's domain rule, comma separated, as `cloudflare apply --domain` wrote it. Without a token, the provisioner uses it to tell which changes need nothing in Cloudflare and the panel shows its notice from it. |
 
 It runs as root with every Linux capability dropped, a read-only system, no published port, 256 MB of memory, and `/opt/vinci` mounted at the same path so Compose finds the same files as on the server. Root lets it read `.env` and the Docker socket as their owner; without capabilities it can write only files root owns or that are group root, which is why the `hub` folder is owned by uid 1000, group root, mode 770.
 
@@ -109,8 +103,8 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | `.env` | `/opt/vinci/` | Every setting above. Secret. |
 | `users.yaml` | `/opt/vinci/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
 | `compose.yaml`, `daemon.yaml`, `sandbox.yaml` | `/opt/vinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the API, the one-off `tools` service, and the two containers every person gets: their Vinci and the sandbox where their bots' tools run. |
-| `cloudflared.compose.yaml` | `/opt/vinci/`, copied from `deploy/cloudflare/` | The tunnel connector. |
-| `caddy.compose.yaml` | `/opt/vinci/`, copied from `deploy/caddy/` | `VINCI_AUTH=laravel` only, in place of `cloudflared.compose.yaml`: Caddy with its Caddyfile inline, and the API's and hub's extra settings and networks for the login. |
+| `caddy.compose.yaml` | `/opt/vinci/`, copied from `deploy/caddy/` | The edge: Caddy with its Caddyfile inline, and the API's and hub's extra settings and networks for the login. |
+| `cloudflared.compose.yaml` | `/opt/vinci/`, copied from `deploy/cloudflare/` | Only with the optional Cloudflare Tunnel: the tunnel connector, and Caddy on plain HTTP without published ports. |
 | `deploy.ts` | `/opt/vinci/`, copied from `scripts/deploy.ts` | `apply`, `status`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/vinci/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
 | `users.compose.yaml` | `/opt/vinci/` | Per person, plus the same for the template workspace (`daemon-template`, `sandbox-template`): their container, network and volume, and their sandbox with its own network and shared-folder volume (`sandbox-<id>`). Written by `apply`; do not edit. |
@@ -131,21 +125,21 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | `data/credentials.key` | `/data/` in each person's volume | Encryption key for secrets the person's bots saved. |
 | `data/ipc/rpc.sock` | the `vinci_ipc` volume, folder `<id>` | The owner socket: the private door for pairing and admin changes to settings and bots, never chats. The person's container sees only its own folder, at `/data/data/ipc`; the hub sees all of them at `/ipc/<id>`, and nothing else of anyone's volume. |
 | `.agents/skills/`, `.agents/AGENTS.md`, `.agents/mcp.json` | `/data/home/` in each person's volume | Skills, instructions and MCP servers for all of the person's bots. |
-| tunnel routes | in Cloudflare, not on the server | Send `<team>.<domain>` to the hub, `http://hub:47192`. Set by `bun scripts/deploy.ts cloudflare apply`; don't edit them in the dashboard, the next run puts them back. The tunnel's only credential is `TUNNEL_TOKEN` in `.env`. |
+| tunnel route | in Cloudflare, not on the server | Only with the tunnel: sends `<team>.<domain>` to Caddy, `http://caddy:80`. Set by `bun scripts/deploy.ts cloudflare apply`; don't edit it in the dashboard, the next run puts it back. The tunnel's only credential is `TUNNEL_TOKEN` in `.env`. |
 
 ## Networks
 
-Nothing is published on the server's network interfaces, except ports 80 and 443 by Caddy with `VINCI_AUTH=laravel`. Docker Compose creates:
+Nothing is published on the server's network interfaces except ports 80 and 443 by Caddy (nothing at all with the tunnel). Docker Compose creates:
 
 | Network | Who is on it | Internet |
 | --- | --- | --- |
-| `vinci_tunnel` | cloudflared and the hub; Caddy instead of cloudflared with `VINCI_AUTH=laravel` | yes: the tunnel, and the hub's fetch of Cloudflare's login keys; Caddy's certificates |
-| `vinci_login` | Caddy and the API, `VINCI_AUTH=laravel` only | no |
-| `vinci_accounts` | the hub and the API, `VINCI_AUTH=laravel` only: login checks, password changes and the accounts of the admin panel | no |
+| `vinci_tunnel` | Caddy, and cloudflared with the tunnel | yes: Caddy's certificates; the tunnel |
+| `vinci_edge` | Caddy and the hub | no |
+| `vinci_login` | Caddy and the API | no |
+| `vinci_accounts` | the hub and the API: login checks, password changes and the accounts of the admin panel | no |
 | `vinci_web` | the hub and the web app | no |
 | `vinci_api` | the Laravel API and PostgreSQL | no |
 | `vinci_provisioner` | the hub and the provisioner | no |
-| `vinci_egress` | the provisioner only | yes: the Cloudflare API, used only with `CLOUDFLARE_API_TOKEN` |
 | `vinci_user-<id>` | one person's container and the hub; bridge `mv-d<9 hex>`, no traffic between containers but the hub to port 47191, no IPv6 | yes, public addresses only: bots need model providers, MCP servers and the web |
 | `vinci_sandbox-<id>` | one person's sandbox only; a bridge `mv-d<9 hex>` like theirs, so the firewall treats it the same, no IPv6 | yes, public addresses only: bots' commands need the web |
 
@@ -163,40 +157,20 @@ Each person's container runs with:
 
 Each person's sandbox runs the same way (`SANDBOX_MEMORY`, `SANDBOX_CPUS`, `SANDBOX_PIDS`), on a network of its own that nothing else joins. It sees only the person's bot folders and their bots' home folder (`/home/bot`, both on their sandbox disk of `SANDBOX_DISK`; where `HOME`, `XDG_*`, npm's prefix and cache, Bun's install folders and pip's user folder point), their shared skills and instructions (read only) and the folder their Vinci shares with it (read only); their Vinci has an empty read-only folder over `/data/bot-home`. It holds no Vinci code: pi-env, the small program that runs the tools for Vinci, and the tools bots use ([what a bot can do](admin.md#what-a-bot-can-do-and-reach)). The image is about 800 MB unpacked (arm64), 450 MB before the tools. Measured idle on an arm64 test machine: about 3 MB per sandbox; their Vinci holds a small link process of about 5 MB once a bot has used a tool.
 
-Measured idle on a 2 vCPU, 4 GB x86 server (`docker stats`): each daemon about 105-110 MB after a chat, the web app 35-55 MB, cloudflared 15-35 MB, the hub 12 MB; each under 0.5% CPU. The system and Docker took about 470 MB. On a Mac test a daemon reached about 190 MB after opening an artifact preview. Keep the 512 MB limit.
+Measured idle on a 2 vCPU, 4 GB x86 server (`docker stats`): each daemon about 105-110 MB after a chat, the web app 35-55 MB, cloudflared (with the tunnel) 15-35 MB, the hub 12 MB; each under 0.5% CPU. The system and Docker took about 470 MB. On a Mac test a daemon reached about 190 MB after opening an artifact preview. Keep the 512 MB limit.
 
-## Cloudflare
+## Cloudflare Tunnel (optional)
 
-`bun scripts/deploy.ts cloudflare apply` creates these, all named after `--name` (here `vinci-<team>`). It changes and deletes only objects with these exact names.
+`bun scripts/deploy.ts cloudflare apply --zone <domain> --hostname <team>.<domain> --name vinci-<team>` creates these and changes or deletes only them:
 
 | Object | Name | Setting |
 | --- | --- | --- |
-| Tunnel | `vinci-<team>` | one per server, routes kept in Cloudflare. The team name goes to `http://hub:47192`. Only `/img/favicon/<file>` and `/favicon.ico` skip cloudflared's own check of the Access login. |
-| Access policy | `vinci-<team>-allow` | allow the enabled users' and the admins' emails in `users.yaml`; with `--domain`, allow everyone whose email ends in `@<domain>` plus the `users.yaml` emails outside it |
-| Access policy | `vinci-<team>-bypass` | bypass, everyone |
-| Access app | `vinci-<team>` | `<team>.<domain>` with the allow policy; session `--session`, 24 hours by default; cookie HttpOnly on, SameSite Lax, binding cookie off |
-| Access app | `vinci-<team>-favicon` | `<team>.<domain>/img/favicon/*` and `<team>.<domain>/favicon.ico` with the bypass policy |
-| DNS | comment `vinci deploy vinci-<team>` | `<team>.<domain>`, proxied CNAME to the tunnel; created last |
-| Access policy, app and DNS (optional) | `vinci-<team>-ssh-allow`, `vinci-<team>-ssh` | `<team>-ssh.<domain>` to the server's sshd, `--ssh-email` addresses only |
+| Tunnel | `vinci-<team>` | one per server, remotely managed: its one route sends `<team>.<domain>` to `http://caddy:80`, anything else answers 404 |
+| DNS | comment `vinci deploy vinci-<team>` | `<team>.<domain>`, proxied CNAME to the tunnel |
 
-The values the server needs:
-
-| Setting | Example | What it does |
-| --- | --- | --- |
-| `VINCI_PUBLIC_HOST` | `acme.example.com` | The team address, without `https://`. |
-| `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | The hub's `ACCESS_TEAM_DOMAIN`. |
-| `ACCESS_AUD` | 64 hex characters | The hub's `ACCESS_AUD`: the AUD tag of the `vinci-<team>` application. |
-| `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME` | `example.com`, `vinci-acme` | The `--zone` and `--name` of the install, for the provisioner's Access sync. Not secret. |
-| `CLOUDFLARE_ACCESS_DOMAINS` | `example.com`, or empty | The `--domain` values, comma separated. Not secret. |
-| `TUNNEL_TOKEN` | secret | Lets cloudflared connect the tunnel. Only in `/opt/vinci/.env`. |
-
-The API token needs Account: Cloudflare Tunnel: Edit, Account: Access: Apps and Policies: Edit, and Zone: DNS: Edit for the domain. The optional token on the server needs only Zone › Zone › Read for the domain and Account › Access: Apps and Policies › Edit (Read is enough to only show whom Access lets in).
-
-Remove everything (only objects with these exact names, after listing them; stop cloudflared first):
+With `--env-out <file>` it writes `VINCI_PUBLIC_HOST` and `TUNNEL_TOKEN` (secret) for the server's `.env`. The API token needs Account: Cloudflare Tunnel: Edit and Zone: DNS: Edit for the domain. Remove both (after listing them; stop cloudflared first):
 
 ```sh
-bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team> [--ssh-hostname <team>-ssh.<domain>]
+bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team>
 # lists what it would delete; add --yes to delete exactly those
 ```
-
-Login method: one-time PIN by email, or your identity provider.

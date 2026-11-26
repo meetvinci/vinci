@@ -29,10 +29,9 @@ Her bots' tools (reading and writing files, running commands) run in a second co
 The admin panel lives at `https://<team>.<domain>/admin`. Only the emails in `/opt/vinci/hub/admins.json` may open it; everyone else gets 403 there. An admin is just an email: they need not be a user and have no bots of their own. An admin who is not a user can open only the panel, nothing else.
 
 - The first admin comes from `HUB_ADMIN_EMAILS` in `.env`, written to `admins.json` the first time the hub starts with an empty list.
-- `admins.json` is the list that counts. The hub copies it to `admins:` in `users.yaml` when it starts and after every change, so Cloudflare Access lets the same people in.
+- `admins.json` is the list that counts. The hub copies it to `admins:` in `users.yaml` when it starts and after every change, so a backup of `users.yaml` has it too.
 - In the panel, admins add and remove other admins. The last admin cannot be removed.
-- With Vinci accounts (`VINCI_AUTH=laravel`), **Add admin** also makes a login for someone who has none and shows the password once; give it to them. If it is lost, remove the admin and add them again. **Remove** deletes that login too, unless the email is also a user: their login and workspace stay.
-- Each admin must also be allowed by Cloudflare Access. When the server has a Cloudflare token, the panel updates Access itself; otherwise it says so, and you add the email with the `cloudflare emails` command below.
+- **Add admin** also makes a login for someone who has none and shows the password once; give it to them. If it is lost, remove the admin and add them again. **Remove** deletes that login too, unless the email is also a user: their login and workspace stay.
 - The panel changes a person's settings and bots through that person's owner socket. It never pairs as a device and cannot send messages or answer questions as them.
 - Every change made in the panel is recorded with the admin's email: see [Activity](#activity).
 
@@ -63,10 +62,10 @@ admins:
 ```
 
 - The user id is short: lowercase letters, digits and dashes. It names the person's container and volume, so never reuse an id for someone else. `template` is taken: it is the template workspace (see [Global settings and suggested bots](#global-settings-and-suggested-bots)), and `apply` refuses a person with that id.
-- Each email appears once under `users:`. It must match the email the person logs in with at Cloudflare.
+- Each email appears once under `users:`. It is the email the person logs in with.
 - `name` is what the admin panel shows; it defaults to the id. `enabled` defaults to `true`. A disabled person cannot log in and has no container; their volume stays.
 - `advanced` defaults to `false` (and is left out of the file then). An advanced user sees more settings in their app; see [What people see](#what-people-see). It changes nothing their workspace allows.
-- Admins can log in at Cloudflare. An admin has no Vinci of their own unless they are also under `users:`.
+- An admin has no Vinci of their own unless they are also under `users:`.
 - The admin panel changes this file through the provisioner, which rewrites it in the long form and drops comments. Don't edit it by hand while someone is changing people in the admin panel.
 - After every edit, run `bun deploy.ts apply`. It writes the hub's `hub/users.json` and `users.compose.yaml` from this list and starts or stops containers to match. Never edit those two files by hand: the next `apply` overwrites them.
 - `apply` never restarts the hub or the other people's containers, so nobody else is logged out.
@@ -75,7 +74,7 @@ admins:
 
 ## Add a person
 
-In the admin panel: add them with their name and email, and leave ticked the [suggested bots](#global-settings-and-suggested-bots) they should start with. It creates their Vinci with the global settings and those bots. If their email is inside the team's domain rule, or the server may update Cloudflare Access ([below](#let-the-server-update-cloudflare-access)), they can log in at once. Otherwise the panel says *<email> can't sign in yet*: do step 2 below, or add the email in the Cloudflare dashboard (Zero Trust › Access controls › Policies › `vinci-<team>-allow` › Include › Emails).
+In the admin panel: add them with their name and email, and leave ticked the [suggested bots](#global-settings-and-suggested-bots) they should start with. It creates their Vinci with the global settings and those bots, and their login account, and shows the password once, with **Copy**: give it to them, since it is not shown again.
 
 By hand:
 
@@ -86,34 +85,32 @@ By hand:
    ```
 
    It creates their volume, network and container and waits until the container is healthy.
-2. Let them log in at Cloudflare. Skip this if their email is inside the team's domain rule (`CLOUDFLARE_ACCESS_DOMAINS` in `.env`). On your computer, in the Vinci repository, copy the list's emails into the Access policy (the Cloudflare token stays on your computer, so the server cannot do this step):
+2. Create their login account; the password is printed once:
 
    ```sh
-   ssh root@<server> cat /opt/vinci/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name vinci-<team>
+   docker compose exec -T api php artisan vinci:user <email> --name "<name>"
    ```
-
-   Expected: `Access policy vinci-<team>-allow: updated` and the list of allowed emails. The command keeps the policy's domain rule as it is.
-3. Send them the address, `https://<team>.<domain>`. On their first visit they type their email and enter the code from their inbox. Their browser pairs itself and shows their bots. They see no setup steps: no provider sign-in, no model choice, no bot to create. Add their bots first (in the admin panel, or see [Create a bot by hand](#create-a-bot-by-hand)).
+3. Send them the address, `https://<team>.<domain>`, and the password. On their first visit they log in with their email and that password, and change it in their settings. Their browser pairs itself and shows their bots. They see no setup steps: no provider sign-in, no model choice, no bot to create. Add their bots first (in the admin panel, or see [Create a bot by hand](#create-a-bot-by-hand)).
 
 Model keys come from the server's `.env` (see [Set model API keys](#set-model-api-keys)); a new person gets them automatically.
 
 **Give this to your agent:**
 
-> On `root@<server>`, add `<email>` as Vinci user `<id>`: add the line `  <id>: <email>` under `users:` in `/opt/vinci/users.yaml`, and run `bun deploy.ts apply` in `/opt/vinci`. Confirm `docker compose ps` shows `vinci-daemon-<id>-1` healthy and `grep -c '"id"' /opt/vinci/hub/users.json` equals the number of enabled people in `users.yaml`. Then, in my Vinci checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/vinci/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name vinci-<team>` so they can log in, unless their email ends in one of the domains in `CLOUDFLARE_ACCESS_DOMAINS` in `/opt/vinci/.env`. If it says the token is empty, ask me to unlock my password manager.
+> On `root@<server>`, add `<email>` as Vinci user `<id>`: add the line `  <id>: <email>` under `users:` in `/opt/vinci/users.yaml`, and run `bun deploy.ts apply` in `/opt/vinci`. Confirm `docker compose ps` shows `vinci-daemon-<id>-1` healthy and `grep -c '"id"' /opt/vinci/hub/users.json` equals the number of enabled people in `users.yaml`. Then create their login with `docker compose exec -T api php artisan vinci:user <email>` and tell me the password is in the output, once, without repeating it.
 
 ## Disable a person
 
-Disabling locks someone out without deleting anything: they cannot log in, their container stops and is removed, and their volume stays. Enabling them again starts a new container on the same volume.
+Disabling locks someone out without deleting anything: the hub refuses their login with *Your sign-in is turned off*, open chats included, their container stops and is removed, and their volume and login account stay. Enabling them again starts a new container on the same volume.
 
-In the admin panel, switch them off. By hand, set `enabled: false` in their entry in `users.yaml` (the long form above), run `bun deploy.ts apply`, then update Cloudflare Access as in [Add a person](#add-a-person), step 2 (not needed with a domain rule: the hub already refuses them).
+In the admin panel, switch them off. By hand, set `enabled: false` in their entry in `users.yaml` (the long form above) and run `bun deploy.ts apply`.
 
 **Give this to your agent:**
 
-> On `root@<server>`, disable Vinci user `<id>`: in `/opt/vinci/users.yaml` turn their entry into the long form with `name`, `email` and `enabled: false`, run `bun deploy.ts apply` in `/opt/vinci`, and confirm `vinci-daemon-<id>-1` is gone, their volume `vinci_data-<id>` still exists and `hub/users.json` no longer lists their email. Then update the Access policy with `cloudflare emails` as in "Add a person". Don't delete their volume.
+> On `root@<server>`, disable Vinci user `<id>`: in `/opt/vinci/users.yaml` turn their entry into the long form with `name`, `email` and `enabled: false`, run `bun deploy.ts apply` in `/opt/vinci`, and confirm `vinci-daemon-<id>-1` is gone, their volume `vinci_data-<id>` still exists and `hub/users.json` no longer lists their email. Don't delete their volume.
 
 ## Remove a person
 
-In the admin panel: delete them. Their login goes, their container stops and is removed, their volume stays. By hand:
+In the admin panel: delete them. Their login account and every login of it go, their container stops and is removed, their volume stays. By hand:
 
 1. Delete their entry from `users.yaml` (their one line, or in the long form their id line and the lines under it), then run:
 
@@ -122,11 +119,7 @@ In the admin panel: delete them. Their login goes, their container stops and is 
    ```
 
    The hub refuses them within about a second and closes their open connections. `apply` then stops and removes their container and network. Their volume stays.
-2. Take their email out of the Access policy with the same command as when adding someone. With a domain rule there is nothing to take out: they can still get a login code, but Vinci refuses them.
-
-   ```sh
-   ssh root@<server> cat /opt/vinci/users.yaml | CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name vinci-<team>
-   ```
+2. Their login account stays: logging in then only shows *No workspace for this email*. Removing them in the admin panel deletes it too, and every login of it.
 3. Keep their volume and sandbox disk (a removed or disabled person's disk stays mounted) until you have a backup or are sure it is not needed. To delete it for good:
 
    ```sh
@@ -139,7 +132,7 @@ In the admin panel: delete them. Their login goes, their container stops and is 
 
 **Give this to your agent:**
 
-> On `root@<server>`, remove Vinci user `<id>` (`<email>`): delete their entry from `/opt/vinci/users.yaml` (one line, or their id and the indented lines under it), run `bun deploy.ts apply` in `/opt/vinci`, and confirm their container is gone and `grep -c '"id"' /opt/vinci/hub/users.json` equals the number of people left. Then, in my Vinci checkout with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the same command, run `ssh root@<server> cat /opt/vinci/users.yaml | bun scripts/deploy.ts cloudflare emails --users - --zone <domain> --hostname <team>.<domain> --name vinci-<team>`. Keep their volume.
+> On `root@<server>`, remove Vinci user `<id>` (`<email>`): delete their entry from `/opt/vinci/users.yaml` (one line, or their id and the indented lines under it), run `bun deploy.ts apply` in `/opt/vinci`, and confirm their container is gone and `grep -c '"id"' /opt/vinci/hub/users.json` equals the number of people left. Keep their volume.
 
 ## The admin panel's provisioner
 
@@ -152,29 +145,23 @@ A change waits only for that person's Vinci to start, so another person's broken
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/vinci`, check the provisioner: `docker compose ps provisioner` must be healthy, `docker inspect vinci-provisioner-1` must show `ReadonlyRootfs` true, `CapDrop [ALL]`, no `CapAdd`, no `PortBindings`, and only the networks `vinci_provisioner` and `vinci_egress`; `docker network inspect vinci_provisioner` must list only the hub and the provisioner. Report `docker compose logs provisioner --since 1h` without secrets. Change nothing.
+> On `root@<server>`, in `/opt/vinci`, check the provisioner: `docker compose ps provisioner` must be healthy, `docker inspect vinci-provisioner-1` must show `ReadonlyRootfs` true, `CapDrop [ALL]`, no `CapAdd`, no `PortBindings`, and only the network `vinci_provisioner`; `docker network inspect vinci_provisioner` must list only the hub and the provisioner. Report `docker compose logs provisioner --since 1h` without secrets. Change nothing.
 
-## Let the server update Cloudflare Access
+## Move from Cloudflare Access
 
-Without a Cloudflare token on the server, the admin panel adds and removes people but cannot change who may log in: for anyone outside the team's domain rule it tells you to change the Access policy by hand (step 2 of [Add a person](#add-a-person)). With a list of emails, the install recommends this token. To let the server do it, create a second, smaller Cloudflare API token (My Profile › API Tokens › Create Token › Create Custom Token) with only:
+Vinci no longer logs people in through Cloudflare Access: the Laravel API is the only login. An install that still uses Access (`VINCI_AUTH=access`, or no `VINCI_AUTH` line, and `cloudflared.compose.yaml` instead of `caddy.compose.yaml` in `COMPOSE_FILE`) must move before it upgrades: `bun deploy.ts apply` of this release stops with *People log in with Vinci accounts only* until it has. People and their workspaces stay; each person gets a password instead of an email code.
 
-- Account › Access: Apps and Policies › Edit, for your account
-- Zone › Zone › Read, for your domain
-
-A token with Access: Apps and Policies › Read instead of Edit only lets the panel show whom Cloudflare lets in; changes then still say *can't sign in yet* for people outside the domain rule.
-
-Don't reuse the install token: it can also change the tunnel and DNS. Store it in `/opt/vinci/.env` as `CLOUDFLARE_API_TOKEN`, then recreate the provisioner:
-
-```sh
-ssh root@<server> 'cd /opt/vinci && sed -i "/^CLOUDFLARE_API_TOKEN=/d" .env && cat >> .env && docker compose up -d --wait provisioner' < <(printf 'CLOUDFLARE_API_TOKEN=%s\n' "$(op read '<token reference>')")
-ssh root@<server> 'cd /opt/vinci && docker compose logs provisioner | grep listening | tail -1'
-```
-
-Expected: `Access sync on.` (followed by `domain rule @<domain>` with a domain rule). It needs `CLOUDFLARE_ZONE` and `CLOUDFLARE_NAME` in `.env` too (install step 6 writes them); without them the provisioner refuses to start and says so. Anyone with root on the server can read the token. With it, the allow policy follows `users.yaml`: enabled users and admins, apart from those inside the domain rule, which only `cloudflare apply --domain` changes. Removing the line and recreating the provisioner turns it off again.
+1. Back up first: `bun deploy.ts nightly` ([Nightly backups](#nightly-backups)).
+2. Copy the new release's deployment files as in [Upgrades](#upgrades), plus `deploy/caddy/caddy.compose.yaml`, and keep `cloudflared.compose.yaml` if the server keeps the tunnel.
+3. In `/opt/vinci/.env`: delete `VINCI_AUTH`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS` and `CLOUDFLARE_API_TOKEN`, and generate `API_INTERNAL_TOKEN`, `API_APP_KEY` as in [install, step 6](install.md#6-set-the-login-secrets). Set `COMPOSE_FILE`:
+   - keeping the tunnel: `compose.yaml:caddy.compose.yaml:cloudflared.compose.yaml:users.compose.yaml`;
+   - with ports 80 and 443 open and the hostname's DNS record pointing at the server (DNS only): `compose.yaml:caddy.compose.yaml:users.compose.yaml`.
+4. With the tunnel, update its route and remove Access in Cloudflare: run `cloudflare apply` from [the tunnel option](install.md#optional-cloudflare-tunnel) with the install's `--zone`, `--hostname` and `--name`, then delete the Access applications `vinci-<team>` and `vinci-<team>-favicon` (and `vinci-<team>-ssh`, if you set up SSH through the tunnel) and the policies `vinci-<team>-allow`, `vinci-<team>-bypass` and `vinci-<team>-ssh-allow` in the Cloudflare dashboard (Zero Trust › Access controls). Until the application is gone, Cloudflare still asks for its email code in front of the Vinci login. SSH through the tunnel was protected by Access and is gone with it: keep port 22 or your provider's console.
+5. Run `docker compose up -d --remove-orphans --wait` and `bun deploy.ts apply`, then create each person's and admin's login with `docker compose exec -T api php artisan vinci:user <email>` (or **Reset password** on their page in the admin panel) and hand out the passwords.
 
 **Give this to your agent:**
 
-> Create nothing in Cloudflare. On `root@<server>`, in `/opt/vinci`, set `CLOUDFLARE_API_TOKEN` in `.env` to the token at `<token reference>` (Zone: Zone: Read and Account: Access: Apps and Policies: Edit only), reading it inside the command and never printing it. Check `CLOUDFLARE_ZONE` and `CLOUDFLARE_NAME` have values, run `docker compose up -d --wait provisioner` and confirm its log says `Access sync on.`
+> On `root@<server>`, move the Vinci install from Cloudflare Access to Vinci accounts as "Move from Cloudflare Access" in `docs/team-workspace/admin.md` says: back up first, keep the tunnel `<yes or no>`, generate the secrets on the server, never print `.env` or a password. Report `bun deploy.ts status`, and tell me which people now have a login, without the passwords.
 
 ## Set model API keys
 
@@ -206,18 +193,15 @@ Do not use a Claude or ChatGPT subscription login for the team. The providers' t
 
 ## The admin panel
 
-Open `https://<your team host>/admin` and log in at Cloudflare as usual. Only emails on the admin list see it; an admin does not need to be a user and has no workspace of their own.
+Open `https://<your team host>/admin` and log in as usual. Only emails on the admin list see it; an admin does not need to be a user and has no workspace of their own.
 
 - **Users** lists everyone with their workspace state. Add a user with a name and email; open one to manage them.
 - For one user, **Bots** and **Settings** show the same forms the user sees in their own app, saved straight to that user's workspace. A person's **Settings** has no *General* tab: notifications, where they go, and appearance are the person's own choices, made in their app. **Devices** lists the browsers and phones they signed in with; revoking one signs it out. Below it, **Rate limits** sets how much that person's Vinci accepts before it answers *too many requests*: requests per minute from each device and in total, pairing attempts per minute, and requests and live updates at the same time. Each field shows its default and its allowed range, and the person's Vinci refuses a value outside it. Limits are per person, not part of global settings; each save is recorded in **Activity**. People can't change their own limits.
 - **Advanced user** (a switch on the person's page) shows them the advanced settings in their own app; see [What people see](#what-people-see). Off for everyone until you turn it on, and recorded in **Activity** as `users/advanced` `on` or `off`.
-- With password logins (`VINCI_AUTH=laravel`), adding a person also creates their login account, and the panel shows their password once, with **Copy**: give it to them, since it is not shown again. **Reset password** on the person's page asks first, then shows a new one the same way; the old password stops working and every browser signed in as that person is signed out within 5 seconds, open chats included. See [Passwords and logins](#passwords-and-logins). **Remove user** also deletes their login account, except for an admin from the admin list, who keeps it to open the panel. Turning sign-in on for someone who has no login account yet (a person added before the switch to passwords) creates it and shows its password. If the accounts service does not answer, the panel says so and nothing changes. Admins in `HUB_ADMIN_EMAILS` get their account at install, not from the panel; the panel hides the Cloudflare Access states in this mode.
+- Adding a person also creates their login account, and the panel shows their password once, with **Copy**: give it to them, since it is not shown again. **Reset password** on the person's page asks first, then shows a new one the same way; the old password stops working and every browser signed in as that person is signed out within 5 seconds, open chats included. See [Passwords and logins](#passwords-and-logins). **Remove user** also deletes their login account, except for an admin from the admin list, who keeps it to open the panel. Turning sign-in on for someone who has no login account yet (a person added before the switch to passwords) creates it and shows its password. If the accounts service does not answer, the panel says so and nothing changes. Admins in `HUB_ADMIN_EMAILS` get their account at install, not from the panel.
 - **Turn off sign-in** stops the person from logging in. **Remove user** removes their login and stops their workspace; their data stays on the server (deleting it is `bun deploy.ts purge <id>` on the server).
 - **Global settings** edits the template workspace: the team's default settings and the suggested bots. Each person follows each section or overrides it; see [Global settings and suggested bots](#global-settings-and-suggested-bots).
 - **Admins** lists who can open the panel. Add or remove admins there; the last admin cannot be removed.
-- Each user and admin shows whether Cloudflare Access lets them in. *Not allowed in Cloudflare* is highlighted for someone who should be able to sign in: they get no login code until their email is in the team's allow policy. Without a Cloudflare token on the server the state is *unknown*, with one line saying why.
-- With a domain rule, a notice above the users says that anyone at that domain can request a login code and only the people listed get in.
-- When the panel says *<email> can't sign in yet* (or *Remove <email> from Cloudflare Access*), the server could not change the policy: add or remove that email in the Cloudflare dashboard (Zero Trust › Access controls › Policies › `vinci-<team>-allow`), or run the `cloudflare emails` step from [Add a person](#add-a-person) on your computer.
 
 The panel never pairs a device and never acts as the user in a chat. It can read a person's conversations (see [Reading a person's conversations](#reading-a-persons-conversations)) but cannot send messages, answer approvals or questions, react, stop, clear or change anything in a chat.
 
@@ -234,7 +218,7 @@ A user whose sign-in is off shows *This workspace is stopped because sign-in is 
 
 ### Passwords and logins
 
-With Vinci accounts (`VINCI_AUTH=laravel`), each login is a token the Laravel API keeps, one per browser; the hub checks it with the API on every request. What ends a login, within 5 seconds and open chats included:
+Each login is a token the Laravel API keeps, one per browser; the hub checks it with the API on every request. What ends a login, within 5 seconds and open chats included:
 
 - **Sign out** in the person's own menu: that browser's login, also any copy of its cookie.
 - **Change password**, the person's own (avatar menu → **Settings** → **General**; for an admin who is not a user, **Change password** in the panel's header): the current password, then a new one of at least 12 characters. The person's other logins end; the browser they changed it in stays signed in. Admins change their own password the same way.
@@ -317,7 +301,7 @@ The switch, and a section you switch back to global, reach the person's open app
 
 ## Global settings and suggested bots
 
-Besides one Vinci per person, the server runs one more: the **template workspace** (`daemon-template`, volume `vinci_data-template`). Nobody logs into it and it is never in Cloudflare Access. `apply` always keeps it running; you never add it by hand. It holds two things:
+Besides one Vinci per person, the server runs one more: the **template workspace** (`daemon-template`, volume `vinci_data-template`). Nobody logs into it and it has no login account. `apply` always keeps it running; you never add it by hand. It holds two things:
 
 - **Global settings.** Its settings are the team's defaults, edited in the admin panel with the same forms as a person's. There are five sections: Models (provider API keys and the model for new bots), Chat (busy mode, hide tool calls, GIFs), Tools (approval rules and timeout, the Jev key), Secrets and Sources (shared skill, instruction, plugin and MCP folders, and the files in its `~/.agents`).
 - **Suggested bots.** Its bots are offered when you add a person.
@@ -456,7 +440,7 @@ The Vinci itself still makes the model requests, connections to MCP servers over
 | Public internet and DNS | yes |
 | The hub, on any of its networks | no: the hub opens connections to each person's Vinci, never the other way; the sandbox cannot even look it up |
 | The person's own Vinci, from the sandbox | no: they share only a folder the Vinci owns and the sandbox reads |
-| The web app, the provisioner, cloudflared | no |
+| The web app, the provisioner, Caddy, the API, cloudflared | no |
 | Other people's Vinci and sandboxes, and the template workspace | no |
 | The server itself: SSH, Docker's gateway addresses, its public address, any other service on it | no |
 | The cloud metadata service (`169.254.169.254`) | no |
@@ -548,9 +532,9 @@ Each run writes one folder, `backups/<time>/` (UTC, such as `2026-11-13T030000Z`
 | File | What it holds |
 | --- | --- |
 | `<id>.tar.gz` | One person's whole volume and sandbox disk except their bots' download caches (`bot-home/.cache`, which npm, pip, uv and Bun fill again on the next install), for everyone in `users.yaml` (disabled people too) and `template.tar.gz` for the template workspace. Someone removed from `users.yaml` is no longer backed up: back them up by hand before you remove them if you may need their data. |
-| `postgres.sql.gz` | The API's PostgreSQL database, dumped while it runs (nobody is stopped for it): with [Vinci accounts](install.md#login-with-vinci-accounts-no-cloudflare), every login account and the key that signs logins, encrypted with `API_APP_KEY` from `.env`. |
+| `postgres.sql.gz` | The API's PostgreSQL database, dumped while it runs (nobody is stopped for it): every login account and its open logins (Sanctum tokens, stored as hashes) from `.env`. |
 | `hub.tar.gz` | The hub's folder: `users.json`, `admins.json`, `pins.json`, `global.json` and the audit trail `audit.sqlite`. |
-| `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `daemon.yaml`, `cloudflared.compose.yaml`, `deploy.ts`, and any other file `COMPOSE_FILE` loads. |
+| `deployment.tar.gz` | `.env`, `users.yaml`, `users.compose.yaml`, `compose.yaml`, `caddy.compose.yaml`, `daemon.yaml`, `sandbox.yaml`, `deploy.ts`, and any other file `COMPOSE_FILE` loads (`cloudflared.compose.yaml` with the tunnel). |
 | `manifest.json` | The image tag, each person (enabled, advanced, how long they were stopped), and each file's size and SHA-256. Written last: a folder without it is a run that did not finish. |
 
 People are backed up one at a time. Each person's Vinci and sandbox stop for their own copy and start again, so no database is copied half-written: about 7 seconds each on a 2-CPU x86 server (up to about 17 seconds for a person whose bots' home holds many installed packages), and a browser saw 0.5 to 2 seconds without answers. Then the hub stops for about 3 seconds while its folder is copied, so nobody's open app gets an answer for 1 to 2 seconds. Open chats reconnect on their own. A plain hub restart copies no global settings, so a run adds no `global/sync` row to **Activity**. A run waits up to five minutes for an `apply` or an admin panel change that is in progress, and admin panel changes made while it runs ask to try again in a minute. If someone's Vinci does not come back healthy after their copy (for example it cannot start), their backup is still complete and kept, and the run goes on with everyone else. The run then ends failed (the timer's service shows `failed`), the journal has `The Vinci of <id> did not come back healthy after its copy`, `bun deploy.ts nightly status` names them and exits non-zero until a later run brings everyone back, `manifest.json` marks them `"back": false`, and `bun deploy.ts status` shows them.
@@ -698,17 +682,17 @@ From one run folder alone, for example when the server is lost. Images are not i
    ssh root@<new server> 'cd /opt/vinci && chmod 700 . && tar -xzpf backups/<time>/deployment.tar.gz'
    ```
 
-3. Stop the old server's Vinci if it still runs (`docker compose down` there): it has the same tunnel token, and Cloudflare would share people between both servers.
+3. Stop the old server's Vinci if it still runs (`docker compose down` there). With the tunnel it has the same tunnel token, and Cloudflare would share people between both servers; without it, point the hostname's DNS record at the new server.
 4. Restore:
 
    ```sh
    ssh root@<new server> 'cd /opt/vinci && bun deploy.ts restore backups/<time>'
    ```
 
-   It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, loads the API's database in place of any already there (login accounts and their signing key; a run from before the database was backed up has none, so make each account again with `vinci:user`), and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
+   It refuses a server whose `hub` folder is not empty, and checks every file against `manifest.json`. It puts back the hub folder (admin list, pins, section modes, audit trail), creates and fills every person's and the template's volume, loads the API's database in place of any already there (login accounts and open logins; a run from before the database was backed up has none, so make each account again with `vinci:user`), and only then starts everything with `apply`. Expected, after about 20 seconds: `Restored the whole install from backups/<time> (tag <tag>)`.
 5. Turn the nightly backup on again: `bun deploy.ts nightly install`. Note that the next run's retention deletes the folder you restored from once it is older than the 7 newest days with a run; copy it under a name that is not a run's time first if you want to keep it.
 
-Nothing changes in Cloudflare: the tunnel token in `.env` connects the new server to the same tunnel, and the hostname, Access and DNS stay. For people, the install is as it was at backup time: browsers paired before the backup open Vinci as usual and chats continue; a browser paired after the backup pairs again by itself; anything done after the backup (chats, settings, panel changes, people added) is gone and needs doing again. Admins, pins and section modes are the backup's, and the audit trail ends at the backup.
+With the tunnel nothing changes in Cloudflare: the tunnel token in `.env` connects the new server to the same tunnel. Without it, Caddy gets a new certificate on the new server once DNS points there. For people, the install is as it was at backup time: browsers paired before the backup open Vinci as usual and chats continue; a browser paired after the backup pairs again by itself; anything done after the backup (chats, settings, panel changes, people added) is gone and needs doing again. Admins, pins and section modes are the backup's, and the audit trail ends at the backup.
 
 ### Restore from the off-site copy
 
@@ -776,7 +760,7 @@ New images arrive with a new release tag. Pull the release images (`vinci-daemon
    docker compose up -d --wait
    ```
 
-   Every Vinci container restarts, which takes about 10 seconds; cloudflared stays up. Open chats reconnect on their own. Routines that were due during the restart run once when Vinci is back.
+   Every Vinci container restarts, which takes about 10 seconds; Caddy (and cloudflared) stay up. Open chats reconnect on their own. Routines that were due during the restart run once when Vinci is back.
 3. Then run:
 
    ```sh
@@ -846,7 +830,7 @@ docker compose logs sandbox-<id>         # their sandbox: start, firewall wait
 
 ## Tear down
 
-Removes the team's Vinci from the server and Cloudflare. Back up everyone first if anything may be needed later. Do the steps in this order: the connector must stop before Cloudflare deletes the tunnel.
+Removes the team's Vinci from the server, and the tunnel from Cloudflare if it has one. Back up everyone first if anything may be needed later. Do the steps in this order: the connector must stop before Cloudflare deletes the tunnel.
 
 1. On the server, stop and remove the containers and networks, then remove the firewall's rules. Volumes stay:
 
@@ -856,19 +840,20 @@ Removes the team's Vinci from the server and Cloudflare. Back up everyone first 
 
    Expected: `Removed VINCI-DAEMONS and its jump from DOCKER-USER` and the same for `VINCI-DAEMONS-HOST` and `INPUT`.
 
-2. On your computer, in the Vinci repository, list what the Cloudflare script would delete. Use the same `--zone`, `--hostname`, `--name` and, if you set up SSH, `--ssh-hostname` as at install:
+2. With the tunnel only: on your computer, in the Vinci repository, list what the Cloudflare script would delete. Use the same `--zone`, `--hostname` and `--name` as at install:
 
    ```sh
-   CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team> [--ssh-hostname <team>-ssh.<domain>]
+   CLOUDFLARE_API_TOKEN="$(op read '<token reference>')" bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team>
    ```
 
-   Check that every line names `vinci-<team>` or `<team>.<domain>`. Then run the same command with `--yes` to delete exactly those. Expected: one `Deleted …` line per object.
+   It lists the DNS record and the tunnel. Check that they name `vinci-<team>` and `<team>.<domain>`, then run the same command with `--yes` to delete exactly those. Expected: one `Deleted …` line per object. Without the tunnel, delete the hostname's DNS record yourself.
 
 3. Only when nobody's data is needed any more, delete it on the server, by name:
 
    ```sh
    docker volume rm vinci_ipc $(docker volume ls -q --filter name=^vinci_data-) $(docker volume ls -q --filter name=^vinci_disk-)
    umount /opt/vinci/disks/*/ ; systemctl disable vinci-disks.service ; rm /etc/systemd/system/vinci-disks.service
+   docker volume rm vinci_postgres-data vinci_caddy-data
    docker rmi vinci-daemon:<tag> vinci-web:<tag> vinci-hub:<tag> vinci-provisioner:<tag> vinci-firewall:<tag> vinci-api:<tag>
    rm -rf /opt/vinci
    ```
@@ -877,4 +862,4 @@ Removes the team's Vinci from the server and Cloudflare. Back up everyone first 
 
 **Give this to your agent:**
 
-> Tear down the Vinci team install on `root@<server>`: run `docker compose down`, then `bun deploy.ts firewall remove`, in `/opt/vinci`. Then in my Vinci checkout, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the command, run `bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team>` (add `--ssh-hostname <team>-ssh.<domain>` if SSH was set up), show me the list, and check that every object carries `vinci-<team>` or `<team>.<domain>`. Run it again with `--yes` only after I confirm. Keep the volumes and `/opt/vinci` unless I say to delete the data.
+> Tear down the Vinci team install on `root@<server>`: run `docker compose down`, then `bun deploy.ts firewall remove`, in `/opt/vinci`. If it uses the Cloudflare Tunnel, then in my Vinci checkout, with `CLOUDFLARE_API_TOKEN` read from `<where you keep it>` inside the command, run `bun scripts/deploy.ts cloudflare destroy --zone <domain> --hostname <team>.<domain> --name vinci-<team>`, show me the list, and check that every object carries `vinci-<team>` or `<team>.<domain>`. Run it again with `--yes` only after I confirm. Keep the volumes and `/opt/vinci` unless I say to delete the data.

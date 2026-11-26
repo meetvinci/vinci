@@ -2,7 +2,7 @@
 
 Vinci is a web app you can install. Installed, it opens in its own window without the browser's address bar, sits on your home screen or in your dock, and notifies you when a bot answers, needs your approval or has a question, even when the app is closed.
 
-You need your team's address, for example `https://acme.example.com`, and your work email for the login code.
+You need your team's address, for example `https://acme.example.com`, and the email and password you log in with.
 
 ## iPhone and iPad
 

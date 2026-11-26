@@ -36,4 +36,4 @@ To try logins or a proxy setup without touching your own Pi config, run a second
 PI_CODING_AGENT_DIR=~/.config/vinci-test/pi bun --env-file=.env scripts/hub.ts dev --port 47290 --data ~/.config/vinci-test
 ```
 
-Open the login link it prints (`http://localhost:47290/cdn-cgi/access/login?secret=…`) in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/vinci-test/pi/auth.json`; delete `~/.config/vinci-test` to start over.
+Open the login link it prints (`http://localhost:47290/auth/login?secret=…`) in a private window, so your normal session keeps its connection. Then log in under **Settings → Providers**. Credentials land in `~/.config/vinci-test/pi/auth.json`; delete `~/.config/vinci-test` to start over.
