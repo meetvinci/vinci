@@ -37,3 +37,8 @@ export interface BotDialogViewParams {
   path: string | undefined
   params: { botId?: string; tab?: string; routineId?: string; todoId?: string; server?: string }
 }
+
+export interface BotPathParams {
+  pathname: string
+  botId: string
+}

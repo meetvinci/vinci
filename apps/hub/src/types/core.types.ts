@@ -1,9 +1,8 @@
-import type { AccessService } from '../services/access/access.service';
 import type { AccountsService } from '../services/accounts/accounts.service';
 import type { AuditService } from '../services/audit/audit.service';
 import type { PairingService } from '../services/pairing/pairing.service';
 import type { ProvisionerService } from '../services/provisioner/provisioner.service';
-import type { AccessIdentity } from './access.types';
+import type { AccountsSession } from './accounts.types';
 import type { AdminService } from './admin.types';
 import type { DaemonService } from './daemon.types';
 import type { GlobalService } from './global.types';
@@ -11,7 +10,6 @@ import type { User, UserDaemon, UserService } from './user.types';
 import type { AdminOutsideInput, ConversationTarget } from '@repo/contracts/universal';
 
 export interface CoreServices {
-  access: AccessService;
   users: UserService;
   daemons: DaemonService;
   global: GlobalService;
@@ -32,7 +30,7 @@ export interface CoreForward extends CoreIncoming {
 }
 
 export interface CoreAdminContext extends CoreForward {
-  identity: AccessIdentity;
+  identity: AccountsSession;
 }
 
 export interface CoreRefusal {
@@ -87,9 +85,8 @@ export interface CoreContext extends CoreAdminContext {
 }
 
 export interface CoreSocket {
-  email: string;
+  identity: AccountsSession;
   userId: string;
-  expiresAt: number;
   checker: Timer | null;
   target: string;
   origin: string | null;

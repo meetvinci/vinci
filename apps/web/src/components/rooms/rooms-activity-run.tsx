@@ -1,6 +1,6 @@
 import { m } from '@repo/i18n/client';
 import { getLocale } from '@repo/i18n/runtime';
-import { agentTimelineCost, agentTimelineSeconds } from '@repo/ui/agent-timeline.utils';
+import { agentTimelineSeconds } from '@repo/ui/agent-timeline.utils';
 import { cn } from '@repo/ui/cn';
 import { Link, useHydrated } from '@tanstack/react-router';
 import { match } from 'ts-pattern';
@@ -47,7 +47,6 @@ export function RoomsActivityRun({ bot, run, isOpen }: RoomsActivityRunProps) {
     agentTimelineSeconds(run.durationMs / 1000),
     run.agentCount === 1 ? m.rooms_activity_agent() : m.rooms_activity_agents({ count: run.agentCount }),
     run.toolCallCount === 1 ? m.rooms_activity_tool() : m.rooms_activity_tools({ count: run.toolCallCount }),
-    agentTimelineCost(run.cost),
   ];
 
   return (

@@ -2,7 +2,6 @@ import { env } from '@repo/env/server';
 import { initNativeLogger, log } from '@repo/logger/server';
 import { join, posix, sep } from 'node:path';
 import { match } from 'ts-pattern';
-import { CONNECTION } from '@/services/connection/connection.constants';
 import { connectionAccessHeaders, connectionFileHeaders, connectionHasAddresses, connectionTarget } from '@/services/connection/connection.utils';
 import type { RpcProxySocket } from '@/types/rpc.types';
 import type { ServerWebSocket, WebSocketOptions } from 'bun';
@@ -86,7 +85,7 @@ try {
       const { pathname, search } = new URL(request.url);
 
       if (pathname === '/rpc' || pathname === '/health' || pathname === '/mcp/callback' || pathname.startsWith('/rpc/') || pathname.startsWith('/files/') || pathname.startsWith('/avatars/')) {
-        if (env.WEB_HUB_URL || request.headers.has(CONNECTION.accessHeader)) {
+        if (env.WEB_HUB_URL) {
           return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
         }
 
@@ -127,7 +126,7 @@ try {
         return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });
       }
 
-      if (env.WEB_HUB_URL && pathname !== HUB_PUBLIC_PATH && Object.keys(connectionAccessHeaders(request.headers)).length === 0) {
+      if (env.WEB_HUB_URL && pathname !== HUB_PUBLIC_PATH && [...connectionAccessHeaders(request.headers).keys()].length === 0) {
         return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
       }
 

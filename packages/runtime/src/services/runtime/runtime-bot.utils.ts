@@ -74,6 +74,7 @@ export async function runtimeBotOpen(shared: RuntimeTypes.RuntimeSharedDeps, bot
       harness,
       readOnlyTools,
       ownTools,
+      sandboxTools: shared.sandboxTools,
       permissions: shared.permissions,
     });
 

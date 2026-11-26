@@ -12,3 +12,19 @@ export const teamWhoami = z.object({
 });
 
 export type TeamWhoami = z.infer<typeof teamWhoami>;
+
+export const TEAM_PASSWORD = { min: 12, max: 200 } as const;
+
+export const teamPasswordInput = z.object({
+  current: z.string().min(1).max(TEAM_PASSWORD.max),
+  password: z.string().min(TEAM_PASSWORD.min, 'validation_password_short').max(TEAM_PASSWORD.max),
+});
+
+export const teamPasswordRefusal = z.object({
+  error: z.enum(['wrong_password', 'too_many_attempts', 'invalid']),
+  retryAfter: z.number().optional(),
+});
+
+export type TeamPasswordInput = z.infer<typeof teamPasswordInput>;
+
+export type TeamPasswordRefusal = z.infer<typeof teamPasswordRefusal>;

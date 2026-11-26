@@ -4,7 +4,6 @@ import { log } from '@repo/logger/server';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { match, P } from 'ts-pattern';
-import { makeAccessService } from '../services/access/access.service';
 import { makeAccountsService } from '../services/accounts/accounts.service';
 import { makeAdminService } from '../services/admin/admin.service';
 import { makeAuditService } from '../services/audit/audit.service';
@@ -23,28 +22,20 @@ const ADOPT_BY = 'apply';
 const ADOPT_CHECK_MS = 2000;
 
 export async function coreNativeRun(): Promise<void> {
-  const settings = {
-    teamDomain: env.ACCESS_TEAM_DOMAIN,
-    audience: env.ACCESS_AUD,
-    publicUrl: env.HUB_PUBLIC_URL,
-  };
-
-  const { publicUrl, ...access } = match(settings)
-    .with({
-      teamDomain: P.string,
-      audience: P.string,
-      publicUrl: P.instanceOf(URL),
-    }, (required) => required)
+  const publicUrl = match(env.HUB_PUBLIC_URL)
+    .with(P.instanceOf(URL), (url) => url)
     .otherwise(() => {
-      throw new Errors.INTERNAL_ERROR({ internal: 'ACCESS_TEAM_DOMAIN, ACCESS_AUD and HUB_PUBLIC_URL are required' });
+      throw new Errors.INTERNAL_ERROR({ internal: 'HUB_PUBLIC_URL is required' });
+    });
+
+  const accountsConfig = match({ url: env.HUB_ACCOUNTS_URL, token: env.HUB_ACCOUNTS_TOKEN })
+    .with({ url: P.string, token: P.string }, (config) => config)
+    .otherwise(() => {
+      throw new Errors.INTERNAL_ERROR({ internal: 'HUB_ACCOUNTS_URL and HUB_ACCOUNTS_TOKEN are required: the hub checks every login with the Laravel API' });
     });
 
   if (env.PROVISIONER_URL && !env.PROVISIONER_TOKEN) {
     throw new Errors.INTERNAL_ERROR({ internal: 'PROVISIONER_TOKEN is required with PROVISIONER_URL' });
-  }
-
-  if (env.HUB_ACCOUNTS_URL && !env.HUB_ACCOUNTS_TOKEN) {
-    throw new Errors.INTERNAL_ERROR({ internal: 'HUB_ACCOUNTS_TOKEN is required with HUB_ACCOUNTS_URL' });
   }
 
   const directory = resolve(env.HUB_DATA_DIR.replace(/^~(?=\/|$)/u, homedir()));
@@ -52,11 +43,7 @@ export async function coreNativeRun(): Promise<void> {
   const provisioner = makeProvisionerService({ url: env.PROVISIONER_URL, token: env.PROVISIONER_TOKEN });
   const audit = makeAuditService({ directory });
 
-  const accounts = makeAccountsService({
-    url: env.HUB_ACCOUNTS_URL,
-    token: env.HUB_ACCOUNTS_TOKEN,
-    audit,
-  });
+  const accounts = makeAccountsService({ ...accountsConfig, audit });
 
   const admins = await makeAdminService({
     directory,
@@ -74,7 +61,6 @@ export async function coreNativeRun(): Promise<void> {
   });
 
   const services: CoreTypes.CoreServices = {
-    access: makeAccessService(access),
     users,
     daemons,
     global: await makeGlobalService({
@@ -109,7 +95,7 @@ export async function coreNativeRun(): Promise<void> {
     port: server.port,
     web: env.HUB_WEB_URL,
     provisioner: env.PROVISIONER_URL ?? null,
-    accounts: env.HUB_ACCOUNTS_URL ?? null,
+    accounts: accountsConfig.url,
     publicUrl: publicUrl.origin,
   });
 

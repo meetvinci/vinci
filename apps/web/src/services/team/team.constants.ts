@@ -1,5 +1,6 @@
 export const TEAM = {
   whoamiPath: '/hub/whoami',
-  signOutPath: '/cdn-cgi/access/logout',
+  signOutPath: '/auth/logout',
+  passwordPath: '/hub/password',
   queryKey: ['team', 'whoami'],
 } as const;

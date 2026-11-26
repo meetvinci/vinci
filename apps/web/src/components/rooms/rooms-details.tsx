@@ -254,12 +254,10 @@ function RoomsDetailsUsage({ bot, chat }: RoomsDetailsUsageProps) {
     input: sum.input + bucket.input,
     output: sum.output + bucket.output,
     cacheRead: sum.cacheRead + bucket.cacheRead,
-    cost: { total: sum.cost.total + bucket.cost.total },
   }), {
     input: 0,
     output: 0,
     cacheRead: 0,
-    cost: { total: 0 },
   });
 
   const rows = match({

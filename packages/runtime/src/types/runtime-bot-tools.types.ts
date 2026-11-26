@@ -5,8 +5,8 @@ import type * as UniversalTypes from '@repo/contracts/universal';
 export interface RuntimeBotToolsBots {
   actions: {
     swapModels: (params: UniversalTypes.BotSwapModelsInput) => Promise<UniversalTypes.BotSwapModelsResult>;
-    create: (params: UniversalTypes.BotCreateInput & { canStart: boolean }) => Promise<UniversalTypes.Bot>;
-    update: (params: UniversalTypes.BotUpdateInput & { canStart: boolean }) => Promise<UniversalTypes.Bot>;
+    create: (params: UniversalTypes.BotCreateInput) => Promise<UniversalTypes.Bot>;
+    update: (params: UniversalTypes.BotUpdateInput) => Promise<UniversalTypes.Bot>;
     addMcp: (params: UniversalTypes.McpServerAddInput) => Promise<UniversalTypes.McpCatalog['servers'][number]>;
     removeMcp: (params: UniversalTypes.McpServerRemoveInput) => Promise<UniversalTypes.Bot>;
   };

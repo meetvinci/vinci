@@ -12,7 +12,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { AdminBotChecklist } from '@/components/admin/admin-bot-checklist';
 import { AdminPassword } from '@/components/admin/admin-password';
-import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useAdminTemplateBots } from '@/hooks/use-admin-template-bots';
 import { adminCreateUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminBotCopyProblem, adminBotCopySkipped, adminProblem } from '@/services/admin/admin.utils';
@@ -26,7 +25,6 @@ interface AdminUserCreateProps {
 
 export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProps) {
   const queryClient = useQueryClient();
-  const notice = useAdminNotice();
   const templateBots = useAdminTemplateBots();
   const suggested = templateBots.data ?? [];
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -41,7 +39,7 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
   const create = useMutation({
     mutationFn: adminCreateUser,
     meta: { success: m.admin_user_created() },
-    onSuccess: async ({ access, password, bots: copies = [], ...user }) => {
+    onSuccess: async ({ password, bots: copies = [], ...user }) => {
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
       const failed = adminBotCopyProblem({ copies, bots: suggested });
       const leftOut = adminBotCopySkipped({ copies, bots: suggested });
@@ -53,12 +51,6 @@ export function AdminUserCreate({ onCreated, onOpenChange }: AdminUserCreateProp
       if (leftOut) {
         toasty(leftOut, '⚠️');
       }
-
-      notice({
-        access,
-        email: user.email,
-        change: 'add',
-      });
 
       if (password) {
         setCreated({ user, password });

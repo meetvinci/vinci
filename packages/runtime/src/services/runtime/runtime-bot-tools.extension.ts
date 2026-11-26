@@ -40,7 +40,7 @@ export function runtimeBotToolsExtension(deps: RuntimeBotToolsDeps) {
     replay: 'unsafe',
     execute: async (params) => {
       const input = botCreate.parse(botToolCreate.parse(params));
-      return runtimeToolOutput(await deps.bots.actions.create({ ...input, canStart: true }));
+      return runtimeToolOutput(await deps.bots.actions.create(input));
     },
   });
 
@@ -51,7 +51,7 @@ export function runtimeBotToolsExtension(deps: RuntimeBotToolsDeps) {
     replay: 'unsafe',
     execute: async (params) => {
       const input = botToolUpdate.parse(params);
-      return runtimeToolOutput(await deps.bots.actions.update({ ...input, canStart: true }));
+      return runtimeToolOutput(await deps.bots.actions.update(input));
     },
   });
 

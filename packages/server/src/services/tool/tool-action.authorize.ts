@@ -24,6 +24,7 @@ export async function toolActionAuthorize(deps: ToolServiceDeps, call: ToolAutho
     isAskFirst,
     isReadOnly: call.isReadOnly,
     isOwn: call.isOwn,
+    isSandboxed: call.isSandboxed,
     approved: call.approved === true || (!isAskFirst && alwaysAllowed.includes(call.name)),
   })
     .with({ bot: P.nullish }, () => 'deny' as const)
@@ -31,6 +32,7 @@ export async function toolActionAuthorize(deps: ToolServiceDeps, call: ToolAutho
     .with({ bot: { permission: 'full' } }, () => 'allow' as const)
     .with({ bot: { permission: 'read-only' } }, () => 'deny' as const)
     .with({ isOwn: true }, () => 'allow' as const)
+    .with({ bot: { permission: 'sandbox' }, isSandboxed: true }, () => 'allow' as const)
     .with({ approved: true }, () => 'allow' as const)
     .with({ bot: { permission: 'auto' }, isAskFirst: true }, () => 'ask' as const)
     .with({ bot: { permission: 'auto' } }, async ({ bot: current }) => {

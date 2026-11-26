@@ -11,6 +11,7 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsToolsRules } from '@repo/ui/settings/settings-tools-rules';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { useTeam } from '@/hooks/use-team';
 
@@ -53,6 +54,7 @@ export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
 
   return (
     <Form {...form}>
+      <LayoutUnsaved isDirty={form.formState.isDirty} />
       <form onSubmit={form.handleSubmit(scope.isAdmin ? save.save : save.saveJev)}>
         <fieldset className="flex flex-col gap-4" disabled={save.isPending}>
           {scope.isAdmin ? (
@@ -106,6 +108,7 @@ export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
                     placeholder={settings.isJevConfigured ? m.settings_secret_saved() : m.settings_tools_jev_placeholder()}
                     type="password"
                   />
+                  <PanelDescription>{m.settings_tools_jev_hint()}</PanelDescription>
                 </div>
               </PanelRow>
             </SettingsGroup>

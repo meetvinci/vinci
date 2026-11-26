@@ -25,7 +25,6 @@ export const activityStoredTrace = z.object({
       'usage.output': z.number().optional(),
       'usage.cache_read': z.number().optional(),
       'usage.cache_write': z.number().optional(),
-      'cost.total': z.number().optional(),
     }),
     events: z.array(z.object({
       name: z.string(),

@@ -1,6 +1,6 @@
 # Vinci
 
-A bot backend. Vinci installs one way: Docker, with a hub (`apps/hub`) that takes identity from Cloudflare Access, an admin panel, and per person one daemon and one sandbox. A person on their own installs the same thing and is its only admin and user. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. The web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) apps are clients of the install and talk over oRPC through the hub. The native daemon runs only for development.
+A bot backend. Vinci installs one way: Docker, with a hub (`apps/hub`) that takes identity from the Laravel API's Sanctum sessions (it checks the `vinci_session` cookie with `apps/api`), an admin panel, and per person one daemon and one sandbox. A person on their own installs the same thing and is its only admin and user. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. The web (`apps/web`), iOS (`apps/mobile`) and macOS and Linux (`apps/desktop`) apps are clients of the install and talk over oRPC through the hub. The native daemon runs only for development.
 
 ## Read first
 

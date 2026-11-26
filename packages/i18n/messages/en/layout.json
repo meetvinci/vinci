@@ -37,5 +37,8 @@
   "layout_disconnect": "Disconnect this device",
   "layout_sign_out": "Sign out",
   "layout_connected": "Connected",
-  "layout_unreachable": "The daemon is not reachable"
+  "layout_unreachable": "The daemon is not reachable",
+  "layout_unsaved_title": "Leave without saving?",
+  "layout_unsaved_description": "Your unsaved changes will be lost.",
+  "layout_unsaved_leave": "Discard changes"
 }

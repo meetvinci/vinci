@@ -43,10 +43,15 @@ export function connectionPairingCookie(target: ConnectionTarget | null, secure:
   });
 }
 
-export function connectionAccessHeaders(headers: Headers): Record<string, string> {
-  const token = headers.get(CONNECTION.accessHeader) ?? parse(headers.get('cookie') ?? '')[CONNECTION.accessCookie];
+export function connectionAccessHeaders(headers: Headers): Headers {
+  const session = parse(headers.get('cookie') ?? '')[CONNECTION.sessionCookie];
+  const access = new Headers();
 
-  return token ? { [CONNECTION.accessHeader]: token } : {};
+  if (session) {
+    access.set('cookie', `${CONNECTION.sessionCookie}=${session}`);
+  }
+
+  return access;
 }
 
 export function connectionHasAddresses(cookies: string): boolean {

@@ -3,34 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Accounts\Accounts;
-use App\Accounts\AccessTokens;
-use Illuminate\Http\JsonResponse;
+use App\Accounts\LoginLimits;
+use App\Accounts\Sessions;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Cookie;
 
-// Login for VINCI_AUTH=laravel, at the paths Cloudflare Access uses: the edge (Caddy) sends /cdn-cgi/access/* here
-// and every other path to the hub, which reads the CF_Authorization cookie set here.
-class AccessController
+// The install's login: the edge (Caddy) sends /auth/* here and every other path to the hub, which checks the
+// vinci_session cookie set here with GET /internal/session.
+class LoginController
 {
-    public const COOKIE = 'CF_Authorization';
-
-    private const LOGIN = '/cdn-cgi/access/login';
-
-    // Failed logins allowed per email and address in a window of DECAY seconds.
-    private const ATTEMPTS = 5;
-
-    private const DECAY = 60;
-
-    // Failed logins allowed per email from all addresses together in EMAIL_DECAY seconds: guesses spread over many
-    // addresses stay capped. Unknown emails count the same, so the limit does not tell which accounts exist.
-    private const EMAIL_ATTEMPTS = 20;
-
-    private const EMAIL_DECAY = 3600;
+    private const LOGIN = '/auth/login';
 
     // The login pages are never framed, sniffed or sent as a referrer to another site.
     private const HEADERS = [
@@ -43,7 +29,7 @@ class AccessController
     // A failed password check costs as much for an unknown email, so timing does not tell which accounts exist.
     private const DUMMY_HASH = '$2y$12$Dj5L3obSv2UhUn449AaQ9.O/ibOZHEpivWRY06BkB6m77D/b1c6CC';
 
-    public function __construct(private readonly Accounts $accounts, private readonly AccessTokens $tokens) {}
+    public function __construct(private readonly Accounts $accounts, private readonly Sessions $sessions, private readonly LoginLimits $limits) {}
 
     public function form(Request $request): Response
     {
@@ -54,13 +40,9 @@ class AccessController
     {
         ['email' => $email, 'password' => $password] = $request->validate(['email' => ['required', 'string'], 'password' => ['required', 'string']]);
         $email = Str::lower(trim($email));
-        $key = 'login|'.$email.'|'.$request->ip();
-        $emailKey = 'login-email|'.$email;
-        $blocked = array_filter([$key => self::ATTEMPTS, $emailKey => self::EMAIL_ATTEMPTS], fn (int $attempts, string $limit) => RateLimiter::tooManyAttempts($limit, $attempts), ARRAY_FILTER_USE_BOTH);
+        $seconds = $this->limits->wait($email, $request->ip());
 
-        if ($blocked !== []) {
-            $seconds = max(array_map(fn (string $limit) => RateLimiter::availableIn($limit), array_keys($blocked)));
-
+        if ($seconds !== null) {
             return $this->page($request, $email, 'Too many attempts. Try again in '.$seconds.' seconds.', 429);
         }
 
@@ -71,28 +53,24 @@ class AccessController
         }
 
         if (! Hash::check($password, $user?->password ?? self::DUMMY_HASH) || $user === null) {
-            RateLimiter::hit($key, self::DECAY);
-            RateLimiter::hit($emailKey, self::EMAIL_DECAY);
+            $this->limits->failed($email, $request->ip());
 
             return $this->page($request, $email, 'Wrong email or password.', 401);
         }
 
-        RateLimiter::clear($key);
-        RateLimiter::clear($emailKey);
+        $this->limits->clear($email, $request->ip());
         $request->session()->regenerate();
 
         return $this->redirect(self::safePath($request->input('redirect_url')))
-            ->withCookie($this->cookie($this->tokens->issue($user), AccessTokens::LIFETIME_SECONDS / 60));
+            ->withCookie($this->cookie($this->sessions->start($user), Sessions::LIFETIME_SECONDS / 60));
     }
 
-    public function logout(): Response
+    // Ends this browser's login in the API, not only its cookie: a copy of the cookie stops working too.
+    public function logout(Request $request): Response
     {
+        $this->sessions->end($request->cookie(Sessions::COOKIE));
+
         return $this->redirect(self::LOGIN)->withCookie($this->cookie('', -1));
-    }
-
-    public function certs(): JsonResponse
-    {
-        return response()->json($this->tokens->jwks())->header('Cache-Control', 'no-store');
     }
 
     // The edge sends a request without the login cookie here, with its path and query in X-Vinci-Original-Uri.
@@ -108,7 +86,7 @@ class AccessController
     {
         $isSafe = is_string($path)
             && preg_match('#^/(?![/\\\\])[^\\\\\x00-\x20\x7f]*$#', $path) === 1
-            && ! str_starts_with($path, '/cdn-cgi/');
+            && ! str_starts_with($path, '/auth/');
 
         return $isSafe ? $path : '/';
     }
@@ -130,6 +108,6 @@ class AccessController
 
     private function cookie(string $value, int $minutes): Cookie
     {
-        return cookie(self::COOKIE, $value, $minutes, '/', null, true, true, true, 'lax');
+        return cookie(Sessions::COOKIE, $value, $minutes, '/', null, true, true, true, 'lax');
     }
 }

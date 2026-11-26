@@ -5,11 +5,14 @@ namespace App\Accounts;
 use App\Models\User;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 // The people who can log in. The hub's admin panel and `php artisan vinci:user` change them; passwords are made here,
-// random, and shown once.
+// random, and shown once. A new password or a removed account ends the person's logins.
 class Accounts
 {
+    public function __construct(private readonly Sessions $sessions) {}
+
     public static function normalize(string $email): string
     {
         $email = Str::lower(trim($email));
@@ -50,13 +53,29 @@ class Accounts
     {
         $password = self::password();
         $user->update(['password' => $password]);
+        $this->sessions->endAll($user);
 
         return $password;
     }
 
+    // The person's own change: their other logins end, the one they changed it from stays.
+    public function changePassword(User $user, string $password, PersonalAccessToken $current): void
+    {
+        $user->update(['password' => $password]);
+        $this->sessions->endAll($user, $current);
+    }
+
     public function delete(string $email): bool
     {
-        return User::query()->where('email', self::normalize($email))->delete() > 0;
+        $user = $this->find($email);
+
+        if ($user === null) {
+            return false;
+        }
+
+        $this->sessions->endAll($user);
+
+        return $user->delete();
     }
 
     private static function password(): string

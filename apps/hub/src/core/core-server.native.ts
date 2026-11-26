@@ -7,8 +7,10 @@ import { match, P } from 'ts-pattern';
 import { coreAdminApi } from './core-admin.native';
 import { coreAuditChange, coreAuditStatus } from './core-audit.native';
 import { corePairingConnect, corePairingFileHeaders, corePairingRespond } from './core-pairing.native';
+import { corePassword } from './core-password.native';
 import { coreRefusalPage, coreRefusalWanted } from './core-refusal.native';
 import { makeCoreRelay } from './core-relay.native';
+import type { AccountsSession } from '../types/accounts.types';
 import type * as CoreTypes from '../types/core.types';
 import type { Server } from 'bun';
 
@@ -19,8 +21,7 @@ const ADMIN_API = /^\/admin\/api(?:\/|$)/u;
 const ADMIN_WEB_FILES = [/^\/assets\//u];
 const URL_HEADERS = ['location', 'content-location'];
 const REFRESH_URL = /(?<prefix>url\s*=\s*)(?<url>\S+)/iu;
-const ACCESS_HEADER = 'cf-access-jwt-assertion';
-const ACCESS_COOKIE = 'CF_Authorization';
+const SESSION_COOKIE = 'vinci_session';
 
 const STRIPPED_HEADERS = new Set([
   'host',
@@ -34,11 +35,6 @@ const STRIPPED_HEADERS = new Set([
   'content-length',
   'forwarded',
   'x-real-ip',
-  'cf-access-authenticated-user-email',
-  'cf-access-client-id',
-  'cf-access-client-secret',
-  'cf-access-token',
-  ACCESS_HEADER,
 ]);
 
 export function coreServer(services: CoreTypes.CoreServices, publicUrl: URL): Server<CoreTypes.CoreSocket> {
@@ -82,8 +78,17 @@ async function coreServerHandle(
   }
 
   try {
-    const token = request.headers.get(ACCESS_HEADER) ?? parse(request.headers.get('cookie') ?? '')[ACCESS_COOKIE] ?? '';
-    const identity = await services.access.queries.verify({ token });
+    const identity = await coreServerIdentity(services, request);
+
+    if (url.pathname === '/hub/password') {
+      return await corePassword(services, {
+        request,
+        url,
+        identity,
+        publicUrl,
+      });
+    }
+
     const isAdminPath = url.pathname.startsWith('/admin');
     const user = isAdminPath ? null : await services.users.queries.find({ email: identity.email });
 
@@ -128,6 +133,10 @@ async function coreServerHandle(
   }
 }
 
+function coreServerIdentity(services: CoreTypes.CoreServices, request: Request): Promise<AccountsSession> {
+  return services.accounts.queries.session({ token: parse(request.headers.get('cookie') ?? '')[SESSION_COOKIE] ?? '' });
+}
+
 async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTypes.CoreAdminContext): Promise<Response> {
   const { request, url, identity } = context;
 
@@ -136,15 +145,15 @@ async function coreServerAdmin(services: CoreTypes.CoreServices, context: CoreTy
       return coreServerRefusal(context, await coreServerRefusalReason(services, context));
     }
 
-    throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This Access identity is not an admin' : 'No hub user has this Access identity' });
+    throw new Errors.FORBIDDEN({ internal: url.pathname.startsWith('/admin') ? 'This login is not an admin' : 'No hub user has this login' });
   }
 
   const isRead = request.method === 'GET' || request.method === 'HEAD';
 
   return match(url.pathname)
     .when((path) => ADMIN_API.test(path), () => coreAdminApi(services, context))
-    .when((path) => ADMIN_PAGES.test(path), () => coreServerWeb(context, identity.token))
-    .when((path) => isRead && ADMIN_WEB_FILES.some((pattern) => pattern.test(path)), () => coreServerWeb(context, identity.token))
+    .when((path) => ADMIN_PAGES.test(path), () => coreServerWeb(context, identity))
+    .when((path) => isRead && ADMIN_WEB_FILES.some((pattern) => pattern.test(path)), () => coreServerWeb(context, identity))
     .when((path) => path.startsWith('/admin'), async () => new Response(null, { status: 404 }))
     .when(() => coreRefusalWanted(request), async () => new Response(null, { status: 303, headers: { 'Location': '/admin', 'Cache-Control': 'no-store' } }))
     .otherwise(() => {
@@ -198,10 +207,10 @@ function coreServerRoute(services: CoreTypes.CoreServices, context: CoreTypes.Co
         return null;
       });
 
-      return handoff ?? coreServerWeb(context, identity.token);
+      return handoff ?? coreServerWeb(context, identity);
     })
     .when(({ path }) => DAEMON_PATHS.some((pattern) => pattern.test(path)), () => coreServerDaemon(services, context, server))
-    .otherwise(() => coreServerWeb(context, identity.token));
+    .otherwise(() => coreServerWeb(context, identity));
 }
 
 async function coreServerWhoami(services: CoreTypes.CoreServices, { identity, user }: CoreTypes.CoreContext): Promise<Response> {
@@ -273,9 +282,8 @@ async function coreServerDaemon(
     target.protocol = target.protocol === 'https:' ? 'wss:' : 'ws:';
 
     const data: CoreTypes.CoreSocket = {
-      email: context.identity.email,
+      identity: context.identity,
       userId: user.id,
-      expiresAt: context.identity.expiresAt,
       checker: null,
       target: target.href,
       origin: request.headers.get('origin'),
@@ -287,7 +295,9 @@ async function coreServerDaemon(
     return server.upgrade(request, { data }) ? undefined : new Response(null, { status: 426 });
   }
 
-  const headers = coreServerHeaders(context, context.identity.token);
+  const headers = coreServerHeaders(context, context.identity);
+
+  coreServerCookieDrop(headers, SESSION_COOKIE);
 
   if (url.pathname.startsWith('/files/') && !headers.has('authorization')) {
     Object.entries(corePairingFileHeaders(request)).forEach(([name, value]) => headers.set(name, value));
@@ -299,7 +309,7 @@ async function coreServerDaemon(
   });
 }
 
-async function coreServerWeb(context: CoreTypes.CoreForward, token: string | null): Promise<Response> {
+async function coreServerWeb(context: CoreTypes.CoreForward, identity: AccountsSession | null): Promise<Response> {
   const { request, url } = context;
 
   if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
@@ -308,7 +318,7 @@ async function coreServerWeb(context: CoreTypes.CoreForward, token: string | nul
 
   const target = coreServerTarget(env.HUB_WEB_URL, url);
 
-  return coreServerForward(context, target, coreServerHeaders(context, token)).catch((error: unknown) => {
+  return coreServerForward(context, target, coreServerHeaders(context, identity)).catch((error: unknown) => {
     throw new Errors.SERVER_UNREACHABLE({ internal: 'The web app failed the request', cause: error });
   });
 }
@@ -353,7 +363,7 @@ function coreServerTarget(base: string, url: URL): URL {
   return target;
 }
 
-function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, token: string | null): Headers {
+function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, identity: AccountsSession | null): Headers {
   const headers = new Headers(request.headers);
 
   [...headers.keys()]
@@ -362,9 +372,17 @@ function coreServerHeaders({ request, publicUrl }: CoreTypes.CoreForward, token:
   headers.set('x-forwarded-proto', publicUrl.protocol.slice(0, -1));
   headers.set('x-forwarded-host', publicUrl.host);
 
-  match(token)
-    .with(P.string, (verified) => headers.set(ACCESS_HEADER, verified))
-    .otherwise(() => headers.delete('cookie'));
+  if (identity === null) {
+    headers.delete('cookie');
+  }
 
   return headers;
+}
+
+function coreServerCookieDrop(headers: Headers, name: string): void {
+  const kept = (headers.get('cookie') ?? '').split(';').map((part) => part.trim()).filter((part) => part !== '' && !part.startsWith(`${name}=`));
+
+  match(kept.length)
+    .with(0, () => headers.delete('cookie'))
+    .otherwise(() => headers.set('cookie', kept.join('; ')));
 }

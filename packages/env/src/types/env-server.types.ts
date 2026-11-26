@@ -31,8 +31,6 @@ export const envServerSchema = {
   HUB_DATA_DIR: z.string().trim().min(1).default('~/.config/vinci-hub/'),
   HUB_WEB_URL: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:47190'),
   HUB_PUBLIC_URL: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value)).optional(),
-  ACCESS_TEAM_DOMAIN: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value).origin).optional(),
-  ACCESS_AUD: z.string().trim().min(1).optional(),
   HUB_VERSION: z.string().trim().min(1).optional(),
   HUB_ADMIN_EMAILS: z.string().trim().default('')
     .transform((value) => value.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean))

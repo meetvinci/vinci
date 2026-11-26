@@ -62,6 +62,13 @@ export const conversationSubmit = conversationTarget.extend({
   attachmentIds: attachmentIds.default([]),
   skills: z.array(z.string().trim().min(1).max(128)).max(10).optional(),
   whenBusy: z.enum(['followUp', 'steer', 'reject', 'interrupt']).optional(),
+  timezone: z.string().max(100).refine((timezone) => {
+    try {
+      return Boolean(new Intl.DateTimeFormat('en', { timeZone: timezone }));
+    } catch {
+      return false;
+    }
+  }).optional(),
 }).refine((value) => value.content.length > 0 || value.attachmentIds.length > 0 || (value.skills?.length ?? 0) > 0);
 
 export const conversationUpdateSubmission = conversationTarget.extend({

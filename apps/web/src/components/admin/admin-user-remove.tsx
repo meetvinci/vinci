@@ -1,7 +1,6 @@
 import { m } from '@repo/i18n/client';
 import { ConfirmationDialog } from '@repo/ui/alert-dialog';
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { adminRemoveUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminProblem } from '@/services/admin/admin.utils';
 
@@ -13,20 +12,14 @@ interface AdminUserRemoveProps {
 
 export function AdminUserRemove({ userId, onDone, onOpenChange }: AdminUserRemoveProps) {
   const queryClient = useQueryClient();
-  const notice = useAdminNotice();
   const { data: users } = useSuspenseQuery(adminUsersQuery());
   const user = users.find((item) => item.id === userId);
 
   const remove = useMutation({
     mutationFn: adminRemoveUser,
     meta: { success: m.admin_user_removed() },
-    onSuccess: async ({ access }) => {
+    onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
-      notice({
-        access,
-        email: user?.email ?? '',
-        change: 'remove',
-      });
       onDone();
     },
   });

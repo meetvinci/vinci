@@ -11,7 +11,7 @@
 
 ## 1. How Vinci works
 
-Vinci is a bot backend installed with Docker. One hub per install takes identity from Cloudflare Access and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
+Vinci is a bot backend installed with Docker. One hub per install takes identity from the Laravel API's Sanctum sessions (it checks the `vinci_session` cookie with the API) and routes each person to their own daemon, in its own container next to their sandbox. Each daemon serves one owner and runs each bot as a persistent Pi Durable agent. Web, iOS and macOS apps are clients of the install.
 
 ### System
 
@@ -36,11 +36,14 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  Clients["browser, PWA, admin panel"] -->|"Cloudflare Tunnel and Access"| Hub
+  Clients["browser, PWA, admin panel"] -->|"HTTPS, or the optional Cloudflare Tunnel"| Caddy
   subgraph Host["Team server"]
-    Hub["apps/hub<br/>Access JWT, email to daemon, admin list"] -->|"daemon paths"| Daemons["one daemon container per user"]
+    Caddy["Caddy<br/>the edge"] -->|"/auth/*"| Api["apps/api<br/>login, Sanctum sessions"]
+    Caddy --> Hub
+    Hub["apps/hub<br/>session check, email to daemon, admin list"] -->|"/internal/session"| Api
+    Hub -->|"daemon paths"| Daemons["one daemon container per user"]
     Hub -->|"other paths, /admin pages"| Web["apps/web<br/>one shared web app"]
-    Web -->|"SSR with the Access JWT"| Hub
+    Web -->|"SSR with the session cookie"| Hub
     Hub -.->|"owner socket: pairing grant, admin allowlist"| Daemons
     Hub -->|"/admin/api user changes"| Provisioner["provisioner<br/>Docker socket, users.yaml"]
     Provisioner -->|"apply"| Daemons
@@ -85,7 +88,7 @@ flowchart TB
 | --- | --- | --- |
 | daemon `src/entry.native.ts` | Bun | the `vinci` CLI: start and pair; opens stores and starts the listener |
 | daemon `src/entry-sandbox-bridge.native.ts` | Bun | pi-env's transport to a person's sandbox, bundled next to the daemon entry; the daemon runs it per connection |
-| hub `src/entry.native.ts` | Bun | the team hub: verifies the Access identity and routes it to that user's daemon |
+| hub `src/entry.native.ts` | Bun | the team hub: checks the login with the Laravel API and routes it to that user's daemon |
 | server `src/entry.server.ts` | any host | `makeServices`, `coreHandler` and portable product services |
 | server `src/entry.native.ts` | Bun | database, workspace, MCP discovery and credential-key factories |
 | runtime `src/entry.server.ts` | any host | `makeRuntimeService` and the runtime port types |
@@ -177,8 +180,8 @@ apps/daemon/src/
 apps/hub/
 ├── src/entry.native.ts                 the hub entry
 ├── src/core/core.native.ts             startup composition, signals and shutdown
-├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page
-├── src/services/<domain>/              hub services in the service pattern: access, user, daemon, pairing, admin, provisioner, global, audit
+├── src/core/core-<part>.native.ts      one transport concern: server and routing, WebSocket relay, pairing hand-off, admin API, admin audit, refusal page, password change
+├── src/services/<domain>/              hub services in the service pattern: accounts, user, daemon, pairing, admin, provisioner, global, audit
 ├── src/types/<domain>.types.ts         hub schemas, deps and service types
 ├── vitest.config.ts                    only the global setup below
 ├── tests/<app>[-<part>].test.ts         Vitest end-to-end tests against real throwaway processes
@@ -269,7 +272,7 @@ packages/
 ├── deploy/compose/compose.yaml         the team stack: hub, provisioner, web app, networks and the one-off tools service
 ├── deploy/compose/daemon.yaml          the hardened daemon service each person's generated service extends
 ├── deploy/compose/sandbox.yaml         the hardened sandbox service where each person's bot tools run
-├── deploy/cloudflare/cloudflared.compose.yaml  the tunnel connector service the Compose stack includes; tunnel, Access and DNS come from scripts/deploy.ts cloudflare
+├── deploy/cloudflare/cloudflared.compose.yaml  the optional tunnel connector to Caddy; the tunnel and its DNS come from scripts/deploy.ts cloudflare
 ├── deploy/.env.example                 the server's /opt/vinci/.env keys, one block per deploy area
 ├── .agents/references/<name>.md        standing references: architecture, API, quality gate, team workspace
 ├── .agents/docs/<name>.md              library notes: Pi Durable examples
@@ -285,7 +288,7 @@ packages/
 | Location | Owns |
 | --- | --- |
 | `apps/daemon` | Entry, startup composition, listener and transport, signals, shutdown. |
-| `apps/hub` | The team front door: Access JWT verification, the users file, routing each identity to its own daemon, server ID pinning, the first-visit pairing hand-off, the admin list and admin API, relaying admin calls to owner sockets, the admin audit trail, and copying global settings sections and suggested bots from the template workspace's owner socket to each user's. No product logic. |
+| `apps/hub` | The team front door: the login check with the Laravel API, the users file, routing each identity to its own daemon, server ID pinning, the first-visit pairing hand-off, the admin list and admin API, relaying admin calls to owner sockets, the admin audit trail, and copying global settings sections and suggested bots from the template workspace's owner socket to each user's. No product logic. |
 | `apps/web`, `apps/desktop`, `apps/mobile` | UI, server connections, device credential storage. Web uses TanStack Start SSR and query hydration; SSR calls the daemon through the shared client, the browser through the `/rpc` proxy with WebSockets for live updates. Web credentials live in a cookie and reach the daemon as Bearer headers. |
 | `packages/server` | Product services: bots, pairing, settings, credentials, permissions, skill, instruction, plugin and MCP selection and discovery; RPC handlers. |
 | `packages/runtime` | Pi integration: Harness, conversations, tools, hooks, approvals, tasks, watches, recovery, skill, instruction and plugin loading, MCP clients. |
@@ -344,7 +347,7 @@ export type SkillService = ReturnType<typeof makeSkillService>;
 ### State and security
 
 - One implicit owner per independent daemon. Devices pair with revocable credentials. Inside a daemon there are no users, organizations, roles or password login.
-- A team installation runs one daemon per user behind the hub. Identity comes from Cloudflare Access at the hub, which routes by the verified email, never by a client-chosen address.
+- A team installation runs one daemon per user behind the hub. Identity comes from the Laravel API's Sanctum sessions, checked at the hub, which routes by the verified email, never by a client-chosen address or header. The Cloudflare Tunnel is only an optional transport.
 - Pairing stores token hashes and atomically consumes grants with device creation. Issuing a grant requires an authenticated device or trusted local transport. CLI pairing uses the owner-only daemon socket before or after initial setup; public transport cannot acquire local authority.
 - App persistence uses `node:sqlite` and Kysely. SQL identifiers are snake_case; `CamelCasePlugin` maps TypeScript camelCase. Migrations preserve existing data.
 - The hub's audit trail is one append-only `bun:sqlite` table in `HUB_DATA_DIR/audit.sqlite`, opened directly, without Kysely or migrations.

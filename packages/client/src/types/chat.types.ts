@@ -12,7 +12,6 @@ export interface ChatUsage {
   input: number;
   output: number;
   cacheRead: number;
-  cost: { total: number };
 }
 
 export type ChatEntry = UniversalTypes.ConversationView['entries'][number];
@@ -55,6 +54,7 @@ export type ChatPart = ChatMessage['parts'][number];
 
 export interface ChatActivitySteps {
   steps: number;
+  failed: number;
   seconds: number | null;
 }
 

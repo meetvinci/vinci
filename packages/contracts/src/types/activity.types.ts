@@ -20,7 +20,6 @@ export const activityRunSummary = z.object({
   agentCount: z.number().int().nonnegative(),
   toolCallCount: z.number().int().nonnegative(),
   tokens: z.number().nonnegative(),
-  cost: z.number().nonnegative(),
   isFailed: z.boolean(),
   isLive: z.boolean(),
 });
@@ -48,7 +47,6 @@ export const activitySpan = z.object({
   calls: z.array(z.string()),
   stop: z.string().nullable(),
   tokens: z.number().nonnegative().nullable(),
-  cost: z.number().nonnegative().nullable(),
   isFailed: z.boolean(),
   isRetry: z.boolean(),
   detail: z.string().nullable(),

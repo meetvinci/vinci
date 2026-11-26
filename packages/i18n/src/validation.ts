@@ -55,6 +55,7 @@ export function expandValidationError(key: string, params: Record<string, string
     .with('validation_number', () => m.validation_number(p))
     .with('validation_email', () => m.validation_email())
     .with('validation_handle', () => m.validation_handle())
+    .with('validation_password_short', () => m.validation_password_short(p))
     .with('validation_pick_one', () => m.validation_pick_one())
     .with('validation_already_taken', () => m.validation_already_taken())
     .with('validation_file_size', () => m.validation_file_size())

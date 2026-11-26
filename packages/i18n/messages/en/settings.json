@@ -94,6 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Jev API key",
   "settings_tools_jev_placeholder": "Paste a Jev API key",
+  "settings_tools_jev_hint": "Jev decides automatically whether a command is safe to run without asking.",
   "settings_tools_jev_set": "A key is set.",
   "settings_tools_jev_unset": "No key is set.",
   "settings_secret_saved": "Saved. Type a new value to replace it.",
@@ -196,5 +197,15 @@
   "settings_managed": "Managed by your admin.",
   "settings_managed_override": "Change it for me",
   "settings_managed_override_failed": "Couldn't take over this section. Try again.",
-  "settings_chat_workspace": "Chat in this workspace"
+  "settings_chat_workspace": "Chat in this workspace",
+  "settings_password": "Password",
+  "settings_password_description": "The password you sign in with. Changing it signs you out in every other browser.",
+  "settings_password_change": "Change password",
+  "settings_password_current": "Current password",
+  "settings_password_new": "New password",
+  "settings_password_new_hint": "At least {minimum} characters.",
+  "settings_password_changed": "Password changed. You are signed out in every other browser.",
+  "settings_password_wrong": "The current password is wrong.",
+  "settings_password_too_many": "Too many wrong passwords. Try again in {minutes} min.",
+  "settings_password_failed": "Couldn't change the password. Try again."
 }

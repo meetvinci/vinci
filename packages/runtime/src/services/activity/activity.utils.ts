@@ -266,7 +266,6 @@ function activitySpanBar(
       calls: span.events.filter((event) => event.name === ACTIVITY.event.block).flatMap((event) => event.attributes.tool ?? []),
       stop: attributes.stop ?? null,
       tokens: (attributes['usage.input'] ?? 0) + (attributes['usage.output'] ?? 0) + (attributes['usage.cache_read'] ?? 0) + (attributes['usage.cache_write'] ?? 0),
-      cost: attributes['cost.total'] ?? null,
       isRetry: false,
     }])
     .with({ name: ACTIVITY.span.phase, attributes: { 'task.name': ACTIVITY.task.tool } }, () => [{
@@ -276,7 +275,6 @@ function activitySpanBar(
       calls: [],
       stop: attributes.outcome ?? null,
       tokens: null,
-      cost: null,
       isRetry: (attributes.attempt ?? 1) > 1,
       input: inputs.get(attributes['tool.call_id'] ?? '') ?? null,
     }])
@@ -305,7 +303,6 @@ function activityLiveBar(task: ActivityTypes.ActivityLiveTask, bars: readonly Co
       calls: [],
       stop: task.wait,
       tokens: null,
-      cost: null,
       isFailed: false,
       isRetry: false,
       detail: null,
@@ -377,7 +374,6 @@ export function activityRunBuild({ group, title, names, liveTasks, inputs, isLiv
     agentCount: lanes.length,
     toolCallCount: settled.filter((span) => span.kind !== 'thinking').length,
     tokens: settled.reduce((sum, span) => sum + (span.tokens ?? 0), 0),
-    cost: settled.reduce((sum, span) => sum + (span.cost ?? 0), 0),
     isFailed: settled.some((span) => span.isFailed) || allSpans.some((span) => span.name === ACTIVITY.span.phase && span.status.status === 'error'),
     isLive,
     agents: lanes.map((conversationId) => ({

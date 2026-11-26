@@ -16,9 +16,8 @@ import { match } from 'ts-pattern';
 import { AdminPageHeader } from '@/components/admin/admin-page-header';
 import { AdminPassword } from '@/components/admin/admin-password';
 import { AdminUserLimits } from '@/components/admin/admin-user-limits';
-import { useAdminNotice } from '@/hooks/use-admin-notice';
 import { useSectionScope } from '@/hooks/use-section-scope';
-import { adminHasAccountsQuery, adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
+import { adminUpdateUser, adminUsersQuery } from '@/services/admin/admin.client';
 import { adminProblem, adminQueriesStatus, adminStateLabel } from '@/services/admin/admin.utils';
 import IconActivity from '~icons/lucide/activity';
 import IconChevronRight from '~icons/lucide/chevron-right';
@@ -102,21 +101,14 @@ interface AdminUserActionsProps {
 
 function AdminUserActions({ user }: AdminUserActionsProps) {
   const queryClient = useQueryClient();
-  const notice = useAdminNotice();
-  const { data: hasAccounts } = useSuspenseQuery(adminHasAccountsQuery());
   const [password, setPassword] = useState<string | null>(null);
 
   const toggle = useMutation({
     mutationFn: adminUpdateUser,
     meta: { success: user.enabled ? m.admin_user_login_turned_off() : m.admin_user_login_turned_on() },
-    onSuccess: async ({ access, password: created }, { enabled }) => {
+    onSuccess: async ({ password: created }) => {
       setPassword(created ?? null);
       await queryClient.invalidateQueries({ queryKey: adminUsersQuery().queryKey });
-      notice({
-        access,
-        email: user.email,
-        change: enabled ? 'add' : 'remove',
-      });
     },
   });
 
@@ -132,18 +124,16 @@ function AdminUserActions({ user }: AdminUserActionsProps) {
       >
         {user.enabled ? m.admin_user_login_turn_off() : m.admin_user_login_turn_on()}
       </ButtonLoading>
-      {hasAccounts ? (
-        <Button
-          asChild
-          size="sm"
-          variant="outline"
-        >
-          <Link params={{ userId: user.id }} to="/admin/users/$userId/password">
-            <IconKeyRound />
-            {m.admin_password_reset()}
-          </Link>
-        </Button>
-      ) : null}
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+      >
+        <Link params={{ userId: user.id }} to="/admin/users/$userId/password">
+          <IconKeyRound />
+          {m.admin_password_reset()}
+        </Link>
+      </Button>
       <Button
         asChild
         size="sm"

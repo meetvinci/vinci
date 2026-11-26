@@ -1,15 +1,6 @@
 import type * as UniversalTypes from '@repo/contracts/universal';
 import type { z } from 'zod';
 
-export interface AdminNotice {
-  email: string
-  change: 'add' | 'remove'
-}
-
-export interface AdminNoticeParams extends AdminNotice {
-  access: UniversalTypes.AdminAccess | undefined
-}
-
 export interface AdminUserCreated {
   user: UniversalTypes.AdminUser
   password: string

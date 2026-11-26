@@ -1,10 +1,10 @@
 # Vinci for a team: the hub, web app and API. Lives in /opt/vinci next to .env, users.yaml, daemon.yaml,
-# sandbox.yaml and cloudflared.compose.yaml (deploy/cloudflare). `bun deploy.ts apply` writes users.compose.yaml (per
+# sandbox.yaml and caddy.compose.yaml (deploy/caddy). `bun deploy.ts apply` writes users.compose.yaml (per
 # person a daemon and a sandbox, each with its network and volume, extending daemon.yaml and sandbox.yaml) and
-# hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, cloudflared.compose.yaml and
-# users.compose.yaml together; with VINCI_AUTH=laravel, caddy.compose.yaml (deploy/caddy) replaces cloudflared's.
+# hub/users.json from users.yaml. .env sets COMPOSE_FILE to load this file, caddy.compose.yaml and users.compose.yaml
+# together, and cloudflared.compose.yaml (deploy/cloudflare) too for the optional Cloudflare Tunnel.
 # The provisioner runs the same apply for the hub's admin panel.
-# Nothing here is published on a host interface: the edge (cloudflared, or Caddy on 80 and 443) is the only way in.
+# Nothing here is published on a host interface: the edge (Caddy on 80 and 443, or behind cloudflared) is the only way in.
 name: vinci
 
 # At most 30 MB of Docker's log per container.
@@ -42,7 +42,7 @@ services:
     pid: host
     network_mode: none
 
-  # The only origin cloudflared reaches (with Caddy, it also reaches the API's login pages). Sees each person's data/ipc folder (one volume, a subfolder per person) and
+  # The only origin besides the API's login pages that Caddy reaches. Sees each person's data/ipc folder (one volume, a subfolder per person) and
   # nothing else of their data. Its user list, admin list and pins live in ./hub.
   hub:
     image: ${VINCI_REGISTRY:-}vinci-hub:${VINCI_TAG}
@@ -58,8 +58,6 @@ services:
       start_period: 30s
       start_interval: 1s
     environment:
-      ACCESS_TEAM_DOMAIN: ${ACCESS_TEAM_DOMAIN:?set ACCESS_TEAM_DOMAIN in .env}
-      ACCESS_AUD: ${ACCESS_AUD:?set ACCESS_AUD in .env}
       HUB_PUBLIC_URL: https://${VINCI_PUBLIC_HOST}
       HUB_WEB_URL: http://web:47190
       HUB_ADMIN_EMAILS: ${HUB_ADMIN_EMAILS:?set HUB_ADMIN_EMAILS in .env}
@@ -72,12 +70,12 @@ services:
       - ./hub:/data
       - ipc:/ipc
     networks:
-      tunnel: {}
+      edge: {}
       web: {}
       provisioner: {}
 
-  # Adds, disables and removes people for the hub's admin panel by running `bun deploy.ts apply` in /opt/vinci, and
-  # updates the Access allow policy when CLOUDFLARE_API_TOKEN is set. It holds the Docker socket, which is root on the
+  # Adds, disables and removes people for the hub's admin panel by running `bun deploy.ts apply` in /opt/vinci. It
+  # holds the Docker socket, which is root on the
   # host: it answers only the hub's token on the provisioner network, a fixed set of requests, one change at a time.
   # Root without capabilities: it reads and writes root's files in /opt/vinci and the socket as their owner.
   # /opt/vinci is mounted at the same path, so Compose resolves ./hub and the other relative paths as on the host.
@@ -95,12 +93,6 @@ services:
     logging: *logging
     environment:
       PROVISIONER_TOKEN: ${PROVISIONER_TOKEN:?set PROVISIONER_TOKEN in .env}
-      # Optional: with a token, the provisioner keeps the Access allow policy in line with users.yaml.
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
-      CLOUDFLARE_ZONE: ${CLOUDFLARE_ZONE:-}
-      CLOUDFLARE_NAME: ${CLOUDFLARE_NAME:-}
-      # The domain rule of the allow policy, if any: people at these domains need no change in Cloudflare.
-      CLOUDFLARE_ACCESS_DOMAINS: ${CLOUDFLARE_ACCESS_DOMAINS:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # rslave: a sandbox disk unmounted on the host is unmounted here too. A plain bind keeps a copy of every disk
@@ -112,7 +104,6 @@ services:
           propagation: rslave
     networks:
       provisioner: {}
-      egress: {}
 
   # Keeps bots off the server's internal addresses: every daemon and sandbox reaches the internet and DNS, the hub
   # reaches each daemon's port, and nothing else (the hub, web, provisioner, other daemons, cloudflared, the host and
@@ -216,17 +207,15 @@ services:
 networks:
   api:
     internal: true
-  # cloudflared (deploy/cloudflare/cloudflared.compose.yaml) and the hub. Outbound internet: the tunnel and the hub's
-  # Access key fetch.
-  tunnel: {}
+  # Caddy and the hub only. No internet.
+  edge:
+    internal: true
   # The hub and the web app only. No internet.
   web:
     internal: true
   # The hub and the provisioner only. No internet.
   provisioner:
     internal: true
-  # The provisioner's way out, to the Cloudflare API only when a token is set. Nothing else joins it.
-  egress: {}
 
 volumes:
   # Each person's data/ipc folder, as ipc/<id>. Daemons mount only their own subfolder.

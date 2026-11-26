@@ -1,7 +1,8 @@
-# The tunnel connector of a team installation; deploy/compose includes this service.
-# `bun scripts/deploy.ts cloudflare apply` creates the tunnel and its routes in Cloudflare (a remotely managed tunnel),
-# so this container needs only TUNNEL_TOKEN from /opt/vinci/.env and no config file. The routes send the team
-# hostname to http://hub:47192 and, if SSH is set up, the SSH hostname to the host's sshd.
+# Optional: the Cloudflare Tunnel, for a server without a public address or open ports. Add it to COMPOSE_FILE in .env
+# after caddy.compose.yaml. `bun scripts/deploy.ts cloudflare apply` creates the tunnel and its one route in Cloudflare
+# (a remotely managed tunnel), so this container needs only TUNNEL_TOKEN from /opt/vinci/.env and no config file. The
+# route sends the team hostname to http://caddy:80: Cloudflare carries HTTPS, Caddy serves plain HTTP to cloudflared
+# only and publishes no port, and the Laravel API is the login as without the tunnel.
 services:
   cloudflared:
     image: cloudflare/cloudflared:2026.10.7
@@ -26,10 +27,10 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 15s
-    # Only used for SSH through the tunnel: the SSH route points at host.docker.internal:22.
-    extra_hosts: ['host.docker.internal:host-gateway']
     networks: [tunnel]
 
-networks:
-  # cloudflared and the hub only; the hub joins it as `hub`. Not internal: cloudflared dials out to Cloudflare from here.
-  tunnel: {}
+  # Behind the tunnel Caddy needs no certificate and no open port: plain HTTP on the tunnel network, for cloudflared.
+  caddy:
+    ports: !reset []
+    environment:
+      VINCI_SITE: http://${VINCI_PUBLIC_HOST:?set VINCI_PUBLIC_HOST in .env}

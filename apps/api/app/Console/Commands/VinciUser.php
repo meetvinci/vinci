@@ -9,7 +9,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class VinciUser extends Command
 {
-    protected $signature = 'vinci:user {email} {--name= : The name shown for this person}';
+    protected $signature = 'vinci:user {email} {--name= : The name shown for this person} {--new : Only create: an existing account keeps its password and nothing is printed}';
 
     protected $description = 'Create a login account, or give an existing one a new password, and print the password once';
 
@@ -17,6 +17,11 @@ class VinciUser extends Command
     {
         try {
             $result = $accounts->ensure($this->argument('email'), $this->option('name'));
+
+            if (! $result['created'] && $this->option('new')) {
+                return self::SUCCESS;
+            }
+
             $password = $result['password'] ?? $accounts->resetPassword($accounts->find($this->argument('email')));
         } catch (InvalidArgumentException $error) {
             $this->output->getErrorStyle()->writeln($error->getMessage(), OutputInterface::VERBOSITY_QUIET);
