@@ -140,7 +140,7 @@ async function coreServerHandle(
   }
 }
 
-export function coreServerIdentity(services: CoreTypes.CoreServices, request: Request): Promise<AccessIdentity> {
+function coreServerIdentity(services: CoreTypes.CoreServices, request: Request): Promise<AccessIdentity> {
   const cookies = parse(request.headers.get('cookie') ?? '');
 
   return services.access

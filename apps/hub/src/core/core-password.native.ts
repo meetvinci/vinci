@@ -1,6 +1,6 @@
 import { teamPasswordInput } from '@repo/contracts/universal';
 import { env } from '@repo/env/server';
-import { Errors, isAppError } from '@repo/errors/universal';
+import { Errors } from '@repo/errors/universal';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
 import type * as CoreTypes from '../types/core.types';
@@ -37,7 +37,7 @@ export async function corePassword(services: CoreTypes.CoreServices, { request, 
       .with({ code: 'VALIDATION_ERROR' }, () => ({ refusal: { error: 'invalid' as const }, status: 422 }))
       .otherwise(() => null);
 
-    if (!isAppError(error) || !refusal) {
+    if (!refusal) {
       throw error;
     }
 
