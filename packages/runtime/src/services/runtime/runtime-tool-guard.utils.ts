@@ -54,6 +54,7 @@ function runtimeToolGuardTurn(messages: readonly PiAiTypes.Message[]) {
     .otherwise(() => [])));
 
   const results = turn.flatMap((message) => match(message)
+    .with({ role: 'toolResult', details: { reason: 'missing_result' } }, () => [])
     .with({ role: 'toolResult' }, ({ toolCallId, isError, content }) => [{
       key: keys.get(toolCallId),
       isError,
