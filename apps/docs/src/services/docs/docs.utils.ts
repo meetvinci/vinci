@@ -25,7 +25,7 @@ export const docsCollection = defineDocs({
   dir: '../../docs',
   docs: {
     async: true,
-    files: ['install/**/*.{md,mdx}', 'use/**/*.mdx', 'changelog/**/*.mdx'],
+    files: ['install/**/*.{md,mdx}', 'use/**/*.mdx', 'changelog/**/*.{md,mdx}'],
   },
   meta: {
     files: ['**/meta*.json'],
@@ -36,6 +36,7 @@ export const docsSource = loader({
   source: docsCollection.toFumadocsSource(),
   baseUrl: '/',
   i18n: docsI18n,
+  pageTree: { sort: { options: { numeric: true } } },
 });
 
 export function docsPageHref(href: string, slugs: string[], language: string) {
@@ -55,4 +56,11 @@ export function docsPageHref(href: string, slugs: string[], language: string) {
   const { pathname, hash } = new URL(relative, `file:///docs/${page.path}`);
 
   return `${DOCS.repositoryUrl}${pathname}${hash}`;
+}
+
+export function docsChangelogVersions(language: string) {
+  return docsSource
+    .getPages(language)
+    .filter((page) => page.slugs[0] === DOCS.changelogSlug && page.slugs.length === 2)
+    .sort((a, b) => b.path.localeCompare(a.path, undefined, { numeric: true }));
 }
