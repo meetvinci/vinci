@@ -1,7 +1,7 @@
 import { standardSchemaResolver } from '@hookform/resolvers/standard-schema';
 import { botHandle, botNewModel } from '@repo/client/client';
 import { useBotCreate, useRpc } from '@repo/client/react';
-import { botForm } from '@repo/contracts/universal';
+import { BOT_FIELDS, botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { BotFormAvatar } from '@repo/ui/bots/bot-form-avatar';
 import { BotFormProfile } from '@repo/ui/bots/bot-form-profile';
@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { useForm, useFormContext, useWatch } from 'react-hook-form';
 import { BotEdit } from '@/components/bots/bot-edit';
 import { BotFormModel } from '@/components/bots/bot-form-model';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import IconChevronLeft from '~icons/lucide/chevron-left';
@@ -83,7 +84,7 @@ function BotDialogCreate() {
       modelProvider: settings?.modelProvider ?? '',
       modelId: settings?.modelId ?? '',
       thinkingLevel: settings?.thinkingLevel ?? 'medium',
-      permission: 'ask',
+      permission: BOT_FIELDS.defaultPermission,
       inherit: ['skills', 'agentsFile', 'mcp', 'plugins'],
       sharedSkills: null,
       sharedMcp: null,
@@ -92,7 +93,7 @@ function BotDialogCreate() {
   });
 
   const create = useBotCreate({
-    onCreated: (bot) => void navigate(scope.bots.section(bot.id, 'instructions')),
+    onCreated: (bot) => void navigate({ ...scope.bots.section(bot.id, 'instructions'), ignoreBlocker: true }),
   });
 
   const submit = form.handleSubmit(create.create);
@@ -119,6 +120,7 @@ function BotDialogCreate() {
 
   return (
     <Form {...form}>
+      <LayoutUnsaved isDirty={form.formState.isDirty} />
       <SectionDialogNav
         activeKey=""
         footer={(

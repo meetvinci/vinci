@@ -15,7 +15,6 @@ import { AGENT_TIMELINE } from '../services/agent-timeline/agent-timeline.consta
 import {
   agentTimelineAt,
   agentTimelineClamp,
-  agentTimelineCost,
   agentTimelineDuration,
   agentTimelineLinkStyle,
   agentTimelineLiveAxis,
@@ -441,7 +440,6 @@ export function AgentTimeline({ run, live = false }: AgentTimelineProps) {
   };
 
   const tokensNow = model.spans.reduce((sum, span) => sum + (span.tokens ?? 0) * agentTimelineProgress(span, shownT), 0);
-  const costNow = model.spans.reduce((sum, span) => sum + span.spanCost * agentTimelineProgress(span, shownT), 0);
   const activeRows = new Set(model.spans.filter((span) => span.kind !== 'waiting' && span.start <= shownT && shownT < span.end).map((span) => span.row));
   const agentCount = model.agents.length === 1 ? m.ui_timeline_agent() : m.ui_timeline_agents({ count: model.agents.length });
 
@@ -449,7 +447,6 @@ export function AgentTimeline({ run, live = false }: AgentTimelineProps) {
     agentCount,
     agentTimelineDuration(duration),
     model.totals.speedup >= 1.1 ? m.ui_timeline_speedup({ value: model.totals.speedup.toFixed(1) }) : null,
-    agentTimelineCost(model.totals.cost),
   ].filter((part) => part !== null);
 
   const word = match({ isRunning, isStart: shownT <= 0 })
@@ -557,8 +554,6 @@ export function AgentTimeline({ run, live = false }: AgentTimelineProps) {
                 {' '}
                 <span className="text-muted-foreground">{m.ui_timeline_tokens_unit()}</span>
               </span>
-              {separator}
-              <span className="whitespace-nowrap text-card-foreground">{count(agentTimelineCost(costNow), live ? undefined : agentTimelineCost(model.totals.cost))}</span>
               {activeRows.size > 0 && isRunning ? <span className="sr-only">{`, ${m.ui_timeline_working({ count: activeRows.size })}`}</span> : null}
             </p>
             <p

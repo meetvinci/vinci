@@ -207,6 +207,7 @@ async function coreNativeServices(resources: AsyncDisposableStack): Promise<Core
       alarm,
       models: providers.models,
       env: executionEnv.env,
+      isSandboxed,
       images: await makeImageService(),
       secrets: makeSecretBrokerService({
         source: secrets,

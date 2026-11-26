@@ -94,6 +94,7 @@
   "settings_tools_timeout_minutes": "{count} Min.",
   "settings_tools_jev": "Jev-API-Schlüssel",
   "settings_tools_jev_placeholder": "Jev-API-Schlüssel einfügen",
+  "settings_tools_jev_hint": "Jev entscheidet automatisch, ob ein Befehl ohne Nachfrage sicher ausgeführt werden kann.",
   "settings_tools_jev_set": "Ein Schlüssel ist festgelegt.",
   "settings_tools_jev_unset": "Kein Schlüssel festgelegt.",
   "settings_secret_saved": "Gespeichert. Gib einen neuen Wert ein, um ihn zu ersetzen.",

@@ -84,6 +84,7 @@ export function useChatSend({ botId, conversationId, latestEntryId, onOutgoingCh
         attachmentIds,
         replyToEntryId,
         skills: skills.length > 0 ? skills : undefined,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
       onOutgoingChange((items) => items.map((item) => (item.requestId === request.id ? { ...item, submissionId } : item)));

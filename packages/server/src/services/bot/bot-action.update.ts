@@ -1,12 +1,12 @@
 import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import { botActionConfigure } from './bot-action.configure';
-import { botActionStart } from './bot-action.start';
 import { botRecord, botValues } from './bot.utils';
-import type { BotServiceDeps, BotUpdateParams } from '../../types/bot.types';
+import type { BotServiceDeps } from '../../types/bot.types';
+import type { BotUpdateInput } from '@repo/contracts/universal';
 
-export async function botActionUpdate(deps: BotServiceDeps, { botId, canStart, ...changes }: BotUpdateParams) {
-  const shouldStart = await deps.database.db.transaction().execute(async (tx) => {
+export async function botActionUpdate(deps: BotServiceDeps, { botId, ...changes }: BotUpdateInput) {
+  await deps.database.db.transaction().execute(async (tx) => {
     const row = await tx.selectFrom('bot').selectAll().where('id', '=', botId).executeTakeFirst();
 
     const previous = match(row)
@@ -26,26 +26,11 @@ export async function botActionUpdate(deps: BotServiceDeps, { botId, canStart, .
     }).otherwise(() => undefined);
 
     await tx.updateTable('bot').set({ ...botValues(bot), updatedAt: bot.updatedAt }).where('id', '=', botId).execute();
-
-    const isFirstInstructions = !previous.instructions.trim() && Boolean(bot.instructions.trim());
-
-    await match(isFirstInstructions && !canStart)
-      .with(true, () => tx.insertInto('botStart').values({ botId }).onConflict((conflict) => conflict.doNothing()).execute())
-      .with(false, () => undefined)
-      .exhaustive();
-
-    return canStart && isFirstInstructions;
   });
 
   for (const listener of deps.changes) {
     listener();
   }
 
-  const bot = await botActionConfigure(deps, { botId });
-
-  if (shouldStart) {
-    await botActionStart(deps, { botId });
-  }
-
-  return bot;
+  return botActionConfigure(deps, { botId });
 }

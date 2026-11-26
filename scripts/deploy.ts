@@ -76,6 +76,16 @@ const laravelSecretLength = 32;
 const serverMemoryGib = 3.7;
 const serverDiskGb = { production: 40, test: 30 };
 const serverUbuntu = '24.04';
+// `check <address>`: what a public response must not carry. Headers that name the software behind the address or
+// its version, any header named like a version, and on errors a body with a stack trace or a versioned product name.
+// Cloudflare sends `Server: cloudflare` on everything it serves and lets nobody remove it: the one value allowed.
+const disclosureHeaders = ['server', 'x-powered-by', 'via', 'x-generator', 'x-runtime', 'x-served-by', 'x-backend-server', 'x-aspnet-version', 'x-aspnetmvc-version'];
+const disclosureVersion = /\b[A-Za-z][\w-]*\/v?\d+(?:\.\d+)+/u;
+const disclosureBody = /stack ?trace|\bat \S+ \(\S+:\d+:\d+\)|\.php(?: on line |:|\()\d+|\b(?:apache|nginx|caddy|php|laravel|symfony|bun|node)\/?\s?v?\d+\.\d+/iu;
+// Each edge's paths: the app, the admin panel, the RPC, the hub's public health and icons, the login pages, and a path
+// nothing serves, on the hub and on the login pages.
+const disclosurePaths = ['/', '/admin', '/rpc', '/hub/health', '/favicon.ico', '/img/favicon/site.webmanifest', '/vinci-check-404', '/cdn-cgi/access/login', '/cdn-cgi/access/logout', '/cdn-cgi/access/vinci-check-404'];
+const disclosureTimeoutMs = 15_000;
 // `nightly status` exits non-zero once the last good run is older than this: the timer is meant to run daily.
 const nightlyStaleMs = 36 * 60 * 60 * 1000;
 // The timer's service is stopped after this long; `nightly status` counts a run still `running` after it as failed.
@@ -2481,9 +2491,65 @@ function checkDisk(freeGb: number): 'ok' | 'warning' | 'failed' {
   return freeGb >= serverDiskGb.production ? 'ok' : 'warning';
 }
 
+// What one response tells about the software behind it, as `name: value` lines; none when it tells nothing.
+async function disclosures(response: Response): Promise<string[]> {
+  const headers = [...response.headers].filter(([name, value]) => name !== 'set-cookie' && !(name === 'server' && value === 'cloudflare') && (disclosureHeaders.includes(name) || name.includes('version') || disclosureVersion.test(value)));
+  const body = response.status >= 400 ? disclosureBody.exec(await response.text())?.[0] : undefined;
+
+  return [...headers.map(([name, value]) => `${name}: ${value}`), ...(body === undefined ? [] : [`body: …${body}…`])];
+}
+
+// `check <https://address>`, from any computer: every edge path, without a login and, with VINCI_CHECK_COOKIE (a
+// vinci_session value), as that person, so the hub, the web app and the daemon answer too; a method a route does not
+// take; and plain HTTP. Fails when any response names its software or a version (install.md, step 8).
+async function checkAddress(address: string) {
+  const origin = new URL(address);
+
+  if (origin.protocol !== 'https:' || origin.pathname !== '/' || origin.search !== '') {
+    fail(`Pass the public address alone, as https://<host>, not ${address}.`);
+  }
+
+  const cookie = process.env.VINCI_CHECK_COOKIE;
+
+  const requests: [string, URL, RequestInit][] = [
+    ...disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), {}]),
+    ...(cookie ? disclosurePaths.map((route): [string, URL, RequestInit] => ['GET', new URL(route, origin), { headers: { cookie: `vinci_session=${cookie}` } }]) : []),
+    ['DELETE', new URL('/cdn-cgi/access/login', origin), {}],
+    ['GET', new URL(`http://${origin.host}/`), {}],
+  ];
+
+  const results = await Promise.all(requests.map(async ([method, url, init]) => {
+    const label = `${method} ${url.href}${init.headers ? ' (logged in)' : ''}`;
+
+    const response = await fetch(url, {
+      ...init,
+      method,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(disclosureTimeoutMs),
+    }).catch((error: unknown) => fail(`${label}: ${errorMessage(error)}`));
+
+    return { label, status: response.status, found: await disclosures(response) };
+  }));
+
+  for (const { label, status, found } of results) {
+    console.log(`${status} ${label}: ${found.length === 0 ? 'ok' : found.join('; ')}`);
+  }
+
+  if (results.some(({ found }) => found.length > 0)) {
+    fail('A response names the software or the version behind the address (install.md, step 8).');
+  }
+}
+
 // The server requirements of install.md, step 1. A production install needs every line ok. Ubuntu after 24.04 and
-// 30 to 40 GB free are warnings, enough for a test server; anything less fails.
-function check() {
+// 30 to 40 GB free are warnings, enough for a test server; anything less fails. With an address, its public responses
+// instead (checkAddress).
+async function check() {
+  if (process.argv.length > 3) {
+    await checkAddress(process.argv[3]);
+
+    return;
+  }
+
   const os: Partial<Record<string, string>> = Object.fromEntries(readFileSync('/etc/os-release', 'utf8').split('\n').map((line) => line.split('=', 2)).map(([key = '', value = '']) => [key, value.replaceAll('"', '')]));
   const memoryKib = Number(/^MemTotal:\s+(?<kib>\d+)/mu.exec(readFileSync('/proc/meminfo', 'utf8'))?.groups?.kib ?? 0);
   const { bavail, bsize } = statfsSync('/');
@@ -3005,6 +3071,7 @@ try {
       'Usage:',
       '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
       '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
+      '  bun scripts/deploy.ts check https://<host> no public response names the software or a version behind it',
       'On the server, in /opt/vinci:',
       '  bun deploy.ts check                     the server requirements: memory, disk, CPU and Ubuntu version',
       '  bun deploy.ts apply                     render users.yaml and bring the stack in line',

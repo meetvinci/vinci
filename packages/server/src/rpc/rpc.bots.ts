@@ -12,7 +12,7 @@ export const bots = {
       path: 'bots.create',
       changes: () => input.permission !== BOT_FIELDS.defaultPermission,
     });
-    return context.bots.actions.create({ ...input, canStart: !context.isLocal });
+    return context.bots.actions.create(input);
   }),
   update: ownerRouter.bots.update.handler(async ({ context, input }) => {
     await rpcTeamRefuse({
@@ -20,7 +20,7 @@ export const bots = {
       path: 'bots.update',
       changes: async () => input.permission !== undefined && input.permission !== (await context.bots.queries.get(input)).permission,
     });
-    return context.bots.actions.update({ ...input, canStart: !context.isLocal });
+    return context.bots.actions.update(input);
   }),
   delete: ownerRouter.bots.delete.handler(async ({ context, input }) => context.bots.actions.delete(input)),
   catalog: ownerRouter.bots.catalog.handler(async ({ context, input }) => context.bots.queries.catalog(input)),

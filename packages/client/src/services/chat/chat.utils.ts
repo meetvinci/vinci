@@ -425,7 +425,6 @@ function chatUsageAdd(current: ChatTypes.ChatUsage | null, usage: ChatTypes.Chat
     input: (current?.input ?? 0) + usage.input,
     output: (current?.output ?? 0) + usage.output,
     cacheRead: (current?.cacheRead ?? 0) + usage.cacheRead,
-    cost: { total: (current?.cost.total ?? 0) + usage.cost.total },
   };
 }
 

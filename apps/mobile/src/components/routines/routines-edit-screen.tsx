@@ -11,6 +11,7 @@ import { BotLoadState } from '@/components/bots/bot-load-state';
 import { FormField } from '@/components/ui/form-field';
 import { Text } from '@/components/ui/text';
 import { useConnection } from '@/hooks/use-connection';
+import { useUnsaved } from '@/hooks/use-unsaved';
 import { RoutinesScheduleField } from './routines-schedule-field';
 import type { RpcSession } from '@/types/rpc.types';
 import type { Routine, RoutineEditForm } from '@repo/contracts/universal';
@@ -74,9 +75,12 @@ function RoutinesEditScreenForm({ session, botId, routine }: RoutinesEditScreenF
     defaultValues: { name: routine.name, schedule: routine.schedule, prompt: routine.prompt },
   });
 
+  const disablePrevention = useUnsaved(form.formState.isDirty);
+
   const save = useMutation(session.rpc.routines.update.mutationOptions({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: session.rpc.routines.key() });
+      disablePrevention();
       router.back();
     },
   }));

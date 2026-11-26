@@ -3,7 +3,7 @@ import { useBotUpdate } from '@repo/client/react';
 import { botForm } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { useQuery } from '@tanstack/react-query';
-import { Stack, usePreventRemove, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ScrollView, View } from 'react-native';
@@ -12,10 +12,10 @@ import { useCSSVariable } from 'uniwind';
 import { BotLoadState } from '@/components/bots/bot-load-state';
 import { BotSettingsLocalSkills } from '@/components/bots/bot-settings-local-skills';
 import { BotSettingsShared } from '@/components/bots/bot-settings-shared';
-import { actionSheetShow } from '@/components/ui/action-sheet';
 import { Tabs } from '@/components/ui/tabs';
 import { useBotShared } from '@/hooks/use-bot-shared';
 import { useConnection } from '@/hooks/use-connection';
+import { useUnsaved } from '@/hooks/use-unsaved';
 import type { BotSharedResource } from '@/types/bot-shared.types';
 import type { RpcSession } from '@/types/rpc.types';
 import type { Bot } from '@repo/contracts/universal';
@@ -100,18 +100,7 @@ function BotSharedScreenForm({ session, bot, resource }: BotSharedScreenFormProp
 
   const { isDirty } = form.formState;
 
-  const disablePrevention = usePreventRemove(isDirty, ({ repeat }) => actionSheetShow({
-    title: m.mobile_bot_discard_title(),
-    cancelLabel: m.mobile_bot_keep_editing(),
-    choices: [{
-      label: m.mobile_bot_discard(),
-      isDestructive: true,
-      onSelect: () => {
-        form.reset();
-        repeat();
-      },
-    }],
-  }));
+  const disablePrevention = useUnsaved(isDirty);
 
   const save = useBotUpdate(m.bots_saved());
 

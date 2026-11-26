@@ -9,6 +9,7 @@ import { RoutinesScheduleFields } from '@repo/ui/routines/routines-schedule-fiel
 import { Textarea } from '@repo/ui/textarea';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import type { Bot, Routine, RoutineEditForm } from '@repo/contracts/universal';
 
 interface RoutinesEditProps {
@@ -35,6 +36,7 @@ export function RoutinesEdit({ bot, routine, onDone }: RoutinesEditProps) {
 
   return (
     <Form {...form}>
+      <LayoutUnsaved isDirty={form.formState.isDirty} />
       <form
         className="flex flex-col gap-3"
         onSubmit={form.handleSubmit((input) => save.mutate({

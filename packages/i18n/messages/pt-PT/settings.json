@@ -94,6 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Chave de API do Jev",
   "settings_tools_jev_placeholder": "Cole uma chave de API do Jev",
+  "settings_tools_jev_hint": "O Jev decide automaticamente se um comando é seguro para executar sem perguntar.",
   "settings_tools_jev_set": "Há uma chave definida.",
   "settings_tools_jev_unset": "Não há nenhuma chave definida.",
   "settings_secret_saved": "Guardado. Escreva um novo valor para o substituir.",
