@@ -137,7 +137,6 @@
   "rooms_action_send_mode": "When busy",
   "rooms_chat_send_failed": "Your message was not sent. Try again.",
   "rooms_chat_usage": "{input} in · {output} out",
-  "rooms_chat_usage_cost": "{usage} · {cost}",
   "rooms_fresh_done": "Fresh start: earlier messages are forgotten here.",
   "rooms_fresh_failed": "Could not start fresh. Try again once the bot is done replying.",
   "rooms_time_today": "Today {time}",

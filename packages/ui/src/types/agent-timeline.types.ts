@@ -24,7 +24,6 @@ export interface AgentTimelineSpan {
   detail?: string
   tool?: AgentTimelineTool
   tokens?: number
-  cost?: number
   status?: 'ok' | 'failed'
   retry?: boolean
 }
@@ -56,7 +55,6 @@ export interface AgentTimelineBar extends Omit<AgentTimelineSpan, 'id' | 'end'> 
   row: number
   end: number
   isOpen: boolean
-  spanCost: number
 }
 
 export interface AgentTimelineConnector {
@@ -91,7 +89,6 @@ export interface AgentTimelineModel {
   duration: number
   totals: {
     tokens: number
-    cost: number
     speedup: number
   }
 }

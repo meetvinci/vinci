@@ -20,7 +20,7 @@ function labMessage(entryId: number, createdAt: number, author: Pick<UniversalTy
       authorId: author?.id ?? null,
       authorName: author?.name ?? m.rooms_chat_you(),
       replyTo: null,
-      usage: role === 'assistant' ? { input: 18_420, output: 1_240, cacheRead: 12_800, cost: { total: 0.0412 } } : null,
+      usage: role === 'assistant' ? { input: 18_420, output: 1_240, cacheRead: 12_800 } : null,
     },
     parts,
   };

@@ -37,5 +37,8 @@
   "layout_disconnect": "Dieses Gerät trennen",
   "layout_sign_out": "Abmelden",
   "layout_connected": "Verbunden",
-  "layout_unreachable": "Der Daemon ist nicht erreichbar"
+  "layout_unreachable": "Der Daemon ist nicht erreichbar",
+  "layout_unsaved_title": "Ohne Speichern verlassen?",
+  "layout_unsaved_description": "Deine ungespeicherten Änderungen gehen verloren.",
+  "layout_unsaved_leave": "Änderungen verwerfen"
 }

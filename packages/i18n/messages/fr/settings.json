@@ -94,6 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Clé d’API Jev",
   "settings_tools_jev_placeholder": "Collez une clé d’API Jev",
+  "settings_tools_jev_hint": "Jev décide automatiquement si une commande peut être exécutée sans demander.",
   "settings_tools_jev_set": "Une clé est définie.",
   "settings_tools_jev_unset": "Aucune clé n’est définie.",
   "settings_secret_saved": "Enregistré. Saisissez une nouvelle valeur pour le remplacer.",
