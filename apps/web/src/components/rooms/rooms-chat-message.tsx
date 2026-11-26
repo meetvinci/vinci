@@ -1,8 +1,8 @@
-import { CHAT, chatActivitySteps, chatActivityStepsLabel, toolBlocks } from '@repo/client/client';
+import { CHAT, chatActivityFailedLabel, chatActivitySteps, chatActivityStepsLabel, toolBlocks } from '@repo/client/client';
 import { useChatHideVerbose } from '@repo/client/react';
 import { useLongPress } from '@repo/client/web';
 import { m } from '@repo/i18n/client';
-import { EventLine, EventList } from '@repo/ui/ai/event';
+import { EventLabel, EventLine, EventList } from '@repo/ui/ai/event';
 import { Message, MessageClamp, MessageContent, MessageStack } from '@repo/ui/ai/message';
 import { Response } from '@repo/ui/ai/response';
 import { htmlReplyPage } from '@repo/ui/html.utils';
@@ -17,7 +17,7 @@ import { RoomsChatTools } from '@repo/ui/rooms/rooms-chat-tools';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { isFileUIPart } from 'ai';
 import { Fragment, useState } from 'react';
-import { match } from 'ts-pattern';
+import { match, P } from 'ts-pattern';
 import { RoomsChatArtifact } from '@/components/rooms/rooms-chat-artifact';
 import { RoomsChatEvents } from '@/components/rooms/rooms-chat-events';
 import { RoomsChatGif } from '@/components/rooms/rooms-chat-gif';
@@ -65,7 +65,8 @@ export function RoomsChatMessage({
 
   const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const [isExpanded, setIsExpanded] = useState(false);
-  const steps = canSeeSteps && hideVerbose && !live ? chatActivitySteps(message) : null;
+  // SAFETY: a person who cannot see steps still learns that one failed, so a bot's claim of success is not the only trace.
+  const steps = hideVerbose && !live ? chatActivitySteps(message) : null;
   // SAFETY: without steps a person sees an approval only while it waits (the runs pane), never its outcome.
   const blocks = toolBlocks({ parts: message.parts, hideVerbose: hideVerbose && !isExpanded }).filter((block) => canSeeSteps || block.kind !== 'expired');
   const files = message.parts.filter(isFileUIPart);
@@ -131,19 +132,28 @@ export function RoomsChatMessage({
 
   const filesContent = filesView && !actionsBlock && (actions || reactions) ? withActions(filesView) : filesView;
 
-  const stepsRow = steps ? (
-    <EventList key={`${message.id}-steps`}>
-      <EventLine>
-        <button
-          aria-expanded={isExpanded}
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? m.rooms_activity_steps_hide() : chatActivityStepsLabel(steps)}
-        </button>
-      </EventLine>
-    </EventList>
-  ) : null;
+  const stepsRow = match({ steps, canSeeSteps })
+    .with({ steps: P.nonNullable, canSeeSteps: true }, ({ steps: shown }) => (
+      <EventList key={`${message.id}-steps`}>
+        <EventLine status={!isExpanded && shown.failed > 0 ? 'error' : undefined}>
+          <button
+            aria-expanded={isExpanded}
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? m.rooms_activity_steps_hide() : chatActivityStepsLabel(shown)}
+          </button>
+        </EventLine>
+      </EventList>
+    ))
+    .with({ steps: { failed: P.number.positive() } }, ({ steps: shown }) => (
+      <EventList key={`${message.id}-steps`}>
+        <EventLine status="error">
+          <EventLabel>{chatActivityFailedLabel(shown.failed)}</EventLabel>
+        </EventLine>
+      </EventList>
+    ))
+    .otherwise(() => null);
 
   const rendered = segments.map((segment) => {
     const first = segment.at(0);

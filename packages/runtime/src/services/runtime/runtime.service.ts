@@ -38,6 +38,7 @@ import { runtimeActionUpdateSubmission } from './runtime-action.update-submissio
 import { runtimeActionUpdateTodo } from './runtime-action.update-todo';
 import { runtimeBotCall, runtimeBotOpen } from './runtime-bot.utils';
 import { runtimeChatToolsExtension } from './runtime-chat-tools.extension';
+import { runtimeClockExtension } from './runtime-clock.extension';
 import { runtimeCodingToolsExtension } from './runtime-coding-tools.extension';
 import { runtimeDirectory } from './runtime-directory.utils';
 import { runtimeModels } from './runtime-model.utils';
@@ -92,6 +93,7 @@ export function makeRuntimeService({
   permissions,
   collaboration: policy,
   gifs,
+  settings,
   images,
   secrets,
   toolExtensions = [],
@@ -128,6 +130,7 @@ export function makeRuntimeService({
       runtimeReactionExtension,
       todos.extension,
       notes.extension,
+      runtimeClockExtension({ settings }),
       toolSearch,
       ...(secrets ? [runtimeSecretsExtension({ secrets })] : []),
       ...toolExtensions,
