@@ -53,8 +53,11 @@ export function artifactAssertCurrent(record: ArtifactRecord, version: number) {
 function artifactAssertSpec(spec: ArtifactSpec) {
   match(artifactSpecIssues(spec))
     .with([], () => undefined)
-    .otherwise(() => {
-      throw new Errors.VALIDATION_ERROR({ fields: { spec: { message: 'validation_artifact_spec' } } });
+    .otherwise((issues) => {
+      throw new Errors.VALIDATION_ERROR({
+        fields: { spec: { message: 'validation_artifact_spec' } },
+        internal: `Invalid artifact spec: ${issues.join('; ')}`,
+      });
     });
 }
 
@@ -110,25 +113,27 @@ function artifactSpecIssues(spec: ArtifactSpec): string[] {
   const bytes = new TextEncoder().encode(JSON.stringify(spec)).length;
 
   return match(spec)
-    .with({ html: P.string }, () => bytes <= ARTIFACT.specBytesMax ? [] : ['spec'])
+    .with({ html: P.string }, () => bytes <= ARTIFACT.specBytesMax ? [] : [`the spec is over ${ARTIFACT.specBytesMax} bytes`])
     .otherwise((structured) => artifactStructuredSpecIssues(structured, bytes));
 }
 
 function artifactStructuredSpecIssues(spec: Extract<ArtifactSpec, { root: string }>, bytes: number): string[] {
   return match(bytes <= ARTIFACT.specBytesMax && artifactHasTree(spec))
-    .with(false, () => ['spec'])
+    .with(false, () => [
+      `root "${spec.root}" and every children entry must be keys of elements, each element reached from root once, at most ${ARTIFACT.depthMax} levels deep and ${ARTIFACT.specBytesMax} bytes`,
+    ])
     .with(true, () => [
       ...validateSpec(spec).issues.filter((issue) => issue.severity === 'error').map((issue) => issue.message),
       ...Object.entries(spec.elements).flatMap(([key, element]) => {
         const component = Object.entries(artifactComponents).find(([name]) => name === element.type)?.[1];
 
         return match(component)
-          .with(P.nullish, () => [key])
+          .with(P.nullish, () => [`${key}: unknown type ${element.type}`])
           .otherwise((value) => {
             const parsed = value.props.safeParse(resolveElementProps(element.props, { stateModel: spec.state }));
-            return match(parsed.success)
-              .with(true, () => [])
-              .with(false, () => [key])
+            return match(parsed)
+              .with({ success: true }, () => [])
+              .with({ success: false }, ({ error }) => error.issues.map((issue) => `${key}.props.${issue.path.join('.')}: ${issue.message}`))
               .exhaustive();
           });
       }),
