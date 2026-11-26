@@ -7,7 +7,7 @@ variable "TARGETS" {
   default = ["daemon", "sandbox", "web", "hub", "provisioner", "firewall", "api"]
 }
 
-# Where the images live, without a trailing slash (for example registry.example.com/vinci). Empty names them
+# Where the images live, without a trailing slash (for example ghcr.io/meetvinci). Empty names them
 # vinci-<target> as `bun run build:images` does.
 variable "REGISTRY" {
   default = ""

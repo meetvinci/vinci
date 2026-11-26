@@ -61,27 +61,21 @@ Expected: Docker 26 or newer, Compose 2.23.1 or newer, `enabled`, and an `iptabl
 
 ## 3. Get Vinci onto the server
 
-Vinci's images come from Vinci's private registry as `registry.example.com/vinci/vinci-<image>`, built for amd64 and arm64 by every release ([images from CI](admin.md#images-from-ci)). Choose a release tag, for example `v0.1.7` (`gh release list` in the Vinci repository lists them):
+Vinci's images are public on GitHub Container Registry as `ghcr.io/meetvinci/vinci-<image>`, built for amd64 and arm64 ([images from CI](admin.md#images-from-ci)). The server pulls them without logging in. Choose a tag: a release such as `v0.2.0` (`gh release list` in the Vinci repository lists them; releases before the move to GitHub Container Registry, up to `v0.1.7`, are only in the old private registry), `main` for the latest commit on main, or the full commit of a build:
 
 ```sh
-TAG=v0.1.7
+TAG=v0.2.0
 ```
 
-The server needs the registry's read-only login, `vinci-pull`, from whoever runs the Vinci registry ([give a server access to the images](admin.md#give-a-server-access-to-the-images)). Log the server in once, reading the password from your password manager so it never shows on screen:
+Pull the images:
 
 ```sh
-op read 'op://<vault>/<item>/password' | ssh root@<server> 'docker login registry.example.com --username vinci-pull --password-stdin'
+ssh root@<server> "for image in daemon sandbox web hub provisioner firewall api; do docker pull -q ghcr.io/meetvinci/vinci-\$image:$TAG; done"
 ```
 
-Expected: `Login Succeeded`. Docker keeps the password in `/root/.docker/config.json`, readable by root only, and uses it for every later pull. Then pull the release images:
+Expected: seven lines `ghcr.io/meetvinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
 
-```sh
-ssh root@<server> "for image in daemon sandbox web hub provisioner firewall api; do docker pull -q registry.example.com/vinci/vinci-\$image:$TAG; done"
-```
-
-Expected: seven lines `registry.example.com/vinci/vinci-<image>:<tag>`. It downloads about 600 MB the first time.
-
-Copy the deployment files into `/opt/vinci`, from a checkout of the same tag (`git checkout $TAG`). Only the first time, also copy the settings template as `.env`; it already points `VINCI_REGISTRY` at the registry:
+Copy the deployment files into `/opt/vinci`, from a checkout of the same tag (`git checkout $TAG`). Only the first time, also copy the settings template as `.env`; it already points `VINCI_REGISTRY` at `ghcr.io/meetvinci/`:
 
 ```sh
 ssh root@<server> 'install -d -m 700 /opt/vinci'
@@ -92,16 +86,16 @@ ssh root@<server> 'test -e /opt/vinci/.env' || { scp deploy/.env.example root@<s
 The deploy commands need Bun on the server. Take it from the image you just pulled, so it matches:
 
 ```sh
-ssh root@<server> "docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun && bun --version"
+ssh root@<server> "docker run --rm --entrypoint cat ghcr.io/meetvinci/vinci-daemon:$TAG /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun && bun --version"
 ```
 
 Expected: a Bun version such as `1.4.4`. The copy goes through `bun.new` because writing over a Bun that is running (a nightly backup during an upgrade, for example) fails with `Text file busy`.
 
-**A commit that is not a release** (to test a fix before releasing it): build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG vinci-api:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (seven `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=registry.example.com/vinci/` back when you return to a release.
+**A commit that is not a release** (to test a fix before releasing it): run the **Images** workflow on its branch (`gh workflow run images.yml --ref <branch>`) and use the full commit as the tag; every push to main is already built. Without CI, build the images on your own computer instead, not on the server, which lacks the memory and disk. `bun run build:images --tag $(git rev-parse --short HEAD)` makes amd64 images even on an Apple Silicon Mac; `docker save vinci-daemon:$TAG vinci-sandbox:$TAG vinci-web:$TAG vinci-hub:$TAG vinci-provisioner:$TAG vinci-firewall:$TAG vinci-api:$TAG | gzip | ssh root@<server> 'gunzip | docker load'` sends them (seven `Loaded image:` lines). Set `VINCI_REGISTRY=` (empty) in `/opt/vinci/.env` so Compose uses these images, and take Bun from `vinci-daemon:$TAG`. Put `VINCI_REGISTRY=ghcr.io/meetvinci/` back when you return to a release.
 
 **Give this to your agent:**
 
-> On `root@<server>`, log Docker in to `registry.example.com` as `vinci-pull` with the password at `op://<vault>/<item>/password`, piping `op read` into `docker login --password-stdin` over ssh without printing it. Pull `registry.example.com/vinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat registry.example.com/vinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
+> On `root@<server>`, pull `ghcr.io/meetvinci/vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` at tag `<tag>`. From a checkout of `<tag>`, create `/opt/vinci` (mode 700) and copy `deploy/compose/compose.yaml`, `deploy/compose/daemon.yaml`, `deploy/compose/sandbox.yaml`, `deploy/cloudflare/cloudflared.compose.yaml` and `scripts/deploy.ts` into it. Only if `/opt/vinci/.env` does not exist yet, copy `deploy/.env.example` there as `.env` with mode 600. Install Bun from the image: `docker run --rm --entrypoint cat ghcr.io/meetvinci/vinci-daemon:<tag> /usr/local/bin/bun > /usr/local/bin/bun.new && chmod 755 /usr/local/bin/bun.new && mv /usr/local/bin/bun.new /usr/local/bin/bun`. Report the tag, `bun --version` on the server, and `docker images`.
 
 ## 4. Write the team list
 
@@ -279,7 +273,7 @@ Then check how the provisioner sees Cloudflare: `ssh root@<server> 'cd /opt/vinc
 
 If it differs:
 
-- `pull access denied` or `manifest unknown` for an image: the server has no image of the tag in `.env`. Check `VINCI_TAG` and `VINCI_REGISTRY` in `.env`, `docker images`, and pull it as in step 3; `unauthorized` means the server's registry login (`vinci-pull`) was changed or removed; log it in again as in step 3.
+- `pull access denied` or `manifest unknown` for an image: the server has no image of the tag in `.env`. Check `VINCI_TAG` and `VINCI_REGISTRY` in `.env`, `docker images`, and pull it as in step 3; `unauthorized` or `denied` from `ghcr.io` means that image's package is not public yet ([images from CI](admin.md#images-from-ci)).
 - `set ACCESS_AUD in .env` or a similar message: step 6 did not merge the Cloudflare values. `set PROVISIONER_TOKEN in .env` or `set HUB_ADMIN_EMAILS in .env`: the two commands above did not run.
 - cloudflared unhealthy or no `Registered tunnel connection` line: check `docker compose logs cloudflared` for a token error, and run step 5 and 6 again.
 - The hub log warns `The provisioner did not take the admin list yet; trying again` a few times: normal on the first start, while `apply` still holds its lock. It stops once `docker compose logs provisioner` shows `PUT /access/admins 200`. If it goes on for more than a minute, read the provisioner log.
