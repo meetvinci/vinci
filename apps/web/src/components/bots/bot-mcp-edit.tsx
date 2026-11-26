@@ -9,6 +9,7 @@ import { Textarea } from '@repo/ui/textarea';
 import { useNavigate } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { match, P } from 'ts-pattern';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import type { Bot } from '@repo/contracts/universal';
 
@@ -22,7 +23,7 @@ export function BotMcpEdit({ bot }: BotMcpEditProps) {
 
   const onBack = () => void navigate(scope.bots.section(bot.id, 'mcp'));
 
-  const file = useBotMcpFile({ botId: bot.id, onDone: onBack });
+  const file = useBotMcpFile({ botId: bot.id, onDone: () => void navigate({ ...scope.bots.section(bot.id, 'mcp'), ignoreBlocker: true }) });
 
   return (
     <SettingsSubview
@@ -57,6 +58,7 @@ function BotMcpEditForm({ file, text }: BotMcpEditFormProps) {
         file.save(draft);
       }}
     >
+      <LayoutUnsaved isDirty={draft !== text} />
       <fieldset className="contents" disabled={file.isPending}>
         <Label htmlFor={id}>{m.bots_mcp_edit_label()}</Label>
         <Textarea

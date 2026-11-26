@@ -80,9 +80,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
   const current = BOT_NAV.find((item) => item.id === section) ?? BOT_NAV[0];
   const isSubview = view.kind !== 'section';
 
-  function openSection(tab: BotSection) {
-    void navigate(scope.bots.section(bot.id, tab));
-  }
+  const openSection = (tab: BotSection, ignoreBlocker = false) => void navigate({ ...scope.bots.section(bot.id, tab), ignoreBlocker });
 
   const submit = form.handleSubmit(
     ({ sharedMcp: _mcp, ...input }: BotForm) => save.mutate({
@@ -184,6 +182,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
                 bot={bot}
                 routineId={routineId}
                 onBack={() => openSection('routines')}
+                onDone={() => openSection('routines', true)}
               />
             ))
             .with({ kind: 'routine-delete' }, ({ routineId }) => (
@@ -323,9 +322,10 @@ interface BotEditRoutineProps {
   bot: Bot
   routineId: string
   onBack: () => void
+  onDone: () => void
 }
 
-function BotEditRoutine({ bot, routineId, onBack }: BotEditRoutineProps) {
+function BotEditRoutine({ bot, routineId, onBack, onDone }: BotEditRoutineProps) {
   const { rpc } = useRpc();
   const list = useQuery(rpc.routines.list.queryOptions({ input: { botId: bot.id } }));
   const routine = list.data?.find((item) => item.id === routineId);
@@ -341,7 +341,7 @@ function BotEditRoutine({ bot, routineId, onBack }: BotEditRoutineProps) {
         <RoutinesEdit
           bot={bot}
           routine={found}
-          onDone={onBack}
+          onDone={onDone}
         />
       </SettingsSubview>
     ))

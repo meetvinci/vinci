@@ -13,6 +13,7 @@ import { Item, ItemContent, ItemGroup, ItemTitle, ItemValue } from '@/components
 import { LabelDescription } from '@/components/ui/label';
 import { Menu } from '@/components/ui/menu';
 import { Text } from '@/components/ui/text';
+import { useUnsaved } from '@/hooks/use-unsaved';
 import type { ToolApprovalRule, ToolSettings } from '@repo/contracts/universal';
 
 const SETTINGS_TOOLS_RULE_BEHAVIOR = {
@@ -52,6 +53,10 @@ function SettingsToolsForm({ settings, tools }: SettingsToolsFormProps) {
   const [jevApiKey, setJevApiKey] = useState('');
   const [approvalTimeoutMinutes, setApprovalTimeoutMinutes] = useState(settings.approvalTimeoutMinutes);
   const isValid = toolApprovalRules.element.safeParse(draft).success;
+
+  useUnsaved(jevApiKey !== ''
+    || approvalTimeoutMinutes !== settings.approvalTimeoutMinutes
+    || JSON.stringify(rules) !== JSON.stringify(settings.approvalRules));
 
   const submitRule = () => {
     const rule = toolApprovalRules.element.parse(draft);
