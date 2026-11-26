@@ -197,5 +197,15 @@
   "settings_managed": "Gestionado por tu administrador.",
   "settings_managed_override": "Cambiarlo para mí",
   "settings_managed_override_failed": "No se pudo tomar el control de esta sección. Inténtalo de nuevo.",
-  "settings_chat_workspace": "Chat en este espacio de trabajo"
+  "settings_chat_workspace": "Chat en este espacio de trabajo",
+  "settings_password": "Contraseña",
+  "settings_password_description": "La contraseña con la que inicias sesión. Al cambiarla, se cierra tu sesión en todos los demás navegadores.",
+  "settings_password_change": "Cambiar contraseña",
+  "settings_password_current": "Contraseña actual",
+  "settings_password_new": "Nueva contraseña",
+  "settings_password_new_hint": "Al menos {minimum} caracteres.",
+  "settings_password_changed": "Contraseña cambiada. Se cerró tu sesión en todos los demás navegadores.",
+  "settings_password_wrong": "La contraseña actual no es correcta.",
+  "settings_password_too_many": "Demasiadas contraseñas incorrectas. Inténtalo de nuevo en {minutes} min.",
+  "settings_password_failed": "No se pudo cambiar la contraseña. Inténtalo de nuevo."
 }

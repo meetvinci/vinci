@@ -9,6 +9,8 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { ClientOnly } from '@tanstack/react-router';
 import { useId, useState } from 'react';
 import { match } from 'ts-pattern';
+import { SettingsPassword } from '@/components/settings/settings-password';
+import { useTeam } from '@/hooks/use-team';
 import { localeChoice, localeChoose, localeSystem } from '@/services/locale/locale.client';
 import { LOCALE_FLAGS } from '@/services/locale/locale.constants';
 import { pushEnable, pushState } from '@/services/push/push.client';
@@ -104,6 +106,7 @@ function SettingsGeneralNotifications() {
 
 export function SettingsGeneral() {
   const notify = useNotificationSettings();
+  const team = useTeam();
 
   return (
     <SettingsGroup title={m.settings_general()}>
@@ -128,6 +131,7 @@ export function SettingsGeneral() {
           </SelectContent>
         </Select>
       </PanelRow>
+      {team.hasPassword ? <SettingsPassword /> : null}
     </SettingsGroup>
   );
 }

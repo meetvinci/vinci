@@ -27,3 +27,7 @@ export function accountsRecord(deps: AccountsTypes.AccountsServiceDeps, { action
     });
   }
 }
+
+export function accountsForget({ sessions }: AccountsTypes.AccountsServiceDeps, { email, keep }: AccountsTypes.AccountsForgetParams): void {
+  [...sessions].filter(([token, entry]) => entry.email === email && token !== keep).forEach(([token]) => sessions.delete(token));
+}

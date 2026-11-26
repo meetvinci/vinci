@@ -11,7 +11,7 @@ import type { User, UserDaemon, UserService } from './user.types';
 import type { AdminOutsideInput, ConversationTarget } from '@repo/contracts/universal';
 
 export interface CoreServices {
-  access: AccessService;
+  access: AccessService | null;
   users: UserService;
   daemons: DaemonService;
   global: GlobalService;
@@ -87,9 +87,8 @@ export interface CoreContext extends CoreAdminContext {
 }
 
 export interface CoreSocket {
-  email: string;
+  identity: AccessIdentity;
   userId: string;
-  expiresAt: number;
   checker: Timer | null;
   target: string;
   origin: string | null;

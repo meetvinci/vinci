@@ -6,6 +6,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@repo/ui/empty
 import { LayoutError } from '@repo/ui/layout/layout-error';
 import { Link, useLocation, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
+import { SettingsPasswordDialog } from '@/components/settings/settings-password';
 import { adminNoticeContext } from '@/context/admin';
 import { ADMIN } from '@/services/admin/admin.constants';
 import IconArrowLeft from '~icons/lucide/arrow-left';
@@ -16,11 +17,13 @@ import type { ReactNode } from 'react';
 
 interface AdminLayoutProps {
   email: string
+  hasPassword: boolean
   children: ReactNode
 }
 
-export function AdminLayout({ email, children }: AdminLayoutProps) {
+export function AdminLayout({ email, hasPassword, children }: AdminLayoutProps) {
   const [notice, setNotice] = useState<AdminNotice | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const pathname = useLocation({ select: (location) => location.pathname });
   const { userId } = useParams({ strict: false });
   const isGlobal = userId === ADMIN.templateId;
@@ -53,6 +56,16 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
             <AdminLayoutNavLink isCurrent={pathname.startsWith('/admin/activity')} to="/admin/activity">{m.admin_activity_title()}</AdminLayoutNavLink>
           </nav>
           <p className="ml-auto truncate text-sm text-muted-foreground">{m.admin_signed_in_as({ email })}</p>
+          {hasPassword ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsChangingPassword(true)}
+            >
+              {m.settings_password_change()}
+            </Button>
+          ) : null}
+          {isChangingPassword ? <SettingsPasswordDialog onOpenChange={setIsChangingPassword} /> : null}
         </header>
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6">
           {notice ? <AdminLayoutNotice notice={notice} onDismiss={() => setNotice(null)} /> : null}

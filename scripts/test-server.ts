@@ -20,8 +20,11 @@ const USER_DATA_LIMIT = 32 * 1024;
 const SSH_WAIT_MS = 10 * 60 * 1000;
 const HTTPS_WAIT_MS = 3 * 60 * 1000;
 const LOGIN = '/cdn-cgi/access/login';
-const CERTS = '/cdn-cgi/access/certs';
-const ACCESS_COOKIE = 'CF_Authorization';
+const LOGOUT = '/cdn-cgi/access/logout';
+// A login: the API's Sanctum token, which the hub checks with the API on every request.
+const SESSION_COOKIE = 'vinci_session';
+// How long the hub trusts a checked login (ACCOUNTS.sessionCacheMs in apps/hub), plus a second.
+const SESSION_TRUST_MS = 6000;
 // The daemon's oRPC protocol (packages/contracts, SERVER_PROTOCOL), as the web app speaks it through the hub.
 const RPC_HEADERS = { 'content-type': 'application/json', 'x-bots-protocol': '1' };
 
@@ -198,23 +201,25 @@ async function checkPublic(host: string) {
     fail(`${origin}/ answered ${home?.status} ${location.href}, not 302 to ${LOGIN}.`);
   }
 
-  const certs = await fetch(`${origin}${CERTS}`);
-  const keys: unknown = certs.ok ? (await certs.json() as { keys?: unknown }).keys : undefined;
+  // A made-up login token gets past Caddy (it only looks for the cookie) and the hub refuses it.
+  const forged = await fetch(`${origin}/hub/whoami`, { headers: { cookie: `${SESSION_COOKIE}=1|forged` }, redirect: 'manual' });
 
-  if (!Array.isArray(keys) || keys.length === 0) {
-    fail(`${origin}${CERTS} answered ${certs.status} without keys.`);
+  if (forged.status !== 401) {
+    fail(`/hub/whoami with a made-up ${SESSION_COOKIE} answered ${forged.status}, not 401.`);
   }
 
-  console.log(`${origin}/: 302 to ${LOGIN}; ${CERTS}: 200 with ${keys.length} key(s)`);
+  console.log(`${origin}/: 302 to ${LOGIN}; /hub/whoami with a made-up login: 401`);
 }
 
 // Logs in with the admin's password, read over SSH and kept in memory, then reaches the hub as that person.
 async function checkLogin(server: string, host: string, admin: string) {
   const origin = `https://${host}`;
-  const password = ssh(server, 'cat /opt/vinci/admin-password').stdout.trim();
+  const password = ssh(server, 'cat /opt/vinci/admin-password 2>/dev/null').stdout.trim();
 
+  // The provisioner deletes the file once the admin changed their password: nothing to log in with from here.
   if (password === '') {
-    fail('No admin password on the server (/opt/vinci/admin-password).');
+    console.log('Login skipped: /opt/vinci/admin-password is gone, the admin changed their password.');
+    return;
   }
 
   const form = await fetch(`${origin}${LOGIN}?redirect_url=/`);
@@ -236,10 +241,10 @@ async function checkLogin(server: string, host: string, admin: string) {
     headers: { cookie: cookies },
   });
 
-  const access = cookieOf(login, ACCESS_COOKIE);
+  const access = cookieOf(login, SESSION_COOKIE);
 
   if (login.status !== 302 || access === undefined) {
-    fail(`The admin's login answered ${login.status} without ${ACCESS_COOKIE}.`);
+    fail(`The admin's login answered ${login.status} without ${SESSION_COOKIE}.`);
   }
 
   const whoami = await fetch(`${origin}/hub/whoami`, { headers: { cookie: access } });
@@ -276,13 +281,30 @@ async function checkLogin(server: string, host: string, admin: string) {
 
   console.log(`Logged in as the admin: whoami names them as admin, the browser paired with daemon ${identity.serverId}, and the chat's bots.list answers 200`);
 
-  return access.slice(ACCESS_COOKIE.length + 1);
+  return access;
 }
 
-// deploy.ts's check of the public address, also logged in as the admin, so the hub, web app and daemon answer too.
-function checkDisclosures(host: string, access: string) {
+// Logging out ends the login in the API: the same cookie, kept as a copy, no longer gets in once the hub's 5 s trust in
+// the last check runs out.
+async function checkLogout(host: string, access: string) {
+  const origin = `https://${host}`;
+  const logout = await fetch(`${origin}${LOGOUT}`, { headers: { cookie: access }, redirect: 'manual' });
+
+  await Bun.sleep(SESSION_TRUST_MS);
+
+  const after = await fetch(`${origin}/hub/whoami`, { headers: { cookie: access }, redirect: 'manual' });
+
+  if (logout.status !== 302 || after.status !== 401) {
+    fail(`Logout answered ${logout.status}; /hub/whoami with the old cookie then answered ${after.status}, not 401.`);
+  }
+
+  console.log('Logged out: /hub/whoami with a copy of the old cookie answers 401 within 6 s');
+}
+
+// deploy.ts's check of the public address, logged in as the admin when it could, so the hub, web app and daemon answer too.
+function checkDisclosures(host: string, access: string | undefined) {
   const result = Bun.spawnSync(['bun', path.join(root, 'scripts/deploy.ts'), 'check', `https://${host}`], {
-    env: { ...process.env, VINCI_CHECK_COOKIE: access },
+    env: { ...process.env, VINCI_CHECK_COOKIE: access?.slice(SESSION_COOKIE.length + 1) ?? '' },
     stdout: 'inherit',
     stderr: 'inherit',
   });
@@ -328,7 +350,7 @@ async function rebuild() {
   }
 
   await checkPublic(install.host);
-  checkDisclosures(install.host, await checkLogin(server, install.host, install.admin));
+  await checkSession(server, install);
   console.log(`[${elapsed()}] Done: https://${install.host}/`);
 }
 
@@ -337,7 +359,18 @@ async function checkCommand() {
   const install = installOptions(server, values);
 
   await checkPublic(install.host);
-  checkDisclosures(install.host, await checkLogin(server, install.host, install.admin));
+  await checkSession(server, install);
+}
+
+// The admin's login, the public address's disclosure check while logged in, then logout ending the login.
+async function checkSession(server: string, install: Install) {
+  const access = await checkLogin(server, install.host, install.admin);
+
+  checkDisclosures(install.host, access);
+
+  if (access !== undefined) {
+    await checkLogout(install.host, access);
+  }
 }
 
 function status() {
@@ -351,13 +384,14 @@ function status() {
   }
 }
 
-// Prints the admin's first password to this terminal only: nothing else of this script shows it.
+// Prints the admin's first password to this terminal only: nothing else of this script shows it. Gone once the admin
+// changed their password.
 function passwordCommand() {
   const { server } = options();
   const result = ssh(server, 'cat /opt/vinci/admin-password');
 
   if (!result.ok) {
-    fail(`No admin password on ${server}: ${result.stderr.trim()}`);
+    fail(`No admin password on ${server} (gone once the admin changed it): ${result.stderr.trim()}`);
   }
 
   console.log(result.stdout.trim());

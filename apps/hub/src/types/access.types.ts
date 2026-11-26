@@ -52,6 +52,7 @@ export interface AccessVerifyParams {
 }
 
 export interface AccessIdentity {
+  kind: 'access' | 'session';
   email: string;
   token: string;
   expiresAt: number;

@@ -8,7 +8,7 @@ export const adminAccessState = z.enum(['allowed', 'not-allowed', 'unknown']);
 export const adminAccessMode = z.enum(['emails', 'domain', 'unknown']);
 export const adminUserState = z.enum(['running', 'starting', 'stopped', 'unknown']);
 
-export const adminMe = z.object({ email: adminEmail });
+export const adminMe = z.object({ email: adminEmail, hasPassword: z.boolean().default(false) });
 
 export const admin = z.object({ email: adminEmail });
 export const adminList = z.object({ admins: z.array(admin.extend({ access: adminAccessState })) });

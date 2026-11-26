@@ -58,7 +58,7 @@ export async function accessQueryVerify(deps: AccessTypes.AccessServiceDeps, { t
     .otherwise(() => null);
 
   return match({ failure, email: claims.data.email })
-    .with({ failure: null, email: P.string }, ({ email }) => ({ email: email.toLowerCase(), token, expiresAt: claims.data.exp * 1000 }))
+    .with({ failure: null, email: P.string }, ({ email }) => ({ kind: 'access' as const, email: email.toLowerCase(), token, expiresAt: claims.data.exp * 1000 }))
     .otherwise(() => {
       throw new Errors.UNAUTHORIZED({ internal: `Access token rejected: ${failure ?? 'no email'}` });
     });

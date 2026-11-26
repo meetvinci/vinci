@@ -45,7 +45,7 @@ export function coreAdminApi(services: CoreTypes.CoreServices, context: CoreType
   }
 
   return match({ method: request.method, segments })
-    .with({ method: 'GET', segments: ['me'] }, async () => Response.json({ email: by }, { headers: NO_STORE }))
+    .with({ method: 'GET', segments: ['me'] }, async () => Response.json({ email: by, hasPassword: identity.kind === 'session' }, { headers: NO_STORE }))
     .with({ method: 'GET', segments: ['audit'] }, async () => {
       const input = coreAdminValid(auditListInput.safeParse(Object.fromEntries(url.searchParams)));
 

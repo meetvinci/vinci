@@ -5,6 +5,7 @@ export const CONNECTION = {
   healthPath: '/health',
   accessHeader: 'cf-access-jwt-assertion',
   accessCookie: 'CF_Authorization',
+  sessionCookie: 'vinci_session',
   reauthKey: 'bots.reauth',
   reauthWindowMs: 60_000,
   cookieMaxAgeSeconds: 365 * 24 * 60 * 60,

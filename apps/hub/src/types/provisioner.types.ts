@@ -16,6 +16,8 @@ export const provisionerUsers = z.object({ users: z.array(provisionerUser) });
 
 export const provisionerReply = z.looseObject({ access: provisionerAccess });
 
+export const provisionerRemoved = z.object({ removed: z.boolean() });
+
 export const provisionerAccessRule = z.object({
   domains: z.array(z.string().toLowerCase()),
   emails: z.array(z.email().transform((email) => email.toLowerCase())).nullable(),

@@ -22,9 +22,9 @@ Every setting and file in a team install. "Set by the image" means the container
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
 | `VINCI_DB_PASSWORD`, `VINCI_POSTGRES_PASSWORD` | 64 hex characters each | PostgreSQL passwords for Laravel's database owner and the PostgreSQL administrator. Generate once in [install, step 7](install.md#7-start-vinci). Required. |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. With `VINCI_AUTH=laravel` only the first two: `ACCESS_TEAM_DOMAIN=http://api:8080`, the API, and `ACCESS_AUD` 64 random hex characters. |
-| `API_APP_KEY` | `base64:` and 32 random bytes | `VINCI_AUTH=laravel` only: Laravel's `APP_KEY`. Encrypts the login form's session and the API's signing key in PostgreSQL; changing it makes that key unreadable. Secret. |
-| `API_INTERNAL_TOKEN` | 64 hex characters | `VINCI_AUTH=laravel` only: the secret the hub sends to the API's `/internal/users` routes to add, reset and remove accounts for the admin panel. Secret. |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. With `VINCI_AUTH=laravel` none of them: an older install's `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` are ignored. |
+| `API_APP_KEY` | `base64:` and 32 random bytes | `VINCI_AUTH=laravel` only: Laravel's `APP_KEY`. Encrypts the login form's own session cookie; changing it only makes open login forms start over. Secret. |
+| `API_INTERNAL_TOKEN` | 64 hex characters | `VINCI_AUTH=laravel` only: the secret the hub sends to the API's `/internal` routes: `/internal/session` to check each login and change a person's own password, `/internal/users` to add, reset and remove accounts for the admin panel. Secret. |
 | `BACKUP_TIME` | `03:00` | When the nightly backup runs, in server time. Read by `bun deploy.ts nightly install`; run it again after a change. |
 | `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY` | `7`, `4` | How many days and weeks of nightly backups to keep. See [backups](admin.md#nightly-backups). |
 | `BACKUP_S3_BUCKET` | empty | Optional: an S3-compatible bucket that receives an encrypted copy of each good nightly backup. See [off-site copy](admin.md#off-site-copy). |
@@ -64,8 +64,8 @@ A required value that is missing stops `docker compose` with a message naming it
 
 | Setting | Value in a team install | What it does |
 | --- | --- | --- |
-| `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | Where the hub fetches Cloudflare's keys to check logins. Required: the hub won't start without it. |
-| `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required. |
+| `ACCESS_TEAM_DOMAIN` | `https://<your-team>.cloudflareaccess.com` | Where the hub fetches Cloudflare's keys to check logins. Required without `HUB_ACCOUNTS_URL`: the hub won't start without it. |
+| `ACCESS_AUD` | the AUD tag of the team's Access application | Makes sure a login was for this application. Required without `HUB_ACCOUNTS_URL`. |
 | `HUB_HOST` | `0.0.0.0` (set by the image) | Listen on the container's network. Outside the image the default is `127.0.0.1`. |
 | `HUB_PORT` | `47192` (set by the image) | The port cloudflared connects to. Internal only. |
 | `HUB_DATA_DIR` | `/data` (set by the image) | Holds `users.json`, `admins.json`, `pins.json`, `global.json` and `audit.sqlite`. Compose mounts the server folder `/opt/vinci/hub` there. |
@@ -75,7 +75,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `HUB_VERSION` | the image tag, `VINCI_TAG` from `.env` (set by Compose) | The version whose start the hub copies the global settings on. A restart on the same version copies nothing (`hub/start-sync.json`). Without it every start copies them. Give each upgrade its own tag: new images under the same tag (such as `latest`) count as the same version, so press *Sync now* after such an upgrade. |
 | `PROVISIONER_URL` | `http://provisioner:47193` (set by Compose) | Where the hub asks for people to be added, changed or removed. Without it (outside Compose) the panel lists people but changes answer 501. |
 | `PROVISIONER_TOKEN` | generated into `.env` at install (set by Compose) | Sent to the provisioner on every call. Required with `PROVISIONER_URL`; the hub won't start without it. Secret. |
-| `HUB_ACCOUNTS_URL`, `HUB_ACCOUNTS_TOKEN` | `http://api:8080` and `API_INTERNAL_TOKEN` (set by `caddy.compose.yaml`) | `VINCI_AUTH=laravel` only: where the admin panel manages login accounts, and its secret. Unset with Cloudflare Access. |
+| `HUB_ACCOUNTS_URL`, `HUB_ACCOUNTS_TOKEN` | `http://api:8080` and `API_INTERNAL_TOKEN` (set by `caddy.compose.yaml`) | `VINCI_AUTH=laravel` only: where the hub checks logins (the `vinci_session` cookie, trusted for 5 seconds) and manages login accounts, and its secret. With it set the hub ignores `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD`. Unset with Cloudflare Access. |
 
 The hub runs as the same user as the daemons (uid 1000), because it talks to their owner sockets.
 
@@ -141,7 +141,7 @@ Nothing is published on the server's network interfaces, except ports 80 and 443
 | --- | --- | --- |
 | `vinci_tunnel` | cloudflared and the hub; Caddy instead of cloudflared with `VINCI_AUTH=laravel` | yes: the tunnel, and the hub's fetch of Cloudflare's login keys; Caddy's certificates |
 | `vinci_login` | Caddy and the API, `VINCI_AUTH=laravel` only | no |
-| `vinci_accounts` | the hub and the API, `VINCI_AUTH=laravel` only: the login key and the accounts of the admin panel | no |
+| `vinci_accounts` | the hub and the API, `VINCI_AUTH=laravel` only: login checks, password changes and the accounts of the admin panel | no |
 | `vinci_web` | the hub and the web app | no |
 | `vinci_api` | the Laravel API and PostgreSQL | no |
 | `vinci_provisioner` | the hub and the provisioner | no |

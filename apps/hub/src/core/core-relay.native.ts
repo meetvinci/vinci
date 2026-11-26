@@ -1,3 +1,4 @@
+import { isAppError } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import type * as CoreTypes from '../types/core.types';
 import type { ServerWebSocket, WebSocketHandler, WebSocketOptions } from 'bun';
@@ -52,9 +53,15 @@ export function makeCoreRelay(services: CoreTypes.CoreServices): WebSocketHandle
 }
 
 async function coreRelayRecheck(services: CoreTypes.CoreServices, socket: ServerWebSocket<CoreTypes.CoreSocket>): Promise<void> {
-  const user = await services.users.queries.find({ email: socket.data.email });
+  const { identity } = socket.data;
 
-  if (Date.now() >= socket.data.expiresAt || user?.id !== socket.data.userId) {
+  const isLoggedIn = identity.kind === 'access' || await services.accounts.queries.session({ token: identity.token })
+    .then(({ email }) => email === identity.email)
+    .catch((error: unknown) => !(isAppError(error) && error.code === 'UNAUTHORIZED'));
+
+  const user = await services.users.queries.find({ email: identity.email });
+
+  if (!isLoggedIn || Date.now() >= identity.expiresAt || user?.id !== socket.data.userId) {
     socket.close(1008);
   }
 }
