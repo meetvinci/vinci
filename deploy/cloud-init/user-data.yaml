@@ -18,7 +18,7 @@ write_files:
     permissions: '0700'
     content: |
       #!/bin/bash
-      # Installs Vinci as docs/team-workspace/install.md does, with Laravel logins. Safe to run again: it keeps .env's
+      # Installs Vinci as docs/install/install.md does, with Laravel logins. Safe to run again: it keeps .env's
       # secrets and the admin's password and repeats the rest.
       set -Eeuo pipefail
       umask 077

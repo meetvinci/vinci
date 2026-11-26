@@ -8,7 +8,7 @@ It is an early version, meant for people who trust each other.
 
 ## Install
 
-Read the [install overview](docs/team-workspace/README.md), then follow the [install guide](docs/team-workspace/install.md).
+Read the [install overview](docs/install/README.md), then follow the [install guide](docs/install/install.md).
 
 ## Develop
 

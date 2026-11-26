@@ -161,7 +161,7 @@ Vinci no longer logs people in through Cloudflare Access: the Laravel API is the
 
 **Give this to your agent:**
 
-> On `root@<server>`, move the Vinci install from Cloudflare Access to Vinci accounts as "Move from Cloudflare Access" in `docs/team-workspace/admin.md` says: back up first, keep the tunnel `<yes or no>`, generate the secrets on the server, never print `.env` or a password. Report `bun deploy.ts status`, and tell me which people now have a login, without the passwords.
+> On `root@<server>`, move the Vinci install from Cloudflare Access to Vinci accounts as "Move from Cloudflare Access" in `docs/install/admin.md` says: back up first, keep the tunnel `<yes or no>`, generate the secrets on the server, never print `.env` or a password. Report `bun deploy.ts status`, and tell me which people now have a login, without the passwords.
 
 ## Set model API keys
 
@@ -271,7 +271,7 @@ Every read is recorded with your email, the person, the bot and the conversation
 
 **Give this to your agent:**
 
-> On the Vinci team install at `https://<team host>`, I'm an admin. Open `/admin`, add user `<name>` with email `<email>`, then on their page create a bot called `<bot>` with model `<model>` and these instructions: `<text>`. If the panel says they can't sign in yet, run the `cloudflare emails` step from the "Add a person" section of `docs/team-workspace/admin.md` in my checkout. Confirm the bot appears in their Bots tab.
+> On the Vinci team install at `https://<team host>`, I'm an admin. Open `/admin`, add user `<name>` with email `<email>`, then on their page create a bot called `<bot>` with model `<model>` and these instructions: `<text>`. If the panel says they can't sign in yet, run the `cloudflare emails` step from the "Add a person" section of `docs/install/admin.md` in my checkout. Confirm the bot appears in their Bots tab.
 
 ## The app on phones and computers
 
@@ -486,7 +486,7 @@ docker compose exec daemon-<id> bun -e 'const gw = (await Bun.file("/proc/net/ro
 
 **Give this to your agent:**
 
-> On `root@<server>`, in `/opt/vinci`, check what bots can reach: `bun deploy.ts firewall status` must say `healthy` (report any problem it lists); `iptables -S DOCKER-USER` and `iptables -S INPUT` must each start with a jump to `VINCI-DAEMONS` / `VINCI-DAEMONS-HOST` for `-i mv-d+`, and the `INPUT` policy must be unchanged. From one person's sandbox and from their Vinci, run the two checks in the "What a bot can reach" section of `docs/team-workspace/admin.md`: public 200, everything else blocked. `bun deploy.ts status` must exit 0. Don't change `VINCI_INTERNAL_ALLOW` unless I name an address.
+> On `root@<server>`, in `/opt/vinci`, check what bots can reach: `bun deploy.ts firewall status` must say `healthy` (report any problem it lists); `iptables -S DOCKER-USER` and `iptables -S INPUT` must each start with a jump to `VINCI-DAEMONS` / `VINCI-DAEMONS-HOST` for `-i mv-d+`, and the `INPUT` policy must be unchanged. From one person's sandbox and from their Vinci, run the two checks in the "What a bot can reach" section of `docs/install/admin.md`: public 200, everything else blocked. `bun deploy.ts status` must exit 0. Don't change `VINCI_INTERNAL_ALLOW` unless I name an address.
 
 ## Disk limits
 

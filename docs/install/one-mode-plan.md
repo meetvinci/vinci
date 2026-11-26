@@ -167,7 +167,7 @@ The mobile app has no team awareness at all (no `TEAM_MANAGED` handling beyond t
 | Item | Verdict |
 | --- | --- |
 | `README.md`: tagline "Your own bots, on your own Mac", intro, Download, Run it locally step 3, iPhone, Desktop app, The `vinci` command, Release (server tarball), Container images ("pair it with `docker exec … vinci pair`") | **change** (E): product = Docker install; "Run it locally" = development |
-| `docs/team-workspace/README.md`, `install.md` | **change** (D, E): add the solo case |
+| `docs/install/README.md`, `install.md` | **change** (D, E): add the solo case |
 | `.agents/references/api.md`: Daemon and storage (CLI), Connection (addresses, PIN), Team daemon refusals ("in a team daemon"), line 163 ("single-owner app") | **change** (E, with each piece) |
 | `.agents/references/team-workspace.md`: Design ("unchanged single-owner daemon"), 11 "single-owner" mentions, gotcha 198 | **change** (E): add one decision row at the end |
 | `AGENTS.md` (`CLAUDE.md` links to it) | **change**, owner approval; text in section 6 |
@@ -251,12 +251,12 @@ Each piece owns its files. No two pieces in the same step touch the same file.
 
 **D. Solo install proof.**
 - Scope: install by `install.md` with one email as admin and user on a fresh small server or a `docker:dind` box; measure memory; write a "Just me" section.
-- Files: `docs/team-workspace/install.md` only.
+- Files: `docs/install/install.md` only.
 - Proof: login, first chat with a mock model, `/admin` reachable, `docker stats` numbers in the doc.
 - Owner first: whether to rent a 2 GB server (memory note: test server may be wiped or another opened).
 
 **E. Docs and guidance.** Merge last in step 1.
-- Files: `README.md`, `docs/team-workspace/README.md`, `.agents/references/api.md`, `.agents/references/team-workspace.md` (one decision row at the end).
+- Files: `README.md`, `docs/install/README.md`, `.agents/references/api.md`, `.agents/references/team-workspace.md` (one decision row at the end).
 - Then `bun run agents:sync`. `AGENTS.md` and `architecture.md` only after the owner approves section 6.
 
 ### Step 2: after question 3
@@ -327,7 +327,7 @@ Rules, replacing the pairing rule:
 
 Read first, replacing the team line:
 
-> - For the install (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/team-workspace/` current when that work changes.
+> - For the install (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/install/` current when that work changes.
 
 If question 3 is answered "through a hub", the `dev:pair` rule changes to: "`bun run dev:web` starts the daemon, the hub and the web app; open `http://localhost:47190` and you are signed in as the dev user."
 

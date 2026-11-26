@@ -5,7 +5,7 @@ description: "Install and run a Vinci team install: one daemon per person in Doc
 
 # Deploy a team install
 
-The human guides in `docs/team-workspace/` are the single source of truth for commands. This skill says what to ask, in what order to work, what never to do, and how to prove each step. Read the guide section named in each step and run its commands as written; when a command fails or its output differs, use the "If it differs" notes there and `troubleshooting.md` before improvising. When you fix a guide's command, fix the guide too.
+The human guides in `docs/install/` are the single source of truth for commands. This skill says what to ask, in what order to work, what never to do, and how to prove each step. Read the guide section named in each step and run its commands as written; when a command fails or its output differs, use the "If it differs" notes there and `troubleshooting.md` before improvising. When you fix a guide's command, fix the guide too.
 
 ## Ask first
 
@@ -37,7 +37,7 @@ If the token read fails (1Password prints `authorization timeout`, the script sa
 
 ## Install
 
-Follow `docs/team-workspace/install.md` steps 1 to 8 in order. Stop at the first failed check and report it.
+Follow `docs/install/install.md` steps 1 to 8 in order. Stop at the first failed check and report it.
 
 | Step | Proof it worked |
 | --- | --- |
@@ -135,4 +135,4 @@ Done in the panel by an admin (`admin.md`, "Global settings and suggested bots")
 
 ## When something is off
 
-Read `docs/team-workspace/troubleshooting.md`, then `.agents/references/team-workspace.md` (risks and gotchas, with evidence). Report what you saw, what you changed and how you proved it.
+Read `docs/install/troubleshooting.md`, then `.agents/references/team-workspace.md` (risks and gotchas, with evidence). Report what you saw, what you changed and how you proved it.

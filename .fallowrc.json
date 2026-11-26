@@ -11,6 +11,8 @@
     "apps/web/src/application/routes.ts",
     "apps/web/src/application/router.tsx",
     "apps/web/vite/**/*.ts",
+    "apps/docs/src/application/routes.ts",
+    "apps/docs/src/application/router.tsx",
     "scripts/**/*.ts",
     "apps/desktop/src/desktop.ts",
     "apps/desktop/src/views/connect/index.ts",
@@ -20,7 +22,9 @@
     "!.agents/**",
     "packages/i18n/src/paraglide/**",
     "**/*.generated.ts",
-    "apps/web/src/application/routes.tree.ts"
+    "apps/web/src/application/routes.tree.ts",
+    "apps/docs/src/application/routes.tree.ts",
+    "docs/**/*.mdx"
   ],
   "ignoreDependencies": [
     "oxlint-tsgolint",
@@ -59,6 +63,7 @@
       "apps/hub",
       "apps/mobile",
       "apps/web",
+      "apps/docs",
       "packages/*"
     ]
   },

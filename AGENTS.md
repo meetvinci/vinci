@@ -7,7 +7,7 @@ A bot backend. Vinci installs one way: Docker, with a hub (`apps/hub`) that take
 - Before code changes, read `.agents/references/architecture.md` for structure and module conventions.
 - For daemon, RPC, storage and Pi behavior, read `.agents/references/api.md`.
 - Before UI changes, read `DESIGN.md`.
-- For the install (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/team-workspace/` current when that work changes.
+- For the install (hub, containers, deployment), read `.agents/references/team-workspace.md`; keep it and `docs/install/` current when that work changes.
 - To install, operate or tear down a team installation on a server, use the `vinci-deploy` skill.
 - For Pi Durable work, read `packages/runtime/node_modules/@earendil-works/pi-durable/README.md` first.
 
