@@ -1,4 +1,4 @@
-import { ATTACHMENT, attachmentMessage, attachmentSent, ENTRY, entryOwnerNote, entryPeerMessage, entryRoutineRun, entrySubagentReport, REACTION, REPLY, replyMessage, replySilent, toolCallJson } from '@repo/contracts/universal';
+import { ATTACHMENT, attachmentMessage, attachmentSent, ENTRY, entryOwnerNote, entryPeerMessage, entryRoutineRun, entrySubagentReport, MODEL_FAILURE, REACTION, REPLY, replyMessage, replySilent, toolCallJson } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { match, P } from 'ts-pattern';
 import { mentionHref, mentionSubmission } from '../mention/mention.utils';
@@ -260,6 +260,13 @@ function chatDraftReady(message: ChatTypes.ChatMessage): ChatTypes.ChatMessage {
   };
 }
 
+function chatFailureText(errorMessage: string) {
+  return match(errorMessage)
+    .with(MODEL_FAILURE.stalled, () => m.rooms_event_failed_stalled())
+    .with(MODEL_FAILURE.toolLoop, () => m.rooms_event_failed_tool_loop())
+    .otherwise(() => errorMessage);
+}
+
 function chatAssistantEntry(messages: ChatTypes.ChatMessage[], entry: ChatTypes.ChatEntry, bot: UniversalTypes.Bot, createdAt: number) {
   const message = entry.model?.[0];
 
@@ -268,7 +275,7 @@ function chatAssistantEntry(messages: ChatTypes.ChatMessage[], entry: ChatTypes.
       const parts: ChatTypes.ChatPart[] = [
         ...chatAssistantParts(answer.content, 'done'),
         ...match(answer)
-          .with({ stopReason: 'error', errorMessage: P.string.minLength(1) }, ({ errorMessage }) => [{ type: 'data-failure' as const, data: { text: errorMessage } }])
+          .with({ stopReason: 'error', errorMessage: P.string.minLength(1) }, ({ errorMessage }) => [{ type: 'data-failure' as const, data: { text: chatFailureText(errorMessage) } }])
           .otherwise(() => []),
       ];
 

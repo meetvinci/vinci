@@ -95,6 +95,8 @@ export interface RuntimeToolsDeps extends Pick<RuntimeServiceDeps, 'harness' | '
   permissions: RuntimeToolPolicy;
 }
 
+export type RuntimeToolGuardDeps = Pick<RuntimeServiceDeps, 'harness'>;
+
 export interface RuntimeToolCall {
   botId: string;
   taskId: number;

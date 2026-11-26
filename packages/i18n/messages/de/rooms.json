@@ -288,6 +288,8 @@
   "rooms_event_owner_note": "Aus einem privaten Chat mit",
   "rooms_event_private_source": "Gefragt in einem privaten Chat mit",
   "rooms_event_failed": "Antwort fehlgeschlagen",
+  "rooms_event_failed_stalled": "Das Modell hat nicht geantwortet. Versuche es erneut.",
+  "rooms_event_failed_tool_loop": "Ein Schritt ist immer wieder fehlgeschlagen, deshalb hat der Bot aufgehört. Versuche es erneut oder frag anders.",
   "rooms_event_approval_expired": "Anfrage abgelaufen",
   "rooms_event_approval_expired_detail": "Niemand hat rechtzeitig geantwortet, daher hat {name} es nicht ausgeführt.",
   "rooms_event_reasoning": "Gedanken von",

@@ -288,6 +288,8 @@
   "rooms_event_owner_note": "Soulevé depuis une discussion privée avec",
   "rooms_event_private_source": "Demandé dans une discussion privée avec",
   "rooms_event_failed": "Échec de la réponse",
+  "rooms_event_failed_stalled": "Le modèle n’a pas répondu. Réessayez.",
+  "rooms_event_failed_tool_loop": "Une étape échouait sans cesse, le bot s’est donc arrêté. Réessayez ou formulez la demande autrement.",
   "rooms_event_approval_expired": "Demande expirée",
   "rooms_event_approval_expired_detail": "Personne n’a répondu à temps, donc {name} ne l’a pas exécuté.",
   "rooms_event_reasoning": "Réflexions de",

@@ -2,8 +2,10 @@ import { createAssistantMessageEventStream } from '@earendil-works/pi-ai/utils/e
 import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import { runtimeModelRoute } from '../../types/runtime-model.types';
+import { runtimeModelStall } from './runtime-model-stall.utils';
 import { runtimeModelStream, runtimeModelStreamFailure } from './runtime-model-stream.utils';
 import { runtimeModelTrace } from './runtime-model-trace.utils';
+import { runtimeToolGuardStream } from './runtime-tool-guard.utils';
 import { RUNTIME_FALLBACK_PROVIDER, RUNTIME_MAX_MODEL_REQUESTS } from './runtime.constants';
 import type { RuntimeBotParams } from '../../types/runtime.types';
 import type { Models } from '@earendil-works/pi-ai/models';
@@ -22,7 +24,7 @@ export function runtimeModelRef(bot: RuntimeBotParams): ModelRef {
 }
 
 export function runtimeModels(source: Models): Models {
-  const tracedStream = runtimeModelTrace(source.streamSimple.bind(source));
+  const tracedStream = runtimeModelStall(runtimeModelTrace(source.streamSimple.bind(source)));
 
   const models = new Proxy(source, {
     get: (target, property) => match(property)
@@ -60,7 +62,7 @@ export function runtimeModels(source: Models): Models {
     }))
     .otherwise(() => models.streamSimple(model, context, options));
 
-  const streamSimple = runtimeModelLimit(runtimeModelRoutedStream, RUNTIME_MAX_MODEL_REQUESTS);
+  const streamSimple = runtimeModelLimit(runtimeToolGuardStream(runtimeModelRoutedStream), RUNTIME_MAX_MODEL_REQUESTS);
 
   const runtimeModelComplete: Models['completeSimple'] = (model, context, options) => streamSimple(model, context, options).result();
 

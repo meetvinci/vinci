@@ -288,6 +288,8 @@
   "rooms_event_owner_note": "Planteado desde un chat privado con",
   "rooms_event_private_source": "Preguntado en un chat privado con",
   "rooms_event_failed": "La respuesta falló",
+  "rooms_event_failed_stalled": "El modelo no respondió. Inténtalo de nuevo.",
+  "rooms_event_failed_tool_loop": "Un paso siguió fallando, así que el bot se detuvo. Inténtalo de nuevo o pídelo de otra forma.",
   "rooms_event_approval_expired": "Solicitud caducada",
   "rooms_event_approval_expired_detail": "Nadie respondió a tiempo, así que {name} no lo ejecutó.",
   "rooms_event_reasoning": "Pensamientos de",

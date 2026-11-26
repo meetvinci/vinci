@@ -288,6 +288,8 @@
   "rooms_event_owner_note": "Raised from a private chat with",
   "rooms_event_private_source": "Asked in a private chat with",
   "rooms_event_failed": "Reply failed",
+  "rooms_event_failed_stalled": "The model didn’t respond. Try again.",
+  "rooms_event_failed_tool_loop": "A step kept failing, so the bot stopped. Try again, or ask in another way.",
   "rooms_event_approval_expired": "Request expired",
   "rooms_event_approval_expired_detail": "Nobody answered in time, so {name} did not run it.",
   "rooms_event_reasoning": "Thoughts from",

@@ -1,6 +1,7 @@
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream';
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow';
 import { isRetryableAssistantError } from '@earendil-works/pi-ai/utils/retry';
+import { MODEL_FAILURE } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { match, P } from 'ts-pattern';
 import type { RuntimeModelRequest } from '../../types/runtime-model.types';
@@ -62,6 +63,7 @@ export function runtimeModelStream(models: Models, { route, context, options }: 
 export function runtimeModelStreamFailure(
   model: Pick<PiAiTypes.AssistantMessage, 'api' | 'provider' | 'model'>,
   options?: ModelsSimpleStreamOptions,
+  errorMessage = 'Model request failed.',
 ): PiAiTypes.AssistantMessageEvent {
   const stopReason = options?.signal?.aborted ? 'aborted' as const : 'error' as const;
 
@@ -81,7 +83,7 @@ export function runtimeModelStreamFailure(
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
       },
       stopReason,
-      errorMessage: 'Model request failed.',
+      errorMessage,
       timestamp: Date.now(),
     },
   };
@@ -97,7 +99,7 @@ function runtimeModelStreamOptions(selection: ModelSelection, model: PiAiTypes.M
 
 function runtimeModelStreamCanFallback(message: PiAiTypes.AssistantMessage) {
   return message.stopReason === 'error' && !isContextOverflow(message)
-    && (isRetryableAssistantError(message)
+    && (isRetryableAssistantError(message) || message.errorMessage === MODEL_FAILURE.stalled
       || /\b(401|403)\b|not configured|no (?:api key|credentials)|unauthorized|authentication|\bauth\b|oauth|token.*(?:expired|invalid)|insufficient_quota|quota exceeded|billing|usage limit/i.test(message.errorMessage ?? ''));
 }
 
