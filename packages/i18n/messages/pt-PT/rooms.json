@@ -137,7 +137,6 @@
   "rooms_action_send_mode": "Quando ocupado",
   "rooms_chat_send_failed": "A sua mensagem não foi enviada. Tente novamente.",
   "rooms_chat_usage": "{input} entrada · {output} saída",
-  "rooms_chat_usage_cost": "{usage} · {cost}",
   "rooms_fresh_done": "Recomeço: as mensagens anteriores são esquecidas aqui.",
   "rooms_fresh_failed": "Não foi possível recomeçar. Tente novamente quando o bot terminar de responder.",
   "rooms_time_today": "Hoje {time}",

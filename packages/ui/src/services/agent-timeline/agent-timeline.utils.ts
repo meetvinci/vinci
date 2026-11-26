@@ -56,7 +56,6 @@ export function agentTimelineModel(run: TimelineTypes.AgentTimelineRun): Timelin
         row,
         end: span.end ?? Number.POSITIVE_INFINITY,
         isOpen: span.end === undefined,
-        spanCost: span.cost ?? 0,
       }])
       .otherwise(() => []))
     .sort((a, b) => a.start - b.start || a.row - b.row)
@@ -88,7 +87,6 @@ export function agentTimelineModel(run: TimelineTypes.AgentTimelineRun): Timelin
     duration,
     totals: {
       tokens: spans.reduce((sum, span) => sum + (span.tokens ?? 0), 0),
-      cost: spans.reduce((sum, span) => sum + span.spanCost, 0),
       speedup: duration > 0 ? busy / duration : 0,
     },
   };
@@ -171,13 +169,6 @@ export function agentTimelineSeconds(seconds: number) {
 
 export const agentTimelineDuration = (seconds: number) => (seconds < 10 ? `${seconds.toFixed(1)}s` : agentTimelineSeconds(seconds));
 export const agentTimelineTokens = (tokens: number) => new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 0 }).format(Math.round(tokens));
-
-export const agentTimelineCost = (cost: number) => new Intl.NumberFormat(getLocale(), {
-  style: 'currency',
-  currency: 'USD',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-}).format(cost);
 
 export function agentTimelineLiveAxis(now: number, last: number) {
   const need = Math.max(now + 4, last + 1, 10);

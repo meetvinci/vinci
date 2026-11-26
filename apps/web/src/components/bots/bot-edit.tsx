@@ -10,7 +10,7 @@ import { SettingsConfirm } from '@repo/ui/settings/settings-confirm';
 import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { SettingsSubview } from '@repo/ui/settings/settings-subview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useRouter } from '@tanstack/react-router';
+import { Link, useLocation, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { match, P } from 'ts-pattern';
@@ -21,11 +21,13 @@ import { BotFormSkills } from '@/components/bots/bot-form-skills';
 import { BotMcp } from '@/components/bots/bot-mcp';
 import { BotMcpEdit } from '@/components/bots/bot-mcp-edit';
 import { BotMcpRemove } from '@/components/bots/bot-mcp-remove';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { RoutinesEdit } from '@/components/routines/routines-edit';
 import { RoutinesList } from '@/components/routines/routines-list';
 import { TodosList } from '@/components/todos/todos-list';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { BOT_FORM_SECTIONS, BOT_NAV } from '@/services/bot/bot.constants';
+import { botPath } from '@/services/bot/bot.utils';
 import IconRotateCcw from '~icons/lucide/rotate-ccw';
 import IconTrash from '~icons/lucide/trash-2';
 import type { BotDialogView } from '@/types/bot.types';
@@ -41,6 +43,8 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
   const router = useRouter();
   const navigate = useNavigate();
   const scope = useSectionScope();
+
+  const path = useLocation({ select: ({ pathname }) => botPath({ pathname, botId: bot.id }) });
 
   const form = useForm({
     resolver: standardSchemaResolver(botForm),
@@ -123,6 +127,7 @@ export function BotEdit({ bot, bots, view }: BotEditProps) {
 
   return (
     <>
+      <LayoutUnsaved isDirty={form.formState.isDirty} path={path} />
       <BotDialogNav
         bot={bot}
         bots={bots}
@@ -290,7 +295,7 @@ interface BotEditDeleteProps {
 function BotEditDelete({ bot, onBack }: BotEditDeleteProps) {
   const navigate = useNavigate();
   const scope = useSectionScope();
-  const remove = useBotDelete({ botId: bot.id, onDeleted: () => navigate(scope.bots.list) });
+  const remove = useBotDelete({ botId: bot.id, onDeleted: () => navigate({ ...scope.bots.list, ignoreBlocker: true }) });
 
   return (
     <SettingsSubview

@@ -16,6 +16,7 @@ import { useEffect } from 'react';
 import { useForm, useFormContext, useWatch } from 'react-hook-form';
 import { BotEdit } from '@/components/bots/bot-edit';
 import { BotFormModel } from '@/components/bots/bot-form-model';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import IconChevronLeft from '~icons/lucide/chevron-left';
@@ -92,7 +93,7 @@ function BotDialogCreate() {
   });
 
   const create = useBotCreate({
-    onCreated: (bot) => void navigate(scope.bots.section(bot.id, 'instructions')),
+    onCreated: (bot) => void navigate({ ...scope.bots.section(bot.id, 'instructions'), ignoreBlocker: true }),
   });
 
   const submit = form.handleSubmit(create.create);
@@ -119,6 +120,7 @@ function BotDialogCreate() {
 
   return (
     <Form {...form}>
+      <LayoutUnsaved isDirty={form.formState.isDirty} />
       <SectionDialogNav
         activeKey=""
         footer={(

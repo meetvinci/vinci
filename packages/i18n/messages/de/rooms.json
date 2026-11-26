@@ -137,7 +137,6 @@
   "rooms_action_send_mode": "Wenn beschäftigt",
   "rooms_chat_send_failed": "Deine Nachricht wurde nicht gesendet. Versuche es erneut.",
   "rooms_chat_usage": "{input} ein · {output} aus",
-  "rooms_chat_usage_cost": "{usage} · {cost}",
   "rooms_fresh_done": "Neuanfang: Frühere Nachrichten werden hier vergessen.",
   "rooms_fresh_failed": "Neuanfang nicht möglich. Versuche es erneut, sobald der Bot fertig geantwortet hat.",
   "rooms_time_today": "Heute {time}",

@@ -9,6 +9,7 @@ import { SettingsGroup } from '@repo/ui/settings/settings-group';
 import { Skeleton } from '@repo/ui/skeleton';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { LayoutUnsaved } from '@/components/layout/layout-unsaved';
 import { adminProblem } from '@/services/admin/admin.utils';
 import type { AdminLimitValues } from '@/types/admin.types';
 import type { LimitSettings } from '@repo/contracts/universal';
@@ -37,13 +38,15 @@ interface AdminUserLimitsFormProps {
 function AdminUserLimitsForm({ settings }: AdminUserLimitsFormProps) {
   const { rpc } = useRpc();
 
-  const [values, setValues] = useState<AdminLimitValues>({
+  const saved: AdminLimitValues = {
     device: settings.device.maxRequests,
     public: settings.public.maxRequests,
     redeem: settings.redeem.maxRequests,
     rpcInFlight: settings.rpcInFlight,
     watchInFlight: settings.watchInFlight,
-  });
+  };
+
+  const [values, setValues] = useState(saved);
 
   const save = useMutation(rpc.limits.configure.mutationOptions({
     meta: {
@@ -76,6 +79,7 @@ function AdminUserLimitsForm({ settings }: AdminUserLimitsFormProps) {
         });
       }}
     >
+      <LayoutUnsaved isDirty={fields.some(({ name }) => values[name] !== saved[name])} />
       <PanelRow>
         <PanelDescription>{m.admin_limits_hint()}</PanelDescription>
       </PanelRow>

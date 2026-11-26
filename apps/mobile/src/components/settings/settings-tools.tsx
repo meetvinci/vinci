@@ -154,6 +154,7 @@ function SettingsToolsForm({ settings, tools }: SettingsToolsFormProps) {
         value={jevApiKey}
         onChangeText={setJevApiKey}
       />
+      <LabelDescription>{m.settings_tools_jev_hint()}</LabelDescription>
       {tools.problem ? <LabelDescription accessibilityRole="alert" variant="error">{tools.problem}</LabelDescription> : null}
       <Button
         loading={tools.isPending}
