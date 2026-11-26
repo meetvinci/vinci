@@ -213,7 +213,6 @@ apps/web/
 ```
 apps/docs/
 ├── vite.config.ts                      Vite config: Fumadocs MDX, TanStack Start in static mode, every page rendered at build
-├── public/<topic>/<name>.html          a link to a standalone page in docs/, served as it is next to the guides
 ├── source.config.ts                    Fumadocs Markdown options: the plugins that turn GitHub alerts and mermaid blocks into site components
 └── src/
     ├── application/router.tsx  routes.ts  styles.css    the router, its route config and global styles

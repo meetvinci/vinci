@@ -42,22 +42,17 @@ export function docsPageHref(href: string, slugs: string[], language: string) {
   const page = docsSource.getPage(slugs, language);
 
   if (!page || /^([a-z]+:|\/|#)/.test(href)) {
-    return { href, isPublicFile: false };
+    return href;
   }
 
   const relative = href.startsWith('.') ? href : `./${href}`;
   const resolved = docsSource.resolveHref(relative, page);
 
   if (resolved !== relative) {
-    return { href: resolved, isPublicFile: false };
+    return resolved;
   }
 
   const { pathname, hash } = new URL(relative, `file:///docs/${page.path}`);
-  const publicFile = DOCS.publicFiles.find((file) => pathname === `/docs/${file}`);
 
-  if (publicFile) {
-    return { href: `${import.meta.env.BASE_URL}${publicFile}${hash}`, isPublicFile: true };
-  }
-
-  return { href: `${DOCS.repositoryUrl}${pathname}${hash}`, isPublicFile: false };
+  return `${DOCS.repositoryUrl}${pathname}${hash}`;
 }

@@ -19,24 +19,11 @@ export function DocsMdxMermaid({ chart }: DocsMdxMermaidProps) {
   return <div className="my-6 overflow-x-auto" dangerouslySetInnerHTML={{ __html: render(chart, { idPrefix: id }).svg }} />;
 }
 
-export function DocsMdxLink({ href, children, ...props }: ComponentProps<'a'>) {
+export function DocsMdxLink({ href, ...props }: ComponentProps<'a'>) {
   const { lang, _splat } = route.useParams();
   const Anchor = defaultMdxComponents.a;
-  const target = href ? docsPageHref(href, _splat?.split('/') ?? [], lang) : null;
 
-  if (target?.isPublicFile) {
-    return (
-      <a href={target.href} {...props}>
-        {children}
-      </a>
-    );
-  }
-
-  return (
-    <Anchor href={target?.href} {...props}>
-      {children}
-    </Anchor>
-  );
+  return <Anchor href={href ? docsPageHref(href, _splat?.split('/') ?? [], lang) : href} {...props} />;
 }
 
 interface DocsMdxBlockquoteProps extends ComponentProps<'blockquote'> {
