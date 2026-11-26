@@ -2713,8 +2713,8 @@ try {
   if (!(command in commands)) {
     fail([
       'Usage:',
-      '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
-      '  bun scripts/deploy.ts cloudflare apply|emails|destroy ...',
+      '  bun scripts/deploy.ts images [daemon|sandbox|web|hub|provisioner|firewall|api ...] [--platform linux/amd64|linux/arm64] [--tag <tag>]',
+      '  bun scripts/deploy.ts cloudflare apply|destroy ...',
       '  bun scripts/deploy.ts check https://<host> no public response names the software or a version behind it',
       'On the server, in /opt/vinci:',
       '  bun deploy.ts check                     the server requirements: memory, disk, CPU and Ubuntu version',
