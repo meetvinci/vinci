@@ -164,6 +164,8 @@ export interface RuntimeDirectory extends CollaborationDirectory {
 
 export interface RuntimeBotParams extends UniversalTypes.ModelSelection {
   id: string;
+  name: string;
+  handle: string;
   fallbackModel?: UniversalTypes.ModelSelection | null;
   instructions: string;
   skillsPrompt: string;
