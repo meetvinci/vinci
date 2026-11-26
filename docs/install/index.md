@@ -1,4 +1,7 @@
-# Installing Vinci
+---
+title: Overview
+description: What a Vinci install is, how login works and the ways to install.
+---
 
 Vinci installs one way: on one Linux server, with Docker, the hub and the admin panel. It serves a small team, about 3 to 7 people. A person on their own installs the same thing and is its only admin and only user: see [Just me](install.md#just-me).
 

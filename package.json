@@ -126,6 +126,7 @@
     "fumadocs-core": "16.19.7",
     "fumadocs-mdx": "15.6.4",
     "fumadocs-ui": "16.19.7",
+    "pele": "1.13.0",
     "@types/mdx": "^2.0.14"
   },
   "catalogs": {

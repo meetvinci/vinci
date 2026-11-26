@@ -5,15 +5,13 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Suspense, use } from 'react';
 import { DOCS } from '@/services/docs/docs.constants';
 import { docsCollection, docsSource } from '@/services/docs/docs.utils';
+import { DocsMdxBlockquote, DocsMdxLink, DocsMdxMermaid } from './docs-mdx';
 
 const route = getRouteApi('/$lang/$');
 
-interface DocsPageContentProps {
-  path: string;
-}
-
-function DocsPageContent({ path }: DocsPageContentProps) {
-  const page = docsCollection.getPage(path);
+function DocsPageContent() {
+  const { lang, _splat } = route.useParams();
+  const page = docsCollection.getPage(docsSource.getPage(_splat?.split('/') ?? [], lang)?.path ?? '');
 
   if (!page) {
     throw notFound();
@@ -27,20 +25,19 @@ function DocsPageContent({ path }: DocsPageContentProps) {
       <DocsTitle>{page.title}</DocsTitle>
       <DocsDescription>{page.description}</DocsDescription>
       <DocsBody>
-        <Mdx components={defaultMdxComponents} />
+        <Mdx components={{ ...defaultMdxComponents, a: DocsMdxLink, blockquote: DocsMdxBlockquote, Mermaid: DocsMdxMermaid }} />
       </DocsBody>
     </DocsPage>
   );
 }
 
 export function DocsPageRoute() {
-  const { path } = route.useLoaderData();
   const { lang } = route.useParams();
 
   return (
     <DocsLayout nav={{ title: DOCS.name }} tree={docsSource.getPageTree(lang)}>
       <Suspense>
-        <DocsPageContent path={path} />
+        <DocsPageContent />
       </Suspense>
     </DocsLayout>
   );

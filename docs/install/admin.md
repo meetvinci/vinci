@@ -1,4 +1,7 @@
-# Admin tasks
+---
+title: Admin tasks
+description: Everyday work for the person who runs the server.
+---
 
 Everyday work for the person who runs the server. Each task ends with a prompt you can paste to an AI coding agent that has SSH access to the server.
 

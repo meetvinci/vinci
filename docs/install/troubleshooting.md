@@ -1,4 +1,7 @@
-# Troubleshooting
+---
+title: Troubleshooting
+description: Known problems, what they look like, and the fix.
+---
 
 Known problems, what they look like, and the fix. Most end with a prompt you can paste to an AI coding agent.
 

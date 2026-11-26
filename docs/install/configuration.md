@@ -1,4 +1,7 @@
-# Configuration
+---
+title: Configuration
+description: Every setting and file in an install.
+---
 
 Every setting and file in a team install. "Set by the image" means the container image already has that value. "Set by Compose" means `deploy/compose/` fills it in from `/opt/vinci/.env`. You only edit `.env` and `users.yaml`.
 

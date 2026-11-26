@@ -1,6 +1,6 @@
 # Team workspace
 
-How Vinci serves a small team (3-7 users per installation) without making the daemon multi-user. Human setup guides: [`docs/install/`](../../docs/install/README.md). Keep this file and those guides current when the design, phase status or a gotcha changes. The repository is public, so those guides are the public documentation: the install overview (`docs/install/README.md`) holds the plain-words summaries (how login works, the three ways to install, deploy and upgrade at a glance), and `admin.md` "Upgrades" keeps the normal upgrade short, with each version's one-time steps under "Notes for older versions" (add a new one there, never to the normal steps).
+How Vinci serves a small team (3-7 users per installation) without making the daemon multi-user. Human setup guides: [`docs/install/`](../../docs/install/index.md). Keep this file and those guides current when the design, phase status or a gotcha changes. The repository is public, so those guides are the public documentation: the install overview (`docs/install/index.md`) holds the plain-words summaries (how login works, the three ways to install, deploy and upgrade at a glance), and `admin.md` "Upgrades" keeps the normal upgrade short, with each version's one-time steps under "Notes for older versions" (add a new one there, never to the normal steps).
 
 ## Design
 

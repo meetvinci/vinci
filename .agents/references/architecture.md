@@ -213,11 +213,13 @@ apps/web/
 ```
 apps/docs/
 ├── vite.config.ts                      Vite config: Fumadocs MDX, TanStack Start in static mode, every page rendered at build
+├── source.config.ts                    Fumadocs Markdown options: the plugins that turn GitHub alerts and mermaid blocks into site components
 └── src/
     ├── application/router.tsx  routes.ts  styles.css    the router, its route config and global styles
     ├── routes/<area>/<area>.<path>.tsx    one route file per URL, TanStack dot names
     ├── components/<area>/<area>-<name>.tsx    feature components of one area
-    └── services/<domain>/<domain>.{utils,constants}.ts    the content source, languages and site constants
+    ├── services/<domain>/<domain>[-<part>].{utils,constants}.ts    the content source, languages, Markdown plugins and site constants
+    └── types/<domain>.types.ts         docs-only types
 ```
 
 ### apps/mobile
@@ -276,8 +278,8 @@ packages/
 ├── DESIGN.md                           UI principles
 ├── README.md                           what Vinci is, setup, scripts
 ├── docs/<topic>/<name>.md              human guides: what it is, install, operate, configure, troubleshoot
-├── docs/<topic>/<name>[.<locale>].mdx  a page of the public docs site; no locale is English, a locale suffix its translation
-├── docs/meta.json                      the order of the docs site's sections
+├── docs/<topic>/<name>[.<locale>].{md,mdx}  a page of the public docs site, with a title in its frontmatter; no locale is English, a locale suffix its translation
+├── docs/meta.json  docs/<topic>/meta.json  the order of the docs site's sections and of a section's pages
 ├── scripts/<app>.ts                    one script per app, a subcommand per build, release or dev step
 ├── scripts/deploy.ts                   container images and deployment, a subcommand per step; `provisioner` serves apply to the hub
 ├── .dockerignore                       keeps dependencies, build output, secrets and local data out of image builds

@@ -1,8 +1,11 @@
-# Install
+---
+title: Install
+description: Set up a server for a team, or for just you, step by step.
+---
 
 Set up a server for one team, or for just you, from a fresh Ubuntu server to a logged-in person. Do the steps in order. Each step ends with a prompt you can paste to an AI coding agent that has SSH access to the server and a checkout of this repository.
 
-An agent can also do the whole install at once: see [the whole install in one prompt](#the-whole-install-in-one-prompt) at the end. Agents working in this repository have the `vinci-deploy` skill with the same procedure. A new server can also [install itself with cloud-init](#install-with-cloud-init). Which to pick: [three ways to install](README.md#three-ways-to-install).
+An agent can also do the whole install at once: see [the whole install in one prompt](#the-whole-install-in-one-prompt) at the end. Agents working in this repository have the `vinci-deploy` skill with the same procedure. A new server can also [install itself with cloud-init](#install-with-cloud-init). Which to pick: [three ways to install](index.md#three-ways-to-install).
 
 ## Before you start
 

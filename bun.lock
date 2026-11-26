@@ -78,6 +78,7 @@
         "fumadocs-core": "catalog:",
         "fumadocs-mdx": "catalog:",
         "fumadocs-ui": "catalog:",
+        "pele": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
         "tailwindcss": "catalog:",
@@ -86,6 +87,7 @@
         "@repo/typescript-config": "workspace:*",
         "@tailwindcss/vite": "catalog:",
         "@tanstack/virtual-file-routes": "catalog:",
+        "@types/mdast": "catalog:",
         "@types/mdx": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
@@ -628,6 +630,7 @@
     "oxlint-plugin-arch": "0.12.2",
     "oxlint-tailwindcss": "1.16.0",
     "oxlint-tsgolint": "^7.0.2003",
+    "pele": "1.13.0",
     "radix-ui": "^1.6.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -3348,6 +3351,8 @@
     "path-type": ["path-type@4.0.0", "", {}, "sha512-gDKb8aZMDeD/tZWs9P6+q0J9Mwkdl6xMV8TjnGP3qJVJ06bdMgkbBlLU8IdfOsIsFz2BW1rNVT3XuNEl8zPAvw=="],
 
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
+
+    "pele": ["pele@1.13.0", "", {}, "sha512-Ie8UKY9x00MsuR3jO6AzUwzK2Z6MIV3Tf4EDdITiuk8Uaz8K7g0R082WqsqNaSU8DdgkrRvZThzhit83mi/uiw=="],
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 

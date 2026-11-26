@@ -1,4 +1,7 @@
-# Install the app on your phone and computer
+---
+title: Install the app
+description: Put Vinci on your phone and computer.
+---
 
 Vinci is a web app you can install. Installed, it opens in its own window without the browser's address bar, sits on your home screen or in your dock, and notifies you when a bot answers, needs your approval or has a question, even when the app is closed.
 
