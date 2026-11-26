@@ -43,6 +43,8 @@ ssh root@<server> 'uname -m; lsb_release -d; grep -m1 -o avx2 /proc/cpuinfo; fre
 
 Expected: `x86_64`, `Ubuntu 24.04…`, `avx2`, a total memory of at least 3.7Gi, and at least 40G available. If `avx2` is missing, the images cannot run on this server.
 
+Once Bun is on the server (step 3), `bun deploy.ts check` in `/opt/vinci` runs the same checks and says `ok`, `warning` or `failed` for each. A later Ubuntu than 24.04, or 30 to 40 GB free, is a `warning`: enough for a test server (a 40 GB disk shows about 35 GB free), not for a team's production install. Less memory, less disk, no AVX2 or another system `failed`, and the command exits non-zero.
+
 **Give this to your agent:**
 
 > SSH to `root@<server>` and run `uname -m; lsb_release -d; grep -m1 -o avx2 /proc/cpuinfo; free -h; df -h /`. Confirm it is `x86_64`, Ubuntu 24.04, prints `avx2`, has at least 3.7 GiB of memory in total and 40 GB of free disk. Report what you find. Change nothing.
@@ -344,6 +346,45 @@ A person on their own installs the same thing as a team. There is no smaller ver
 - In step 5, let in only your own email.
 - Memory: the smallest server in [Before you start](#before-you-start) is plenty. You are one person, plus the template workspace for global settings.
 - You log in with an email code, and the hub pairs your browser. Your bots' security settings, model keys and shared sources live in the admin panel at `/admin`, on your own page. Global settings are there too; you need them only if you add people later.
+
+## Login with Vinci accounts (no Cloudflare)
+
+**For testing for now.** Production installs use Cloudflare Access, steps 1 to 9 above. This mode needs no Cloudflare account and no domain on Cloudflare: people log in with an email and a password that Vinci keeps, and the server answers on ports 80 and 443 itself.
+
+How it works: `VINCI_AUTH=laravel` in `.env` swaps cloudflared for Caddy (`deploy/caddy/caddy.compose.yaml`), which gets a Let's Encrypt certificate for `VINCI_PUBLIC_HOST`. The Laravel API (`apps/api`) plays the part of Cloudflare Access: it shows the login page at `/cdn-cgi/access/login`, signs the same `CF_Authorization` cookie with its own key, and serves that key at `/cdn-cgi/access/certs`. The hub checks the cookie as it checks Cloudflare's, against the key at `ACCESS_TEAM_DOMAIN`, here the API. A visitor without the cookie is sent to the login page and back to where they were after it. Logins last 7 days; `/cdn-cgi/access/logout` ends one.
+
+What changes from the steps above:
+
+- **Before you start:** no Cloudflare domain or token. You need a DNS name that points at the server (an `A` record) and ports 80 and 443 open to the internet, for the certificate and for people.
+- **Step 3:** copy `deploy/caddy/caddy.compose.yaml` instead of `deploy/cloudflare/cloudflared.compose.yaml`.
+- **Steps 5 and 6:** skip them. Set these in `/opt/vinci/.env` instead, generating the secrets on the server so they never leave it:
+
+  ```sh
+  ssh root@<server> 'set -e; cd /opt/vinci; set_env() { sed -i "/^$1=/d" .env; printf "%s=%s\n" "$1" "$2" >> .env; }
+    set_env VINCI_AUTH laravel
+    set_env COMPOSE_FILE compose.yaml:caddy.compose.yaml:users.compose.yaml
+    set_env VINCI_PUBLIC_HOST vinci.example.com
+    set_env ACCESS_TEAM_DOMAIN http://api:8080
+    for key in ACCESS_AUD API_INTERNAL_TOKEN; do grep -q "^$key=." .env || set_env $key "$(openssl rand -hex 32)"; done
+    grep -q "^API_APP_KEY=." .env || set_env API_APP_KEY "base64:$(openssl rand -base64 32)"'
+  ```
+
+- **Step 7:** `bun deploy.ts apply` checks these values first and names what is missing. It starts `vinci-caddy-1` and `vinci-api-1` in place of cloudflared, and `bun deploy.ts status` lists both, which must be `running (healthy)`. Then create the first admin's account; the password is printed once, so put it in your password manager:
+
+  ```sh
+  ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan vinci:user admin@example.com'
+  ```
+
+  The same command gives an existing account a new password. With `--quiet` it prints only the password. Accounts for other people come from the admin panel.
+- **Step 8:** without logging in, `https://<host>/rpc` answers `302` to `/cdn-cgi/access/login`, and the icons answer `200`. `ss -tlnp` also shows Docker on ports 80 and 443.
+
+Trust: whoever controls the key at `ACCESS_TEAM_DOMAIN` can log in as anyone. Here that is the API's key, kept in PostgreSQL and encrypted with `API_APP_KEY`; changing `API_APP_KEY` makes the key unreadable, so keep it. `/internal/users`, the routes the admin panel uses to add accounts, are reachable only from the hub, and only with `API_INTERNAL_TOKEN`.
+
+To go back to Cloudflare, set `VINCI_AUTH=access` (or delete the line), put `cloudflared.compose.yaml` back in `COMPOSE_FILE`, follow steps 5 and 6, and run `docker compose up -d --remove-orphans` and then `bun deploy.ts apply`.
+
+**Give this to your agent:**
+
+> Install Vinci on `root@<server>` for testing with Vinci's own logins, following "Login with Vinci accounts (no Cloudflare)" in `docs/team-workspace/install.md`: steps 1 to 4 and 7 to 9 with its changes, skipping 5 and 6, at `<host>`, which already points at the server. Run `bun deploy.ts check` and report its warnings. Generate the secrets on the server and never print `.env`. Create the account of `<first admin email>` with `vinci:user` and tell me its password is in the output, once, without repeating it in a summary.
 
 ## The whole install in one prompt
 

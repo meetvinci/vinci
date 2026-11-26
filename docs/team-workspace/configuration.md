@@ -8,7 +8,8 @@ Every setting and file in a team install. "Set by the image" means the container
 
 | Setting | Example | What it does |
 | --- | --- | --- |
-| `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is. |
+| `VINCI_AUTH` | `access` | How people log in: `access` (the default when unset), Cloudflare Access through cloudflared; or `laravel`, Vinci accounts in the API behind Caddy, for testing for now ([login with Vinci accounts](install.md#login-with-vinci-accounts-no-cloudflare)). `apply` refuses a `COMPOSE_FILE` that loads the other mode's edge. |
+| `COMPOSE_FILE` | `compose.yaml:cloudflared.compose.yaml:users.compose.yaml` | Which Compose files `docker compose` loads in `/opt/vinci`. Keep as is; with `VINCI_AUTH=laravel` it is `compose.yaml:caddy.compose.yaml:users.compose.yaml`. |
 | `VINCI_PUBLIC_HOST` | `acme.example.com` | The team address without `https://`. Becomes `DAEMON_PUBLIC_URLS`, `WEB_PUBLIC_URL` and `HUB_PUBLIC_URL`. |
 | `VINCI_TAG` | `v0.2.0` | The tag of the `vinci-daemon`, `vinci-sandbox`, `vinci-web`, `vinci-hub`, `vinci-provisioner`, `vinci-firewall` and `vinci-api` images. Change it to upgrade or roll back. CI builds them from each release tag ([images from CI](admin.md#images-from-ci)). |
 | `VINCI_REGISTRY` | `registry.example.com/vinci/` | Where Compose takes the images from, ending in `/`. Empty uses images loaded by hand with `docker load` ([install, step 3](install.md#3-get-vinci-onto-the-server)). |
@@ -21,7 +22,9 @@ Every setting and file in a team install. "Set by the image" means the container
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
 | `VINCI_DB_PASSWORD`, `VINCI_POSTGRES_PASSWORD` | 64 hex characters each | PostgreSQL passwords for Laravel's database owner and the PostgreSQL administrator. Generate once in [install, step 7](install.md#7-start-vinci). Required. |
-| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. |
+| `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `CLOUDFLARE_ZONE`, `CLOUDFLARE_NAME`, `CLOUDFLARE_ACCESS_DOMAINS`, `TUNNEL_TOKEN` | | The Cloudflare values; see [Cloudflare](#cloudflare). `TUNNEL_TOKEN` is a secret. With `VINCI_AUTH=laravel` only the first two: `ACCESS_TEAM_DOMAIN=http://api:8080`, the API, and `ACCESS_AUD` 64 random hex characters. |
+| `API_APP_KEY` | `base64:` and 32 random bytes | `VINCI_AUTH=laravel` only: Laravel's `APP_KEY`. Encrypts the login form's session and the API's signing key in PostgreSQL; changing it makes that key unreadable. Secret. |
+| `API_INTERNAL_TOKEN` | 64 hex characters | `VINCI_AUTH=laravel` only: the secret the hub sends to the API's `/internal/users` routes to add, reset and remove accounts for the admin panel. Secret. |
 | `BACKUP_TIME` | `03:00` | When the nightly backup runs, in server time. Read by `bun deploy.ts nightly install`; run it again after a change. |
 | `BACKUP_KEEP_DAILY`, `BACKUP_KEEP_WEEKLY` | `7`, `4` | How many days and weeks of nightly backups to keep. See [backups](admin.md#nightly-backups). |
 | `BACKUP_S3_BUCKET` | empty | Optional: an S3-compatible bucket that receives an encrypted copy of each good nightly backup. See [off-site copy](admin.md#off-site-copy). |
@@ -72,6 +75,7 @@ A required value that is missing stops `docker compose` with a message naming it
 | `HUB_VERSION` | the image tag, `VINCI_TAG` from `.env` (set by Compose) | The version whose start the hub copies the global settings on. A restart on the same version copies nothing (`hub/start-sync.json`). Without it every start copies them. Give each upgrade its own tag: new images under the same tag (such as `latest`) count as the same version, so press *Sync now* after such an upgrade. |
 | `PROVISIONER_URL` | `http://provisioner:47193` (set by Compose) | Where the hub asks for people to be added, changed or removed. Without it (outside Compose) the panel lists people but changes answer 501. |
 | `PROVISIONER_TOKEN` | generated into `.env` at install (set by Compose) | Sent to the provisioner on every call. Required with `PROVISIONER_URL`; the hub won't start without it. Secret. |
+| `HUB_ACCOUNTS_URL`, `HUB_ACCOUNTS_TOKEN` | `http://api:8080` and `API_INTERNAL_TOKEN` (set by `caddy.compose.yaml`) | `VINCI_AUTH=laravel` only: where the admin panel manages login accounts, and its secret. Unset with Cloudflare Access. |
 
 The hub runs as the same user as the daemons (uid 1000), because it talks to their owner sockets.
 
@@ -106,6 +110,7 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 | `users.yaml` | `/opt/vinci/` | The one list of people (user id, login email, optional name, enabled and advanced) and the admin panel's `admins:`. The admin panel changes it through the provisioner; by hand, edit it and run `bun deploy.ts apply`. Format: [admin tasks](admin.md#the-user-list). |
 | `compose.yaml`, `daemon.yaml`, `sandbox.yaml` | `/opt/vinci/`, copied from `deploy/compose/` | The hub, the provisioner, the web app, the API, the one-off `tools` service, and the two containers every person gets: their Vinci and the sandbox where their bots' tools run. |
 | `cloudflared.compose.yaml` | `/opt/vinci/`, copied from `deploy/cloudflare/` | The tunnel connector. |
+| `caddy.compose.yaml` | `/opt/vinci/`, copied from `deploy/caddy/` | `VINCI_AUTH=laravel` only, in place of `cloudflared.compose.yaml`: Caddy with its Caddyfile inline, and the API's and hub's extra settings and networks for the login. |
 | `deploy.ts` | `/opt/vinci/`, copied from `scripts/deploy.ts` | `apply`, `status`, `backup`, `nightly`, `restore` and `purge`. Runs with Bun. The provisioner image has its own copy from the same tag. |
 | `hub/` | `/opt/vinci/hub/` | The hub's folder: owned by uid 1000, group root, mode 770. `apply` sets this when run as root. |
 | `users.compose.yaml` | `/opt/vinci/` | Per person, plus the same for the template workspace (`daemon-template`, `sandbox-template`): their container, network and volume, and their sandbox with its own network and shared-folder volume (`sandbox-<id>`). Written by `apply`; do not edit. |
@@ -130,11 +135,13 @@ It runs on the host network as root with only `NET_ADMIN`, a read-only system, n
 
 ## Networks
 
-Nothing is published on the server's network interfaces. Docker Compose creates:
+Nothing is published on the server's network interfaces, except ports 80 and 443 by Caddy with `VINCI_AUTH=laravel`. Docker Compose creates:
 
 | Network | Who is on it | Internet |
 | --- | --- | --- |
-| `vinci_tunnel` | cloudflared and the hub | yes: the tunnel, and the hub's fetch of Cloudflare's login keys |
+| `vinci_tunnel` | cloudflared and the hub; Caddy instead of cloudflared with `VINCI_AUTH=laravel` | yes: the tunnel, and the hub's fetch of Cloudflare's login keys; Caddy's certificates |
+| `vinci_login` | Caddy and the API, `VINCI_AUTH=laravel` only | no |
+| `vinci_accounts` | the hub and the API, `VINCI_AUTH=laravel` only: the login key and the accounts of the admin panel | no |
 | `vinci_web` | the hub and the web app | no |
 | `vinci_api` | the Laravel API and PostgreSQL | no |
 | `vinci_provisioner` | the hub and the provisioner | no |

@@ -3,7 +3,7 @@
 # Caddy publishes 80 and 443 with an automatic certificate for VINCI_PUBLIC_HOST, sends /cdn-cgi/access/* to the
 # Laravel API (the login pages and the key the hub trusts) and everything else to the hub. Laravel plays Cloudflare
 # Access: it signs the CF_Authorization cookie, and the hub verifies it with the key at ACCESS_TEAM_DOMAIN
-# (http://api:8080). The Caddyfile is inline below, so this is the only file the mode adds to /opt/vinci.
+# (http://api:8080). The Caddyfile is inline below (CADDYFILE), so this is the only file the mode adds to /opt/vinci.
 x-logging: &logging
   options:
     max-size: 10m
@@ -16,11 +16,12 @@ services:
       - '80:80'
       - '443:443'
       - '443:443/udp'
-    configs:
-      - source: caddyfile
-        target: /etc/caddy/Caddyfile
+    # Compose cannot place a config file in a read-only container, so the Caddyfile comes in CADDYFILE and is written
+    # to the /tmp tmpfs at start.
+    entrypoint: [sh, -c, 'printf "%s" "$$CADDYFILE" > /tmp/Caddyfile && exec caddy run --config /tmp/Caddyfile --adapter caddyfile']
     read_only: true
     tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=1m
       - /config:rw,nosuid,nodev,noexec,size=1m
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
@@ -35,6 +36,49 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 15s
+    environment:
+      CADDYFILE: |
+        {
+          admin off
+        }
+
+        # The health check only, inside the container.
+        http://127.0.0.1:8099 {
+          bind 127.0.0.1
+          respond "ok"
+        }
+
+        ${VINCI_PUBLIC_HOST} {
+          # Only the login pages set identity; a visitor's own Access headers never reach the hub.
+          request_header -Cf-Access-*
+
+          # The hub's account routes on the API are never public.
+          @internal path /internal /internal/*
+          handle @internal {
+            respond 404
+          }
+
+          handle /cdn-cgi/access/* {
+            reverse_proxy api:8080
+          }
+
+          # No login cookie: the API answers with a redirect to the login page that returns here after login. The hub's
+          # icons stay public, as with Cloudflare Access.
+          @anonymous {
+            not header_regexp Cookie (^|;\s*)CF_Authorization=
+            not path /favicon.ico /img/favicon/*
+          }
+          handle @anonymous {
+            rewrite * /cdn-cgi/access/required
+            reverse_proxy api:8080 {
+              header_up X-Vinci-Original-Uri {http.request.orig_uri}
+            }
+          }
+
+          handle {
+            reverse_proxy hub:47192
+          }
+        }
     volumes:
       # Certificates and the ACME account: kept, so a restart does not ask Let's Encrypt again.
       - caddy-data:/data
@@ -62,51 +106,6 @@ services:
     networks:
       login: {}
       accounts: {}
-
-configs:
-  caddyfile:
-    content: |
-      {
-        admin off
-      }
-
-      # The health check only, inside the container.
-      http://127.0.0.1:8099 {
-        bind 127.0.0.1
-        respond "ok"
-      }
-
-      ${VINCI_PUBLIC_HOST} {
-        # Only the login pages set identity; a visitor's own Access headers never reach the hub.
-        request_header -Cf-Access-*
-
-        # The hub's account routes on the API are never public.
-        @internal path /internal /internal/*
-        handle @internal {
-          respond 404
-        }
-
-        handle /cdn-cgi/access/* {
-          reverse_proxy api:8080
-        }
-
-        # No login cookie: the API answers with a redirect to the login page that returns here after login. The hub's
-        # icons stay public, as with Cloudflare Access.
-        @anonymous {
-          not header_regexp Cookie (^|;\s*)CF_Authorization=
-          not path /favicon.ico /img/favicon/*
-        }
-        handle @anonymous {
-          rewrite * /cdn-cgi/access/required
-          reverse_proxy api:8080 {
-            header_up X-Vinci-Original-Uri {http.request.orig_uri}
-          }
-        }
-
-        handle {
-          reverse_proxy hub:47192
-        }
-      }
 
 networks:
   # The edge and the hub. Not internal: Caddy gets its certificates from Let's Encrypt.

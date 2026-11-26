@@ -171,6 +171,7 @@ WORKDIR /app
 COPY apps/api/composer.json apps/api/composer.lock ./
 RUN composer install --no-dev --prefer-dist --no-interaction
 
+# Apache hands PHP the Authorization header only through SetEnvIf: the hub's bearer token for /internal.
 FROM php:8.4-apache AS api
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libpq-dev \
@@ -178,7 +179,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /var/www/html
 COPY --from=api-dependencies /app/vendor ./vendor
-COPY apps/api/artisan ./artisan
+COPY apps/api/artisan apps/api/composer.json ./
 COPY apps/api/app ./app
 COPY apps/api/bootstrap ./bootstrap
 COPY apps/api/config ./config
@@ -190,7 +191,7 @@ RUN mkdir bootstrap/cache \
  && php artisan package:discover --no-ansi \
  && sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf \
  && sed -i 's|\*:80>|*:8080>|; s|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf \
- && printf 'ServerName localhost\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf
+ && printf 'ServerName localhost\nSetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1\n<Directory /var/www/html/public>\nFallbackResource /index.php\nOptions -Indexes\n</Directory>\n' > /etc/apache2/conf-enabled/vinci-api.conf
 # The login form's session lives in an encrypted cookie sent only to the login pages; the login rate limiter counts in
 # PostgreSQL (CACHE_STORE database), shared by every Apache worker. Nothing is written inside the read-only root.
 ENV APP_ENV=production LOG_CHANNEL=stderr CACHE_STORE=database \

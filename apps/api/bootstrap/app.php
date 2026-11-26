@@ -6,6 +6,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(using: fn () => require __DIR__.'/../routes/web.php')
@@ -18,10 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // An expired form: show a fresh one rather than an error.
-        $exceptions->render(fn (TokenMismatchException $error, Request $request) => response('', 302, [
-            'Location' => '/cdn-cgi/access/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/')),
-        ]));
+        // An expired login form (Laravel turns the CSRF mismatch into a 419): show a fresh one rather than an error.
+        $exceptions->render(fn (HttpException $error, Request $request) => $error->getPrevious() instanceof TokenMismatchException
+            ? response('', 302, ['Location' => '/cdn-cgi/access/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))])
+            : null);
         $exceptions->shouldRenderJsonWhen(fn () => true);
     })
     ->create();
