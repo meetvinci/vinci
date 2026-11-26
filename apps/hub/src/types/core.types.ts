@@ -37,7 +37,7 @@ export interface CoreAdminContext extends CoreForward {
 
 export interface CoreRefusal {
   email: string;
-  reason: 'no-user' | 'not-admin';
+  reason: 'no-user' | 'not-admin' | 'sign-in-off';
 }
 
 export interface CoreAdminChange {
