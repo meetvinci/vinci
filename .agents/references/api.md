@@ -70,7 +70,12 @@ Every daemon is a team daemon (one-mode piece H removed `DAEMON_TEAM`). Its publ
 
 ## Model fallback
 
-One retry on the bot's `fallbackModel` only when a request fails before any output with an auth, quota or transient provider error (`runtimeModelCanFallback` in `runtime/src/services/runtime/runtime-model-stream.utils.ts`).
+One retry on the bot's `fallbackModel` only when a request fails before any output with an auth, quota, transient provider or stall error (`runtimeModelStreamCanFallback` in `runtime/src/services/runtime/runtime-model-stream.utils.ts`).
+
+## Model stalls and failing tool calls
+
+- pi-ai's `timeoutMs` bounds a whole HTTP request and only in some adapters, so Vinci adds an idle timeout (`runtimeModelStall`, `RUNTIME_MODEL_STALL` in `runtime.constants.ts`): a request that sends no stream event and no raw provider event (`onProviderStreamEvent`) for 180 s is aborted (long enough for a reasoning model that streams nothing while it thinks). Before any output it is sent once more; after that, or after a stall mid-answer, the run ends with `MODEL_FAILURE.stalled` (`contracts/src/types/model.types.ts`), which Pi Durable does not retry and clients show as `rooms_event_failed_stalled` (*The model didn't respond. Try again.*). It wraps every provider request, fallback and compaction included; Stop still aborts at once.
+- The `bots.tool-guard` extension (`runtime-tool-guard.extension.ts`) runs `beforeTool` ahead of the approval hook and reads the turn (everything after the newest user message) from the transcript: a call whose name and arguments (as the model sent them) already failed 3 times in a row, or any call after 10 failed calls in the turn, is blocked unrun with a reason that tells the bot to stop and explain (`RUNTIME_TOOL_GUARD`). Nested calls are not guarded. Since no Pi Durable hook can end a run, `runtimeToolGuardStream` ends it before the next model request once the turn has 3 such refusals, with `MODEL_FAILURE.toolLoop` (`rooms_event_failed_tool_loop`).
 
 ## Approvals
 

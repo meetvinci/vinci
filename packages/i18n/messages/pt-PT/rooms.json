@@ -289,6 +289,8 @@
   "rooms_event_owner_note": "Levantado a partir de uma conversa privada com",
   "rooms_event_private_source": "Perguntado numa conversa privada com",
   "rooms_event_failed": "A resposta falhou",
+  "rooms_event_failed_stalled": "O modelo não respondeu. Tente novamente.",
+  "rooms_event_failed_tool_loop": "Um passo continuou a falhar, por isso o bot parou. Tente novamente ou peça de outra forma.",
   "rooms_event_approval_expired": "Pedido expirado",
   "rooms_event_approval_expired_detail": "Ninguém respondeu a tempo, por isso {name} não o executou.",
   "rooms_event_reasoning": "Pensamentos de",

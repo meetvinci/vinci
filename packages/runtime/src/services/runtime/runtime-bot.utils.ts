@@ -13,6 +13,7 @@ import { runtimeArtifactToolsExtension } from './runtime-artifact-tools.extensio
 import { runtimeQueryNextDeadline } from './runtime-query.next-deadline';
 import { runtimeRoutineToolsExtension } from './runtime-routine-tools.extension';
 import { runtimeTodoToolsExtension } from './runtime-todo-tools.extension';
+import { runtimeToolGuardExtension } from './runtime-tool-guard.extension';
 import { runtimeToolsExtension } from './runtime-tools.extension';
 import { RUNTIME_ALARM_DEBOUNCE_MS, RUNTIME_HARNESS } from './runtime.constants';
 import type * as RuntimeTypes from '../../types/runtime.types';
@@ -77,7 +78,10 @@ export async function runtimeBotOpen(shared: RuntimeTypes.RuntimeSharedDeps, bot
       permissions: shared.permissions,
     });
 
-    for (const extension of [artifactTools.extension, routineTools.extension, todoTools.extension, permissionExtension]) {
+    const guardExtension = runtimeToolGuardExtension({ harness });
+    const botExtensions = [artifactTools.extension, routineTools.extension, todoTools.extension, guardExtension, permissionExtension];
+
+    for (const extension of botExtensions) {
       registry.install(extension);
     }
 
@@ -98,7 +102,7 @@ export async function runtimeBotOpen(shared: RuntimeTypes.RuntimeSharedDeps, bot
       models: shared.models,
       readOnlyTools,
       ownTools,
-      extensions: [...shared.extensions, artifactTools.extension, routineTools.extension, todoTools.extension, permissionExtension],
+      extensions: [...shared.extensions, ...botExtensions],
     };
 
     const arm = runtimeBotAlarm(shared, deps);

@@ -25,3 +25,8 @@ export const modelSettings = z.object({ defaultModel: modelDefault.nullable() })
 
 export type ModelDefault = z.infer<typeof modelDefault>;
 export type ModelSettings = z.infer<typeof modelSettings>;
+
+export const MODEL_FAILURE = {
+  stalled: 'The model stopped responding.',
+  toolLoop: 'The bot kept retrying failing tool calls.',
+} as const;
