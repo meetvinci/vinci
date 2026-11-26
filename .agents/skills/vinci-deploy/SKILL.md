@@ -44,7 +44,7 @@ Follow `docs/team-workspace/install.md` steps 1 to 8 in order. Stop at the first
 
 | Step | Proof it worked |
 | --- | --- |
-| 1. Check the server | `x86_64`, Ubuntu 24.04, `avx2`, at least 3.7 GiB memory, 40 GB free |
+| 1. Check the server | `x86_64`, Ubuntu 24.04, `avx2`, at least 3.7 GiB memory, 40 GB free (`bun deploy.ts check` once Bun is there: a later Ubuntu or 30 to 40 GB free is a warning, fine only for a test server) |
 | 2. Docker | server version 26 or newer, `docker compose version` works, service `enabled` |
 | 3. Images and files | `Login Succeeded` for `registry.example.com`; seven `registry.example.com/vinci/vinci-<image>:<tag>` pull lines (or, for an unreleased commit, `amd64` for all seven local images and seven `Loaded image:` lines); `/opt/vinci` mode 700 with the five files; `.env` mode 600; `bun --version` on the server |
 | 4. `users.yaml` | one `<id>: <email>` per person under `users:`; the first admin under `admins:` |
