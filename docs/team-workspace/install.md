@@ -363,7 +363,7 @@ What changes from the steps above:
     grep -q "^API_APP_KEY=." .env || set_env API_APP_KEY "base64:$(openssl rand -base64 32)"'
   ```
 
-- **Step 7:** `bun deploy.ts apply` checks these values first and names what is missing. It starts `vinci-caddy-1` and `vinci-api-1` in place of cloudflared, and `bun deploy.ts status` lists both, which must be `running (healthy)`. Then create the first admin's account; the password is printed once, so put it in your password manager:
+- **Step 7:** `bun deploy.ts apply` checks these values first and names what is missing. It starts `vinci-caddy-1` and `vinci-api-1` in place of cloudflared, and `bun deploy.ts status` lists them and `postgres`, which must be `running (healthy)`. Then create the first admin's account; the password is printed once, so put it in your password manager:
 
   ```sh
   ssh root@<server> 'cd /opt/vinci && docker compose exec -T api php artisan vinci:user admin@example.com'

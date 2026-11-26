@@ -2418,8 +2418,8 @@ async function stackStatus() {
 
   console.log(`Server disk: ${gib(bavail * bsize)} free of ${gib(blocks * bsize)}${isLow ? ', LOW' : ''}`);
 
-  // In laravel mode nobody logs in without Caddy and the API.
-  const edge = authMode() === 'laravel' ? ['caddy', 'api'] : [];
+  // In laravel mode nobody logs in without Caddy, the API and its database.
+  const edge = authMode() === 'laravel' ? ['caddy', 'api', 'postgres'] : [];
 
   for (const service of edge) {
     console.log(`${service.padEnd(width)}  ${shown(service)}`);
@@ -2433,7 +2433,7 @@ async function stackStatus() {
   const full = lines.filter(([, , , , isOk]) => !isOk).map(([id]) => id);
 
   if (down.length > 0) {
-    fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> (or caddy, api) shows why; bun deploy.ts apply starts what is missing.`);
+    fail(`Not healthy: ${down.join(', ')}. Without its sandbox a daemon refuses every bot tool call. docker compose logs daemon-<id> sandbox-<id> (or caddy, api, postgres) shows why; bun deploy.ts apply starts what is missing.`);
   }
 
   if (full.length > 0) {
