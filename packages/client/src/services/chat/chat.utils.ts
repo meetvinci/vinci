@@ -17,7 +17,7 @@ export function chatMessages({ entries, bot, bots }: ChatTypes.ChatMessagesParam
     .exhaustive();
 
   for (const entry of entries) {
-    const createdAt = chatEntryTime(entry);
+    const createdAt = chatEntryTime(entry) ?? messages.at(-1)?.metadata?.createdAt ?? 0;
 
     match(entry.kind)
       .with(ENTRY.user, () => messages.push(chatOwnerMessage(entry, {
@@ -395,8 +395,8 @@ function chatMessageId(entry: ChatTypes.ChatEntry): string {
   return `${CHAT.entryPrefix}${entry.id}`;
 }
 
-function chatEntryTime(entry: ChatTypes.ChatEntry): number {
-  return entry.model?.[0]?.timestamp ?? 0;
+function chatEntryTime(entry: ChatTypes.ChatEntry): number | undefined {
+  return entry.model?.[0]?.timestamp;
 }
 
 function chatEntryText(entry: ChatTypes.ChatEntry): string {
