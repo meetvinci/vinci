@@ -1087,10 +1087,11 @@ async function dumpDatabase(file: string) {
   await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; pg_dump -U postgres -d vinci --no-owner --no-privileges | gzip'], { output: file });
 }
 
-// Into the empty database a fresh server's PostgreSQL makes on its first start, before the API's first start migrates it.
+// Replaces the database before the API's first start migrates it, in one transaction: a server's PostgreSQL volume may
+// outlive /opt/vinci (a cloud-init server emptied for the restore), and its tables would clash with the dump's.
 async function restoreDatabase(file: string) {
   await docker(['compose', 'up', '--detach', '--wait', 'postgres']);
-  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; gunzip | psql -U vinci -d vinci -v ON_ERROR_STOP=1 --single-transaction --quiet'], { input: file });
+  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; { echo "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"; gunzip; } | PGOPTIONS="-c client_min_messages=warning" psql -U vinci -d vinci -v ON_ERROR_STOP=1 --single-transaction --quiet'], { input: file });
 }
 
 // A run that fails takes its folder with it: an unfinished folder is no backup, and a full disk gets its space back.
@@ -1106,8 +1107,8 @@ async function nightlyBackup(folder: string, startedAt: Date, signal: AbortSigna
 }
 
 // Everyone one at a time (each person's daemon is down only for their own copy), then the API's database, then the hub
-// folder with the hub stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and whole: a folder
-// without it is an unfinished run. A signal stops the run before the next stop.
+// folder with the hub stopped so audit.sqlite is not torn, then the deployment files. manifest.json is written last and
+// whole: a folder without it is an unfinished run. A signal stops the run before the next stop.
 async function nightlyCopy(folder: string, startedAt: Date, signal: AbortSignal): Promise<NightlyManifest> {
   const current = team();
   const people: [string, Person][] = [known(templateId), ...current.users];
