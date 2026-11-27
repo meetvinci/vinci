@@ -283,6 +283,7 @@
   "rooms_event_subagent_answered": "Subagent fertig",
   "rooms_event_subagent_failed": "Subagent fehlgeschlagen",
   "rooms_event_owner_note": "Aus einem privaten Chat mit",
+  "rooms_event_peer_message": "Anfrage von",
   "rooms_event_private_source": "Gefragt in einem privaten Chat mit",
   "rooms_event_failed": "Antwort fehlgeschlagen",
   "rooms_event_failed_stalled": "Das Modell hat nicht geantwortet. Versuche es erneut.",

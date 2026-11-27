@@ -39,6 +39,7 @@ export interface ChatMetadata {
 interface ChatDataPartPayloads {
   subagent: UniversalTypes.EntrySubagentReport;
   ownerNote: UniversalTypes.EntryOwnerNote & { peerName: string | null };
+  peerMessage: UniversalTypes.EntryPeerMessage & { peerName: string | null };
   routineRun: UniversalTypes.EntryRoutineRun;
   botStart: Record<string, never>;
   compaction: { status: 'done' };

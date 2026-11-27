@@ -1,5 +1,4 @@
 import { BACKGROUND_CONTEXT } from '@earendil-works/chord/context';
-import { createToolSearchExtension } from '@earendil-works/pi-durable/tool-search';
 import { log } from '@repo/logger/server';
 import { match, P } from 'ts-pattern';
 import { ARTIFACT_BLOCKS_CATALOG } from '../artifact/artifact.constants';
@@ -74,6 +73,7 @@ import { runtimeQueryWatchContexts } from './runtime-query.watch-contexts';
 import { runtimeReactionExtension } from './runtime-reaction.extension';
 import { runtimeSecretsExtension } from './runtime-secrets.extension';
 import { runtimeSkillsExtension } from './runtime-skills.extension';
+import { runtimeToolSearchExtension } from './runtime-tool-search.extension';
 import { runtimeWatchMerge } from './runtime-watch-merge.utils';
 import { RUNTIME_ALARM_HEARTBEAT_MS } from './runtime.constants';
 import type { ConversationIndexSummary } from '../../types/conversation-index.types';
@@ -104,7 +104,7 @@ export function makeRuntimeService({
   const collaboration = makeCollaborationExtensionService({ policy, directory });
   const questions = makeQuestionExtensionService();
   const chatTools = runtimeChatToolsExtension({ gifs });
-  const toolSearch = createToolSearchExtension();
+  const toolSearch = runtimeToolSearchExtension();
 
   const notes = makeNoteExtensionService();
   const subagents = makeSubagentExtensionService();

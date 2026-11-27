@@ -22,7 +22,7 @@ export const CHAT = {
   historyPageSize: 50,
   aroundPageSize: 25,
   reactionsPageSize: 100,
-  peerNotePattern: /^\[[^\]\n]*\]\n\n/u,
+  peerNotePattern: /^\[[^\n]*?\]\n\n/u,
   megabyte: 1024 * 1024,
 } as const;
 

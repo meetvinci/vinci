@@ -36,6 +36,10 @@ export function ChatNotice({ message, bots }: ChatNoticeProps) {
       name: <BotMention bot={bots.find((item) => item.id === data.peerBotId) ?? { name: data.peerName }} />,
     }))
     .with({ type: 'data-ownerNote' }, () => ({ label: m.rooms_notice_owner_note_unknown() }))
+    .with({ type: 'data-peerMessage' }, ({ data }) => ({
+      label: m.rooms_event_peer_message(),
+      name: <BotMention bot={bots.find((item) => item.id === data.fromBotId) ?? { name: data.peerName ?? '' }} />,
+    }))
     .with({ type: 'data-routineRun', data: { name: P.string.minLength(1) } }, ({ data }) => ({
       label: m.rooms_event_routine_run(),
       name: <EventName icon={<Icon icon={AlarmClock} tone="subtle" />}>{data.name}</EventName>,

@@ -1,6 +1,7 @@
 import { Type } from '@earendil-works/pi-ai';
-import { defineExtension, defineTool } from '@earendil-works/pi-durable';
+import { defineExtension, defineTool, section } from '@earendil-works/pi-durable';
 import * as m from '@repo/i18n/messages';
+import { runtimeBot } from '../runtime/runtime.constants';
 import { collaborationActionNotify } from './collaboration-action.notify';
 import { collaborationActionSend } from './collaboration-action.send';
 import { collaborationDeliveryTask } from './collaboration-delivery.task';
@@ -66,9 +67,24 @@ export function makeCollaborationExtensionService({ policy, directory }: Collabo
     }),
   });
 
+  const peers = section('bots', async (input, context) => {
+    const identity = await input.read.snapshot(runtimeBot, input.conversationId, context);
+    const canAsk = input.agent.tools.some((tool) => tool.name === askBot.name);
+
+    if (!identity?.botId || !canAsk) {
+      return undefined;
+    }
+
+    const bots = await policy.queries.bots({ botId: identity.botId });
+    const lines = bots.map((bot) => `- ${bot.name} ([@${bot.handle}](bot:${bot.id})): ${bot.summary || m.ui_tool_bot_peers_no_summary()}`);
+
+    return lines.length === 0 ? undefined : [m.ui_tool_bot_peers_prompt(), ...lines].join('\n');
+  });
+
   return {
     extension: defineExtension({
       name: COLLABORATION.extension,
+      sections: [peers],
       tools: [listBots, askBot, messageBot, notifyOwner],
       tasks: [delivery],
     }),

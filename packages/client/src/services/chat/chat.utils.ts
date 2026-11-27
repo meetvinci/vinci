@@ -53,12 +53,10 @@ export function chatMessages({ entries, bot, bots }: ChatTypes.ChatMessagesParam
       .with(ENTRY.assistant, () => chatAssistantEntry(messages, entry, bot, createdAt))
       .with(ENTRY.toolResult, () => chatToolResult(messages, entry))
       .with(ENTRY.peerMessage, () => match(entryPeerMessage.safeParse(entry.data))
-        .with({ success: true }, ({ data }) => messages.push({
-          id: chatMessageId(entry),
-          role: 'user',
-          metadata: chatMetadata(entry.id, createdAt, data.fromBotId, botsById.get(data.fromBotId)?.name ?? ''),
-          parts: [{ type: 'text', text: chatPeerText(chatEntryText(entry)), state: 'done' }],
-        }))
+        .with({ success: true }, ({ data }) => messages.push(chatSystemMessage(entry, createdAt, bot, [
+          { type: 'data-peerMessage', data: { ...data, peerName: botsById.get(data.fromBotId)?.name ?? null } },
+          { type: 'text', text: chatPeerText(chatEntryText(entry)), state: 'done' },
+        ])))
         .otherwise(() => undefined))
       .with(ENTRY.subagentReport, () => match(entrySubagentReport.safeParse(entry.data))
         .with({ success: true }, ({ data }) => messages.push(chatSystemMessage(entry, createdAt, bot, [
@@ -91,8 +89,12 @@ export function chatPairMessages(messages: ChatTypes.ChatMessage[], askerId: str
   let isPair = false;
 
   return messages.filter((message) => {
+    const first = message.parts.at(0);
+
     if (message.role === 'user') {
       isPair = message.metadata?.authorId === askerId;
+    } else if (first?.type === 'data-peerMessage') {
+      isPair = first.data.fromBotId === askerId;
     }
 
     return isPair;

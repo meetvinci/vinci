@@ -182,6 +182,12 @@ Skills are picked up within about 30 seconds. They must sit in the person's volu
 
 > On `root@<server>`, check that `/data/home/.agents/skills/<skill>/SKILL.md` exists in Vinci user `<name>`'s volume and is owned by uid 1000.
 
+## An OpenAI bot fails with "reserved namespace 'tool_search'"
+
+Every reply fails (*Reply failed*), and the bot's error says *Function 'tool_search.tool_search' is not allowed in reserved namespace 'tool_search'*. OpenAI refuses the old name of Vinci's tool search, which versions before this fix used. Upgrade, then reset that chat once (`/reset` in it): a chat that already started keeps the old name in its history.
+
+A bot moved from an Anthropic model to an OpenAI one in the middle of a chat that used tools can fail with *Missing namespace for function_call*: reset that chat too, or keep each bot on one provider.
+
 ## A bot cannot install software
 
 Containers are locked down: no root, read-only system files, so `apt` fails and so does installing into the system. Bots' commands run in the sandbox, which has Bun, Node with npm, Python with pip and uv, git, curl and the usual tools ([what a bot can do](admin.md#what-a-bot-can-do-and-reach)). Bots install into their home folder instead: `npm i -g`, `pip install --user`, `uv tool install` and `bun add -g` work and survive restarts. A package that compiles code while installing fails: there is no compiler. If every install fails with a read-only error, `docker compose logs sandbox-<id>` says `is not writable`: run `bun deploy.ts apply`. Vinci itself ships without ffmpeg, so videos get no preview thumbnail.
