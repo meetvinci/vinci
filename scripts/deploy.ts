@@ -2147,6 +2147,7 @@ async function stackStatus() {
   const rows = new Map((await composeRows()).map((row) => [row.Service, row]));
 
   console.log(`Vinci ${await hubVersion(rows.get('hub'))}`);
+
   const ids = [templateId, ...enabledIds(team())];
   const width = Math.max(...ids.map((id) => id.length));
 
