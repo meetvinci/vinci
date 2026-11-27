@@ -153,7 +153,7 @@
   "admin_preview_setting_approval_rules": "Genehmigungsregeln",
   "admin_preview_setting_approval_timeout": "Zeitlimit für Genehmigungen",
   "admin_preview_setting_jev_key": "Jev-API-Schlüssel (automatische Befehlsfreigabe)",
-  "admin_preview_setting_transcription_key": "OpenAI-API-Schlüssel (Spracheingabe)",
+  "admin_preview_setting_transcription_key": "OpenAI-API-Schlüssel (Sprache)",
   "admin_preview_setting_approval_defaults": "Standard-Freigaberegelung",
   "admin_preview_setting_secret_mode": "Wie Bots Geheimnisse verwenden",
   "admin_preview_setting_skills": "Skill-Ordner",

@@ -61,6 +61,12 @@ const buttonVariants = cva({
         'hover:bg-accent hover:text-accent-foreground',
         'active:scale-[0.99] active:transition-none',
       ],
+      // On state of a toggle, tinted like the blue badge.
+      selected: [
+        'bg-blue-50 text-blue-700 hover:bg-blue-100',
+        'dark:bg-blue-400/15 dark:text-blue-400 dark:hover:bg-blue-400/20',
+        'active:scale-[0.99] active:transition-none',
+      ],
       quiet: [
         'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
         'active:scale-[0.99] active:transition-none',

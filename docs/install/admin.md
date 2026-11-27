@@ -177,22 +177,24 @@ Do not use a Claude or ChatGPT subscription login for the team. The providers' t
 
 > On `root@<server>`, set the `<provider>` API key for Vinci: read it from `<where you keep it>`, write it as `<VARIABLE>` in `/opt/vinci/.env` without printing it, then run `docker compose up -d --wait` in `/opt/vinci` and confirm every `vinci-daemon-*` container is healthy.
 
-## Voice input
+## Voice
 
-People can talk instead of typing in the web app's chat box: a microphone button records, and what they said comes back as text in the box, where they edit it and send it themselves. Nothing is sent to a bot until they press Send. It needs an OpenAI API key of its own, which you set once for everyone:
+People can talk instead of typing in the web app's chat box, and hear the bots' replies read aloud. Both use one OpenAI API key, which you set once for everyone:
 
 1. In the admin panel open **Global settings → Tools**.
-2. Paste the key in **Voice input → OpenAI API key for transcription** and press **Save**.
+2. Paste the key in **Voice → OpenAI API key for voice** and press **Save**.
 
-Every person whose Tools follow global gets it within seconds, and the microphone button appears in their chat box the next time their app checks (within a minute, or on reload). Without a key nobody sees the button. **Remove key** takes it away again. The key is separate from the model keys: an install whose bots use Anthropic, xAI or any other provider can still offer voice input, and an OpenAI model key in `/opt/vinci/.env` is not used for it.
+Every person whose Tools follow global gets it within seconds, and the buttons appear the next time their app checks (within a minute, or on reload). Without a key nobody sees the microphone or the read-aloud buttons. **Remove key** takes them away again. The key is separate from the model keys: an install whose bots use Anthropic, xAI or any other provider can still offer voice, and an OpenAI model key in `/opt/vinci/.env` is not used for it. A key saved before reading aloud existed is the same key: nothing to do.
 
 Who can see the key: nobody. Each person's Vinci keeps it encrypted with the other secrets; the apps only learn whether a key is set, and neither a person's device nor a bot can read or change it (a device that tries gets *Your admin manages this*). Only you set it, in the panel; to give one person a different key, override their Tools there and set it on their page.
 
-What it costs: OpenAI bills the key for every recording, by its length. A recording stops by itself after 5 minutes. Use a key with a spending limit, as for the model keys.
+What it costs: OpenAI bills the key for every recording, by its length, and for every reply read aloud, by the length of the speech. A recording stops by itself after 5 minutes; a reply longer than about 6,000 characters (after code is left out) is not read aloud. Use a key with a spending limit, as for the model keys.
 
-Privacy: the recording goes from the browser through the hub to that person's Vinci, which sends it to OpenAI's transcription service (`gpt-transcribe`; the language is detected, so Portuguese and English both work) and hands only the text back to the browser. Vinci keeps no recording: it is held in memory for that one request and dropped whether the transcription worked or not, and neither the audio nor the text is written to any log or to the audit trail. OpenAI's own data policy applies to what it receives.
+Privacy: a recording goes from the browser through the hub to that person's Vinci, which sends it to OpenAI's transcription service (`gpt-transcribe`; the language is detected, so Portuguese and English both work) and hands only the text back to the browser. A reply to read aloud goes the same way to OpenAI's Realtime API (`gpt-realtime-2.1-mini`), and the speech streams back to the browser as it is made. Vinci keeps no recording and no audio: each is held in memory for that one request and dropped, and neither the audio nor the text is written to any log or to the audit trail. The browser plays the speech and keeps nothing either. OpenAI's own data policy applies to what it receives.
 
-What people do: press the microphone, allow the browser to use it the first time, speak, then press **Stop** (the square) to transcribe or **Cancel** (the ×, or Escape) to throw the recording away without sending anything. While the text is being made the chat box stays editable. The text goes where the cursor was, replacing a selection, with a space before it when it lands right after a word; a second recording goes in at the new cursor. If something goes wrong they see why: the microphone was not allowed or not found, the recording was too long, OpenAI refused the key (check it here), or the transcription failed (try again). Only the web app and the installed web app have the button; the phone and desktop apps do not yet.
+What people do with the microphone: press it, allow the browser to use it the first time, speak, then press **Stop** (the square) to transcribe or **Cancel** (the ×, or Escape) to throw the recording away without sending anything. While the text is being made the chat box stays editable. The text goes where the cursor was, replacing a selection, with a space before it when it lands right after a word; a second recording goes in at the new cursor. If something goes wrong they see why: the microphone was not allowed or not found, the recording was too long, OpenAI refused the key (check it here), or the transcription failed (try again).
+
+What people do to listen: each bot reply has a speaker button (on a phone, in the reply's ⋮ menu) that reads it aloud and turns into a stop button while it plays. The loudspeaker button next to the microphone (**Read new replies aloud**) reads each new reply of that chat as soon as it is finished, while they keep typing or dictating as usual; a short message confirms each switch. It stays on while the chat is open and turns off when they leave the chat or reload the page. Sending a message, pressing stop or starting the microphone stops the speech. The speech is in the reply's language (Portuguese is asked for with a European accent), and it is made for the ear: code is described instead of read, long lists and tables are summed up, and links are named by their site. The chat still shows the whole reply. If it fails they see why: OpenAI refused the key, the reply is too long, too many at once, or the browser blocked the sound. Only the web app and the installed web app have these buttons; the phone and desktop apps do not yet.
 
 ## The admin panel
 
@@ -307,7 +309,7 @@ The switch, and a section you switch back to global, reach the person's open app
 
 Besides one Vinci per person, the server runs one more: the **template workspace** (`daemon-template`, volume `vinci_data-template`). Nobody logs into it and it has no login account. `apply` always keeps it running; you never add it by hand. It holds two things:
 
-- **Global settings.** Its settings are the team's defaults, edited in the admin panel with the same forms as a person's. There are five sections: Models (provider API keys and the model for new bots), Chat (busy mode, hide tool calls, GIFs), Tools (approval rules and timeout, the Jev key, the [voice input](#voice-input) key, and the approvals, which become everyone's approval defaults), Secrets and Sources (shared skill, instruction, plugin and MCP folders, and the files in its `~/.agents`).
+- **Global settings.** Its settings are the team's defaults, edited in the admin panel with the same forms as a person's. There are five sections: Models (provider API keys and the model for new bots), Chat (busy mode, hide tool calls, GIFs), Tools (approval rules and timeout, the Jev key, the [voice](#voice) key, and the approvals, which become everyone's approval defaults), Secrets and Sources (shared skill, instruction, plugin and MCP folders, and the files in its `~/.agents`).
 - **Suggested bots.** Its bots are offered when you add a person.
 
 For each person, each section either **follows global** or is **overridden**:

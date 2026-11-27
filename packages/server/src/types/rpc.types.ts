@@ -20,6 +20,7 @@ import type { SecretService } from '../services/secret/secret.service';
 import type { ServerService } from '../services/server/server.service';
 import type { SidebarSectionService } from '../services/sidebar-section/sidebar-section.service';
 import type { SkillService } from '../services/skill/skill.service';
+import type { SpeechService } from '../services/speech/speech.service';
 import type { TodoService } from '../services/todo/todo.service';
 import type { ToolService } from '../services/tool/tool.service';
 import type { TranscriptionService } from '../services/transcription/transcription.service';
@@ -49,6 +50,7 @@ export interface RpcContext extends RequestHeadersPluginContext, ResponseHeaders
   runtime: RuntimeService;
   tools: ToolService;
   transcription: TranscriptionService;
+  speech: SpeechService;
   skills: SkillService;
   plugins: PluginService;
   instructions: InstructionService;

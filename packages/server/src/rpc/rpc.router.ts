@@ -23,6 +23,7 @@ import { secrets } from './rpc.secrets';
 import { rpcServer } from './rpc.server';
 import { sidebarSections } from './rpc.sidebar-sections';
 import { skills } from './rpc.skills';
+import { speech } from './rpc.speech';
 import { todos } from './rpc.todos';
 import { tools } from './rpc.tools';
 import { transcription } from './rpc.transcription';
@@ -51,6 +52,7 @@ export const router = rpcRouter.router({
   pairing,
   tools,
   transcription,
+  speech,
   skills,
   plugins,
   instructions,

@@ -153,7 +153,7 @@
   "admin_preview_setting_approval_rules": "Approval rules",
   "admin_preview_setting_approval_timeout": "Approval timeout",
   "admin_preview_setting_jev_key": "Jev API key (automatic command approval)",
-  "admin_preview_setting_transcription_key": "OpenAI API key (voice input)",
+  "admin_preview_setting_transcription_key": "OpenAI API key (voice)",
   "admin_preview_setting_approval_defaults": "Approval policy defaults",
   "admin_preview_setting_secret_mode": "How bots use secrets",
   "admin_preview_setting_skills": "Skill folders",

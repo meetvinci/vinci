@@ -18,6 +18,7 @@ import { makeRoutineService } from '../services/routine/routine.service';
 import { makeServerService } from '../services/server/server.service';
 import { makeSidebarSectionService } from '../services/sidebar-section/sidebar-section.service';
 import { makeSkillService } from '../services/skill/skill.service';
+import { makeSpeechService } from '../services/speech/speech.service';
 import { makeTodoService } from '../services/todo/todo.service';
 import { makeToolService } from '../services/tool/tool.service';
 import { makeTranscriptionService } from '../services/transcription/transcription.service';
@@ -96,6 +97,8 @@ export async function makeServices({
     runtime.actions.registerBotTools({ bots });
     runtime.actions.registerAttachmentTools({ attachments });
 
+    const transcription = makeTranscriptionService({ credentials });
+
     const notifications = makeNotificationService({
       credentials,
       database,
@@ -135,7 +138,8 @@ export async function makeServices({
       bots,
       runtime,
       tools,
-      transcription: makeTranscriptionService({ credentials }),
+      transcription,
+      speech: makeSpeechService({ transcription }),
       gif: gifs,
       skills: skill,
       instructions: instruction,

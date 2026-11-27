@@ -46,7 +46,11 @@ Muted chats never notify. Tapping a notification opens that chat; a waiting appr
 
 ## Talk instead of typing
 
-When your admin has turned voice input on, the chat box has a microphone button. Press it (allow the microphone the first time), speak in any language, then press **Stop** (the square): your words appear as text where the cursor was, ready to edit. Press **Cancel** (the ×) or Escape to throw a recording away. Nothing goes to the bot until you press Send. A recording stops by itself after 5 minutes. Your voice is sent to OpenAI to make the text and is not kept by Vinci.
+When your admin has turned voice on, the chat box has a microphone button. Press it (allow the microphone the first time), speak in any language, then press **Stop** (the square): your words appear as text where the cursor was, ready to edit. Press **Cancel** (the ×) or Escape to throw a recording away. Nothing goes to the bot until you press Send. A recording stops by itself after 5 minutes. Your voice is sent to OpenAI to make the text and is not kept by Vinci.
+
+## Hear the replies
+
+With voice on, each bot reply has a speaker button (on a phone, in the reply's ⋮ menu): press it to hear the reply, press it again to stop. To hear every new reply as it arrives, press **Read new replies aloud** (the crossed-out loudspeaker next to the microphone). It turns blue, and a short message confirms that new replies will be read aloud; press it again (**Stop reading replies aloud**) to turn it off. You still type or use the microphone to talk. It stays on while that chat is open and turns off when you leave the chat or reload. Sending a message or starting the microphone stops the speech. You hear the reply in its own language, made for listening: code is described, not read, and long lists and tables are summed up. The reply is sent to OpenAI to make the speech, and neither the text nor the audio is kept by Vinci.
 
 ## Sign out
 
