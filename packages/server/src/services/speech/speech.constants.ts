@@ -8,6 +8,7 @@ export const SPEECH_SERVICE = {
   timeoutMs: 120_000,
   chunkBytes: 9600,
   rejectedCodes: ['invalid_api_key', 'insufficient_permissions', 'insufficient_quota'],
+  codeHintChars: 120,
   listItems: 6,
   listKept: 4,
   tableRows: 6,

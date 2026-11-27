@@ -6,9 +6,9 @@ export function speechText(markdown: string): string {
   const text = markdown
     .replaceAll(/^(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)(?:^\1[ \t]*$|(?![\s\S]))/gm, (_block, _fence: string, info: string, code: string) => {
       const language = info.trim().split(/\s/, 1)[0] ?? '';
-      const lines = code.split('\n').filter((line) => line.trim()).length;
+      const lines = code.split('\n').filter((line) => line.trim());
 
-      return `[code block: ${language || 'code'}, ${String(lines)} lines]\n`;
+      return `[code block: ${language || 'code'}, ${String(lines.length)} lines, first line: ${(lines[0] ?? '').trim().slice(0, SPEECH_SERVICE.codeHintChars)}]\n`;
     })
     .replaceAll(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replaceAll(/\[([^\]]+)\]\([^)]*\)/g, '$1')
