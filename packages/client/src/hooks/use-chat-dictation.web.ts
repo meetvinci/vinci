@@ -15,13 +15,16 @@ export function useChatDictation({ botId, onText, onProblem }: TranscriptionDict
   const [state, setState] = useState<TranscriptionState>('idle');
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(0);
+  const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const recording = useRef<TranscriptionRecording | null>(null);
   const generation = useRef(0);
   const isSupported = useSyncExternalStore(useChatDictationSubscribe, useChatDictationIsSupported, () => false);
 
   const finish = (current: TranscriptionRecording) => {
     current.stream.getTracks().forEach((track) => track.stop());
+    void current.audio.close();
     recording.current = null;
+    setAnalyser(null);
 
     if (!current.shouldTranscribe || current.generation !== generation.current) {
       setState('idle');
@@ -69,9 +72,12 @@ export function useChatDictation({ botId, onText, onProblem }: TranscriptionDict
 
     setState('starting');
     const started = generation.current;
+    const opened: (() => void)[] = [];
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      opened.push(() => stream.getTracks().forEach((track) => track.stop()));
 
       if (started !== generation.current) {
         stream.getTracks().forEach((track) => track.stop());
@@ -82,7 +88,13 @@ export function useChatDictation({ botId, onText, onProblem }: TranscriptionDict
 
       const format = TRANSCRIPTION_RECORDER.formats.find(({ type }) => MediaRecorder.isTypeSupported(type)) ?? TRANSCRIPTION_RECORDER.formats[0];
       const recorder = new MediaRecorder(stream, { mimeType: format.type, audioBitsPerSecond: TRANSCRIPTION_RECORDER.bitsPerSecond });
-      const current: TranscriptionRecording = { recorder, stream, format, generation: started, chunks: [], shouldTranscribe: false };
+      const audio = new AudioContext();
+
+      opened.push(() => void audio.close());
+      const meter = audio.createAnalyser();
+      meter.fftSize = TRANSCRIPTION_RECORDER.waveform.fftSize;
+      audio.createMediaStreamSource(stream).connect(meter);
+      const current: TranscriptionRecording = { recorder, stream, audio, format, generation: started, chunks: [], shouldTranscribe: false };
 
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) {
@@ -94,8 +106,10 @@ export function useChatDictation({ botId, onText, onProblem }: TranscriptionDict
       recorder.start(TRANSCRIPTION_RECORDER.chunkMs);
       setStartedAt(Date.now());
       setNow(Date.now());
+      setAnalyser(meter);
       setState('recording');
     } catch (error) {
+      opened.forEach((close) => close());
       setState('idle');
       onProblem(match(error)
         .with({ name: P.union('NotAllowedError', 'SecurityError') }, () => m.rooms_chat_dictate_denied())
@@ -147,6 +161,7 @@ export function useChatDictation({ botId, onText, onProblem }: TranscriptionDict
   return {
     isAvailable: isSupported && settings.data?.isConfigured === true,
     state,
+    analyser,
     elapsedSeconds: state === 'recording' ? Math.floor((now - startedAt) / 1000) : 0,
     start: () => void start(),
     stop: () => end(true),

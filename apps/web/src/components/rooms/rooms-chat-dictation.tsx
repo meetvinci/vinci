@@ -1,6 +1,7 @@
 import { m } from '@repo/i18n/client';
 import { PromptInputButton } from '@repo/ui/ai/prompt-input';
 import { match } from 'ts-pattern';
+import { RoomsChatWaveform } from '@/components/rooms/rooms-chat-waveform';
 import IconLoader from '~icons/lucide/loader-2';
 import IconMic from '~icons/lucide/mic';
 import IconSquare from '~icons/lucide/square';
@@ -31,6 +32,7 @@ export function RoomsChatDictation({ dictation }: RoomsChatDictationProps) {
         >
           {`${String(minutes)}:${seconds}`}
         </time>
+        <RoomsChatWaveform analyser={dictation.analyser} />
         <PromptInputButton
           aria-label={m.rooms_chat_dictate_cancel()}
           title={m.rooms_chat_dictate_cancel()}

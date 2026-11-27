@@ -9,6 +9,7 @@ export interface TranscriptionDictationParams {
 export interface TranscriptionRecording {
   recorder: MediaRecorder;
   stream: MediaStream;
+  audio: AudioContext;
   format: { type: string; extension: string };
   generation: number;
   chunks: Blob[];
