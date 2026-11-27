@@ -283,6 +283,7 @@
   "rooms_event_subagent_answered": "Subagente terminado",
   "rooms_event_subagent_failed": "El subagente falló",
   "rooms_event_owner_note": "Planteado desde un chat privado con",
+  "rooms_event_peer_message": "Petición de",
   "rooms_event_private_source": "Preguntado en un chat privado con",
   "rooms_event_failed": "La respuesta falló",
   "rooms_event_failed_stalled": "El modelo no respondió. Inténtalo de nuevo.",
