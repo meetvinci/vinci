@@ -25,6 +25,7 @@ import { sidebarSections } from './rpc.sidebar-sections';
 import { skills } from './rpc.skills';
 import { todos } from './rpc.todos';
 import { tools } from './rpc.tools';
+import { transcription } from './rpc.transcription';
 import { workspace } from './rpc.workspace';
 
 export const router = rpcRouter.router({
@@ -49,6 +50,7 @@ export const router = rpcRouter.router({
   secrets,
   pairing,
   tools,
+  transcription,
   skills,
   plugins,
   instructions,

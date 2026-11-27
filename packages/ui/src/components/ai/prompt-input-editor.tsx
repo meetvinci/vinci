@@ -25,6 +25,7 @@ export type PromptInputEditorSegment = { kind: 'text', text: string } | { kind: 
 
 export interface PromptInputEditorHandle {
   insert: (items: PromptInputEditorItem[]) => void
+  insertText: (text: string) => void
   restore: (segments: PromptInputEditorSegment[]) => void
   focus: () => void
 }
@@ -322,6 +323,16 @@ export function PromptInputEditor({
   useImperativeHandle(ref, () => ({
     insert: (items) => {
       editor?.chain().focus().insertContent(items.flatMap((item) => [{ type: PromptInputEditorPillNode.name, attrs: { id: item.href, label: item.label } }, { type: 'text', text: ' ' }])).run();
+    },
+    insertText: (value) => {
+      editor?.chain().focus().command(({ tr }) => {
+        const { from } = tr.selection;
+        const before = tr.doc.textBetween(Math.max(0, from - 1), from, '\n', '\uFFFC');
+
+        tr.insertText(`${before === '' || /\s/u.test(before) ? '' : ' '}${value}`);
+
+        return true;
+      }).scrollIntoView().run();
     },
     restore: (segments) => {
       if (editor?.isEmpty) {

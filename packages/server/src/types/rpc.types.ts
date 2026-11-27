@@ -22,6 +22,7 @@ import type { SidebarSectionService } from '../services/sidebar-section/sidebar-
 import type { SkillService } from '../services/skill/skill.service';
 import type { TodoService } from '../services/todo/todo.service';
 import type { ToolService } from '../services/tool/tool.service';
+import type { TranscriptionService } from '../services/transcription/transcription.service';
 import type { WorkspaceService } from '../services/workspace/workspace.service';
 import type { RequestHeadersPluginContext, ResponseHeadersPluginContext } from '@orpc/server/plugins';
 import type { contract, Device } from '@repo/contracts/universal';
@@ -47,6 +48,7 @@ export interface RpcContext extends RequestHeadersPluginContext, ResponseHeaders
   peerAddress: string | null;
   runtime: RuntimeService;
   tools: ToolService;
+  transcription: TranscriptionService;
   skills: SkillService;
   plugins: PluginService;
   instructions: InstructionService;

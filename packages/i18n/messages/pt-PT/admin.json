@@ -152,6 +152,7 @@
   "admin_preview_setting_approval_rules": "Regras de aprovação",
   "admin_preview_setting_approval_timeout": "Tempo limite de aprovação",
   "admin_preview_setting_jev_key": "Chave de API do Jev (aprovação automática de comandos)",
+  "admin_preview_setting_transcription_key": "Chave da API OpenAI (entrada por voz)",
   "admin_preview_setting_approval_defaults": "Predefinições da política de aprovação",
   "admin_preview_setting_secret_mode": "Como os bots usam segredos",
   "admin_preview_setting_skills": "Pastas de skills",

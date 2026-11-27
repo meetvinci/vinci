@@ -7,7 +7,7 @@ export const credentials = {
     await rpcTeamRefuse({
       context,
       path: 'credentials.set',
-      changes: async () => context.secrets.queries.isGlobalKey(input),
+      changes: async () => context.transcription.queries.ownsKey(input) || context.secrets.queries.isGlobalKey(input),
     });
     return context.credentials.actions.set(input);
   }),

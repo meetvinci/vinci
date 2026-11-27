@@ -44,6 +44,7 @@ export * from './hooks/use-settings-sources';
 export * from './hooks/use-settings-tool-policy';
 export * from './hooks/use-settings-secrets';
 export * from './hooks/use-settings-tools';
+export * from './hooks/use-settings-transcription';
 export * from './hooks/use-chat-elapsed';
 export * from './hooks/use-sidebar-sections';
 export * from './services/chat/chat.client';

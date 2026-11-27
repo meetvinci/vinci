@@ -53,9 +53,10 @@ export async function globalQueryPreview(
     })
     .with('chat', async () => ({ settings: globalValues(await client.conversation.settings()) }))
     .with('tools', async () => {
-      const [{ approvalRules, approvalTimeoutMinutes, policy, policyDefaults }, { jevApiKey }] = await Promise.all([
+      const [{ approvalRules, approvalTimeoutMinutes, policy, policyDefaults }, { jevApiKey }, { apiKey: transcriptionApiKey }] = await Promise.all([
         client.tools.settings(),
         client.tools.export(),
+        client.transcription.export(),
       ]);
 
       return {
@@ -64,6 +65,7 @@ export async function globalQueryPreview(
           approvalTimeoutMinutes,
           approvalDefaults: isPerson ? policyDefaults : { ...policy, trusted: [] },
           jevApiKey,
+          transcriptionApiKey,
         }),
       };
     })
