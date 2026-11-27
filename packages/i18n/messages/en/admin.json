@@ -3,6 +3,7 @@
   "admin_back_to_app": "Back to app",
   "admin_nav": "Admin sections",
   "admin_signed_in_as": "Signed in as {email}",
+  "admin_version": "Vinci {version}",
   "admin_signed_out": "Your sign-in has expired",
   "admin_forbidden": "This page is for admins",
   "admin_forbidden_hint": "Reload the page to sign in again. If it still shows this, ask an admin to add your email.",

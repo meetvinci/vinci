@@ -3,6 +3,7 @@
   "admin_back_to_app": "Retour à l’app",
   "admin_nav": "Sections d’administration",
   "admin_signed_in_as": "Connecté en tant que {email}",
+  "admin_version": "Vinci {version}",
   "admin_signed_out": "Votre connexion a expiré",
   "admin_forbidden": "Cette page est réservée aux administrateurs",
   "admin_forbidden_hint": "Rechargez la page pour vous reconnecter. Si ce message s’affiche toujours, demandez à un administrateur d’ajouter votre e-mail.",

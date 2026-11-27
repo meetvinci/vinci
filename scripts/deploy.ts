@@ -217,12 +217,14 @@ function images() {
     fail(`Unknown image target: ${unknown.join(', ')}. Choose from ${targets.join(', ')}.`);
   }
 
+  const version = imageVersion();
+
   for (const target of selected) {
     const image = `vinci-${target}:${values.tag}`;
 
-    console.log(`Building ${image} for ${values.platform}`);
+    console.log(`Building ${image} for ${values.platform}, Vinci ${version}`);
 
-    const result = Bun.spawnSync(['docker', 'buildx', 'build', '--platform', values.platform, '--file', dockerfile, '--target', target, '--tag', image, '--load', root], {
+    const result = Bun.spawnSync(['docker', 'buildx', 'build', '--platform', values.platform, '--file', dockerfile, '--target', target, '--tag', image, '--build-arg', `VINCI_VERSION=${version}`, '--load', root], {
       stdout: 'inherit',
       stderr: 'inherit',
     });
@@ -231,6 +233,15 @@ function images() {
       fail(`Building ${image} failed.`);
     }
   }
+}
+
+// The version the hub image reports (VINCI_VERSION): the release when HEAD carries its tag, else the release and the
+// short commit, as images.yml does.
+function imageVersion(): string {
+  const { version } = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version: string };
+  const git = (args: string[]) => Bun.spawnSync(['git', '-C', root, ...args]).stdout.toString().trim();
+
+  return git(['tag', '--points-at', 'HEAD']).split('\n').includes(`v${version}`) ? version : `${version} (${git(['rev-parse', '--short=7', 'HEAD'])})`;
 }
 
 function isEmail(value: unknown): value is string {
@@ -2088,6 +2099,7 @@ function containerState(state: string, health: string): UserState {
 }
 
 interface ComposeRow {
+  ID: string;
   Service: string;
   State: string;
   Health: string;
@@ -2133,6 +2145,8 @@ function diskShown(id: string): [string, boolean] {
 // non-zero unless every one is running and healthy, no disk is full or missing, and the server has room.
 async function stackStatus() {
   const rows = new Map((await composeRows()).map((row) => [row.Service, row]));
+
+  console.log(`Vinci ${await hubVersion(rows.get('hub'))}`);
   const ids = [templateId, ...enabledIds(team())];
   const width = Math.max(...ids.map((id) => id.length));
 
@@ -2178,6 +2192,19 @@ async function stackStatus() {
   if (isLow) {
     fail('The server\'s disk is almost full: the hub\'s audit trail and the backups need room. See troubleshooting.md, The disk fills up.');
   }
+}
+
+// The version the hub's image was built as (VINCI_VERSION, deploy/docker/Dockerfile), which the admin panel shows. Only
+// that one variable leaves the container's environment, which also holds the hub's tokens.
+async function hubVersion(row: ComposeRow | undefined): Promise<string> {
+  if (row === undefined) {
+    return 'unknown: no hub container';
+  }
+
+  const variables: string[] = JSON.parse(await docker(['inspect', '--format', '{{json .Config.Env}}', row.ID]));
+  const version = variables.find((variable) => variable.startsWith('VINCI_VERSION='))?.slice('VINCI_VERSION='.length);
+
+  return version ?? 'unknown: the hub image records none';
 }
 
 function checkSystem(id: string | undefined, version: string): 'ok' | 'warning' | 'failed' {

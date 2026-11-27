@@ -32,6 +32,7 @@ export const envServerSchema = {
   HUB_WEB_URL: z.url({ protocol: /^https?$/ }).default('http://127.0.0.1:47190'),
   HUB_PUBLIC_URL: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value)).optional(),
   HUB_VERSION: z.string().trim().min(1).optional(),
+  VINCI_VERSION: z.string().trim().min(1).default('dev'),
   HUB_ADMIN_EMAILS: z.string().trim().default('')
     .transform((value) => value.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean))
     .pipe(z.array(z.email())),

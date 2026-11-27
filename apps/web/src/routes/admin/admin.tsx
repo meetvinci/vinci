@@ -20,7 +20,7 @@ function AdminRoute() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AdminLayout email={me.email}>
+      <AdminLayout email={me.email} version={me.version}>
         <Outlet />
       </AdminLayout>
     </QueryClientProvider>

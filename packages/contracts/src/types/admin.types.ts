@@ -5,7 +5,7 @@ export const adminEmail = z.email().max(254);
 export const adminUserId = z.string().regex(/^[a-z\d][a-z\d-]{0,62}$/u);
 export const adminUserState = z.enum(['running', 'starting', 'stopped', 'unknown']);
 
-export const adminMe = z.object({ email: adminEmail });
+export const adminMe = z.object({ email: adminEmail, version: z.string() });
 
 export const admin = z.object({ email: adminEmail });
 export const adminList = z.object({ admins: z.array(admin) });

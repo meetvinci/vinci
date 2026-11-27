@@ -3,6 +3,7 @@
   "admin_back_to_app": "Volver a la app",
   "admin_nav": "Secciones de administración",
   "admin_signed_in_as": "Sesión iniciada como {email}",
+  "admin_version": "Vinci {version}",
   "admin_signed_out": "Tu sesión ha caducado",
   "admin_forbidden": "Esta página es para administradores",
   "admin_forbidden_hint": "Recarga la página para iniciar sesión de nuevo. Si sigue apareciendo esto, pide a un administrador que añada tu correo.",

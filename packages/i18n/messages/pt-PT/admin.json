@@ -3,6 +3,7 @@
   "admin_back_to_app": "Voltar à aplicação",
   "admin_nav": "Secções de administração",
   "admin_signed_in_as": "Sessão iniciada como {email}",
+  "admin_version": "Vinci {version}",
   "admin_signed_out": "A sua sessão expirou",
   "admin_forbidden": "Esta página é para administradores",
   "admin_forbidden_hint": "Recarregue a página para iniciar sessão novamente. Se continuar a aparecer isto, peça a um administrador que adicione o seu email.",

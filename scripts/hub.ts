@@ -204,6 +204,8 @@ async function dev() {
   }));
 
   const session = await devSession(path.join(hubData, 'dev-session'));
+  // The admin panel's version line: what an image would show, marked as a dev run.
+  const { version } = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8')) as { version: string };
   const accountsToken = randomBytes(32).toString('hex');
 
   async function forward(request: Request, server: Server<DevSocket>): Promise<Response | undefined> {
@@ -334,6 +336,7 @@ async function dev() {
         HUB_ADMIN_EMAILS: DEV.email,
         HUB_ACCOUNTS_URL: door,
         HUB_ACCOUNTS_TOKEN: accountsToken,
+        VINCI_VERSION: `${version} (dev)`,
       },
       stdout: 'inherit',
       stderr: 'inherit',

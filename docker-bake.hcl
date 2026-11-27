@@ -17,6 +17,12 @@ variable "TAG" {
   default = "latest"
 }
 
+# The Vinci version the hub image reports to admins (deploy/docker/Dockerfile, VINCI_VERSION): 0.2.0 for a release,
+# 0.2.0 (48c774c) for any other commit. CI sets it; the hub target fails without it.
+variable "VERSION" {
+  default = ""
+}
+
 # A GitHub Actions cache scope prefix such as amd64. Empty uses no cache. Each image gets its own scope, so its
 # cache exports are kept separate.
 variable "CACHE_SCOPE" {
@@ -40,6 +46,7 @@ target "image" {
   context    = "."
   dockerfile = "deploy/docker/Dockerfile"
   target     = t
+  args       = { VINCI_VERSION = VERSION }
   tags       = PUSH_BY_DIGEST ? [] : ["${REGISTRY == "" ? "" : "${REGISTRY}/"}vinci-${t}:${TAG}"]
   output = PUSH_BY_DIGEST ? [
     "type=image,name=${REGISTRY}/vinci-${t},push-by-digest=true,name-canonical=true,push=true"

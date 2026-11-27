@@ -3,6 +3,7 @@
   "admin_back_to_app": "Zurück zur App",
   "admin_nav": "Admin-Bereiche",
   "admin_signed_in_as": "Angemeldet als {email}",
+  "admin_version": "Vinci {version}",
   "admin_signed_out": "Deine Anmeldung ist abgelaufen",
   "admin_forbidden": "Diese Seite ist für Admins",
   "admin_forbidden_hint": "Lade die Seite neu, um dich erneut anzumelden. Wenn das weiter angezeigt wird, bitte einen Admin, deine E-Mail-Adresse hinzuzufügen.",
