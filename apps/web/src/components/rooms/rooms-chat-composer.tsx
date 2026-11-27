@@ -74,6 +74,7 @@ export function RoomsChatComposer({
   const draft = useChatDraft(bot.id);
 
   const dictation = useChatDictation({
+    botId: bot.id,
     onText: (value) => editor.current?.insertText(value.replaceAll(/\s*\n+\s*/gu, ' ')),
     onProblem: (message) => toasty(message, '⚠️'),
   });

@@ -8,7 +8,7 @@ import { transcriptionProblem } from '../services/transcription/transcription.ut
 import { useRpc } from './use-rpc';
 import type { TranscriptionDictationParams, TranscriptionRecording, TranscriptionState } from '../types/transcription.types';
 
-export function useChatDictation({ onText, onProblem }: TranscriptionDictationParams) {
+export function useChatDictation({ botId, onText, onProblem }: TranscriptionDictationParams) {
   const { rpc } = useRpc();
   const settings = useQuery(rpc.transcription.settings.queryOptions());
   const transcribe = useMutation(rpc.transcription.transcribe.mutationOptions());
@@ -16,14 +16,14 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
   const [startedAt, setStartedAt] = useState(0);
   const [now, setNow] = useState(0);
   const recording = useRef<TranscriptionRecording | null>(null);
-  const isMounted = useRef(true);
+  const generation = useRef(0);
   const isSupported = useSyncExternalStore(useChatDictationSubscribe, useChatDictationIsSupported, () => false);
 
   const finish = (current: TranscriptionRecording) => {
     current.stream.getTracks().forEach((track) => track.stop());
     recording.current = null;
 
-    if (!current.shouldTranscribe || !isMounted.current) {
+    if (!current.shouldTranscribe || current.generation !== generation.current) {
       setState('idle');
 
       return;
@@ -40,10 +40,13 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
 
     setState('transcribing');
     transcribe.mutate({ file }, {
-      onSuccess: ({ text }) => match(text.trim())
-        .with('', () => onProblem(m.rooms_chat_dictate_empty()))
-        .otherwise((value) => onText(value)),
-      onError: (error) => onProblem(transcriptionProblem(error)),
+      onSuccess: ({ text }) => match({ text: text.trim(), isCurrent: current.generation === generation.current })
+        .with({ isCurrent: false }, () => undefined)
+        .with({ text: '' }, () => onProblem(m.rooms_chat_dictate_empty()))
+        .otherwise(({ text: value }) => onText(value)),
+      onError: (error) => match(current.generation === generation.current)
+        .with(true, () => onProblem(transcriptionProblem(error)))
+        .otherwise(() => undefined),
       onSettled: () => setState('idle'),
     });
   };
@@ -65,19 +68,21 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
     }
 
     setState('starting');
+    const started = generation.current;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      if (!isMounted.current) {
+      if (started !== generation.current) {
         stream.getTracks().forEach((track) => track.stop());
+        setState('idle');
 
         return;
       }
 
       const format = TRANSCRIPTION_RECORDER.formats.find(({ type }) => MediaRecorder.isTypeSupported(type)) ?? TRANSCRIPTION_RECORDER.formats[0];
       const recorder = new MediaRecorder(stream, { mimeType: format.type, audioBitsPerSecond: TRANSCRIPTION_RECORDER.bitsPerSecond });
-      const current: TranscriptionRecording = { recorder, stream, format, chunks: [], shouldTranscribe: false };
+      const current: TranscriptionRecording = { recorder, stream, format, generation: started, chunks: [], shouldTranscribe: false };
 
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) {
@@ -134,19 +139,15 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
     };
   }, [state]);
 
-  useEffect(() => {
-    isMounted.current = true;
-
-    return () => {
-      isMounted.current = false;
-      release();
-    };
-  }, []);
+  useEffect(() => () => {
+    generation.current += 1;
+    release();
+  }, [botId]);
 
   return {
     isAvailable: isSupported && settings.data?.isConfigured === true,
     state,
-    elapsedSeconds: state === 'recording' ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0,
+    elapsedSeconds: state === 'recording' ? Math.floor((now - startedAt) / 1000) : 0,
     start: () => void start(),
     stop: () => end(true),
     cancel: () => end(false),
