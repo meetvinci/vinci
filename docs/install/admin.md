@@ -366,7 +366,7 @@ docker compose start hub
 
 ## Set up bots, skills and tools for a person
 
-Users can do all of this themselves in the app, and an admin can do it for them in the [admin panel](#the-admin-panel). For files the forms do not cover, edit their volume:
+Users can do all of this themselves in the app, and an admin can do it for them in the [admin panel](#the-admin-panel). For an assistant that hands questions to specialist bots, see [Bots that work together](bots-together.md). For files the forms do not cover, edit their volume:
 
 | What | Where, inside the person's volume |
 | --- | --- |
@@ -881,6 +881,10 @@ On the first upgrade to the version with nightly backups, step 2's backup stops 
 #### Bot modes and approvals
 
 **The first upgrade to the version with bot modes and [approvals](#approvals) needs no extra step.** Each person's Vinci migrates its database on start (`0010_bot_modes`): **Ask first**, **Sandbox** and **Auto** become **Normal**, **Full access** becomes **No questions**, **Read only** stays. Each bot's **Always approve** list becomes the person's own **Never ask** choices for those tools, across their bots; MCP tools in those lists ask once more. A bot that was on **Ask first** no longer asks before commands in its sandbox. The hub's start sync gives everyone who follows Tools your approval defaults from Global settings (empty until you set some). Ask people to reload open browser tabs and update the phone app: an app from before this version still shows the old levels and the old *Always approved* list, and its bot form and Tools tab fail until it updates. Rolling back needs a restore ([Rolling back past older versions](#rolling-back-past-older-versions)).
+
+#### OpenAI bots and tool search
+
+**After the upgrade that renamed the tool search, reset each chat of an OpenAI bot that fails once.** Before it, every bot on an OpenAI model failed with *Function 'tool_search.tool_search' is not allowed in reserved namespace 'tool_search'* (see [Troubleshooting](troubleshooting.md#an-openai-bot-fails-with-reserved-namespace-tool_search)). The new version offers the tool under another name, but a chat that already started keeps the old one in its history: the person types `/reset` in that chat (or **Reset** in its menu) once. New bots and Anthropic bots need nothing.
 
 #### Rolling back past older versions
 

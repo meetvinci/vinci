@@ -147,6 +147,7 @@ Shared logins from a Claude or ChatGPT subscription are not supported: the provi
 - [Install](install.md): set up the server, for a team or [just you](install.md#just-me).
 - [Install the app on your phone and computer](install-app.md): for everyone on the team: home screen or dock, and notifications.
 - [Admin tasks](admin.md): the admin panel, global settings and suggested bots, people, keys, bots, backups, upgrades.
+- [Bots that work together](bots-together.md): an assistant that hands questions to specialist bots.
 - [Configuration](configuration.md): every setting and file.
 - [Troubleshooting](troubleshooting.md): known problems and fixes.
 - [Server tour](server-tour.md): a guided tour of a live install, to read with a terminal open: which containers run and who talks to whom, where everything is on disk, what happens at `apply` and at a reboot, what to watch during an install or an upgrade, and where each person's files are.

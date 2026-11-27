@@ -65,16 +65,20 @@ export function RoomsHistoryPane({ botId, bot, conversationId, name, task, asker
               {m.admin_conversations_older()}
             </ButtonLoading>
           ) : null}
-          {messages.map((message) => (
-            <Message from={message.role === 'user' ? 'user' : 'assistant'} key={message.id}>
-              <MessageStack>
-                <MessageContent>
-                  <Response renderHtml>{roomsMessageText(message)}</Response>
-                </MessageContent>
-              </MessageStack>
-              {message.role === 'user' ? null : <BotAvatar animate={false} bot={{ avatar: bot.avatar, name }} />}
-            </Message>
-          ))}
+          {messages.map((message) => {
+            const isAsked = message.role === 'user' || message.parts.at(0)?.type === 'data-peerMessage';
+
+            return (
+              <Message from={isAsked ? 'user' : 'assistant'} key={message.id}>
+                <MessageStack>
+                  <MessageContent>
+                    <Response renderHtml>{roomsMessageText(message)}</Response>
+                  </MessageContent>
+                </MessageStack>
+                {isAsked ? null : <BotAvatar animate={false} bot={{ avatar: bot.avatar, name }} />}
+              </Message>
+            );
+          })}
           {history.isSuccess && messages.length === 0 ? <p className="py-6 text-center text-xs text-muted-foreground">{m.rooms_subagent_empty()}</p> : null}
           {history.isError ? <p className="py-6 text-center text-xs text-destructive" role="alert">{m.admin_conversations_failed()}</p> : null}
         </PaneBody>

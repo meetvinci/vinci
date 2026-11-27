@@ -89,8 +89,12 @@ export function chatPairMessages(messages: ChatTypes.ChatMessage[], askerId: str
   let isPair = false;
 
   return messages.filter((message) => {
+    const first = message.parts.at(0);
+
     if (message.role === 'user') {
       isPair = message.metadata?.authorId === askerId;
+    } else if (first?.type === 'data-peerMessage') {
+      isPair = first.data.fromBotId === askerId;
     }
 
     return isPair;
