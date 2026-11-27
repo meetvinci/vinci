@@ -26,6 +26,7 @@ import { SettingsModelSwap } from '@/components/settings/settings-model-swap';
 import { SettingsModels } from '@/components/settings/settings-models';
 import { SettingsModelsDefault } from '@/components/settings/settings-models-default';
 import { SettingsTools } from '@/components/settings/settings-tools';
+import { SettingsTranscription } from '@/components/settings/settings-transcription';
 import { useMutationPending } from '@/hooks/use-mutation-pending';
 import { useSectionScope } from '@/hooks/use-section-scope';
 import { useTeam } from '@/hooks/use-team';
@@ -217,6 +218,7 @@ function SettingsDialogSection({ connection, section, view, modelKey, deviceId, 
       <div className="flex flex-col gap-8">
         <SettingsToolsPolicy />
         {scope.isAdmin || team.isAdvanced ? <SettingsManaged section="tools"><SettingsTools isReadOnly={isLocked} /></SettingsManaged> : null}
+        {scope.isAdmin ? <SettingsManaged section="tools"><SettingsTranscription isReadOnly={isLocked} /></SettingsManaged> : null}
       </div>
     ))
     .with('secrets', () => (

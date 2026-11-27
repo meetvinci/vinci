@@ -41,4 +41,5 @@ export * from './types/theme.types';
 export * from './types/todo.types';
 export * from './types/tool-call.types';
 export * from './types/tool.types';
+export * from './types/transcription.types';
 export * from './types/workspace.types';

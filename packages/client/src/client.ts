@@ -40,7 +40,7 @@ export function makeClient({ connect, token, serverId, url }: ClientOptions): Cl
     .otherwise((base) => new DynamicLink(() => clientHttpLink(base(), headers)));
 
   return createORPCClient(new DynamicLink((_options, path) => match(path)
-    .with(P.union(['attachments', P.union('upload', 'download')], ['avatars', 'upload']), () => match(http)
+    .with(P.union(['attachments', P.union('upload', 'download')], ['avatars', 'upload'], ['transcription', 'transcribe']), () => match(http)
       .with(P.nonNullable, (link) => link)
       .otherwise(() => {
         throw new Errors.INTERNAL_ERROR({ internal: 'File transfer requires an HTTP RPC base (ClientOptions.url).' });

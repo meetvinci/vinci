@@ -20,6 +20,7 @@ import { makeSidebarSectionService } from '../services/sidebar-section/sidebar-s
 import { makeSkillService } from '../services/skill/skill.service';
 import { makeTodoService } from '../services/todo/todo.service';
 import { makeToolService } from '../services/tool/tool.service';
+import { makeTranscriptionService } from '../services/transcription/transcription.service';
 import type { CoreServicesParams } from '../types/core.types';
 
 export async function makeServices({
@@ -134,6 +135,7 @@ export async function makeServices({
       bots,
       runtime,
       tools,
+      transcription: makeTranscriptionService({ credentials }),
       gif: gifs,
       skills: skill,
       instructions: instruction,

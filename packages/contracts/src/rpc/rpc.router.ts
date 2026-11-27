@@ -134,6 +134,7 @@ import {
   toolSettings,
   toolTrust,
 } from '../types/tool.types';
+import { transcriptionConfigure, transcriptionExport, transcriptionResult, transcriptionSettings, transcriptionTranscribe } from '../types/transcription.types';
 import { workspaceExport, workspaceFiles, workspaceImportResult } from '../types/workspace.types';
 
 const oc = baseContract.errors({
@@ -343,6 +344,19 @@ export const contract = {
     trust: ocAuth.input(toolTrust).output(toolSettings),
 
     export: ocAdmin.output(toolExport),
+  },
+
+  transcription: {
+    settings: ocAuth.output(transcriptionSettings),
+
+    configure: ocAuth.errors(ocTeam).input(transcriptionConfigure).output(transcriptionSettings),
+
+    export: ocAdmin.output(transcriptionExport),
+
+    transcribe: ocValidate
+      .errors({ TRANSCRIPTION_FAILED: errorSchemas.TRANSCRIPTION_FAILED })
+      .input(transcriptionTranscribe)
+      .output(transcriptionResult),
   },
 
   bots: {
