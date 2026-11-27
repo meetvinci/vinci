@@ -22,6 +22,14 @@ export function RoomsChatDictation({ dictation }: RoomsChatDictationProps) {
         aria-label={m.rooms_chat_dictate_recording()}
         className="flex items-center gap-1"
       >
+        <PromptInputButton
+          aria-label={m.rooms_chat_dictate_cancel()}
+          title={m.rooms_chat_dictate_cancel()}
+          type="button"
+          onClick={dictation.cancel}
+        >
+          <IconX className="size-4" />
+        </PromptInputButton>
         <span
           aria-hidden
           className="size-2 rounded-full bg-destructive motion-safe:animate-pulse"
@@ -33,14 +41,6 @@ export function RoomsChatDictation({ dictation }: RoomsChatDictationProps) {
           {`${String(minutes)}:${seconds}`}
         </time>
         <RoomsChatWaveform analyser={dictation.analyser} />
-        <PromptInputButton
-          aria-label={m.rooms_chat_dictate_cancel()}
-          title={m.rooms_chat_dictate_cancel()}
-          type="button"
-          onClick={dictation.cancel}
-        >
-          <IconX className="size-4" />
-        </PromptInputButton>
         <PromptInputButton
           aria-label={m.rooms_chat_dictate_stop()}
           ref={(node) => node?.focus()}
