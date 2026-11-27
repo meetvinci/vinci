@@ -353,6 +353,7 @@ In the browser, the admin panel's **Activity** page shows what admins read and c
 | `Pairing grant issued through the hub` | A person's browser paired after login. |
 | `The provisioner did not take the admin list yet; trying again` | Normal once while an apply or the nightly backup holds the lock. A problem only if it goes on for more than a minute. |
 | `The global sync at start already ran for this version` | A restart on the same tag. After an upgrade you see a `global/sync` by `hub start` instead. |
+| `The global sync at start ended` with `people`, `skipped`, `failed` | The copy after an upgrade is done. `failed: []` is the normal end; `skipped` counts people whose Vinci was stopped (their sections wait for **Sync now**). |
 | `Request refused` … `502`, `did not answer /health` | Someone had the app open while their daemon restarted. Only a problem if it repeats once everything is healthy. |
 | `Daemon stopped` then `Daemon started` | A restart: the nightly backup, an upgrade or an apply that changed the person. |
 | `The sandbox connection closed; the next tool call connects again.` | The sandbox stopped (the nightly backup stops it too). Harmless if the next line is a start. |
