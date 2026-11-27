@@ -1,6 +1,6 @@
 import { CHAT, chatActivityFailedLabel, chatActivitySteps, chatActivityStepsLabel, toolBlocks } from '@repo/client/client';
 import { useChatHideVerbose } from '@repo/client/react';
-import { useLongPress } from '@repo/client/web';
+import { chatSpeechContext, useLongPress } from '@repo/client/web';
 import { m } from '@repo/i18n/client';
 import { EventLabel, EventLine, EventList } from '@repo/ui/ai/event';
 import { Message, MessageClamp, MessageContent, MessageStack } from '@repo/ui/ai/message';
@@ -16,7 +16,7 @@ import { RoomsChatReasoning } from '@repo/ui/rooms/rooms-chat-reasoning';
 import { RoomsChatTools } from '@repo/ui/rooms/rooms-chat-tools';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { isFileUIPart } from 'ai';
-import { Fragment, useState } from 'react';
+import { Fragment, use, useState } from 'react';
 import { match, P } from 'ts-pattern';
 import { RoomsChatArtifact } from '@/components/rooms/rooms-chat-artifact';
 import { RoomsChatEvents } from '@/components/rooms/rooms-chat-events';
@@ -62,6 +62,7 @@ export function RoomsChatMessage({
   const navigate = useNavigate();
   const { handle } = useParams({ from: '/_chat/rooms/direct/$handle', shouldThrow: false }) ?? {};
   const entryId = message.metadata?.entryIds[0];
+  const speech = use(chatSpeechContext);
 
   const { canSeeSteps, hideVerbose } = useChatHideVerbose();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -95,6 +96,10 @@ export function RoomsChatMessage({
       reacting={reacting}
       selectable={firstText !== undefined}
       sheet={sheet}
+      speech={speech?.isAvailable && message.role === 'assistant' && firstText ? {
+        phase: speech.playback.messageId === message.id ? speech.playback.phase : 'idle',
+        onToggle: () => speech.toggle(message),
+      } : undefined}
       onReact={onReact}
       onReply={onReply}
       onSheetChange={setSheet}

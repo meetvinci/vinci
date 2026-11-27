@@ -10,9 +10,10 @@ import type { useChatDictation } from '@repo/client/web';
 
 interface RoomsChatDictationProps {
   dictation: ReturnType<typeof useChatDictation>
+  onStart?: () => void
 }
 
-export function RoomsChatDictation({ dictation }: RoomsChatDictationProps) {
+export function RoomsChatDictation({ dictation, onStart }: RoomsChatDictationProps) {
   const minutes = Math.floor(dictation.elapsedSeconds / 60);
   const seconds = String(dictation.elapsedSeconds % 60).padStart(2, '0');
 
@@ -69,7 +70,10 @@ export function RoomsChatDictation({ dictation }: RoomsChatDictationProps) {
         disabled={state === 'starting'}
         title={m.rooms_chat_dictate()}
         type="button"
-        onClick={dictation.start}
+        onClick={() => {
+          onStart?.();
+          dictation.start();
+        }}
       >
         <IconMic className="size-4" />
       </PromptInputButton>

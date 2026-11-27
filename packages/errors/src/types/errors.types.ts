@@ -61,6 +61,12 @@ export const errorSchemas = {
     data: z.object({ reason: z.enum(['unavailable', 'rejected', 'failed']) }),
     reportable: false,
   },
+  SPEECH_FAILED: {
+    message: "Couldn't read the reply aloud",
+    status: 502,
+    data: z.object({ reason: z.enum(['unavailable', 'rejected', 'tooLong', 'failed']) }),
+    reportable: false,
+  },
 
   NOT_FOUND: { message: 'Resource not found', status: 404, data: z.object({ resource: z.string().optional(), resourceId: z.union([z.string(), z.number()]).optional() }), reportable: false },
   VALIDATION_ERROR: {

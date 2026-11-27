@@ -1,6 +1,6 @@
 import { CHAT, chatActivityMessage, chatActivityStartedAt, mentionQuote } from '@repo/client/client';
 import { chatQueries, useChatRoom } from '@repo/client/react';
-import { useChatQuote, useChatRead } from '@repo/client/web';
+import { chatSpeechContext, useChatQuote, useChatRead, useChatSpeech } from '@repo/client/web';
 import { cn } from '@repo/ui/cn';
 import { LAYOUT_SHORTCUT_OPTIONS, LAYOUT_SHORTCUT_OVERLAYS, LAYOUT_SHORTCUTS } from '@repo/ui/layout.constants';
 import { PaneHost, usePaneHost } from '@repo/ui/pane';
@@ -8,6 +8,7 @@ import { RoomsChatPill } from '@repo/ui/rooms/rooms-chat-pill';
 import { RoomsChatQuote } from '@repo/ui/rooms/rooms-chat-quote';
 import { RoomsChatRuns } from '@repo/ui/rooms/rooms-chat-runs';
 import { RoomsChatStatus } from '@repo/ui/rooms/rooms-chat-status';
+import { toasty } from '@repo/ui/sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -52,6 +53,14 @@ function RoomsChatView({ bot, bots, chat, view }: RoomsChatViewProps) {
   const unread = useChatRead(bot.id, chat.readThroughEntryId, view.latestEntryId, panes.isOpen);
   const draft = messages.find((message) => message.id === CHAT.liveMessageId);
   const unreadReply = messages.filter((message) => message.role === 'assistant' && (message.metadata?.entryId ?? 0) > chat.readThroughEntryId).at(-1);
+
+  const speech = useChatSpeech({
+    botId: bot.id,
+    messages,
+    isBusy,
+    onProblem: (message) => toasty(message, '⚠️'),
+  });
+
   const around = focusEntryId !== undefined && !messages.some((message) => message.metadata?.entryIds.includes(focusEntryId)) ? focusEntryId : undefined;
 
   useEffect(() => {
@@ -91,7 +100,10 @@ function RoomsChatView({ bot, bots, chat, view }: RoomsChatViewProps) {
     });
   }
 
-  useHotkeys(LAYOUT_SHORTCUTS.stop, () => void rpc.conversation.stop.call({ botId: bot.id, conversationId }), {
+  useHotkeys(LAYOUT_SHORTCUTS.stop, () => {
+    speech.stop();
+    void rpc.conversation.stop.call({ botId: bot.id, conversationId });
+  }, {
     ...LAYOUT_SHORTCUT_OPTIONS,
     enabled: isBusy,
     ignoreEventWhen: () => Boolean(document.querySelector(LAYOUT_SHORTCUT_OVERLAYS)),
@@ -109,84 +121,86 @@ function RoomsChatView({ bot, bots, chat, view }: RoomsChatViewProps) {
   };
 
   return (
-    <PaneHost
-      className="flex min-h-0 flex-1 flex-col overflow-hidden"
-      host={panes}
-      insetBottom={composerHeight}
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-center px-14 *:pointer-events-auto max-md:bg-background/80 max-md:backdrop-blur-md md:h-auto md:bg-linear-to-b md:from-background md:from-60% md:to-transparent md:pt-3 md:pb-4">
-        <RoomsChatPill activity={activity} bot={bot} />
-      </div>
-      {around ? (
-        <RoomsChatAround
-          bot={bot}
-          bots={bots}
-          composerHeight={composerHeight}
-          entryId={around}
-          key={around}
-          view={view}
-          onLatest={leaveFocus}
-          onReply={reply}
-        />
-      ) : (
-        <RoomsChatTranscript
-          bot={bot}
-          bots={bots}
-          composerHeight={composerHeight}
-          focusedEntryId={focusEntryId}
-          footer={(
-            <RoomsChatRuns
-              activity={activity}
-              approvals={room.approvals}
-              bot={bot}
-              bots={bots}
-              draft={chatActivityMessage(messages)}
-              failure={room.failure}
-              questions={room.questions}
-              startedAt={chatActivityStartedAt(messages)}
-            />
-          )}
-          messages={[...messages, ...room.sending]}
-          older={room.older}
-          reactions={room.reactions}
-          unread={chat.hasUnread || unread.throughEntryId < view.latestEntryId ? unread : undefined}
-          onReply={reply}
-        />
-      )}
-      {quote.selection ? (
-        <RoomsChatQuote
-          rect={quote.selection.rect}
-          onDismiss={quote.dismiss}
-          onQuote={quoteSelection}
-        />
-      ) : null}
-      <div className={cn('pointer-events-none absolute inset-x-0 bottom-0 *:pointer-events-auto', panes.isOpen ? 'z-30' : 'z-10')} ref={measureComposer}>
-        <RoomsChatComposer
-          bot={bot}
-          bots={bots}
-          compaction={room.compaction}
-          conversationId={conversationId}
-          editor={composer}
-          isBusy={isBusy}
-          latestEntryId={view.latestEntryId}
-          messages={messages}
-          queued={queued}
-          replyTo={replyTo}
-          status={panes.isOpen ? (
-            <RoomsChatStatus
-              activity={activity}
-              bot={bot}
-              draft={draft}
-              unread={unreadReply}
-              onOpen={panes.closeAll}
-            />
-          ) : undefined}
-          onOutgoingChange={setOutgoing}
-          onReplyChange={setReplyTo}
-          onSend={send}
-        />
-      </div>
-    </PaneHost>
+    <chatSpeechContext.Provider value={speech}>
+      <PaneHost
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        host={panes}
+        insetBottom={composerHeight}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-12 items-center justify-center px-14 *:pointer-events-auto max-md:bg-background/80 max-md:backdrop-blur-md md:h-auto md:bg-linear-to-b md:from-background md:from-60% md:to-transparent md:pt-3 md:pb-4">
+          <RoomsChatPill activity={activity} bot={bot} />
+        </div>
+        {around ? (
+          <RoomsChatAround
+            bot={bot}
+            bots={bots}
+            composerHeight={composerHeight}
+            entryId={around}
+            key={around}
+            view={view}
+            onLatest={leaveFocus}
+            onReply={reply}
+          />
+        ) : (
+          <RoomsChatTranscript
+            bot={bot}
+            bots={bots}
+            composerHeight={composerHeight}
+            focusedEntryId={focusEntryId}
+            footer={(
+              <RoomsChatRuns
+                activity={activity}
+                approvals={room.approvals}
+                bot={bot}
+                bots={bots}
+                draft={chatActivityMessage(messages)}
+                failure={room.failure}
+                questions={room.questions}
+                startedAt={chatActivityStartedAt(messages)}
+              />
+            )}
+            messages={[...messages, ...room.sending]}
+            older={room.older}
+            reactions={room.reactions}
+            unread={chat.hasUnread || unread.throughEntryId < view.latestEntryId ? unread : undefined}
+            onReply={reply}
+          />
+        )}
+        {quote.selection ? (
+          <RoomsChatQuote
+            rect={quote.selection.rect}
+            onDismiss={quote.dismiss}
+            onQuote={quoteSelection}
+          />
+        ) : null}
+        <div className={cn('pointer-events-none absolute inset-x-0 bottom-0 *:pointer-events-auto', panes.isOpen ? 'z-30' : 'z-10')} ref={measureComposer}>
+          <RoomsChatComposer
+            bot={bot}
+            bots={bots}
+            compaction={room.compaction}
+            conversationId={conversationId}
+            editor={composer}
+            isBusy={isBusy}
+            latestEntryId={view.latestEntryId}
+            messages={messages}
+            queued={queued}
+            replyTo={replyTo}
+            status={panes.isOpen ? (
+              <RoomsChatStatus
+                activity={activity}
+                bot={bot}
+                draft={draft}
+                unread={unreadReply}
+                onOpen={panes.closeAll}
+              />
+            ) : undefined}
+            onOutgoingChange={setOutgoing}
+            onReplyChange={setReplyTo}
+            onSend={send}
+          />
+        </div>
+      </PaneHost>
+    </chatSpeechContext.Provider>
   );
 }
 

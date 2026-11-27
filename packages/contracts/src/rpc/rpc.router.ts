@@ -121,6 +121,7 @@ import {
   sidebarSectionVoid,
 } from '../types/sidebar-section.types';
 import { skillCatalog, skillConfigure, skillDiscover, skillSettings, skillStatus } from '../types/skill.types';
+import { speechChunk, speechSpeak } from '../types/speech.types';
 import { todo, todoCreate, todoList, todoRemoveResult, todoReorder, todoTarget, todoUpdate } from '../types/todo.types';
 import {
   toolAnswer,
@@ -357,6 +358,10 @@ export const contract = {
       .errors({ TRANSCRIPTION_FAILED: errorSchemas.TRANSCRIPTION_FAILED })
       .input(transcriptionTranscribe)
       .output(transcriptionResult),
+  },
+
+  speech: {
+    speak: ocValidate.errors({ SPEECH_FAILED: errorSchemas.SPEECH_FAILED }).input(speechSpeak).output(asyncIteratorObject(speechChunk)),
   },
 
   bots: {

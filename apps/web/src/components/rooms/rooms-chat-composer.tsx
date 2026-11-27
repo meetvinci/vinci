@@ -1,6 +1,6 @@
 import { chatResetCommand, mentionHref, mentionSegments, ROOMS, roomsMessageText } from '@repo/client/client';
 import { useChatSend } from '@repo/client/react';
-import { useChatAttachmentsWeb, useChatDictation, useChatDraft, useIsMobile, useIsTouch, usePreferences } from '@repo/client/web';
+import { chatSpeechContext, useChatAttachmentsWeb, useChatDictation, useChatDraft, useIsMobile, useIsTouch, usePreferences } from '@repo/client/web';
 import { ATTACHMENT } from '@repo/contracts/universal';
 import { m } from '@repo/i18n/client';
 import { PromptInput, PromptInputActionMenu, PromptInputActionMenuContent, PromptInputActionMenuItem, PromptInputActionMenuTrigger, PromptInputDrawer, PromptInputDrawerAlert, PromptInputQuote, PromptInputSubmit } from '@repo/ui/ai/prompt-input';
@@ -11,10 +11,11 @@ import { RoomsChatQueue } from '@repo/ui/rooms/rooms-chat-queue';
 import { toasty } from '@repo/ui/sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, use, useEffect, useRef, useState } from 'react';
 import { match, P } from 'ts-pattern';
 import { RoomsChatContext } from '@/components/rooms/rooms-chat-context';
 import { RoomsChatDictation } from '@/components/rooms/rooms-chat-dictation';
+import { RoomsChatSpeech } from '@/components/rooms/rooms-chat-speech';
 import { RoomsMention } from '@/components/rooms/rooms-mention';
 import { RoomsMentionOption } from '@/components/rooms/rooms-mention-option';
 import { pushAskOnce } from '@/services/push/push.client';
@@ -80,6 +81,7 @@ export function RoomsChatComposer({
   });
 
   const isDictating = dictation.state !== 'idle';
+  const speech = use(chatSpeechContext);
 
   useEffect(() => {
     const restore = (event: Event) => match(event)
@@ -156,6 +158,8 @@ export function RoomsChatComposer({
           if (isCompacting || files.uploading || isSendingFiles || isDictating) {
             return false;
           }
+
+          speech?.stop();
 
           if (!value.trim() && files.readyIds.length === 0) {
             if (isBusy) {
@@ -318,7 +322,13 @@ export function RoomsChatComposer({
               latestEntryId={latestEntryId}
             />
           )}
-          {dictation.isAvailable ? <RoomsChatDictation dictation={dictation} /> : null}
+          {speech?.isAvailable && !isDictating ? <RoomsChatSpeech speech={speech} /> : null}
+          {dictation.isAvailable ? (
+            <RoomsChatDictation
+              dictation={dictation}
+              onStart={speech?.stop}
+            />
+          ) : null}
           <PromptInputSubmit
             aria-label={isStopping ? m.rooms_chat_stop() : m.rooms_chat_send()}
             disabled={isCompacting || files.uploading || isSendingFiles || isDictating || (!isBusy && !text.trim() && files.readyIds.length === 0)}
