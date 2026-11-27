@@ -129,6 +129,16 @@ export interface GlobalStartParams {
   attempts: number;
 }
 
+export interface GlobalStartWaitParams {
+  user: UserTypes.UserDaemon;
+}
+
+export interface GlobalStartCopyParams extends GlobalUserParams {
+  user: UserTypes.UserDaemon | null;
+  sections: UniversalTypes.AdminSectionId[];
+  attempts: number;
+}
+
 export interface GlobalRetryParams extends GlobalUserParams {
   sections: UniversalTypes.AdminSectionId[];
   by: string;

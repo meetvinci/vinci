@@ -29,4 +29,6 @@ export const GLOBAL = {
   errorMaxLength: 300,
   startAttempts: 30,
   startRetryMs: 2000,
+  startWaitMs: 120_000,
+  startCopyAttempts: 5,
 };
