@@ -11,6 +11,7 @@ import type { ProvisionerUser } from '../../types/provisioner.types';
 
 export async function globalActionStart(deps: GlobalTypes.GlobalServiceDeps, { by, attempts }: GlobalTypes.GlobalStartParams): Promise<void> {
   const deadline = Date.now() + GLOBAL.startWaitMs;
+  let templateAnswers: Promise<boolean> | undefined;
 
   async function globalPeople(left: number): Promise<ProvisionerUser[]> {
     const listed = await deps.users.queries.list().catch(async (error: unknown) => {
@@ -32,7 +33,7 @@ export async function globalActionStart(deps: GlobalTypes.GlobalServiceDeps, { b
     return listed ?? globalPeople(left - 1);
   }
 
-  async function globalAnswers({ user }: GlobalTypes.GlobalStartWaitParams): Promise<boolean> {
+  async function globalAnswers({ user }: GlobalTypes.GlobalClientsParams): Promise<boolean> {
     const isAnswering = await deps.daemons.actions.resolve({ user }).then(() => true, () => false);
 
     if (isAnswering || Date.now() >= deadline) {
@@ -75,6 +76,9 @@ export async function globalActionStart(deps: GlobalTypes.GlobalServiceDeps, { b
       return false;
     }
 
+    templateAnswers ??= deps.users.queries.template().then((template) => template !== null && globalAnswers({ user: template }));
+    await templateAnswers;
+
     const isStopped = user !== null && !(await globalAnswers({ user }))
       && await deps.users.queries.list().then((listed) => listed.find((entry) => entry.id === id)?.state, () => state) === 'stopped';
 
@@ -105,16 +109,15 @@ export async function globalActionStart(deps: GlobalTypes.GlobalServiceDeps, { b
   }
 
   const listed = await globalPeople(attempts);
-  const template = await deps.users.queries.template();
 
   await globalActionReload(deps);
 
-  if (template) {
-    await globalAnswers({ user: template });
-  }
+  const results = await Promise.allSettled(listed.map((person) => globalIsSkipped(person)));
+  const skipped = results.filter((result) => result.status === 'fulfilled' && result.value).length;
 
-  const skipped = (await Promise.all(listed.map((person) => globalIsSkipped(person)))).filter(Boolean).length;
-  const failed = listed.flatMap(({ id }) => globalSections(deps.state.file, id).filter(({ sync }) => sync === 'failed').map(({ id: section }) => `${id}/${section}`));
+  const failed = listed.flatMap(({ id }, index) => (results[index]?.status === 'rejected'
+    ? [id]
+    : globalSections(deps.state.file, id).filter(({ sync }) => sync === 'failed').map(({ id: section }) => `${id}/${section}`)));
 
   log.info({
     tag: 'hub',
