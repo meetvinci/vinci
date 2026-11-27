@@ -8,6 +8,7 @@ export interface TranscriptionDictationParams {
 export interface TranscriptionRecording {
   recorder: MediaRecorder;
   stream: MediaStream;
+  format: { type: string; extension: string };
   chunks: Blob[];
   shouldTranscribe: boolean;
 }

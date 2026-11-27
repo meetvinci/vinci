@@ -1,4 +1,4 @@
-import { transcriptionMediaType } from '@repo/contracts/universal';
+import { transcriptionExtension } from '@repo/contracts/universal';
 import { Errors } from '@repo/errors/universal';
 import { TRANSCRIPTION_SERVICE } from './transcription.constants';
 import { transcriptionDriverTranscribe } from './transcription.driver';
@@ -10,16 +10,16 @@ export async function transcriptionActionTranscribe(
   { file }: TranscriptionTranscribeInput,
 ): Promise<TranscriptionResult> {
   const apiKey = await credentials.queries.get({ key: TRANSCRIPTION_SERVICE.credential });
-  const mediaType = transcriptionMediaType.safeParse(file.type);
+  const extension = transcriptionExtension.safeParse(file.name);
 
-  if (apiKey === null || !mediaType.success) {
+  if (apiKey === null || !extension.success) {
     throw new Errors.TRANSCRIPTION_FAILED({ reason: 'unavailable' });
   }
 
   const text = await transcriptionDriverTranscribe({
     apiKey,
     file,
-    extension: mediaType.data.slice(mediaType.data.indexOf('/') + 1),
+    extension: extension.data,
   });
 
   return { text };

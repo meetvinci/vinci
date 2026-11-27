@@ -3,12 +3,12 @@ import { z } from 'zod';
 export const TRANSCRIPTION = {
   maxBytes: 10 * 1024 * 1024,
   maxDurationMs: 5 * 60 * 1000,
-  mediaTypes: ['audio/webm', 'audio/ogg', 'audio/mp4', 'audio/mpeg', 'audio/wav'],
+  extensions: ['webm', 'ogg', 'mp4', 'm4a', 'mp3', 'wav'],
 } as const;
 
-export const transcriptionMediaType = z.string()
-  .transform((type) => type.split(';', 1)[0]?.trim().toLowerCase() ?? '')
-  .pipe(z.enum(TRANSCRIPTION.mediaTypes));
+export const transcriptionExtension = z.string()
+  .transform((name) => name.slice(name.lastIndexOf('.') + 1).toLowerCase())
+  .pipe(z.enum(TRANSCRIPTION.extensions));
 
 export const transcriptionSettings = z.object({ isConfigured: z.boolean() });
 export const transcriptionConfigure = z.object({ apiKey: z.string().trim().min(1).max(8192).nullable() });
@@ -16,7 +16,7 @@ export const transcriptionSettingsForm = z.object({ apiKey: z.string().trim().ma
 export const transcriptionExport = z.object({ apiKey: z.string().min(1).max(8192).nullable() });
 
 export const transcriptionTranscribe = z.object({
-  file: z.file().min(1).max(TRANSCRIPTION.maxBytes).refine((file) => transcriptionMediaType.safeParse(file.type).success),
+  file: z.file().min(1).max(TRANSCRIPTION.maxBytes).refine((file) => transcriptionExtension.safeParse(file.name).success),
 });
 
 export const transcriptionResult = z.object({ text: z.string() });

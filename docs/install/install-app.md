@@ -44,6 +44,10 @@ One device gets each notification, so your phone and computer do not ring togeth
 
 Muted chats never notify. Tapping a notification opens that chat; a waiting approval or question is at the bottom.
 
+## Talk instead of typing
+
+When your admin has turned voice input on, the chat box has a microphone button. Press it (allow the microphone the first time), speak in any language, then press **Stop** (the square): your words appear as text where the cursor was, ready to edit. Press **Cancel** (the ×) or Escape to throw a recording away. Nothing goes to the bot until you press Send. A recording stops by itself after 5 minutes. Your voice is sent to OpenAI to make the text and is not kept by Vinci.
+
 ## Sign out
 
 Open the menu under your name at the bottom of the sidebar and choose **Sign out**. It removes this device from **Settings → Devices** and ends your login in this browser; on a shared computer, do this before you leave.

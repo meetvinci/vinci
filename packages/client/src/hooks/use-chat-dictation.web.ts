@@ -29,7 +29,7 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
       return;
     }
 
-    const file = new File(current.chunks, 'recording', { type: current.recorder.mimeType || TRANSCRIPTION_RECORDER.fallbackType });
+    const file = new File(current.chunks, `recording.${current.format.extension}`, { type: current.format.type.split(';', 1)[0] });
 
     if (file.size > TRANSCRIPTION.maxBytes) {
       setState('idle');
@@ -75,9 +75,9 @@ export function useChatDictation({ onText, onProblem }: TranscriptionDictationPa
         return;
       }
 
-      const mimeType = TRANSCRIPTION_RECORDER.types.find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: TRANSCRIPTION_RECORDER.bitsPerSecond });
-      const current: TranscriptionRecording = { recorder, stream, chunks: [], shouldTranscribe: false };
+      const format = TRANSCRIPTION_RECORDER.formats.find(({ type }) => MediaRecorder.isTypeSupported(type)) ?? TRANSCRIPTION_RECORDER.formats[0];
+      const recorder = new MediaRecorder(stream, { mimeType: format.type, audioBitsPerSecond: TRANSCRIPTION_RECORDER.bitsPerSecond });
+      const current: TranscriptionRecording = { recorder, stream, format, chunks: [], shouldTranscribe: false };
 
       recorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) {
