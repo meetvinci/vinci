@@ -20,6 +20,10 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lock
 RUN bun scripts/desktop.ts bundle
 
 FROM build AS hub-build
+# The Vinci version the admin panel shows: the release (0.2.0), or the release and the short commit for any other build
+# (0.2.0 (48c774c)). images.yml and `bun run build:images` pass it; a build without it fails here, not on an install.
+ARG VINCI_VERSION
+RUN test -n "$VINCI_VERSION" || { echo 'Pass --build-arg VINCI_VERSION (bun run build:images does).' >&2; exit 1; }
 RUN bun build apps/hub/src/entry.native.ts --target=bun --outdir=/out/hub
 
 # pi-env, the small remote-execution program Pi ships prebuilt for every platform: the sandbox needs only this
@@ -48,7 +52,9 @@ COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 COPY --from=tini /data /data
 COPY --from=hub-build /out/hub /app/hub
 USER 1000:1000
-ENV HUB_HOST=0.0.0.0 HUB_PORT=47192 HUB_DATA_DIR=/data
+# Only the admin API answers with VINCI_VERSION, and `bun deploy.ts status` prints it.
+ARG VINCI_VERSION
+ENV HUB_HOST=0.0.0.0 HUB_PORT=47192 HUB_DATA_DIR=/data VINCI_VERSION="${VINCI_VERSION}"
 EXPOSE 47192
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD ["bun", "-e", "process.exit((await fetch(`http://127.0.0.1:${process.env.HUB_PORT}/hub/health`)).ok ? 0 : 1)"]

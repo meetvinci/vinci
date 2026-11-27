@@ -80,6 +80,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # What the admin panel shows (VINCI_VERSION in the hub image): the release for its tag, else the release and the
+      # short commit. The same rule as `bun run build:images` (scripts/deploy.ts).
+      - name: Version
+        id: version
+        run: |
+          version=$(jq -r .version package.json)
+          if [ "$GITHUB_REF" != "refs/tags/v$version" ]; then version="$version (${GITHUB_SHA::7})"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       # The checkout as the context (source: .), so .dockerignore applies.
       # No provenance in the metadata output: on a push it carries the whole event payload, too large for the env of
       # the next step ("Argument list too long"). The images keep their provenance attestations.
@@ -99,6 +108,7 @@ jobs:
             CACHE_SCOPE=images-${{ matrix.arch }}
             REGISTRY=${{ env.REGISTRY }}
             PUSH_BY_DIGEST=true
+            VERSION=${{ steps.version.outputs.version }}
 
       - name: Save digests
         env:

@@ -13,10 +13,11 @@ import type { ReactNode } from 'react';
 
 interface AdminLayoutProps {
   email: string
+  version: string
   children: ReactNode
 }
 
-export function AdminLayout({ email, children }: AdminLayoutProps) {
+export function AdminLayout({ email, version, children }: AdminLayoutProps) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const pathname = useLocation({ select: (location) => location.pathname });
   const { userId } = useParams({ strict: false });
@@ -61,6 +62,9 @@ export function AdminLayout({ email, children }: AdminLayoutProps) {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 md:px-6">
         {children}
       </main>
+      <footer className="mx-auto w-full max-w-6xl px-4 pb-4 md:px-6">
+        <p className="text-xs text-muted-foreground select-text">{m.admin_version({ version })}</p>
+      </footer>
     </div>
   );
 }

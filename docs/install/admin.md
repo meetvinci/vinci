@@ -205,6 +205,7 @@ Open `https://<your team host>/admin` and log in as usual. Only emails on the ad
 - **Turn off sign-in** stops the person from logging in. **Remove user** removes their login and stops their workspace; their data stays on the server (deleting it is `bun deploy.ts purge <id>` on the server).
 - **Global settings** edits the template workspace: the team's default settings and the suggested bots. Each person follows each section or overrides it; see [Global settings and suggested bots](#global-settings-and-suggested-bots).
 - **Admins** lists who can open the panel. Add or remove admins there; the last admin cannot be removed.
+- The line at the bottom of every panel page, such as *Vinci 0.2.0*, is the version the install runs: the release, followed by the short commit, such as *Vinci 0.2.0 (48c774c)*, when the images are a `main` or branch build instead of exactly that release. Select it to copy it into a bug report. Only admins see it: the app, the login page and every public response show no version. During an upgrade it shows the hub's version. On the server, `bun deploy.ts status` prints the same version on its first line.
 
 The panel never pairs a device and never acts as the user in a chat. It can read a person's conversations (see [Reading a person's conversations](#reading-a-persons-conversations)) but cannot send messages, answer approvals or questions, react, stop, clear or change anything in a chat.
 
@@ -808,6 +809,7 @@ Nothing to press afterwards: the new hub copies every global section again as it
 
 ### Check after an upgrade
 
+- The admin panel's bottom line and the first line of `bun deploy.ts status` show the new version (*Vinci 0.2.0*, or *Vinci 0.2.0 (48c774c)* for a commit that is not a release); reload the panel if it was open. A hub image from before this line existed shows none, and `status` prints `Vinci unknown: the hub image records none`.
 - `docker compose ps` shows the new tag on the hub, the provisioner, web, the firewall, `vinci-daemon-template-1` and every person's daemon, all healthy; `bun deploy.ts status` prints every person's Vinci and sandbox, and the template's, as `running (healthy)` and exits 0; `bun deploy.ts firewall status` says `healthy`.
 - `ls -ln hub/audit.sqlite` shows the file owned by `1000 1000` with mode `-rw-------`.
 - From your checkout, `bun scripts/deploy.ts check https://<team>.<domain>` prints only `ok` lines ([install, step 8](install.md#8-check-it-works)).
@@ -940,7 +942,7 @@ Releases up to `v0.1.7` were published only to an old private registry (`registr
 
 ```sh
 docker compose ps                        # every container and its health
-bun deploy.ts status                     # each person's Vinci, sandbox and disk, the server's free space; exits non-zero on a problem
+bun deploy.ts status                     # the Vinci version, each person's Vinci, sandbox and disk, the server's free space; exits non-zero on a problem
 docker stats --no-stream                 # memory and CPU per container
 docker compose logs hub --since 1h       # the hub: logins refused, users loaded, pairing
 docker compose logs hub | grep -B1 -A9 'hub-audit'   # admin reads and changes since the hub container started; the full trail is in Activity

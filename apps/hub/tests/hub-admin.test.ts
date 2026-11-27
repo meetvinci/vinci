@@ -43,7 +43,7 @@ describe('admin access', () => {
 
     expect(page.path).toBe('/admin/users?x=1');
     expect(page.headers.cookie).toBe(hubFixtureCookie(tokens.root));
-    expect(me.json).toEqual({ email: admin });
+    expect(me.json).toEqual({ email: admin, version: 'dev' });
     expect(unknown.map(({ status }) => status)).toEqual([404, 404, 404]);
   });
 
