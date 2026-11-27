@@ -65,7 +65,7 @@ export function useChatSpeech({ botId, messages, isBusy, onProblem }: SpeechType
     stop();
 
     const context = unlock();
-    const current: SpeechTypes.SpeechRun = { messageId: message.id, controller: new AbortController(), sources: [], endsAt: 0, carry: new Uint8Array() };
+    const current: SpeechTypes.SpeechRun = { controller: new AbortController(), sources: [], endsAt: 0, carry: new Uint8Array() };
 
     run.current = current;
     setPlayback({ messageId: message.id, phase: 'loading' });

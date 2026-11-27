@@ -82,6 +82,14 @@ export function RoomsChatComposer({
 
   const isDictating = dictation.state !== 'idle';
   const speech = use(chatSpeechContext);
+  const isListening = dictation.state === 'starting' || dictation.state === 'recording';
+  const isSpeaking = speech !== null && speech.playback.phase !== 'idle';
+
+  useEffect(() => {
+    if (isListening && isSpeaking) {
+      speech.stop();
+    }
+  }, [isListening, isSpeaking, speech]);
 
   useEffect(() => {
     const restore = (event: Event) => match(event)
@@ -323,12 +331,7 @@ export function RoomsChatComposer({
             />
           )}
           {speech?.isAvailable && !isDictating ? <RoomsChatSpeech speech={speech} /> : null}
-          {dictation.isAvailable ? (
-            <RoomsChatDictation
-              dictation={dictation}
-              onStart={speech?.stop}
-            />
-          ) : null}
+          {dictation.isAvailable ? <RoomsChatDictation dictation={dictation} /> : null}
           <PromptInputSubmit
             aria-label={isStopping ? m.rooms_chat_stop() : m.rooms_chat_send()}
             disabled={isCompacting || files.uploading || isSendingFiles || isDictating || (!isBusy && !text.trim() && files.readyIds.length === 0)}

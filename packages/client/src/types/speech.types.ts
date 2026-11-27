@@ -15,7 +15,6 @@ export interface SpeechChatParams {
 }
 
 export interface SpeechRun {
-  messageId: string;
   controller: AbortController;
   sources: AudioBufferSourceNode[];
   endsAt: number;
