@@ -1,8 +1,9 @@
 import { defineTask } from '@earendil-works/pi-durable';
 import { match, P } from 'ts-pattern';
+import { runtimeBotConversations } from '../runtime/runtime.constants';
 import { collaborationActionDeliver } from './collaboration-action.deliver';
 import { COLLABORATION } from './collaboration.constants';
-import { collaborationFailureNote } from './collaboration.utils';
+import { collaborationFailureNote, collaborationReport } from './collaboration.utils';
 import type * as CollaborationTypes from '../../types/collaboration.types';
 
 export function collaborationDeliveryTask({ directory }: Pick<CollaborationTypes.CollaborationDeps, 'directory'>) {
@@ -15,10 +16,14 @@ export function collaborationDeliveryTask({ directory }: Pick<CollaborationTypes
         const input = task.input;
         const store = await directory.harness(input.recipientId).catch(() => null);
 
+        const main = await store?.snapshot(runtimeBotConversations, input.recipientId, context);
+        const isMain = main?.conversationId === input.recipientConversationId;
+
         const result = await match(store)
           .with(P.nonNullable, (harness) => collaborationActionDeliver({ harness }, {
             taskId: task.id,
             input,
+            isMain,
             context,
           }))
           .otherwise(() => ({ status: 'unanswered' as const, reason: 'Recipient bot is unavailable.' }));
@@ -27,7 +32,7 @@ export function collaborationDeliveryTask({ directory }: Pick<CollaborationTypes
           .with('ask', () => ({ status: 'terminal' as const, outcome: { status: 'completed' as const, result } }))
           .with('send', () => {
             const report = match(result)
-              .with({ status: 'answered' }, ({ text }) => `[${input.recipientName} replied privately and tells the owner about its own work itself. Do not repeat its details to the user; mention only what changes for your own work, briefly, if anything. Do not message ${input.recipientName} again about this.]\n\n${text}`)
+              .with({ status: 'answered' }, ({ text }) => collaborationReport({ ...input, isMain }, text))
               .with({ status: 'unanswered', reason: 'aborted' }, () => null)
               .with({ status: 'unanswered' }, ({ reason }) => collaborationFailureNote(input.recipientName, reason))
               .exhaustive();

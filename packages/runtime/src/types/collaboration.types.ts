@@ -60,6 +60,10 @@ export interface CollaborationDeliveryInput extends PiDurableTypes.JsonObject {
   mode: 'ask' | 'send';
 }
 
+export interface CollaborationPeerNoteParams extends Pick<CollaborationDeliveryInput, 'senderName' | 'hops' | 'maxHops' | 'mode'> {
+  isMain: boolean;
+}
+
 export type CollaborationResult =
   | { status: 'answered'; answerId: PiDurableTypes.EntryId; text: string }
   | { status: 'unanswered'; reason: string };
@@ -107,6 +111,7 @@ export interface CollaborationTargetParams extends CollaborationContextParams {
 export interface CollaborationDeliverParams extends CollaborationContextParams {
   taskId: number;
   input: CollaborationDeliveryInput;
+  isMain: boolean;
 }
 
 export interface CollaborationPrivateBinding extends PiDurableTypes.JsonObject {

@@ -26,7 +26,7 @@ export const TOOL_PRESENTATIONS = new Map<string, ToolTypes.ToolPresentationDefi
   ['read', { label: m.tool_label_read_file, icon: 'file' }],
   ['write', { label: m.tool_label_write_file, icon: 'edit' }],
   ['edit', { label: m.tool_label_edit_file, icon: 'edit' }],
-  ['tool_search', { label: m.tool_label_search_tools, icon: 'search' }],
+  ['bot_tool_search', { label: m.tool_label_search_tools, icon: 'search' }],
   [TOOL_QUESTION, { label: m.tool_label_ask, icon: 'question' }],
   [TOOL_SECRET, { label: m.tool_label_secret, icon: 'secret' }],
   [TOOL_SUBAGENT, { label: m.tool_label_agent, icon: 'bot' }],
@@ -64,7 +64,7 @@ export const TOOL_ACTIVITY_LABELS = new Map<string, ToolTypes.ToolActivityLabel>
   ['read', { plain: m.rooms_activity_tool_read, detail: (detail) => m.rooms_activity_tool_read_detail({ detail }) }],
   ['write', { plain: m.rooms_activity_tool_write, detail: (detail) => m.rooms_activity_tool_write_detail({ detail }) }],
   ['edit', { plain: m.rooms_activity_tool_edit, detail: (detail) => m.rooms_activity_tool_edit_detail({ detail }) }],
-  ['tool_search', { plain: m.rooms_activity_tool_search_tools }],
+  ['bot_tool_search', { plain: m.rooms_activity_tool_search_tools }],
   ['bot_history', { plain: m.rooms_activity_tool_history }],
   ['bot_search', { plain: m.rooms_activity_tool_history }],
   ['bot_artifact_create', { plain: m.rooms_activity_tool_artifact, detail: (detail) => m.rooms_activity_tool_artifact_detail({ detail }) }],
@@ -77,7 +77,7 @@ export const TOOL_ACTIVITY_LABELS = new Map<string, ToolTypes.ToolActivityLabel>
 
 export const TOOL_ACTIVITY_TOPICS = new Map<string, ToolTypes.ToolActivityTopic>([
   ['bash', 'working'],
-  ['tool_search', 'working'],
+  ['bot_tool_search', 'working'],
   ['read', 'documents'],
   ['write', 'documentWrite'],
   ['edit', 'documentWrite'],

@@ -6,7 +6,7 @@ import type * as CollaborationTypes from '../../types/collaboration.types';
 
 export async function collaborationActionDeliver(
   { harness }: CollaborationTypes.CollaborationHarnessDeps,
-  { taskId, input, context }: CollaborationTypes.CollaborationDeliverParams,
+  { taskId, input, isMain, context }: CollaborationTypes.CollaborationDeliverParams,
 ): Promise<CollaborationTypes.CollaborationResult> {
   const recipient = await harness.conversation(input.recipientConversationId, context);
   const whenBusy = match(input.mode).with('ask', () => 'reject' as const).with('send', () => 'followUp' as const).exhaustive();
@@ -16,7 +16,7 @@ export async function collaborationActionDeliver(
       try {
         const submission = await conversation.submit({
           type: 'input',
-          content: `${collaborationPeerNote(input)}\n\n${input.message}`,
+          content: `${collaborationPeerNote({ ...input, isMain })}\n\n${input.message}`,
           requestId: `bots.delivery:${input.requestId}`,
           whenBusy,
           entry: { kind: COLLABORATION.message,
