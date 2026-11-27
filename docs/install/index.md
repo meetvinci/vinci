@@ -115,7 +115,7 @@ Cloud-init makes one admin, who is also the only user at first, and sets no mode
 - `main`: the latest commit on main;
 - a full commit: every push to main, and any branch built with `gh workflow run images.yml --ref <branch>`.
 
-`VINCI_TAG` in `/opt/vinci/.env` says which tag the server runs.
+`VINCI_TAG` in `/opt/vinci/.env` says which tag the server runs. The version itself, such as *Vinci 0.2.0* or *Vinci 0.2.0 (48c774c)* for a build that is not exactly a release, is the line at the bottom of the admin panel, shown to admins only, and the first line of `bun deploy.ts status` on the server.
 
 **An upgrade**, on the server in `/opt/vinci`, after copying the new release's deployment files there ([Upgrades](admin.md#upgrades) has every detail):
 
@@ -128,7 +128,7 @@ bun deploy.ts apply
 
 That is: pull the new images, back everyone up, switch to the new tag, then write the per-person files with the new `deploy.ts`.
 
-**Check after:** `docker compose ps` shows every container healthy on the new tag, `bun deploy.ts status` exits 0, and `bun scripts/deploy.ts check https://<host>` from your checkout prints only `ok` lines.
+**Check after:** `docker compose ps` shows every container healthy on the new tag, `bun deploy.ts status` exits 0 and prints the new version on its first line (the admin panel's bottom line shows it too), and `bun scripts/deploy.ts check https://<host>` from your checkout prints only `ok` lines.
 
 **Roll back:** copy the old version's deployment files back, set the old tag, run `docker compose up -d --wait` and `bun deploy.ts apply`. If the new version changed people's data, restore the backup from step 2 ([Roll back](admin.md#roll-back)).
 
