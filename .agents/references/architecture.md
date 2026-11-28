@@ -74,7 +74,7 @@ flowchart TB
   Rpc --> Conversation["server conversation service: reconcile bot settings"]
   Conversation --> Pi["runtime: submit to the bot's Pi store with a stable request ID"]
   Pi --> Model["model request through the shared limiter"]
-  Model -->|"tool call"| Hook["permission hook: trusted read, ask, Jev or full"]
+  Model -->|"tool call"| Hook["permission hook: bot mode, the person's approvals, judge or ask"]
   Hook --> Tool["Pi, MCP, plugin or bot_ tool"]
   Tool --> Model
   Model --> Commit["Pi commits entries"]
@@ -385,8 +385,8 @@ export type SkillService = ReturnType<typeof makeSkillService>;
 Before adding infrastructure, inspect the installed library API and official examples. Use Pi's tools, extensions, documents, tasks, watches and recovery where they fit. State the concrete missing capability before implementing a replacement. Pi's README ships with the installed `@earendil-works/pi-durable` package.
 
 - Server owns product policy. Runtime implements it through Pi hooks and tasks. Install the permission hook last, including for custom and MCP tools.
-- Only explicitly trusted tool registrations bypass approval as reads. Names and MCP `readOnlyHint` annotations do not grant trust. Read-only denies other tools; Ask requests approval; Auto uses Jev only for untrusted calls and falls back to Ask; Full allows calls.
-- Auto considers owner allow and ask rules in one assessment; ask-first rules win. Recheck policy after Jev and human answers. Load context only when a configured Auto judge needs it.
+- Only explicitly trusted tool registrations bypass approval as reads. Names do not grant trust, and an MCP `readOnlyHint` counts only for a server Vinci ships or one the person trusted. A bot's mode decides first: Read only denies other tools, No questions allows calls, Normal follows the person's approval policy and asks when nothing in it lets the call run.
+- Under Normal a judge may let a call run instead of asking: a sandboxed command while the person has a secret, and a call outside the sandbox while approval rules exist. The judge is a decision model reached through Pi's model runtime (Jev, Clef or another classifier of a signed-in provider), else a low-cost chat model of the bot's provider; any failure asks. It considers owner allow and ask rules in one assessment; ask-first rules win. Recheck policy after the judge and human answers. Load context only when a call goes to the judge.
 - Approval decisions and deadlines live in task-scoped Pi documents. Recovery restores their waits; host timers do not wake an offline host. External tool effects are not guaranteed exactly-once.
 - Bot identity maps to a stable Pi conversation through a session document. Bot SQL commits before file system and MCP preparation; no external work inside SQL transactions.
 - Serialize configuration per bot, keeping other bots parallel. After slow preparation, reread bot and relevant domain settings; retry if relevant values changed before publishing to Pi. `updatedAt` is not a unique version. Restore before resume; reconcile before submission.

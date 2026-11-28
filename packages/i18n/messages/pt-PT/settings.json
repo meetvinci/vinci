@@ -94,7 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Chave de API do Jev",
   "settings_tools_jev_placeholder": "Cole uma chave de API do Jev",
-  "settings_tools_jev_hint": "Com uma chave, o Jev verifica as suas regras de aprovação nas chamadas de ferramentas que alteram algo. Sem chave, decidem as aprovações acima.",
+  "settings_tools_jev_hint": "Opcional. Um modelo de decisão verifica as suas regras de aprovação e os comandos que podem usar um segredo. O Vinci usa o Jev com esta chave; sem chave, o Jev ou o Clef de um fornecedor em que iniciou sessão ou, em último caso, um modelo económico do fornecedor do bot.",
   "settings_tools_jev_set": "Há uma chave definida.",
   "settings_tools_jev_unset": "Não há nenhuma chave definida.",
   "settings_transcription": "Voz",

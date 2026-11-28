@@ -94,7 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Jev API key",
   "settings_tools_jev_placeholder": "Paste a Jev API key",
-  "settings_tools_jev_hint": "With a key, Jev checks your approval rules on tool calls that change something. Without one, the approvals above decide.",
+  "settings_tools_jev_hint": "Optional. A decision model checks your approval rules, and commands that could use a secret. Vinci uses Jev with this key; without one, Jev or Clef from a provider you signed in to, or else a low-cost model of the bot’s provider.",
   "settings_tools_jev_set": "A key is set.",
   "settings_tools_jev_unset": "No key is set.",
   "settings_transcription": "Voice",

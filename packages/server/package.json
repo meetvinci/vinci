@@ -34,7 +34,6 @@
     "@orpc/ratelimit": "catalog:",
     "@earendil-works/chord": "catalog:",
     "ts-pattern": "catalog:",
-    "@typesafe-ai/sdk": "catalog:",
     "@earendil-works/pi-coding-agent": "catalog:",
     "@repo/i18n": "workspace:*",
     "takumi-js": "catalog:",

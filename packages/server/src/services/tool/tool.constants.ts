@@ -5,11 +5,12 @@ export const TOOL = {
   policySetting: 'tools.policy',
   policyDefaultsSetting: 'tools.policyDefaults',
   askFirstTools: ['bot_mcp_add', 'bot_note'],
+  commandTool: 'bash',
   emptyPolicy: { controls: [], trusted: [] },
-  judgeTimeoutMs: 5000,
   minuteMs: 60_000,
   judgeThreshold: 0.9,
   judgeAskThreshold: 0.1,
   judgeInputLimit: 2000,
+  judgeCommandLimit: 8000,
   judgeRequestLimit: 8000,
 } as const;

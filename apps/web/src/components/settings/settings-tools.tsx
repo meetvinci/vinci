@@ -59,15 +59,13 @@ export function SettingsTools({ isReadOnly }: SettingsToolsProps) {
         <fieldset className="flex flex-col gap-4" disabled={save.isPending}>
           {scope.isAdmin ? (
             <>
-              {settings.isJevConfigured ? (
-                <SettingsGroup title={m.settings_tools_rules()}>
-                  <PanelRow className="items-start">
-                    <div className="min-w-0 flex-1">
-                      <SettingsToolsRules disabled={save.isPending} />
-                    </div>
-                  </PanelRow>
-                </SettingsGroup>
-              ) : null}
+              <SettingsGroup title={m.settings_tools_rules()}>
+                <PanelRow className="items-start">
+                  <div className="min-w-0 flex-1">
+                    <SettingsToolsRules disabled={save.isPending} />
+                  </div>
+                </PanelRow>
+              </SettingsGroup>
               <SettingsGroup title={m.settings_tools_timeout()}>
                 <PanelRow>
                   <PanelContent>
