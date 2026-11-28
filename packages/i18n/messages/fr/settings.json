@@ -94,7 +94,7 @@
   "settings_tools_timeout_minutes": "{count} min",
   "settings_tools_jev": "Clé d’API Jev",
   "settings_tools_jev_placeholder": "Collez une clé d’API Jev",
-  "settings_tools_jev_hint": "Avec une clé, Jev vérifie vos règles d’approbation sur les appels d’outils qui modifient quelque chose. Sans clé, les approbations ci-dessus décident.",
+  "settings_tools_jev_hint": "Facultatif. Un modèle de décision vérifie vos règles d’approbation et les commandes qui pourraient utiliser un secret. Vinci utilise Jev avec cette clé ; sans clé, Jev ou Clef d’un fournisseur auquel vous êtes connecté ou, à défaut, un modèle économique du fournisseur du bot.",
   "settings_tools_jev_set": "Une clé est définie.",
   "settings_tools_jev_unset": "Aucune clé n’est définie.",
   "settings_transcription": "Voix",

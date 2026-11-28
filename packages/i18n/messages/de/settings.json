@@ -94,7 +94,7 @@
   "settings_tools_timeout_minutes": "{count} Min.",
   "settings_tools_jev": "Jev-API-Schlüssel",
   "settings_tools_jev_placeholder": "Jev-API-Schlüssel einfügen",
-  "settings_tools_jev_hint": "Mit einem Schlüssel prüft Jev deine Freigaberegeln bei Tool-Aufrufen, die etwas ändern. Ohne Schlüssel entscheiden die Freigaben oben.",
+  "settings_tools_jev_hint": "Optional. Ein Entscheidungsmodell prüft deine Freigaberegeln und Befehle, die ein Secret verwenden könnten. Vinci nutzt Jev mit diesem Schlüssel; ohne Schlüssel Jev oder Clef von einem Anbieter, bei dem du angemeldet bist, sonst ein günstiges Modell vom Anbieter des Bots.",
   "settings_tools_jev_set": "Ein Schlüssel ist festgelegt.",
   "settings_tools_jev_unset": "Kein Schlüssel festgelegt.",
   "settings_transcription": "Sprache",

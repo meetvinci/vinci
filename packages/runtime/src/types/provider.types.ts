@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import type { ClassifierContext } from '@earendil-works/pi-ai';
 import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import type * as UniversalTypes from '@repo/contracts/universal';
 
@@ -48,6 +50,23 @@ export interface ProviderLoginRecord {
   error?: string;
 }
 
+export interface ProviderClassifyQuestion {
+  instructions: string;
+  criteria: { true: string; false: string };
+}
+
+export interface ProviderClassifyParams {
+  state: ClassifierContext['state'];
+  questions: Record<string, ProviderClassifyQuestion>;
+  apiKey: string | null;
+  provider: string;
+  signal?: AbortSignal;
+}
+
+export const providerClassifyAnswers = z.record(z.string(), z.number().min(0).max(1));
+
+export type ProviderClassifyAnswers = z.infer<typeof providerClassifyAnswers>;
+
 export type ProviderSettle = () => void;
 
 export interface ProviderService {
@@ -59,6 +78,7 @@ export interface ProviderService {
     logout(params: ProviderLogoutParams): Promise<void>;
     cancelDevice(params: ProviderCancelDeviceParams): void;
     import(params: UniversalTypes.ProviderKeys): Promise<void>;
+    classify(params: ProviderClassifyParams): Promise<ProviderClassifyAnswers | null>;
   };
   queries: {
     list(params: ProviderListParams): UniversalTypes.ProviderList;

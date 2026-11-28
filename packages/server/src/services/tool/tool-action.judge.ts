@@ -1,58 +1,59 @@
 import { log, redactSecrets } from '@repo/logger/server';
-import { TypeSafeClient } from '@typesafe-ai/sdk';
-import { match, P } from 'ts-pattern';
+import { match } from 'ts-pattern';
 import { TOOL } from './tool.constants';
-import { toolPromptsApprovalQuestion, toolPromptsAskFirstQuestion } from './tool.prompts';
+import { toolPromptsApprovalQuestion, toolPromptsAskFirstQuestion, toolPromptsCommandQuestion } from './tool.prompts';
 import type { ToolJudgeParams, ToolServiceDeps } from '../../types/tool.types';
 
-export async function toolActionJudge({ credentials }: ToolServiceDeps, params: ToolJudgeParams): Promise<boolean> {
+export async function toolActionJudge({ credentials, providers }: ToolServiceDeps, params: ToolJudgeParams): Promise<boolean> {
   const input = JSON.stringify(params.arguments);
 
-  const key = await credentials.queries.get({ key: TOOL.jevCredential });
+  const judged = match(params.kind)
+    .with('command', () => ({
+      inputLimit: TOOL.judgeCommandLimit,
+      safe: toolPromptsCommandQuestion(),
+      isRequestRequired: false,
+    }))
+    .with('tool', () => ({
+      inputLimit: TOOL.judgeInputLimit,
+      safe: toolPromptsApprovalQuestion(),
+      isRequestRequired: true,
+    }))
+    .exhaustive();
 
-  const request = await match({ key, size: input.length })
-    .with({ key: P.string, size: P.number.lte(TOOL.judgeInputLimit) }, () => params.getRequest())
-    .otherwise(() => '');
+  const asked = input.length <= judged.inputLimit ? await params.getRequest() : null;
 
-  const isEligible = request.length > 0 && request.length <= TOOL.judgeRequestLimit;
+  if (asked === null || (judged.isRequestRequired && (asked.length === 0 || asked.length > TOOL.judgeRequestLimit))) {
+    return false;
+  }
 
-  return match({ isEligible, key })
-    .with({ isEligible: true, key: P.string }, async ({ key: apiKey }) => {
-      try {
-        const client = new TypeSafeClient({
-          apiKey,
-          baseURL: 'https://api.typesafe.ai',
-          defaultModel: 'jev-latest',
-          logLevel: 'off',
-          timeout: TOOL.judgeTimeoutMs,
-          retry: { maxRetries: 0 },
-        });
+  const request = asked.slice(0, TOOL.judgeRequestLimit);
 
-        const { answers } = await client.systemOne({
-          state: {
-            instructions: redactSecrets(params.instructions),
-            request: redactSecrets(request),
-            call: { tool: params.name, input: redactSecrets(input) },
-            rules: {
-              allow: params.approvalRules.filter((rule) => rule.behavior === 'allow').map((rule) => redactSecrets(rule.when)),
-              askFirst: params.approvalRules.filter((rule) => rule.behavior === 'ask').map((rule) => redactSecrets(rule.when)),
-            },
-          },
-          questions: {
-            safe: toolPromptsApprovalQuestion(),
-            askFirst: toolPromptsAskFirstQuestion(),
-          },
-        }, { signal: params.context.abortSignal });
+  const answers = await providers.actions.classify({
+    apiKey: await credentials.queries.get({ key: TOOL.jevCredential }),
+    provider: params.provider,
+    signal: params.context.abortSignal,
+    state: {
+      instructions: redactSecrets(params.instructions),
+      request: redactSecrets(request),
+      call: { tool: params.name, input: redactSecrets(input) },
+      secrets: params.secrets.map(({ name, hosts }) => ({ name, hosts })),
+      rules: {
+        allow: params.approvalRules.filter((rule) => rule.behavior === 'allow').map((rule) => redactSecrets(rule.when)),
+        askFirst: params.approvalRules.filter((rule) => rule.behavior === 'ask').map((rule) => redactSecrets(rule.when)),
+      },
+    },
+    questions: { safe: judged.safe, askFirst: toolPromptsAskFirstQuestion() },
+  });
 
-        return answers.safe.noul >= TOOL.judgeThreshold && answers.askFirst.noul <= TOOL.judgeAskThreshold;
-      } catch {
-        log.warn({
-          tag: 'tool',
-          message: 'Automatic approval unavailable; requesting owner approval.',
-          botId: params.botId,
-        });
-        return false;
-      }
-    })
-    .otherwise(() => false);
+  if (!answers) {
+    log.warn({
+      tag: 'tool',
+      message: 'Automatic approval unavailable; requesting owner approval.',
+      botId: params.botId,
+    });
+
+    return false;
+  }
+
+  return answers.safe >= TOOL.judgeThreshold && answers.askFirst <= TOOL.judgeAskThreshold;
 }

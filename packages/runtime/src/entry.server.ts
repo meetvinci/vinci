@@ -10,7 +10,7 @@ export type { McpClientParams, McpConfig, McpEntry, McpServerTools, McpSource, M
 export type { McpClientService } from './services/mcp/mcp-client.service';
 export type { McpAuthService } from './services/mcp-auth/mcp-auth.service';
 export type { McpAuthCallbackParams } from './types/mcp-auth.types';
-export type { ProviderService } from './types/provider.types';
+export type { ProviderClassifyQuestion, ProviderService } from './types/provider.types';
 export type { SkillExpandParams, SkillExpandResult, SkillLoadParams, SkillLoadResult } from './types/skill.types';
 export type { SkillLoaderService } from './services/skill/skill-loader.service';
 export type { PluginLoaderService } from './services/plugin/plugin-loader.service';

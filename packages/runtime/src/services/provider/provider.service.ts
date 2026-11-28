@@ -2,6 +2,7 @@ import { registerBunOAuthFlows } from '@earendil-works/pi-ai/bun-oauth';
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { providerActionCancel } from './provider-action.cancel';
 import { providerActionCancelDevice } from './provider-action.cancel-device';
+import { providerActionClassify } from './provider-action.classify';
 import { providerActionComplete } from './provider-action.complete';
 import { providerActionImport } from './provider-action.import';
 import { providerActionLogin } from './provider-action.login';
@@ -26,6 +27,7 @@ export async function makeProviderService(): Promise<ProviderTypes.ProviderServi
       logout: (params) => providerActionLogout(deps, params),
       cancelDevice: (params) => providerActionCancelDevice(deps, params),
       import: (params) => providerActionImport(deps, params),
+      classify: (params) => providerActionClassify(deps, params),
     },
     queries: {
       list: (params) => providerQueryList(deps, params),

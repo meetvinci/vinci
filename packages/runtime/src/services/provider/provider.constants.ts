@@ -5,4 +5,11 @@ export const PROVIDER = {
   sessionTimeoutMs: 600_000,
   agentName: 'bots',
   importTimeoutMs: 30_000,
+  classifierOrder: ['jev', 'clef'],
+  classifierModel: { provider: 'typesafe', id: 'jev-latest' },
+  classifyTimeoutMs: 5000,
+  classifyChatTimeoutMs: 15_000,
+  classifyChatMaxTokens: 2000,
+  classifyChatThinking: 'low',
+  classifyReply: /\{[^{}]*\}(?![\s\S]*\{)/u,
 } as const;

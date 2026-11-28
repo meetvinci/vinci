@@ -48,6 +48,8 @@ export async function makeServices({
     credentials,
     settings,
     mcp,
+    secrets,
+    providers,
   });
 
   const collaboration = makeCollaborationService({ database });

@@ -57,7 +57,6 @@
     "zod": "^4.6.7",
     "web-push": "4.0.0",
     "@types/web-push": "3.6.4",
-    "@typesafe-ai/sdk": "0.6.0",
     "fallow": "3.34.0",
     "@earendil-works/pi-mcp": "1.4.0",
     "cron-parser": "5.10.2",

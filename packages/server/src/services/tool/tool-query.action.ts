@@ -10,6 +10,6 @@ export function toolQueryAction(deps: ToolServiceDeps, params: ToolTargetParams)
     server,
     serverName,
     tool,
-    canAllowAlways: !TOOL.askFirstTools.some((name) => name === params.toolName),
+    canAllowAlways: ![...TOOL.askFirstTools, TOOL.commandTool].some((name) => name === params.toolName),
   };
 }

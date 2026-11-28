@@ -68,73 +68,69 @@ function SettingsToolsForm({ settings, tools }: SettingsToolsFormProps) {
 
   return (
     <Card size="sm">
-      {settings.isJevConfigured ? (
-        <>
-          <Text variant="label">{m.settings_tools_rules()}</Text>
-          <Input
-            accessibilityLabel={m.settings_tools_rules_when()}
-            autoCapitalize="none"
-            editable={!tools.isPending}
-            maxLength={300}
-            placeholder={m.settings_tools_rules_when_placeholder()}
-            value={draft.when}
-            onChangeText={(when) => setDraft({ ...draft, when })}
-          />
-          <View className="flex-row items-center justify-between gap-2">
-            <Menu
-              items={toolApprovalRules.element.shape.behavior.options.map((behavior) => ({
-                label: SETTINGS_TOOLS_RULE_BEHAVIOR[behavior](),
-                systemImage: behavior === draft.behavior ? 'checkmark' : undefined,
-                onSelect: () => setDraft({ ...draft, behavior }),
-              }))}
-              title={m.settings_tools_rules_behavior()}
-            >
-              <Button size="sm" variant="outline">{SETTINGS_TOOLS_RULE_BEHAVIOR[draft.behavior]()}</Button>
-            </Menu>
-            <Button
-              disabled={tools.isPending || !isValid}
-              size="sm"
-              variant="outline"
-              onPress={submitRule}
-            >
-              {editing === null ? m.settings_tools_rules_add() : m.settings_tools_rules_save()}
-            </Button>
-          </View>
-          {rules.length > 0 ? (
-            <ItemGroup>
-              {rules.map((rule, index) => (
-                <Item key={`${rule.when}-${index}`} size="sm">
-                  <ItemContent>
-                    <ItemTitle numberOfLines={1}>{rule.when}</ItemTitle>
-                  </ItemContent>
-                  <ItemValue>{SETTINGS_TOOLS_RULE_BEHAVIOR[rule.behavior]()}</ItemValue>
-                  <Button
-                    accessibilityLabel={m.settings_tools_rules_edit()}
-                    size="icon-sm"
-                    variant="ghost"
-                    onPress={() => {
-                      setDraft(rule);
-                      setEditing(index);
-                    }}
-                  >
-                    <Icon icon={Pencil} size="sm" />
-                  </Button>
-                  <Button
-                    accessibilityLabel={m.settings_tools_rules_delete()}
-                    size="icon-sm"
-                    variant="ghost"
-                    onPress={() => {
-                      setRules(rules.filter((_, at) => at !== index));
-                      setEditing(null);
-                    }}
-                  >
-                    <Icon icon={Trash2} size="sm" />
-                  </Button>
-                </Item>
-              ))}
-            </ItemGroup>
-          ) : null}
-        </>
+      <Text variant="label">{m.settings_tools_rules()}</Text>
+      <Input
+        accessibilityLabel={m.settings_tools_rules_when()}
+        autoCapitalize="none"
+        editable={!tools.isPending}
+        maxLength={300}
+        placeholder={m.settings_tools_rules_when_placeholder()}
+        value={draft.when}
+        onChangeText={(when) => setDraft({ ...draft, when })}
+      />
+      <View className="flex-row items-center justify-between gap-2">
+        <Menu
+          items={toolApprovalRules.element.shape.behavior.options.map((behavior) => ({
+            label: SETTINGS_TOOLS_RULE_BEHAVIOR[behavior](),
+            systemImage: behavior === draft.behavior ? 'checkmark' : undefined,
+            onSelect: () => setDraft({ ...draft, behavior }),
+          }))}
+          title={m.settings_tools_rules_behavior()}
+        >
+          <Button size="sm" variant="outline">{SETTINGS_TOOLS_RULE_BEHAVIOR[draft.behavior]()}</Button>
+        </Menu>
+        <Button
+          disabled={tools.isPending || !isValid}
+          size="sm"
+          variant="outline"
+          onPress={submitRule}
+        >
+          {editing === null ? m.settings_tools_rules_add() : m.settings_tools_rules_save()}
+        </Button>
+      </View>
+      {rules.length > 0 ? (
+        <ItemGroup>
+          {rules.map((rule, index) => (
+            <Item key={`${rule.when}-${index}`} size="sm">
+              <ItemContent>
+                <ItemTitle numberOfLines={1}>{rule.when}</ItemTitle>
+              </ItemContent>
+              <ItemValue>{SETTINGS_TOOLS_RULE_BEHAVIOR[rule.behavior]()}</ItemValue>
+              <Button
+                accessibilityLabel={m.settings_tools_rules_edit()}
+                size="icon-sm"
+                variant="ghost"
+                onPress={() => {
+                  setDraft(rule);
+                  setEditing(index);
+                }}
+              >
+                <Icon icon={Pencil} size="sm" />
+              </Button>
+              <Button
+                accessibilityLabel={m.settings_tools_rules_delete()}
+                size="icon-sm"
+                variant="ghost"
+                onPress={() => {
+                  setRules(rules.filter((_, at) => at !== index));
+                  setEditing(null);
+                }}
+              >
+                <Icon icon={Trash2} size="sm" />
+              </Button>
+            </Item>
+          ))}
+        </ItemGroup>
       ) : null}
       <View className="flex-row items-center justify-between gap-2">
         <View className="flex-1">
