@@ -87,10 +87,4 @@ ORDER BY i.amount DESC;
 
 The shared `entities` row holds identity, type, name, deletion state and extra JSON properties. Each type row references an entity of that type. Declared scalar fields use native columns, multi-select uses `text[]`, and relation fields use the shared `relations` table. A type row retains enough formatting information to return supplied timestamp spellings and distinguish an explicit null from an omitted property.
 
-Adding a field validates and moves existing extra values into its column. Removing the field moves those values back before dropping the column. Both operations include archived rows and commit atomically. The migration applies the same conversion to existing types. Schema changes and writes take an exclusive application lock, so a large field conversion can delay other API requests. Each new type has at most 1,597 scalar field slots. PostgreSQL counts dropped columns toward that limit until the table is rebuilt. Relation fields use no column slots.
-
-Installs that ran the earlier entity-table preview are migrated in place. Update direct SQL queries from names such as `entity_data.t_person.f_city` to `entity.person.city`. HTTP type and field keys stay the same.
-
-### Upgrading the records API
-
-Back up the volume before upgrading. The migration renames the existing tables in place, preserving IDs, field kinds and properties. Each former record gets its name from its name property or from its type and ID. Callers must switch from the old type-scoped record routes to the endpoints above. Returning to the old schema requires restoring the backup.
+Adding a field validates and moves existing extra values into its column. Removing the field moves those values back before dropping the column. Both operations include archived rows and commit atomically. Schema changes and writes take an exclusive application lock, so a large field conversion can delay other API requests. Each new type has at most 1,597 scalar field slots. PostgreSQL counts dropped columns toward that limit until the table is rebuilt. Relation fields use no column slots.

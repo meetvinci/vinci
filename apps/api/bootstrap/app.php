@@ -15,9 +15,9 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
-    // Include current and previous entity schemas when Laravel enumerates tables for migrations and schema maintenance.
+    // Include per-type tables when Laravel enumerates tables for schema maintenance.
     ->registered(fn () => config([
-        'database.connections.pgsql.search_path' => 'public,entity,entity_data',
+        'database.connections.pgsql.search_path' => 'public,entity',
         'database.connections.pgsql.dont_drop' => ['public.spatial_ref_sys'],
     ]))
     ->withRouting(using: function () {
