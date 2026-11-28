@@ -1069,7 +1069,7 @@ async function dumpDatabase(file: string) {
 // outlive /opt/vinci (a cloud-init server emptied for the restore), and its tables would clash with the dump's.
 async function restoreDatabase(file: string) {
   await docker(['compose', 'up', '--detach', '--wait', 'postgres']);
-  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; { echo "DROP SCHEMA IF EXISTS entity_data CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;"; gunzip; } | PGOPTIONS="-c client_min_messages=warning" psql -U vinci -d vinci -v ON_ERROR_STOP=1 --single-transaction --quiet'], { input: file });
+  await docker(['compose', 'exec', '-T', 'postgres', 'sh', '-c', 'set -o pipefail; { echo "DROP SCHEMA IF EXISTS entity, entity_data CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;"; gunzip; } | PGOPTIONS="-c client_min_messages=warning" psql -U vinci -d vinci -v ON_ERROR_STOP=1 --single-transaction --quiet'], { input: file });
 }
 
 // A run that fails takes its folder with it: an unfinished folder is no backup, and a full disk gets its space back.

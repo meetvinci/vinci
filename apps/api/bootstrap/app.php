@@ -15,8 +15,11 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
-    // Include both owned schemas when Laravel enumerates tables for migrations and schema maintenance.
-    ->registered(fn () => config(['database.connections.pgsql.search_path' => 'public,entity_data']))
+    // Include current and previous entity schemas when Laravel enumerates tables for migrations and schema maintenance.
+    ->registered(fn () => config([
+        'database.connections.pgsql.search_path' => 'public,entity,entity_data',
+        'database.connections.pgsql.dont_drop' => ['public.spatial_ref_sys'],
+    ]))
     ->withRouting(using: function () {
         require __DIR__.'/../routes/web.php';
         Route::prefix('api')->group(__DIR__.'/../routes/api.php');

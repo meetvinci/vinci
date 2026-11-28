@@ -9,29 +9,37 @@ use Illuminate\Support\Facades\DB;
 
 class EntityStorage
 {
-    // Keys are immutable. Leave room for the prefix within PostgreSQL's 63-byte identifier limit.
-    private static function identifier(string $prefix, string $key): string
+    private static function identifier(string $key): string
     {
         if (!preg_match('/^[a-z][a-z0-9_]{0,63}$/D', $key)) {
             throw new \InvalidArgumentException('Invalid entity storage key');
         }
-        return strlen($key) <= 61 ? "{$prefix}_$key" : $prefix.'h_'.substr(hash('sha256', $key), 0, 60);
+        return strlen($key) <= 63 ? $key : '_'.substr(hash('sha256', $key), 0, 62);
     }
 
     public static function table(string $type): string
     {
-        return 'entity_data.'.self::identifier('t', $type);
+        return 'entity.'.self::identifier($type);
     }
 
     public static function column(string $key): string
     {
-        return self::identifier('f', $key);
+        // These names are occupied by Vinci or PostgreSQL. API keys cannot start with an underscore.
+        if (in_array($key, ['entity_id', 'entity_type', 'api_format', 'tableoid', 'xmin', 'cmin', 'xmax', 'cmax', 'ctid'], true)) {
+            return '_'.$key;
+        }
+        return self::identifier($key);
+    }
+
+    public static function sqlTable(string $type): string
+    {
+        return DB::connection()->getQueryGrammar()->wrapTable(self::table($type));
     }
 
     public static function create(string $type): void
     {
-        $table = self::table($type);
-        $primary = self::identifier('p', $type);
+        $table = self::sqlTable($type);
+        $primary = '_pk_'.substr(hash('sha256', $type), 0, 58);
         DB::statement("CREATE TABLE $table (
             entity_id bigint CONSTRAINT $primary PRIMARY KEY,
             entity_type varchar(64) GENERATED ALWAYS AS ('$type'::varchar) STORED,
@@ -43,7 +51,7 @@ class EntityStorage
     // api_format keeps only that wire information. A changed native timestamp always wins over a stale spelling.
     private static function jsonValue(object $field): string
     {
-        $column = 'd.'.self::column($field->key);
+        $column = 'd."'.self::column($field->key).'"';
         $format = "d.api_format -> '$field->key'";
         $value = "to_jsonb($column)";
         if ($field->kind === 'datetime') {
@@ -71,7 +79,6 @@ class EntityStorage
 
     public static function filter(Builder $query, object $field, mixed $value): void
     {
-        $column = 'd.'.self::column($field->key);
         $native = match ($field->kind) {
             'text', 'url', 'select' => is_string($value),
             'boolean' => is_bool($value),
@@ -80,7 +87,7 @@ class EntityStorage
         };
         if ($native) {
             $parameter = $field->kind === 'number' ? json_encode($value, JSON_THROW_ON_ERROR) : $value;
-            $query->where($column, '=', $parameter);
+            $query->where('d.'.self::column($field->key), '=', $parameter);
         } else {
             // Preserve exact JSON semantics for dates with offsets, missing values, and heterogeneous inputs.
             $query->whereRaw('('.self::jsonValue($field).') = ?::jsonb', [json_encode($value, JSON_THROW_ON_ERROR)]);
@@ -89,7 +96,7 @@ class EntityStorage
 
     public static function sort(Builder $query, object $field, string $order): void
     {
-        $column = 'd.'.self::column($field->key);
+        $column = 'd."'.self::column($field->key).'"';
         if ($field->kind === 'multi_select') {
             // The API compares JSON arrays by length first, unlike SQL arrays.
             $query->orderByRaw('('.self::jsonValue($field).") $order NULLS LAST");
@@ -110,8 +117,8 @@ class EntityStorage
 
     public static function promote(object $field): void
     {
-        $table = self::table($field->type);
-        $column = self::column($field->key);
+        $table = self::sqlTable($field->type);
+        $column = '"'.self::column($field->key).'"';
         $kind = match ($field->kind) {
             'text', 'select', 'url' => 'text', 'boolean' => 'boolean', 'number' => 'numeric',
             'date' => 'date', 'datetime' => 'timestamptz', 'multi_select' => 'text[]',
@@ -127,25 +134,25 @@ class EntityStorage
         DB::statement("UPDATE $table d SET $column = v.$column,
             api_format = CASE WHEN e.properties->? = 'null'::jsonb OR ? = 'datetime'
                 THEN d.api_format || jsonb_build_object(?::text, e.properties->?) ELSE d.api_format END
-            FROM entities e CROSS JOIN LATERAL jsonb_populate_record(NULL::$table, jsonb_build_object('$column', e.properties->?)) v
+            FROM entities e CROSS JOIN LATERAL jsonb_populate_record(NULL::$table, jsonb_build_object(?::text, e.properties->?)) v
             WHERE d.entity_id = e.id AND e.type = ? AND jsonb_exists(e.properties, ?)",
-            [$field->key, $field->kind, $field->key, $field->key, $field->key, $field->type, $field->key]);
+            [$field->key, $field->kind, $field->key, $field->key, self::column($field->key), $field->key, $field->type, $field->key]);
         DB::update('UPDATE entities SET properties = properties - ?::text WHERE type = ? AND jsonb_exists(properties, ?)',
             [$field->key, $field->type, $field->key]);
     }
 
     public static function required(object $field): void
     {
-        $table = self::table($field->type);
-        $column = self::column($field->key);
+        $table = self::sqlTable($field->type);
+        $column = '"'.self::column($field->key).'"';
         $action = $field->required ? 'SET' : 'DROP';
         DB::statement("ALTER TABLE $table ALTER COLUMN $column $action NOT NULL");
     }
 
     public static function demote(object $field): void
     {
-        $table = self::table($field->type);
-        $column = self::column($field->key);
+        $table = self::sqlTable($field->type);
+        $column = '"'.self::column($field->key).'"';
         $value = self::jsonValue($field);
         DB::update("UPDATE entities e SET properties = e.properties || jsonb_build_object(?::text, $value)
             FROM $table d WHERE e.id = d.entity_id AND ($value) IS NOT NULL", [$field->key]);
@@ -155,7 +162,7 @@ class EntityStorage
 
     public static function write(string $type, int $id, Collection $fields, object $patch, bool $create): void
     {
-        $table = self::table($type);
+        $table = self::sqlTable($type);
         $values = [];
         $format = [];
         $keys = [];
@@ -174,7 +181,7 @@ class EntityStorage
                 unset($patch->{$field->key});
             }
         }
-        $columns = array_keys($values);
+        $columns = array_map(fn ($key) => '"'.$key.'"', array_keys($values));
         $values['api_format'] = (object) $format;
         $json = json_encode($values, JSON_THROW_ON_ERROR);
         $source = "jsonb_populate_record(NULL::$table, ?::jsonb) v";

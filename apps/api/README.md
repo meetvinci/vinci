@@ -75,19 +75,21 @@ Extra entity properties retain their JSON values. Defining a field for an extra 
 
 ### PostgreSQL storage
 
-Each entity type has a physical table in the `entity_data` schema. For example, defining the `invoice` type with a `due_date` date field and an `amount` number field creates `entity_data.t_invoice` with `f_due_date date` and `f_amount numeric`. The immutable API keys determine the SQL names. Keys longer than 61 characters use a hashed name to fit PostgreSQL's identifier limit. Changing a display label leaves the table or column name intact.
+Each entity type has a physical table in the `entity` schema. For example, defining the `invoice` type with a `due_date` date field and an `amount` number field creates `entity.invoice` with `due_date date` and `amount numeric`. The immutable API keys determine the SQL names. SQL keywords are quoted. A 64-character key uses a hashed SQL name to fit PostgreSQL’s 63-byte limit. Field names occupied by Vinci or PostgreSQL gain a leading underscore, for example `entity_id` becomes `_entity_id`. Changing a display label leaves the table or column name intact.
 
 ```sql
-SELECT e.id, e.name, i.f_due_date, i.f_amount
-FROM entity_data.t_invoice AS i
+SELECT e.id, e.name, i.due_date, i.amount
+FROM entity.invoice AS i
 JOIN entities AS e ON e.id = i.entity_id
-WHERE e.deleted_at IS NULL AND i.f_due_date < CURRENT_DATE
-ORDER BY i.f_amount DESC;
+WHERE e.deleted_at IS NULL AND i.due_date < CURRENT_DATE
+ORDER BY i.amount DESC;
 ```
 
 The shared `entities` row holds identity, type, name, deletion state and extra JSON properties. Each type row references an entity of that type. Declared scalar fields use native columns, multi-select uses `text[]`, and relation fields use the shared `relations` table. A type row retains enough formatting information to return supplied timestamp spellings and distinguish an explicit null from an omitted property.
 
 Adding a field validates and moves existing extra values into its column. Removing the field moves those values back before dropping the column. Both operations include archived rows and commit atomically. The migration applies the same conversion to existing types. Schema changes and writes take an exclusive application lock, so a large field conversion can delay other API requests. Each new type has at most 1,597 scalar field slots. PostgreSQL counts dropped columns toward that limit until the table is rebuilt. Relation fields use no column slots.
+
+Installs that ran the earlier entity-table preview are migrated in place. Update direct SQL queries from names such as `entity_data.t_person.f_city` to `entity.person.city`. HTTP type and field keys stay the same.
 
 ### Upgrading the records API
 

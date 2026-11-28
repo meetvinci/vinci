@@ -52,7 +52,7 @@ class EntityTypes extends KnowledgeController
         abort_if(DB::table('entities')->where('type', $type)->exists(), 409, 'Type still has entities.');
         abort_if(DB::table('entity_fields')->where('type', '!=', $type)->where('settings->target_type', $type)->exists(),
             409, 'Another type still targets this type.');
-        DB::statement('DROP TABLE '.EntityStorage::table($type));
+        DB::statement('DROP TABLE '.EntityStorage::sqlTable($type));
         DB::table('entity_fields')->where('type', $type)->delete();
         DB::table('entity_types')->where('key', $type)->delete();
         return response()->noContent();
