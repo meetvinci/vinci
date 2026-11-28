@@ -161,6 +161,7 @@ services:
     restart: unless-stopped
     logging: *logging
     environment:
+      VINCI_DB_API_TOKEN: ${VINCI_DB_API_TOKEN:-}
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_DATABASE: vinci

@@ -10,13 +10,22 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
-    ->withRouting(using: fn () => require __DIR__.'/../routes/web.php')
+    // Include both owned schemas when Laravel enumerates tables for migrations and schema maintenance.
+    ->registered(fn () => config(['database.connections.pgsql.search_path' => 'public,entity_data']))
+    ->withRouting(using: function () {
+        require __DIR__.'/../routes/web.php';
+        Route::prefix('api')->group(__DIR__.'/../routes/api.php');
+    })
     ->withCommands()
     ->withMiddleware(function (Middleware $middleware) {
+        $entityApi = fn (Request $request) => $request->is('api/*');
+        $middleware->trimStrings(except: [$entityApi]);
+        $middleware->convertEmptyStringsToNull(except: [$entityApi]);
         // Sanctum reads the login token as is, also on the routes without the cookie middleware.
         $middleware->encryptCookies(except: [Sessions::COOKIE]);
         // No login route to send guests to: an unknown or ended login is a 401 for the hub.
@@ -27,10 +36,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(replace: [PreventRequestForgery::class => FormToken::class]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/*'));
         // An expired login form (Laravel turns the CSRF mismatch into a 419): show a fresh one rather than an error.
         // Every other error is its status alone, with an HTTP error's own headers (Allow, Retry-After): no message,
         // stack or wording that names the framework.
         $exceptions->render(fn (Throwable $error, Request $request) => match (true) {
+            $request->is('api/*') => null,
             $error instanceof HttpResponseException => null,
             $error->getPrevious() instanceof TokenMismatchException => response('', 302, ['Location' => '/auth/login?redirect_url='.rawurlencode((string) $request->input('redirect_url', '/'))]),
             $error instanceof HttpExceptionInterface => response('', $error->getStatusCode(), $error->getHeaders()),

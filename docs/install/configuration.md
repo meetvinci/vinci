@@ -23,6 +23,7 @@ Every setting and file in a team install. "Set by the image" means the container
 | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `GROQ_API_KEY`, `XAI_API_KEY`, `DEEPSEEK_API_KEY` | empty | Model keys every person's Vinci gets as environment variables. Bots cannot read them: their tools run in the sandbox, which does not have them. |
 | `HUB_ADMIN_EMAILS` | `admin@example.com` | The admin panel's first admins, comma separated. The hub uses them only while its own admin list is empty. Required. |
 | `PROVISIONER_TOKEN` | 64 hex characters | Secret the hub sends to the provisioner. Made with `openssl rand -hex 32` at install; nobody types it. Required. |
+| `VINCI_DB_API_TOKEN` | Shared bearer token | Set to a random secret to enable access to the internal entity API. |
 | `VINCI_DB_PASSWORD`, `VINCI_POSTGRES_PASSWORD` | 64 hex characters each | PostgreSQL passwords for Laravel's database owner and the PostgreSQL administrator. Generate once in [install, step 7](install.md#7-start-vinci). Required. |
 | `TUNNEL_TOKEN` | | Only with the optional Cloudflare Tunnel: lets cloudflared connect it. Written by `cloudflare apply --env-out`. Secret. |
 | `API_APP_KEY` | `base64:` and 32 random bytes | Laravel's `APP_KEY`. Encrypts the login form's own session cookie; changing it only makes open login forms start over. Required. Secret. |
