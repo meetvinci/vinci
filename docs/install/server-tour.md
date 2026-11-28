@@ -13,7 +13,7 @@ cd /opt/vinci
 ```
 
 > [!NOTE]
-> Every server command below runs as root in `/opt/vinci`. None of them changes anything unless the text says so. The page describes `main`; where an install on `b285c406` or older differs, a note says so.
+> Every server command below runs as root in `/opt/vinci`. None of them changes anything unless the text says so. The page describes `main`; where an install from 14 November 2026 or older differs, a note says so.
 
 ## The picture
 
@@ -161,7 +161,7 @@ drwxrwx--- 2 1000 root   4096 hub
 | `new-users.json` | People an `apply` just created, until the hub makes them follow Global settings. Usually absent. | `apply`; the hub deletes it |
 
 > [!NOTE]
-> An install on `b285c406` or older never writes `new-users.json`: there, people added in `users.yaml` start with every section overridden.
+> An install from 14 November 2026 or older never writes `new-users.json`: there, people added in `users.yaml` start with every section overridden.
 
 ### Docker's part: images, volumes, networks
 
@@ -527,4 +527,4 @@ bun deploy.ts backup <id>                          # before any risky change
 
 ---
 
-Outputs were read on 16 November 2026 between 14:30 and 15:10 UTC from a live install on tag `b285c406` with two people and the template, using read-only commands only. The add-a-person lines in section 3 show the format of those events; no person was added for this page. People's names, emails, bot ids and the hostname are replaced.
+Outputs were read on 16 November 2026 between 14:30 and 15:10 UTC from a live install of 14 November 2026 with two people and the template, using read-only commands only. The add-a-person lines in section 3 show the format of those events; no person was added for this page. People's names, emails, bot ids and the hostname are replaced.
