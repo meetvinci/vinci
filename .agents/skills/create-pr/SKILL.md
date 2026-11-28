@@ -1,11 +1,13 @@
 ---
 name: create-pr
-description: Create a focused GitHub pull request from a feature branch, or split independently reviewable changes into stacked PRs. Use when asked to open a PR or build a PR stack.
+description: Create or update GitHub pull requests and PR stacks with illustrated Vinci changelog entries and pre-merge previews. Also use for changelog-only requests about main, a PR, or a Git range.
 ---
 
 # Create a PR
 
 Open one PR for a small, cohesive change. Use a stack when the user requests one or when separate changes can be reviewed and verified independently in dependency order.
+
+For a changelog-only request, follow the [changelog workflow](references/changelog.md) for the requested range and stop after verifying the entry. Publishing a PR is a separate request.
 
 ## 1. Capture the source
 
@@ -21,7 +23,7 @@ Inventory temporary worktrees, branches, captures, scratch files, processes, and
 
 ## 2. Choose one PR or a stack
 
-Read the entire net diff and necessary surrounding code. If the change answers one review question, keep it in one PR even when it spans several commits or files. Use the existing feature branch when its diff matches the intended scope. Run the relevant checks, then go to **Publish**.
+Read the entire net diff and necessary surrounding code. If the change answers one review question, keep it in one PR even when it spans several commits or files. Use the existing feature branch when its diff matches the intended scope. Continue at **Prepare the changelog**.
 
 For a stack, group by behavior or prerequisite, using original commits as evidence. Squash fixups, split mixed changes by hunks where useful, and keep generated files and lockfiles with their cause.
 
@@ -45,7 +47,13 @@ If target updates require rebasing, retain the verified reconstruction first. Re
 
 **Done:** the complete feature is preserved, every boundary is coherent, and validation is recorded.
 
-## 4. Publish
+## 4. Prepare the changelog
+
+Review the net change against the existing notes. For each new outcome readers can use, include its [GitHub Pages changelog entry](references/changelog.md) and media in the PR that delivers it. For a stack, assign each outcome once. On a PR update, revise its existing entry and preview to match the new head. Mechanical changes with no new outcome need no entry.
+
+For a reconstructed stack, account for newly authored changelog files and media separately from the verified source diff. Run the relevant checks before publishing.
+
+## 5. Publish
 
 Check GitHub authentication, repository, branch names, and existing PRs. Reuse matching PRs and preserve their discussion and human-written context. Update only this feature's branches and PRs.
 
@@ -57,23 +65,11 @@ Base a standalone PR or the first PR in a stack on the target. Base each success
 
 Write PR titles independently from commit titles. For a chain of two or more PRs, use `[n/N]` plus a short topic, such as `[5/9] Durable indexing`. Standalone PRs use the short topic alone.
 
-Open with one plain sentence explaining the change and its purpose. Add a few short bullets for relevant validation, decisions, trade-offs, or follow-ups not apparent from the diff. Preserve repository templates; use implementation terms where they help review.
+Lead with one sentence explaining what someone can now do. Show how it works through one concrete example. For a data model, a small table of actual columns can explain storage. For an API, show a real method, path, payload and the relevant part of the response. Use plain language and keep setup, risks and verification to the details reviewers need. Honor the repository template without repeating the same point across sections.
 
-Apply the same writing rules to documentation: lead with what changes and why, use plain words and active voice, and keep only details the reader needs to act. Match the existing audience and structure; distinguish current behavior from planned work.
+Every PR needs a visual that answers its review question. For a new feature, illustrate the model, interaction or result directly. Use a before/after comparison or diff when both states exist and the difference explains the change. For example, one labeled relation between a person and a company explains a new data model; a diff of an existing endpoint's response explains a contract change.
 
-Every PR needs a visual answering its review question. Choose the format independently for each batch:
-
-| Question concerns | Useful visual |
-| --- | --- |
-| Comparisons, supported cases, rules | Table |
-| Requests, responses, interactions | Sequence diagram |
-| Storage relationships | ER diagram |
-| State transitions | State diagram |
-| Races and event order | Timeline or race illustration |
-| Deployment boundaries and connections | Topology diagram |
-| UI behavior | Actual recording and useful screenshots |
-
-Use Mermaid, a rendered chart, or a custom illustration when it best explains the changed behavior. A format can recur when it fits the question.
+For a changelog entry, link to the Markdown on the PR branch and embed a screenshot of the **rendered docs page** in the description. Reviewers must be able to see it before merge. The preview can serve as the PR visual. Refresh it when the example, diagram or entry changes. If capture or upload fails, show a verified diagram, table or excerpt inline, retain the branch link, and disclose the preview gap.
 
 When creating, attaching, or updating image/video visuals, read [Native PR media](references/pr-media.md) for capture framing, native uploads, stable URLs, and inline playback verification.
 
@@ -87,7 +83,7 @@ Assess the title, opening sentence, and visual together: do they explain this PR
 
 **Done:** each PR has the correct base and a useful rendered visual. A stack also has review-order links.
 
-## 5. Clean up
+## 6. Clean up
 
 Clean up before returning, including after partial failure. Preserve recovery refs, published branches and visuals, pre-existing user work, and any unfinished reconstruction needed for recovery.
 
